@@ -1,93 +1,69 @@
 extern crate peg;
 
-#[derive(Clone, Debug)]
-pub enum Expr {
-    Address(Option<String>),
-    BigMap(String, Box<Expr> ,Box<Expr>),
-    Map(String, Box<Expr>, Box<Expr>),
-    Int(String),
-    Nat(Option<String>),
-    Pair(Option<String>, Box<Expr>,Box<Expr>),
-    String(Option<String>),
-    Timestamp(Option<String>),
-    Unit(Option<String>),
-    Option(String, Box<Expr>),
-    Or(Option<String>, Box<Expr>, Box<Expr>),
+pub mod storage;
+
+use crate::storage::Expr;
+use std::string::String;
+
+fn print(s: &str, depth: u32) {
+    print!("{}", "    ".to_string().repeat(depth as usize));
+    println!("{}", s);
 }
 
-peg::parser! {
-    grammar storage() for str {
-
-        rule _() = [' ' | '\n']*
-
-        pub rule address() -> Expr =
-            _ "(address " _ l:label() _ ")" { Expr::Address(Some(l.to_owned())) } /
-            _ "address" _ { Expr::Address(None) }
-
-        pub rule big_map() -> Expr =
-            _ "(big_map " _ label:label() _ left:expr() _ right:expr() _ ")" {
-                Expr::BigMap(label.to_owned(), Box::new(left), Box::new(right))
-            }
-
-        pub rule expr() -> Expr =
-        x:address() { x }
-        / x:big_map() { x }
-        / x:int() { x }
-        / x:map() { x }
-        / x:nat() { x }
-        / x:option() { x }
-        / x:or() { x }
-        / x:pair() { x }
-        / x:string() { x }
-        / x:timestamp() { x}
-        / x:unit() { x }
-
-        pub rule int() -> Expr = _ "(int" _ l:label() _ ")" { Expr::Int(l.to_owned()) }
-
-        pub rule label() -> std::string::String = "%" s:$(['a'..='z' | 'A'..='Z' | '_']+) {
-            println!("label: {}", s);
-            s.to_owned() }
-
-        pub rule map() -> Expr =
-            _ "(map " _ label:label() _ left:expr() _ right:expr() _ ")" {
-                Expr::Map(label.to_owned(), Box::new(left), Box::new(right))
-            }
-
-        pub rule nat() -> Expr = _ "(nat" _ l:label() _ ")" { Expr::Nat(Some(l)) } /
-            _ "nat" _ { Expr::Nat(None) }
-
-        pub rule option() -> Expr = _ "(option" _ l:label() _ e:expr() _ ")" {
-            Expr::Option(l.to_owned(), Box::new(e)) }
-
-        pub rule or() -> Expr = "(or" _ l:label()? _ left:expr() _ right:expr() ")"
-            { Expr::Or(l, Box::new(left), Box::new(right)) }
-
-        pub rule pair() -> Expr =
-            _"(pair" _ l:label()? _ left:expr() _ right:expr() _ ")" _ {
-                Expr::Pair(l, Box::new(left), Box::new(right))
-            }
-
-        pub rule string() -> Expr =
-            _ "(string" _ l:label()  _ ")" { Expr::String(Some(l.to_owned())) } /
-            _ "string" _ { Expr::String(None) }
-
-
-        pub rule timestamp() -> Expr =
-            _ "(timestamp" _ l:label() _ ")" { Expr::Timestamp(Some(l.to_owned())) } /
-            _ "timestamp" _ { Expr::Timestamp(None) }
-
-        pub rule unit() -> Expr = _ "(unit" _ l:label() _ ")" { Expr::Unit(Some(l.to_owned())) } /
-            _ "unit" _ { Expr::Unit(None) }
-
-
-
+fn label(s : Option<String>) -> String {
+    match s {
+        Some(s) => s,
+        None => "**anonymous**".to_string(),
     }
+}
 
+fn print_expr(e : &Expr, depth: u32) {
+    print(&format!("{:?}", e), depth);
+}
+
+fn address(s : Option<String>, depth: u32) {
+    print(&format!("address : {}", label(s)), depth);
+}
+
+fn print_nat(s : Option<String>, depth: u32) {
+    print(&format!("nat : {}", label(s)), depth);
+}
+
+fn map(map_type: String, s : Option<String>, key : Expr, value : Expr, depth: u32) {
+    print("========================================================================", depth);
+    print(&format!("{} {} : from", map_type, label(s)), depth);
+    print_ast(key, depth);
+    print(&format!("======to======"), depth);
+    print_ast(value, depth);
+    print("========================================================================", depth);
+}
+
+fn pair(left : Box<Expr>, right : Box<Expr>, depth: u32) {
+    print_ast(*left, depth);
+    print_ast(*right, depth);
+}
+
+fn print_ast(ast : storage::Expr, depth: u32) {
+    match ast {
+        Expr::Address(l) => address(l, depth),
+        Expr::BigMap(l, key, value) => map("big_map".to_string(), l, *key, *value, depth + 1),
+        Expr::Map(l, key, value) => map("map".to_string(), l, *key, *value, depth + 1),
+        Expr::Int(_) => print_expr(&ast, depth),
+        Expr::Nat(l) => print_nat(l, depth),
+        Expr::Pair(l, left, right) => pair(left, right, depth),
+        Expr::String(_) => print_expr(&ast, depth),
+        Expr::Timestamp(_) => print_expr(&ast, depth),
+        Expr::Unit(_) => print_expr(&ast, depth),
+        Expr::Option_(_, _) => print_expr(&ast, depth),
+        Expr::Or(_, _, _) => print_expr(&ast, depth),
+    };
 }
 
 
 fn main() {
     let s = include_str!("../test/storage1.tz");
-    let ast = storage::expr(s);
-    println!("{:?}", ast);
+    let _ast = match storage::storage::expr(s) {
+        Ok(ast) => print_ast(ast, 0),
+        Err(e) => println!("{:?}", e),
+    };
 }
