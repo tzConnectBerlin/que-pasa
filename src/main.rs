@@ -56,7 +56,7 @@ fn print_ast(ast: storage::Expr, depth: u32) {
         Expr::Map(l, key, value) => map("map".to_string(), l, *key, *value, depth + 1),
         Expr::Int(_) => print_expr(&ast, depth),
         Expr::Nat(l) => print_nat(l, depth),
-        Expr::Pair(l, left, right) => pair(left, right, depth),
+        Expr::Pair(_l, left, right) => pair(left, right, depth),
         Expr::String(_) => print_expr(&ast, depth),
         Expr::Timestamp(_) => print_expr(&ast, depth),
         Expr::Unit(_) => print_expr(&ast, depth),

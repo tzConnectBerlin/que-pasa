@@ -66,7 +66,7 @@ peg::parser! {
                 Expr::Pair(l, Box::new(left), Box::new(right))
             }
 
-        pub rule string() -> Expr
+        pub rule string() -> Expr =
             _ "(string" _ l:label()  _ ")" { Expr::String(Some(l)) } /
             _ "string" _ { Expr::String(None) }
 
