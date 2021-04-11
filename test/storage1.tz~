@@ -1,0 +1,29 @@
+(pair (pair (pair (nat %last_token_created) (address %owner))
+                (pair (big_map %questions
+                         string
+                         (pair (address %owner)
+                               (pair (or %state
+                                        (or (unit %questionAuctionOpen) (unit %questionAuctionWithdrawOpen))
+                                        (unit %questionMarketClosed))
+                                     (pair (timestamp %auction_end)
+                                           (pair (timestamp %market_close)
+                                                 (pair (map %auction_bids
+                                                          address
+                                                          (pair (nat %rate) (pair (nat %quantity) (nat %total_token))))
+                                                       (pair (option %tokens
+                                                                (pair (nat %yes_token_id) (pair (nat %no_token_id) (nat %lqt_token_id))))
+                                                             (pair (option %winning_token nat)
+                                                                   (pair (nat %total_auction_quantity)
+                                                                         (pair (nat %yes_preference) (nat %uniswap_contribution_factor)))))))))))
+                      (address %stablecoin)))
+          (pair %tokens
+             (big_map %ledger
+                (pair address nat)
+                (pair (nat %balance) (map %allowances address nat)))
+             (pair (big_map %operators (pair address (pair address nat)) unit)
+                   (pair (big_map %token_total_supply nat nat)
+                         (big_map %token_metadata
+                            nat
+                            (pair (nat %token_id)
+                                  (pair (string %symbol)
+                                        (pair (string %name) (pair (nat %decimals) (map %extras string string))))))))))

@@ -1,0 +1,1 @@
+(pair (nat %questionAuctionOpen) (address %owner))
