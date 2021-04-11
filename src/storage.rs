@@ -3,11 +3,11 @@ extern crate peg;
 #[derive(Clone, Debug)]
 pub enum Expr {
     Address(Option<String>),
-    BigMap(Option<String>, Box<Expr> ,Box<Expr>),
+    BigMap(Option<String>, Box<Expr>, Box<Expr>),
     Map(Option<String>, Box<Expr>, Box<Expr>),
     Int(Option<String>),
     Nat(Option<String>),
-    Pair(Option<String>, Box<Expr>,Box<Expr>),
+    Pair(Option<String>, Box<Expr>, Box<Expr>),
     String(Option<String>),
     Timestamp(Option<String>),
     Unit(Option<String>),
@@ -66,7 +66,7 @@ peg::parser! {
                 Expr::Pair(l, Box::new(left), Box::new(right))
             }
 
-        pub rule string() -> Expr =
+        pub rule string() -> Expr
             _ "(string" _ l:label()  _ ")" { Expr::String(Some(l)) } /
             _ "string" _ { Expr::String(None) }
 
