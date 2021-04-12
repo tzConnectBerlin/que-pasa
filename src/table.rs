@@ -1,19 +1,22 @@
 use crate::storage::Expr;
+use std::marker::PhantomData;
 
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
 pub struct Table<'a> {
-    pub parent: Option<&'a Table<'a>>,
+    pub parent_name: Option<String>,
     pub name: String,
     pub indices: Vec<Expr>,
     pub columns: Vec<Expr>,
+    pub phantom: PhantomData<&'a u32>,
 }
 
 impl<'a> Table<'a> {
-    pub fn new(parent: Option<&'a Table<'a>>, name: String) -> Self {
+    pub fn new(parent_name: Option<String>, name: String) -> Self {
         Self {
-            parent,
+            phantom: PhantomData,
+            parent_name,
             name,
             indices: vec![],
             columns: vec![],

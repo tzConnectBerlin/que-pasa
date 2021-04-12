@@ -11,7 +11,7 @@ pub enum Expr {
     String(Option<String>),
     Timestamp(Option<String>),
     Unit(Option<String>),
-    Option_(Option<String>, Box<Expr>),
+    Option(Option<String>, Box<Expr>),
     Or(Option<String>, Box<Expr>, Box<Expr>),
 }
 
@@ -60,7 +60,7 @@ peg::parser! {
             _ "nat" _ { Expr::Nat(None) }
 
         pub rule option() -> Expr = _ "(option" _ l:label() _ e:expr() _ ")" _ {
-            Expr::Option_(Some(l), Box::new(e)) }
+            Expr::Option(Some(l), Box::new(e)) }
 
         pub rule or() -> Expr = "(or" _ l:label()? _ left:expr() _ right:expr() ")" _
             { Expr::Or(l, Box::new(left), Box::new(right)) }
