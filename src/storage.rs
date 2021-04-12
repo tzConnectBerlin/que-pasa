@@ -34,6 +34,7 @@ peg::parser! {
         / x:big_map() { x }
         / x:int() { x }
         / x:map() { x }
+        / x:mutez() { x }
         / x:nat() { x }
         / x:option() { x }
         / x:or() { x }
@@ -44,13 +45,16 @@ peg::parser! {
 
         pub rule int() -> Expr = _ "(int" _ l:label() _ ")" { Expr::Int(Some(l)) }
 
-        pub rule label() -> std::string::String = "%" s:$(['a'..='z' | 'A'..='Z' | '_']+) {
+        pub rule label() -> std::string::String = "%" s:$(['a'..='z' | 'A'..='Z' | '0'..='9' | '_']+) {
             s.to_owned() }
 
-        pub rule map() -> Expr =ma
+        pub rule map() -> Expr =
             _ "(map " _ label:label()? _ left:expr() _ right:expr() _ ")" _ {
                 Expr::Map(label, Box::new(left), Box::new(right))
             }
+
+        pub rule mutez() -> Expr = _ "(mutez" _ l:label() _ ")" { Expr::Nat(Some(l)) } /
+            _ "mutez" _ { Expr::Nat(None) }
 
         pub rule nat() -> Expr = _ "(nat" _ l:label() _ ")" { Expr::Nat(Some(l)) } /
             _ "nat" _ { Expr::Nat(None) }

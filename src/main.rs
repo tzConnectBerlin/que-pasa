@@ -67,7 +67,7 @@ fn print_ast(ast: storage::Expr, depth: u32) {
 }
 
 fn main() {
-    let s = include_str!("../test/storage1.tz");
+    let s = include_str!("../test/storage2.tz");
     let _ast = match storage::storage::expr(s) {
         Ok(ast) => print_ast(ast, 0),
         Err(e) => println!("{:?}", e),

@@ -1,1 +1,8 @@
-(pair (nat %questionAuctionOpen) (address %owner))
+(pair
+          (pair (pair (address %cfmm_address) (address %ctez_fa12_address))
+                (pair (int %drift) (timestamp %last_drift_update)))
+          (pair
+            (big_map %ovens (pair (nat %id) (address %owner))
+                            (pair (pair (address %address) (nat %ctez_outstanding))
+                                  (mutez %tez_balance)))
+            (nat %target)))
