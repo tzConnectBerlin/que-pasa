@@ -1,6 +1,7 @@
 extern crate peg;
 
 pub mod storage;
+pub mod table;
 
 use crate::storage::Expr;
 use std::string::String;
