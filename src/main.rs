@@ -4,10 +4,6 @@ pub mod storage;
 pub mod table;
 pub mod table_builder;
 
-use crate::storage::Expr;
-use std::string::String;
-use std::vec::Vec;
-
 fn main() {
     let s = include_str!("../test/storage1.tz");
     let mut builder = table_builder::TableBuilder::new();

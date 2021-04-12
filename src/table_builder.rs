@@ -1,20 +1,15 @@
 use crate::storage::Expr;
 use crate::table;
-use std::marker::PhantomData;
 
-pub type TableVec<'a> = Vec<table::Table<'a>>;
+pub type TableVec = Vec<table::Table>;
 
-pub struct TableBuilder<'a> {
-    pub tables: TableVec<'a>,
-    pub phantom: PhantomData<&'a u32>,
+pub struct TableBuilder {
+    pub tables: TableVec,
 }
 
-impl TableBuilder<'_> {
+impl TableBuilder {
     pub fn new() -> Self {
-        Self {
-            phantom: PhantomData,
-            tables: vec![],
-        }
+        Self { tables: vec![] }
     }
 
     fn flatten2(&mut self, current_table: &table::Table, expr: &Expr, vec: &mut Vec<Expr>) {
