@@ -22,12 +22,28 @@ impl TableBuilder {
             ),
 
             Expr::Pair(_l, left, right) => {
-                self.flatten2(current_table, left, vec);
                 self.flatten2(current_table, right, vec);
+                self.flatten2(current_table, left, vec);
             }
-            _ => {
-                vec.push(expr.clone());
-            }
+
+            Expr::Option(_l, e) => match &**e {
+                // flatten an optional struct into multiple optional fields
+                Expr::Pair(_, left, right) => {
+                    let mut v: Vec<Expr> = vec![];
+                    self.flatten2(current_table, &*left, &mut v);
+                    self.flatten2(current_table, &*right, &mut v);
+                    let options: Vec<Expr> = v
+                        .iter()
+                        .map(|e| Expr::Option(None, Box::new(e.clone())))
+                        .collect();
+                    vec.extend(options);
+                }
+                _ => vec.push(expr.clone()),
+            },
+
+            Expr::Or(l, _left, _right) => vec.push(Expr::String(l.clone())),
+
+            _ => vec.push(expr.clone()),
         }
     }
 

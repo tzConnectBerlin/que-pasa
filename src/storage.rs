@@ -21,7 +21,7 @@ peg::parser! {
         rule _() = [' ' | '\n']*
 
         pub rule address() -> Expr =
-            _ "(address " _ l:label() _ ")" { Expr::Address(Some(l)) } /
+            _ "(address " _ l:label() _ ")" _ { Expr::Address(Some(l)) } /
             _ "address" _ { Expr::Address(None) }
 
         pub rule big_map() -> Expr =
