@@ -5,11 +5,9 @@ pub mod table;
 
 use crate::storage::Expr;
 use std::string::String;
+use std::vec::Vec;
 
-fn print(s: &str, depth: u32) {
-    print!("{}", "    ".to_string().repeat(depth as usize));
-    println!("{}", s);
-}
+type TableVec<'a> = Vec<table::Table<'a>>;
 
 fn label(s: Option<String>) -> String {
     match s {
@@ -18,58 +16,86 @@ fn label(s: Option<String>) -> String {
     }
 }
 
-fn print_expr(e: &Expr, depth: u32) {
-    print(&format!("{:?}", e), depth);
+fn flatten2<'a>(
+    tables: &'a mut Vec<table::Table<'a>>,
+    current_table: &table::Table<'a>,
+    expr: &Expr,
+    vec: &mut Vec<Expr>,
+) {
+    match expr {
+        Expr::Map(l, key, value) | Expr::BigMap(l, key, value) => start_table(
+            tables,
+            Some(current_table.clone()),
+            l.clone(),
+            Some((**key).clone()),
+            (**value).clone(),
+        ),
+
+        Expr::Pair(_l, left, right) => {
+            flatten2(tables, current_table, left, vec);
+            flatten2(tables, current_table, right, vec);
+        }
+        _ => {
+            vec.push(expr.clone());
+        }
+    }
 }
 
-fn address(s: Option<String>, depth: u32) {
-    print(&format!("address : {}", label(s)), depth);
+fn flatten<'a>(
+    tables: &'a mut Vec<table::Table<'a>>,
+    current_table: &table::Table<'a>,
+    expr: &Expr,
+) -> Vec<Expr> {
+    let mut vec: Vec<Expr> = vec![];
+    flatten2(tables, current_table, expr, &mut vec);
+    vec
 }
 
-fn print_nat(s: Option<String>, depth: u32) {
-    print(&format!("nat : {}", label(s)), depth);
+fn sql_name(table: table::Table) -> String {
+    let mut name = table.name;
+    let mut x;
+    loop {
+        x = table.parent;
+        match x {
+            None => break,
+            Some(x) => {
+                name.extend("_".chars());
+                name.extend(x.name.chars());
+            }
+        }
+    }
+    name
 }
 
-fn map(map_type: String, s: Option<String>, key: Expr, value: Expr, depth: u32) {
-    print(
-        "========================================================================",
-        depth,
-    );
-    print(&format!("{} {} : from", map_type, label(s)), depth);
-    print_ast(key, depth);
-    print(&format!("======to======"), depth);
-    print_ast(value, depth);
-    print(
-        "========================================================================",
-        depth,
-    );
-}
-
-fn pair(left: Box<Expr>, right: Box<Expr>, depth: u32) {
-    print_ast(*left, depth);
-    print_ast(*right, depth);
-}
-
-fn print_ast(ast: storage::Expr, depth: u32) {
-    match ast {
-        Expr::Address(l) => address(l, depth),
-        Expr::BigMap(l, key, value) => map("big_map".to_string(), l, *key, *value, depth + 1),
-        Expr::Map(l, key, value) => map("map".to_string(), l, *key, *value, depth + 1),
-        Expr::Int(_) => print_expr(&ast, depth),
-        Expr::Nat(l) => print_nat(l, depth),
-        Expr::Pair(_l, left, right) => pair(left, right, depth),
-        Expr::String(_) => print_expr(&ast, depth),
-        Expr::Timestamp(_) => print_expr(&ast, depth),
-        Expr::Unit(_) => print_expr(&ast, depth),
-        Expr::Option_(_, _) => print_expr(&ast, depth),
-        Expr::Or(_, _, _) => print_expr(&ast, depth),
+fn start_table<'a>(
+    tables: &'a mut TableVec<'a>,
+    parent: Option<table::Table<'a>>,
+    name: Option<String>,
+    indices: Option<storage::Expr>,
+    columns: storage::Expr,
+) {
+    let name = match name {
+        Some(x) => x,
+        None => "storage".to_string(),
     };
+    let parent: Option<&'a table::Table> = match parent {
+        Some(x) => Some(&x.clone()),
+        None => None,
+    };
+    let mut table: table::Table = table::Table::new(parent.clone(), name);
+    match indices {
+        Some(indices) => table.set_indices(flatten(tables, &table, &indices)),
+        None => (),
+    }
+    table.set_columns(flatten(tables, &table, &columns));
+    tables.push(table.clone());
 }
 
 fn main() {
-    let s = include_str!("../test/storage2.tz");
+    let s = include_str!("../test/storage1.tz");
+    let mut tables: TableVec = vec![];
     let _ast = match storage::storage::expr(s) {
-        Ok(ast) => print_ast(ast, 0),
+        Ok(ast) => start_table(&mut tables, None, Some("storage".to_string()), None, ast),
         Err(e) => println!("{:?}", e),
     };
 }
