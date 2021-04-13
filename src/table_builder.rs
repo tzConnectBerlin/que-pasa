@@ -65,7 +65,7 @@ impl TableBuilder {
             None => "storage".to_string(),
         };
         let table_name: String = match parent_name {
-            Some(ref x) => format!("{}_{}", x, name),
+            Some(ref x) => format!("{}.{}", x, name),
             None => name,
         };
         let mut table: table::Table = table::Table::new(parent_name, table_name);
