@@ -1,5 +1,8 @@
+use postgresql_generator::PostgresqlGenerator;
+
 extern crate peg;
 
+pub mod postgresql_generator;
 pub mod storage;
 pub mod table;
 pub mod table_builder;
@@ -12,7 +15,11 @@ fn main() {
         Err(e) => println!("{:?}", e),
     };
     for table_name in builder.tables.keys() {
+        let table = builder.tables.get(table_name).unwrap();
         print!("{}: ", table_name);
-        println!("{:?}", builder.tables.get(table_name).unwrap());
+        println!("{:?}", table);
+        let mut generator = PostgresqlGenerator::new();
+        println!("{:?}", generator.create_indices(table, &builder.tables));
+        println!("{:?}", generator.create_columns(table));
     }
 }
