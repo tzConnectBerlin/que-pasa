@@ -13,7 +13,6 @@ pub struct Table {
 impl Table {
     pub fn new(parent_name: Option<String>, name: String) -> Self {
         Self {
-            //            phantom: PhantomData,
             parent_name,
             name,
             indices: vec![],
