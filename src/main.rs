@@ -11,5 +11,8 @@ fn main() {
         Ok(ast) => builder.start_table(None, Some("storage".to_string()), None, ast),
         Err(e) => println!("{:?}", e),
     };
-    println!("{:?}", builder.tables);
+    for table_name in builder.tables.keys() {
+        print!("{}: ", table_name);
+        println!("{:?}", builder.tables.get(table_name).unwrap());
+    }
 }

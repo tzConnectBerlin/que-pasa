@@ -1,15 +1,23 @@
 use crate::storage::Expr;
 use crate::table;
 
-pub type TableVec = Vec<table::Table>;
+use std::collections::HashMap;
+
+pub type Tables = HashMap<String, table::Table>;
 
 pub struct TableBuilder {
-    pub tables: TableVec,
+    pub tables: Tables,
 }
 
 impl TableBuilder {
     pub fn new() -> Self {
-        Self { tables: vec![] }
+        Self {
+            tables: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, name: &String) -> Option<&table::Table> {
+        self.tables.get(name)
     }
 
     fn flatten2(&mut self, current_table: &table::Table, expr: &Expr, vec: &mut Vec<Expr>) {
@@ -74,7 +82,7 @@ impl TableBuilder {
             None => (),
         }
         table.set_columns(self.flatten(&table, &columns));
-        self.tables.push(table.clone());
+        self.tables.insert(table.name.clone(), table);
     }
 
     pub fn build(&mut self, expr: Expr) {
