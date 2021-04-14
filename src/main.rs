@@ -16,10 +16,12 @@ fn main() {
     };
     for table_name in builder.tables.keys() {
         let table = builder.tables.get(table_name).unwrap();
-        print!("{}: ", table_name);
-        println!("{:?}", table);
+        //print!("{}: ", table_name);
+        //println!("{:?}", table);
         let mut generator = PostgresqlGenerator::new();
-        println!("{:?}", generator.create_indices(table, &builder.tables));
-        println!("{:?}", generator.create_columns(table));
+        println!(
+            "{:?}",
+            generator.create_table_definition(table, &builder.tables)
+        );
     }
 }

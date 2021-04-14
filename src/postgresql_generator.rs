@@ -1,6 +1,7 @@
 use crate::storage::Expr;
 use crate::table::Table;
 use crate::table_builder;
+use std::vec::Vec;
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
@@ -64,15 +65,15 @@ impl PostgresqlGenerator {
         format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
-    pub fn start_table(name: String) -> String {
+    pub fn start_table(&mut self, name: Option<String>) -> String {
         format!(
             "CREATE TABLE {} (\
             id SERIAL PRIMARY KEY,",
-            name
+            self.get_name(&name)
         )
     }
 
-    pub fn end_table() -> String {
+    pub fn end_table(&mut self) -> String {
         format!(")")
     }
 
@@ -82,7 +83,6 @@ impl PostgresqlGenerator {
         let mut t: Option<&Table> = Some(table);
         let mut sql: Vec<String> = vec![];
         loop {
-            //println!("tttttt{:?}", t);
             match t {
                 None => break,
                 _ => (),
@@ -109,7 +109,20 @@ impl PostgresqlGenerator {
         cols
     }
 
-    pub fn create_table() {
-        //let table_join = self.create_indices().join(self.create_columns());
+    pub fn create_table_definition(
+        &mut self,
+        table: &Table,
+        tables: &table_builder::Tables,
+    ) -> String {
+        let mut v: Vec<String> = vec![];
+        v.push(self.start_table(Some(table.name.clone())));
+        for index in self.create_indices(table, tables).iter() {
+            v.push(index.clone());
+        }
+        for column in self.create_columns(table).iter() {
+            v.push(column.clone());
+        }
+        v.push(self.end_table());
+        v.join("\n")
     }
 }
