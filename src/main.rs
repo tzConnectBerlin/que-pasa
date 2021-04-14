@@ -17,10 +17,10 @@ fn main() {
     for table_name in builder.tables.keys() {
         let table = builder.tables.get(table_name).unwrap();
         //print!("{}: ", table_name);
-        //println!("{:?}", table);
+        println!("{:?}", table);
         let mut generator = PostgresqlGenerator::new();
         println!(
-            "{:?}",
+            "{}",
             generator.create_table_definition(table, &builder.tables)
         );
     }

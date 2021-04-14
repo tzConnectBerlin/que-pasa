@@ -7,6 +7,7 @@ use std::vec::Vec;
 pub struct PostgresqlGenerator {
     last_index: u32,
     prefix: String,
+    indices: Vec<Expr>,
 }
 
 impl PostgresqlGenerator {
@@ -14,6 +15,7 @@ impl PostgresqlGenerator {
         Self {
             last_index: 0u32,
             prefix: String::from(""),
+            indices: vec![],
         }
     }
 
@@ -42,33 +44,34 @@ impl PostgresqlGenerator {
     }
 
     pub fn create_address(&mut self, name: Option<String>) -> String {
-        format!("{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
     }
 
     pub fn int(&mut self, name: Option<String>) -> String {
-        format!("{} VARCHAR(128) NULL", self.get_name(&name))
+        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
     }
 
     pub fn nat(&mut self, name: Option<String>) -> String {
-        format!("{} VARCHAR(128) NULL", self.get_name(&name))
+        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
     }
 
     pub fn string(&mut self, name: Option<String>) -> String {
-        format!("{} VARCHAR(128) NULL", self.get_name(&name))
+        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
     }
 
     pub fn timestamp(&mut self, name: Option<String>) -> String {
-        format!("{} VARCHAR(128) NULL", self.get_name(&name))
+        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
     }
 
     pub fn unit(&mut self, name: Option<String>) -> String {
-        format!("{} VARCHAR(128) NULL", self.get_name(&name))
+        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
     }
 
     pub fn start_table(&mut self, name: Option<String>) -> String {
         format!(
-            "CREATE TABLE {} (\
-            id SERIAL PRIMARY KEY,",
+            "CREATE TABLE {} (\n\
+                \tid SERIAL PRIMARY KEY,\n\
+                \t _level INTEGER NOT NULL",
             self.get_name(&name)
         )
     }
@@ -77,7 +80,11 @@ impl PostgresqlGenerator {
         format!(")")
     }
 
-    pub fn create_indices(&mut self, table: &Table, tables: &table_builder::Tables) -> Vec<String> {
+    pub fn create_index_columns(
+        &mut self,
+        table: &Table,
+        tables: &table_builder::Tables,
+    ) -> Vec<String> {
         //let mut last_index: u32 = 0;
         self.prefix = String::from("idx");
         let mut t: Option<&Table> = Some(table);
@@ -89,6 +96,7 @@ impl PostgresqlGenerator {
             };
             let _t = t.unwrap();
             for idx in _t.indices.iter() {
+                self.indices.push(idx.clone());
                 sql.push(self.create_sql(idx));
             }
             t = match &_t.parent_name {
@@ -109,6 +117,14 @@ impl PostgresqlGenerator {
         cols
     }
 
+    pub fn create_index(&mut self) -> String {
+        let mut v: Vec<String> = vec![];
+        for i in 0..self.indices.len() {
+            v.push(format!("idx{}", i))
+        }
+        format!("CREATE UNIQUE INDEX ON (_level, {})\n", v.join(", "))
+    }
+
     pub fn create_table_definition(
         &mut self,
         table: &Table,
@@ -116,13 +132,17 @@ impl PostgresqlGenerator {
     ) -> String {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(Some(table.name.clone())));
-        for index in self.create_indices(table, tables).iter() {
+        for index in self.create_index_columns(table, tables).iter() {
             v.push(index.clone());
         }
         for column in self.create_columns(table).iter() {
             v.push(column.clone());
         }
         v.push(self.end_table());
+        match table.parent_name {
+            Some(_) => v.push(self.create_index()),
+            None => (),
+        }
         v.join("\n")
     }
 }
