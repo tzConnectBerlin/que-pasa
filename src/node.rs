@@ -1,4 +1,4 @@
-use crate::storage::{Ele, Expr};
+use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
 
 #[derive(Clone, Debug)]
 pub struct Node {
@@ -30,21 +30,23 @@ impl Node {
         let expr = ele.expr.clone();
         let name = ele.name.clone();
         let node: Node = match ele.expr {
-            Expr::BigMap(key, value) | Expr::Map(key, value) => {
-                let mut n = Self::new(name, expr);
-                n.map_key = Some(Box::new(Self::build(*key)));
-                n.map_value = Some(Box::new(Self::build(*value)));
-                n
-            }
-            Expr::Pair(left, right) => {
-                let mut n = Self::new(name, expr);
-                n.left = Some(Box::new(Self::build(*left)));
-                n.right = Some(Box::new(Self::build(*right)));
-                n
-            }
-            Expr::Option(_inner_expr) => Self::new(name, expr),
-            Expr::Or(_this, _that) => Self::new(name, expr),
-            _ => Self::new(name, expr),
+            Expr::ComplexExpr(e) => match e {
+                ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
+                    let mut n = Self::new(name, expr);
+                    n.map_key = Some(Box::new(Self::build(*key)));
+                    n.map_value = Some(Box::new(Self::build(*value)));
+                    n
+                }
+                ComplexExpr::Pair(left, right) => {
+                    let mut n = Self::new(name, expr);
+                    n.left = Some(Box::new(Self::build(*left)));
+                    n.right = Some(Box::new(Self::build(*right)));
+                    n
+                }
+                ComplexExpr::Option(_inner_expr) => Self::new(name, expr),
+                ComplexExpr::Or(_this, _that) => Self::new(name, expr),
+            },
+            Expr::SimpleExpr(_) => Self::new(name, expr),
         };
         node
     }
