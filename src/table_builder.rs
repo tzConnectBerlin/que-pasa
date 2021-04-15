@@ -1,91 +1,69 @@
-use crate::storage::Expr;
-use crate::table;
+use crate::node::Node;
+use crate::storage::{ComplexExpr, Expr, SimpleExpr};
+use crate::table::Table;
 
 use std::collections::HashMap;
 
-pub type Tables = HashMap<String, table::Table>;
+pub type Tables = HashMap<String, Table>;
 
-pub struct TableBuilder {
-    pub tables: Tables,
+pub struct TableBuilder<'a> {
+    pub tables: &'a Tables,
+    pub table: Table,
+    pub name: String,
+    pub inherited_indices: Vec<SimpleExpr>,
 }
 
-impl TableBuilder {
-    pub fn new() -> Self {
+impl<'a> TableBuilder<'a> {
+    pub fn new(tables: &'a mut Tables, parent_name: String, name: String) -> Self {
         Self {
-            tables: HashMap::new(),
-        }
-    }
-
-    pub fn get(&self, name: &String) -> Option<&table::Table> {
-        self.tables.get(name)
-    }
-
-    fn flatten2(&mut self, current_table: &table::Table, expr: &Expr, vec: &mut Vec<Expr>) {
-        match expr {
-            Expr::Map(l, key, value) | Expr::BigMap(l, key, value) => self.start_table(
-                Some(current_table.name.clone()),
-                l.clone(),
-                Some((**key).clone()),
-                (**value).clone(),
-            ),
-
-            Expr::Pair(_l, left, right) => {
-                self.flatten2(current_table, right, vec);
-                self.flatten2(current_table, left, vec);
-            }
-
-            Expr::Option(_l, e) => match &**e {
-                // flatten an optional struct into multiple optional fields
-                Expr::Pair(_, left, right) => {
-                    let mut v: Vec<Expr> = vec![];
-                    self.flatten2(current_table, &*left, &mut v);
-                    self.flatten2(current_table, &*right, &mut v);
-                    let options: Vec<Expr> = v
-                        .iter()
-                        .map(|e| Expr::Option(None, Box::new(e.clone())))
-                        .collect();
-                    vec.extend(options);
-                }
-                _ => vec.push(expr.clone()),
+            inherited_indices: vec![],
+            name: if parent_name.len() != 0 {
+                format!("{}.{}", parent_name, name)
+            } else {
+                name
             },
-
-            Expr::Or(l, _left, _right) => vec.push(Expr::String(l.clone())),
-
-            _ => vec.push(expr.clone()),
+            table: Table::new(Some(parent_name), name),
+            tables: tables,
         }
     }
 
-    fn flatten(&mut self, current_table: &table::Table, expr: &Expr) -> Vec<Expr> {
-        let mut vec: Vec<Expr> = vec![];
-        self.flatten2(current_table, expr, &mut vec);
-        vec
+    pub fn node(&mut self, node: &mut Box<Node>) {
+        match node.expr {
+            Expr::ComplexExpr(e) => {
+                match e {
+                    ComplexExpr::BigMap(left, right) => {
+                        self.big_map(node.name.unwrap().clone(), &mut node.left, &mut node.right)
+                    }
+                    ComplexExpr::Map(left, right) => {
+                        self.map(node.name.unwrap().clone(), &mut node.left, &mut node.right)
+                    }
+                    ComplexExpr::Or(_, _) => (),
+                    ComplexExpr::Option(_) => (),
+                    ComplexExpr::Pair(_, _) => {
+                        self.node(&mut node.left.unwrap());
+                        self.node(&mut node.right.unwrap());
+                    }
+                };
+            }
+            Expr::SimpleExpr(_) => (),
+        }
     }
 
-    pub fn start_table(
+    pub fn big_map(
         &mut self,
-        parent_name: Option<String>,
-        name: Option<String>,
-        indices: Option<Expr>,
-        columns: Expr,
+        name: String,
+        left: &mut Option<Box<Node>>,
+        right: &mut Option<Box<Node>>,
     ) {
-        let name = match name {
-            Some(x) => x,
-            None => "storage".to_string(),
-        };
-        let table_name: String = match parent_name {
-            Some(ref x) => format!("{}.{}", x, name),
-            None => name,
-        };
-        let mut table: table::Table = table::Table::new(parent_name, table_name);
-        match indices {
-            Some(indices) => table.set_indices(self.flatten(&table, &indices)),
-            None => (),
-        }
-        table.set_columns(self.flatten(&table, &columns));
-        self.tables.insert(table.name.clone(), table);
+        let new_table = Self::new(&mut self.tables, self.name, name);
     }
 
-    pub fn build(&mut self, expr: Expr) {
-        self.start_table(None, None, None, expr)
+    pub fn map(
+        &mut self,
+        name: String,
+        left: &mut Option<Box<Node>>,
+        right: &mut Option<Box<Node>>,
+    ) {
+        let new_table = Self::new(&mut self.tables, self.name, name);
     }
 }

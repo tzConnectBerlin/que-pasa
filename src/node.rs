@@ -2,14 +2,14 @@ use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
 
 #[derive(Clone, Debug)]
 pub struct Node {
-    name: Option<String>,
-    table_name: Option<String>,
-    column_name: Option<String>,
-    map_key: Option<Box<Node>>,
-    map_value: Option<Box<Node>>,
-    left: Option<Box<Node>>,
-    right: Option<Box<Node>>,
-    expr: Expr,
+    pub name: Option<String>,
+    pub table_name: Option<String>,
+    pub column_name: Option<String>,
+    pub map_key: Option<Box<Node>>,
+    pub map_value: Option<Box<Node>>,
+    pub left: Option<Box<Node>>,
+    pub right: Option<Box<Node>>,
+    pub expr: Expr,
 }
 
 impl Node {
@@ -49,5 +49,26 @@ impl Node {
             Expr::SimpleExpr(_) => Self::new(name, expr),
         };
         node
+    }
+
+    pub fn flatten_indices(node: &mut Option<Box<Node>>) -> Vec<SimpleExpr> {
+        let mut v: Vec<SimpleExpr> = vec![];
+        Self::flatten_indices2(node, &mut v);
+        v
+    }
+
+    pub fn flatten_indices2(node: &mut Option<Box<Node>>, v: &mut Vec<SimpleExpr>) {
+        let node = node.as_ref(); // TODO: something better
+        let n: &mut Node = node.unwrap();
+        match &n.expr {
+            Expr::SimpleExpr(e) => v.push(e.clone()),
+            Expr::ComplexExpr(e) => match e {
+                ComplexExpr::Pair(_, _) => {
+                    Self::flatten_indices2(&mut n.left, v);
+                    Self::flatten_indices2(&mut n.right, v);
+                }
+                _ => panic!("Complex expr {:?} passed into flatten_indices()"),
+            },
+        }
     }
 }
