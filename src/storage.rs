@@ -2,17 +2,23 @@ extern crate peg;
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-    Address(Option<String>),
-    BigMap(Option<String>, Box<Expr>, Box<Expr>),
-    Map(Option<String>, Box<Expr>, Box<Expr>),
-    Int(Option<String>),
-    Nat(Option<String>),
-    Pair(Option<String>, Box<Expr>, Box<Expr>),
-    String(Option<String>),
-    Timestamp(Option<String>),
-    Unit(Option<String>),
-    Option(Option<String>, Box<Expr>),
-    Or(Option<String>, Box<Expr>, Box<Expr>),
+    Address,
+    BigMap(Box<Ele>, Box<Ele>),
+    Map(Box<Ele>, Box<Ele>),
+    Int,
+    Nat,
+    Pair(Box<Ele>, Box<Ele>),
+    String,
+    Timestamp,
+    Unit,
+    Option(Box<Ele>),
+    Or(Box<Ele>, Box<Ele>),
+}
+
+#[derive(Clone, Debug)]
+pub struct Ele {
+    pub expr: Expr,
+    pub name: Option<String>,
 }
 
 peg::parser! {
@@ -20,16 +26,16 @@ peg::parser! {
 
         rule _() = [' ' | '\n']*
 
-        pub rule address() -> Expr =
-            _ "(address " _ l:label() _ ")" _ { Expr::Address(Some(l)) } /
-            _ "address" _ { Expr::Address(None) }
+        pub rule address() -> Ele =
+            _ "(address " _ l:label() _ ")" _ { Ele { name : Some(l), expr : Expr::Address, } } /
+            _ "address" _ { Ele { name : None, expr : Expr::Address, } }
 
-        pub rule big_map() -> Expr =
+        pub rule big_map() -> Ele =
             _ "(big_map " _ label:label()? _ left:expr() _ right:expr() _ ")" _ {
-                Expr::BigMap(label, Box::new(left), Box::new(right))
+                Ele { name : label, expr : Expr::BigMap(Box::new(left), Box::new(right)), }
             }
 
-        pub rule expr() -> Expr =
+        pub rule expr() -> Ele =
         x:address() { x }
         / x:big_map() { x }
         / x:int() { x }
@@ -43,45 +49,49 @@ peg::parser! {
         / x:timestamp() { x}
         / x:unit() { x }
 
-        pub rule int() -> Expr = _ "(int" _ l:label() _ ")" { Expr::Int(Some(l)) }
+        pub rule int() -> Ele = _ "(int" _ l:label() _ ")" { Ele { name : Some(l), expr : Expr::Int } }
 
         pub rule label() -> std::string::String = "%" s:$(['a'..='z' | 'A'..='Z' | '0'..='9' | '_']+) {
-            s.to_owned() }
+            s.to_owned()
+        }
 
-        pub rule map() -> Expr =
+        pub rule map() -> Ele =
             _ "(map " _ label:label()? _ left:expr() _ right:expr() _ ")" _ {
-                Expr::Map(label, Box::new(left), Box::new(right))
+                Ele { name : label, expr : Expr::Map(Box::new(left), Box::new(right)) }
             }
 
-        pub rule mutez() -> Expr = _ "(mutez" _ l:label() _ ")" { Expr::Nat(Some(l)) } /
-            _ "mutez" _ { Expr::Nat(None) }
+        pub rule mutez() -> Ele = _ "(mutez" _ l:label() _ ")" {
+            Ele { name : Some(l), expr : Expr::Nat, } } /
+            _ "mutez" _ { Ele { name : None, expr : Expr::Nat } }
 
-        pub rule nat() -> Expr = _ "(nat" _ l:label() _ ")" { Expr::Nat(Some(l)) } /
-            _ "nat" _ { Expr::Nat(None) }
+        pub rule nat() -> Ele = _ "(nat" _ l:label() _ ")" {
+           Ele { name : Some(l), expr : Expr::Nat } } /
+            _ "nat" _ { Ele { name : None, expr : Expr::Nat, } }
 
-        pub rule option() -> Expr = _ "(option" _ l:label() _ e:expr() _ ")" _ {
-            Expr::Option(Some(l), Box::new(e)) }
+        pub rule option() -> Ele = _ "(option" _ l:label() _ e:expr() _ ")" _ {
+            Ele { name : Some(l), expr : Expr::Option(Box::new(e)) } }
 
-        pub rule or() -> Expr = "(or" _ l:label()? _ left:expr() _ right:expr() ")" _
-            { Expr::Or(l, Box::new(left), Box::new(right)) }
+        pub rule or() -> Ele = "(or" _ l:label()? _ left:expr() _ right:expr() ")" _
+            { Ele { name : l, expr : Expr::Or(Box::new(left), Box::new(right)), } }
 
-        pub rule pair() -> Expr =
+
+        pub rule pair() -> Ele =
             _"(pair" _ l:label()? _ left:expr() _ right:expr() _ ")" _ {
-                Expr::Pair(l, Box::new(left), Box::new(right))
+            Ele { name : l, expr : Expr::Pair(Box::new(left), Box::new(right)) }
             }
 
-        pub rule string() -> Expr =
-            _ "(string" _ l:label()  _ ")" _ { Expr::String(Some(l)) } /
-            _ "string" _ { Expr::String(None) }
+        pub rule string() -> Ele =
+            _ "(string" _ l:label()  _ ")" _ { Ele { name : Some(l), expr : Expr::String } } /
+            _ "string" _ { Ele { name : None, expr : Expr::String } }
 
 
-        pub rule timestamp() -> Expr =
-            _ "(timestamp" _ l:label() _ ")" _ { Expr::Timestamp(Some(l)) } /
-            _ "timestamp" _ { Expr::Timestamp(None) }
+        pub rule timestamp() -> Ele =
+            _ "(timestamp" _ l:label() _ ")" _ { Ele { name : Some(l), expr : Expr::Timestamp, } } /
+            _ "timestamp" _ { Ele { name : None, expr : Expr::Timestamp, } }
 
-        pub rule unit() -> Expr = _ "(unit" _ l:label() _ ")" _ { Expr::Unit(Some(l)) } /
-            _ "unit" _ { Expr::Unit(None) }
+        pub rule unit() -> Ele = _ "(unit" _ l:label() _ ")" _
+            { Ele { name : Some(l), expr : Expr::Unit, } } /
+            _ "unit" _ { Ele { name : None, expr : Expr::Unit } }
 
     }
-
 }

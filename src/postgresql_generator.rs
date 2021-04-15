@@ -27,7 +27,7 @@ impl PostgresqlGenerator {
             Expr::String(name) => self.string(name.clone()),
             Expr::Timestamp(name) => self.timestamp(name.clone()),
             Expr::Unit(name) => self.unit(name.clone()),
-            Expr::Option(name, expr) => self.create_sql(expr),
+            Expr::Option(_, expr) => self.create_sql(expr),
             _ => panic!("Unexpected type {:?}", expr),
         }
     }
@@ -44,40 +44,40 @@ impl PostgresqlGenerator {
     }
 
     pub fn create_address(&mut self, name: Option<String>) -> String {
-        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
     pub fn int(&mut self, name: Option<String>) -> String {
-        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
     pub fn nat(&mut self, name: Option<String>) -> String {
-        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
     pub fn string(&mut self, name: Option<String>) -> String {
-        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
     pub fn timestamp(&mut self, name: Option<String>) -> String {
-        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
     pub fn unit(&mut self, name: Option<String>) -> String {
-        format!("\t{} VARCHAR(128) NULL,", self.get_name(&name))
+        format!("{} VARCHAR(128) NULL", self.get_name(&name))
     }
 
     pub fn start_table(&mut self, name: Option<String>) -> String {
         format!(
-            "CREATE TABLE {} (\n\
+            "CREATE TABLE \"{}\" (\n\
                 \tid SERIAL PRIMARY KEY,\n\
-                \t _level INTEGER NOT NULL",
+                \t _level INTEGER NOT NULL,",
             self.get_name(&name)
         )
     }
 
     pub fn end_table(&mut self) -> String {
-        format!(")")
+        format!(");\n")
     }
 
     pub fn create_index_columns(
@@ -117,12 +117,16 @@ impl PostgresqlGenerator {
         cols
     }
 
-    pub fn create_index(&mut self) -> String {
+    pub fn create_index(&mut self, table: &Table) -> String {
         let mut v: Vec<String> = vec![];
         for i in 0..self.indices.len() {
             v.push(format!("idx{}", i))
         }
-        format!("CREATE UNIQUE INDEX ON (_level, {})\n", v.join(", "))
+        format!(
+            "CREATE UNIQUE INDEX ON \"{}\"(_level, {});\n",
+            table.name,
+            v.join(", ")
+        )
     }
 
     pub fn create_table_definition(
@@ -132,15 +136,17 @@ impl PostgresqlGenerator {
     ) -> String {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(Some(table.name.clone())));
+        let mut columns: Vec<String> = vec![];
         for index in self.create_index_columns(table, tables).iter() {
-            v.push(index.clone());
+            columns.push(index.clone());
         }
         for column in self.create_columns(table).iter() {
-            v.push(column.clone());
+            columns.push(column.clone());
         }
+        v.push(columns.join(",\n\t"));
         v.push(self.end_table());
         match table.parent_name {
-            Some(_) => v.push(self.create_index()),
+            Some(_) => v.push(self.create_index(table)),
             None => (),
         }
         v.join("\n")
