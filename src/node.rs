@@ -26,6 +26,27 @@ impl Node {
         }
     }
 
+    pub fn flatten_indices(node: Box<Node>) -> Vec<Box<Node>> {
+        let mut v: Vec<Box<Node>> = vec![];
+        Self::flatten_indices2(node, &mut v);
+        println!("Indices: {:?}", v);
+        v
+    }
+
+    pub fn flatten_indices2(boxed_node: Box<Node>, v: &mut Vec<Box<Node>>) {
+        let node = *boxed_node;
+        match &node.expr {
+            Expr::SimpleExpr(e) => v.push(Box::new(node)),
+            Expr::ComplexExpr(e) => match e {
+                ComplexExpr::Pair(_, _) => {
+                    Self::flatten_indices2(node.left.unwrap(), v);
+                    Self::flatten_indices2(node.right.unwrap(), v);
+                }
+                _ => panic!("Complex expr {:?} passed into flatten_indices()"),
+            },
+        }
+    }
+
     pub fn build(ele: Ele) -> Node {
         let expr = ele.expr.clone();
         let name = ele.name.clone();
@@ -49,26 +70,5 @@ impl Node {
             Expr::SimpleExpr(_) => Self::new(name, expr),
         };
         node
-    }
-
-    pub fn flatten_indices(node: &mut Option<Box<Node>>) -> Vec<SimpleExpr> {
-        let mut v: Vec<SimpleExpr> = vec![];
-        Self::flatten_indices2(node, &mut v);
-        v
-    }
-
-    pub fn flatten_indices2(node: &mut Option<Box<Node>>, v: &mut Vec<SimpleExpr>) {
-        let node = node.as_ref(); // TODO: something better
-        let n: &mut Node = node.unwrap();
-        match &n.expr {
-            Expr::SimpleExpr(e) => v.push(e.clone()),
-            Expr::ComplexExpr(e) => match e {
-                ComplexExpr::Pair(_, _) => {
-                    Self::flatten_indices2(&mut n.left, v);
-                    Self::flatten_indices2(&mut n.right, v);
-                }
-                _ => panic!("Complex expr {:?} passed into flatten_indices()"),
-            },
-        }
     }
 }
