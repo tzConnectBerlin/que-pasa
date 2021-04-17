@@ -10,7 +10,7 @@ edition = "2018"
 
 
 [dependencies]
-lalrpop-util = "0.19.5"
+lazy_static = "1.4.0"
 num = "0.4"
 peg = "0.6.3"
 regex = "1"

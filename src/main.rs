@@ -1,23 +1,28 @@
-extern crate peg;
+use postgresql_generator::PostgresqlGenerator;
 
+extern crate peg;
+#[macro_use]
+extern crate lazy_static;
 pub mod node;
+pub mod postgresql_generator;
 pub mod storage;
 pub mod table;
 pub mod table_builder;
-
-use table_builder::{TableBuilder, Tables};
 
 fn main() {
     let s = include_str!("../test/storage1.tz");
     let ast = storage::storage::expr(s).unwrap();
     //println!("{:?}", ast);
-    let mut node = node::Node::build(ast);
-    //println!("{:?}", node);
-    let mut builder = TableBuilder::new(
-        Box::new(Tables::new()),
-        "".to_string(),
-        "storage".to_string(),
-    );
-    let node = builder.node(&mut Box::new(node));
-    println!("Final result: {:#?}", node);
+    let node = node::Node::build(node::Context::init(), ast);
+    //println!("{:#?}", node);
+    let mut builder = table_builder::TableBuilder::new();
+    let tables = builder.populate(&node);
+    //println!("{:#?}", builder.tables);
+    let mut generator = PostgresqlGenerator::new();
+    for table in builder.tables.keys() {
+        println!(
+            "{}",
+            generator.create_table_definition(builder.tables.get(table).unwrap())
+        );
+    }
 }

@@ -11,17 +11,15 @@ pub struct Column {
 
 #[derive(Clone, Debug)]
 pub struct Table {
-    pub parent_name: Option<String>,
     pub name: String,
     pub indices: Vec<String>,
     pub columns: Vec<Column>,
 }
 
 impl Table {
-    pub fn new(parent_name: Option<String>, name: String) -> Self {
-        println!("New table parent_name: {:?} name: {:?}", parent_name, name);
+    pub fn new(name: String) -> Self {
+        println!("New table name: {:?}", name);
         let new_table = Self {
-            parent_name,
             name,
             indices: vec![],
             columns: vec![],
@@ -30,53 +28,31 @@ impl Table {
         new_table
     }
 
-    fn name(&mut self, kind: &str, node: &mut Node) -> String {
-        let name = match &node.name {
-            Some(x) => x.clone(),
-            None => format!("{}_{}{}", self.name, kind, self.columns.len()),
-        };
-        node.column_name = Some(name.clone());
-        name
-    }
-
-    fn column_name(&mut self, node: &mut Node) -> String {
-        self.name("col", node)
-    }
-
-    fn index_name(&mut self, node: &mut Node) -> String {
-        self.name("idx", node)
-    }
-
-    pub fn add_index(&mut self, node: &mut Node) -> String {
+    pub fn add_index(&mut self, node: &Node) {
+        let node = node.clone();
+        let name = node.name.unwrap();
         let e = node.expr.clone();
         match e {
             Expr::SimpleExpr(e) => {
-                let name = match &node.name {
-                    Some(x) => x.clone(),
-                    None => self.index_name(node),
-                };
                 self.indices.push(name.clone());
                 self.columns.push(Column {
-                    name: name.clone(),
+                    name,
                     expr: e.clone(),
                 });
-                node.column_name = Some(name.clone());
-                return name.clone();
             }
-            Expr::ComplexExpr(_) => panic!("add_index called with ComplexExpr"),
-        };
+            Expr::ComplexExpr(e) => panic!("add_index called with ComplexExpr {:#?}", e),
+        }
     }
 
-    pub fn add_column(&mut self, node: &mut Node) -> String {
+    pub fn add_column(&mut self, node: &Node) {
+        let node: Node = node.clone();
+        let name = node.name.unwrap();
         match &node.expr {
             Expr::SimpleExpr(e) => {
-                let expr = e.clone();
-                let name = self.column_name(node);
                 self.columns.push(Column {
-                    name: name.clone(),
-                    expr,
+                    name: name,
+                    expr: e.clone(),
                 });
-                name
             }
             _ => panic!("add_column called with ComplexExpr {:?}", &node.expr),
         }
