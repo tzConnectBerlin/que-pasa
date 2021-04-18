@@ -8,7 +8,8 @@ lazy_static! {
     static ref INDEXES: Mutex<Indexes> = Mutex::new(HashMap::new());
 }
 
-fn get_index(table_name: &String) -> u32 {
+fn get_index(_table_name: &String) -> u32 {
+    let table_name = &String::from("foo"); // all tables have the same number space
     let indexes: &mut Indexes = &mut *INDEXES.lock().unwrap();
     let x: u32 = match indexes.get(table_name) {
         Some(x) => *x,
@@ -28,7 +29,6 @@ pub enum Type {
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    column_index: u32,
     table_name: String,
     _type: Type,
 }
@@ -36,7 +36,6 @@ pub struct Context {
 impl Context {
     pub fn init() -> Self {
         Context {
-            column_index: 0,
             table_name: "storage".to_string(),
             _type: Type::Table,
         }
@@ -52,7 +51,6 @@ impl Context {
 
     pub fn next(&self) -> Self {
         let mut ctx = self.clone();
-        ctx.column_index += 1;
         ctx
     }
 
@@ -65,7 +63,6 @@ impl Context {
     pub fn start_table(&self, name: String) -> Self {
         let mut c = self.next_with_state(Type::Table);
         c.table_name = format!("{}.{}", self.table_name, name);
-        c.column_index = 0;
         c
     }
 }
