@@ -1,4 +1,4 @@
-use crate::storage::{ComplexExpr, Ele, Expr};
+use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
 use std::collections::HashMap;
 use std::sync::Mutex;
 
@@ -17,6 +17,30 @@ fn get_index(_table_name: &String) -> u32 {
     };
     indexes.insert(table_name.clone(), x + 1);
     x
+}
+
+fn get_table_name(name: Option<String>) -> String {
+    match name {
+        Some(s) => s,
+        None => format!("table{}", get_index(&"table_names".to_string())),
+    }
+}
+
+fn get_column_name(expr: &Expr) -> &str {
+    match expr {
+        Expr::ComplexExpr(x) => "",
+        Expr::SimpleExpr(e) => match e {
+            SimpleExpr::Address => "address",
+            SimpleExpr::Bool => "bool",
+            SimpleExpr::Bytes => "bytes",
+            SimpleExpr::Int => "int",
+            SimpleExpr::Nat => "nat",
+            SimpleExpr::String => "string",
+            SimpleExpr::Timestamp => "timestamp",
+            SimpleExpr::Unit => "unit",
+            _ => panic!("Unexpected type {:?}", e),
+        },
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -41,11 +65,12 @@ impl Context {
         }
     }
 
-    pub fn name(&self) -> String {
+    pub fn name(&self, ele: &Ele) -> String {
         let index = get_index(&self.table_name);
+        let name = get_column_name(&ele.expr);
         match self._type {
-            Type::TableIndex => format!("idx{}", index),
-            _ => format!("col{}", index),
+            Type::TableIndex => format!("idx_{}_{}", name, index),
+            _ => format!("{}_{}", name, index),
         }
     }
 
@@ -84,7 +109,7 @@ impl Node {
             Type::Pair => None,
             _ => match &ele.name {
                 Some(e) => Some(e.clone()),
-                None => Some(c.name()),
+                None => Some(c.name(ele)),
             },
         };
         Self {
@@ -103,7 +128,7 @@ impl Node {
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
-                    let context = context.start_table(name.unwrap());
+                    let context = context.start_table(get_table_name(name));
                     let mut n = Self::new(&context, &ele);
                     n.left = Some(Box::new(Self::build_index(
                         context.next_with_state(Type::TableIndex),

@@ -1,9 +1,13 @@
-extern crate peg;
+use json::JsonValue;
+use substring::Substring;
 
 #[derive(Clone, Copy, Debug)]
 pub enum SimpleExpr {
     Address,
+    Bool,
+    Bytes,
     Int,
+    Mutez,
     Nat,
     String,
     Timestamp,
@@ -31,77 +35,79 @@ pub struct Ele {
     pub name: Option<String>,
 }
 
-peg::parser! {
-    pub grammar storage() for str {
+fn annotation(json: &json::JsonValue) -> Option<String> {
+    if let JsonValue::Short(s) = &json["annots"][0] {
+        Some(String::from(s.as_str())[1..].to_string())
+    } else {
+        None
+    }
+}
 
-        rule _() = [' ' | '\n']*
+fn args(json: &JsonValue) -> Option<Vec<JsonValue>> {
+    match &json["args"] {
+        JsonValue::Array(a) => Some(a.clone()),
+        _ => None,
+    }
+}
 
-        pub rule address() -> Ele =
-            _ "(address " _ l:label() _ ")" _ { Ele { name : Some(l), expr : (Expr::SimpleExpr(SimpleExpr::Address)), } } /
-            _ "address" _ { Ele { name : None, expr : Expr::SimpleExpr(SimpleExpr::Address), } }
-
-        pub rule big_map() -> Ele =
-            _ "(big_map " _ label:label()? _ left:expr() _ right:expr() _ ")" _ {
-                Ele { name : label, expr : Expr::ComplexExpr(ComplexExpr::BigMap(Box::new(left), Box::new(right))), }
-            }
-
-        pub rule expr() -> Ele =
-        x:address() { x }
-        / x:big_map() { x }
-        / x:int() { x }
-        / x:map() { x }
-        / x:mutez() { x }
-        / x:nat() { x }
-        / x:option() { x }
-        / x:or() { x }
-        / x:pair() { x }
-        / x:string() { x }
-        / x:timestamp() { x}
-        / x:unit() { x }
-
-        pub rule int() -> Ele = _ "(int" _ l:label() _ ")" { Ele { name : Some(l), expr : Expr::SimpleExpr(SimpleExpr::Int) } }
-
-        pub rule label() -> std::string::String = "%" s:$(['a'..='z' | 'A'..='Z' | '0'..='9' | '_']+) {
-            s.to_owned()
+macro_rules! simple_expr {
+    ($typ:expr, $name:expr) => {
+        Ele {
+            name: $name,
+            expr: Expr::SimpleExpr($typ),
         }
+    };
+}
 
-        pub rule map() -> Ele =
-            _ "(map " _ label:label()? _ left:expr() _ right:expr() _ ")" _ {
-                Ele { name : label, expr : Expr::ComplexExpr(ComplexExpr::Map(Box::new(left), Box::new(right))) }
+macro_rules! complex_expr {
+    ($typ:expr, $name:expr, $args:expr) => {{
+        let args = $args.unwrap();
+        Ele {
+            name: $name,
+            expr: Expr::ComplexExpr($typ(
+                Box::new(storage_from_json(args[0].clone())),
+                Box::new(storage_from_json(args[1].clone())),
+            )),
+        }
+    }};
+}
+
+pub fn storage_from_json(json: JsonValue) -> Ele {
+    let annot = annotation(&json);
+    let args = args(&json);
+    debug!("prim is {:?}", json["prim"]);
+    if let JsonValue::Short(prim) = &json["prim"] {
+        match prim.as_str() {
+            "address" => simple_expr!(SimpleExpr::Address, annot),
+            "big_map" => complex_expr!(ComplexExpr::BigMap, annot, args),
+            "bool" => simple_expr!(SimpleExpr::Bool, annot),
+            "bytes" => simple_expr!(SimpleExpr::Bytes, annot),
+            "int" => simple_expr!(SimpleExpr::Int, annot),
+            "map" => complex_expr!(ComplexExpr::Map, annot, args),
+            "mutez" => simple_expr!(SimpleExpr::Mutez, annot),
+            "nat" => simple_expr!(SimpleExpr::Nat, annot),
+            "option" => {
+                let args = args.unwrap();
+                Ele {
+                    name: annot,
+                    expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_from_json(
+                        args[0].clone(),
+                    )))),
+                }
             }
-
-        pub rule mutez() -> Ele = _ "(mutez" _ l:label() _ ")" {
-            Ele { name : Some(l), expr : Expr::SimpleExpr(SimpleExpr::Nat), } } /
-            _ "mutez" _ { Ele { name : None, expr : Expr::SimpleExpr(SimpleExpr::Nat) } }
-
-        pub rule nat() -> Ele = _ "(nat" _ l:label() _ ")" {
-           Ele { name : Some(l), expr : Expr::SimpleExpr(SimpleExpr::Nat) } } /
-            _ "nat" _ { Ele { name : None, expr : Expr::SimpleExpr(SimpleExpr::Nat), } }
-
-        pub rule option() -> Ele = _ "(option" _ l:label() _ e:expr() _ ")" _ {
-            Ele { name : Some(l), expr : Expr::ComplexExpr(ComplexExpr::Option(Box::new(e))) } }
-
-        pub rule or() -> Ele = "(or" _ l:label()? _ left:expr() _ right:expr() ")" _
-            { Ele { name : l, expr : Expr::ComplexExpr(ComplexExpr::Or(Box::new(left), Box::new(right))), } }
-
-
-        pub rule pair() -> Ele =
-            _"(pair" _ l:label()? _ left:expr() _ right:expr() _ ")" _ {
-            Ele { name : l, expr : Expr::ComplexExpr(ComplexExpr::Pair(Box::new(left), Box::new(right))) }
+            "or" => complex_expr!(ComplexExpr::Or, annot, args),
+            "pair" => {
+                if args.clone().unwrap().len() != 2 {
+                    panic!("Pair with {} args", args.clone().unwrap().len());
+                }
+                complex_expr!(ComplexExpr::Pair, annot, args)
             }
-
-        pub rule string() -> Ele =
-            _ "(string" _ l:label()  _ ")" _ { Ele { name : Some(l), expr : Expr::SimpleExpr(SimpleExpr::String) } } /
-            _ "string" _ { Ele { name : None, expr : Expr::SimpleExpr(SimpleExpr::String) } }
-
-
-        pub rule timestamp() -> Ele =
-            _ "(timestamp" _ l:label() _ ")" _ { Ele { name : Some(l), expr : Expr::SimpleExpr(SimpleExpr::Timestamp), } } /
-            _ "timestamp" _ { Ele { name : None, expr : Expr::SimpleExpr(SimpleExpr::Timestamp), } }
-
-        pub rule unit() -> Ele = _ "(unit" _ l:label() _ ")" _
-            { Ele { name : Some(l), expr : Expr::SimpleExpr(SimpleExpr::Unit), } } /
-            _ "unit" _ { Ele { name : None, expr : Expr::SimpleExpr(SimpleExpr::Unit) } }
-
+            "string" => simple_expr!(SimpleExpr::String, annot),
+            "timestamp" => simple_expr!(SimpleExpr::Timestamp, annot),
+            "unit" => simple_expr!(SimpleExpr::Unit, annot),
+            _ => panic!("Unexpected storage json: {:#?}", json),
+        }
+    } else {
+        panic!("Wrong JS {}", json.to_string());
     }
 }

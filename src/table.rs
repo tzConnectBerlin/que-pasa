@@ -18,13 +18,11 @@ pub struct Table {
 
 impl Table {
     pub fn new(name: String) -> Self {
-        println!("New table name: {:?}", name);
         let new_table = Self {
             name,
             indices: vec![],
             columns: vec![],
         };
-        println!("new table {:?}", new_table);
         new_table
     }
 

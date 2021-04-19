@@ -14,7 +14,9 @@ impl PostgresqlGenerator {
 
     pub fn create_sql(&mut self, column: Column) -> String {
         match column.expr {
-            SimpleExpr::Address => self.create_address(&column.name),
+            SimpleExpr::Address => self.address(&column.name),
+            SimpleExpr::Bool => self.bool(&column.name),
+            SimpleExpr::Bytes => self.bytes(&column.name),
             SimpleExpr::Int => self.int(&column.name),
             SimpleExpr::Nat => self.nat(&column.name),
             SimpleExpr::String => self.string(&column.name),
@@ -24,7 +26,15 @@ impl PostgresqlGenerator {
         }
     }
 
-    pub fn create_address(&mut self, name: &String) -> String {
+    pub fn address(&mut self, name: &String) -> String {
+        format!("{} VARCHAR(128) NULL", name)
+    }
+
+    pub fn bool(&mut self, name: &String) -> String {
+        format!("{} BOOLEAN NULL", name)
+    }
+
+    pub fn bytes(&mut self, name: &String) -> String {
         format!("{} VARCHAR(128) NULL", name)
     }
 
@@ -77,10 +87,25 @@ impl PostgresqlGenerator {
         )
     }
 
+    fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
+        if let Some(pos) = table.name.rfind(".") {
+            let parent = &table.name.as_str()[0..pos];
+            Some(format!(
+                "FOREIGN KEY {}_id REFERENCES {}(id)",
+                parent, parent
+            ))
+        } else {
+            None
+        }
+    }
+
     pub fn create_table_definition(&mut self, table: &Table) -> String {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(&table.name));
         let mut columns: Vec<String> = self.create_columns(table);
+        if let Some(fk) = self.create_foreign_key_constraint(&table) {
+            columns.push(fk);
+        }
         v.push(columns.join(",\n\t"));
         v.push(self.end_table());
         v.push(self.create_index(table));
