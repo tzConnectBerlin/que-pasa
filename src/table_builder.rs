@@ -1,5 +1,5 @@
 use crate::node::{Node, Type};
-use crate::storage::{ComplexExpr, Expr, SimpleExpr};
+use crate::storage::{ComplexExpr, Expr};
 use crate::table::Table;
 
 use std::collections::HashMap;

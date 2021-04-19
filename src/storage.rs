@@ -1,5 +1,4 @@
 use json::JsonValue;
-use substring::Substring;
 
 #[derive(Clone, Copy, Debug)]
 pub enum SimpleExpr {

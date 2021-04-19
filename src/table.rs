@@ -1,5 +1,5 @@
 use crate::node::Node;
-use crate::storage::{ComplexExpr, Expr, SimpleExpr};
+use crate::storage::{Expr, SimpleExpr};
 
 use std::vec::Vec;
 

@@ -1,6 +1,7 @@
 use postgresql_generator::PostgresqlGenerator;
 
 extern crate curl;
+#[macro_use]
 extern crate json;
 #[macro_use]
 extern crate lazy_static;
@@ -15,10 +16,6 @@ pub mod storage;
 pub mod table;
 pub mod table_builder;
 
-use curl::easy::Easy;
-
-//fn load_storage(id: &String) ->
-
 fn main() {
     env_logger::init();
 
@@ -29,20 +26,24 @@ fn main() {
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
     let ast = storage::storage_from_json(storage_definition);
-    debug!("{:#?}", ast);
-    // let store = include_str!("../test/store1.json");
-    // let v = michelson::store::value(store).unwrap();
-    // debug!("{:#?}", v);
+    //debug!("{:#?}", ast);
 
     let node = node::Node::build(node::Context::init(), ast);
+    debug!("{:#?}", node);
 
     let mut builder = table_builder::TableBuilder::new();
-    let tables = builder.populate(&node);
+    let _tables = builder.populate(&node);
     //debug!("{:#?}", builder.tables);
-    let mut generator = PostgresqlGenerator::new();
-    let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-    sorted_tables.sort_by_key(|a| a.0);
-    for (name, table) in sorted_tables {
-        debug!("{}", generator.create_table_definition(table));
+    let mut _generator = PostgresqlGenerator::new();
+    let mut _sorted_tables: Vec<_> = builder.tables.iter().collect();
+    _sorted_tables.sort_by_key(|a| a.0);
+    for (_name, _table) in _sorted_tables {
+        //debug!("{}", generator.create_table_definition(table));
     }
+
+    let storage = &json["storage"];
+    let v = michelson::preparse_storage(storage);
+    let result = michelson::parse_storage(&v);
+    debug!("storage: {:#?}", result);
+    michelson::update(&result, &node);
 }

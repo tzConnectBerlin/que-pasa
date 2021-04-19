@@ -1,5 +1,6 @@
 use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Mutex;
 
 type Indexes = HashMap<String, u32>;
@@ -28,7 +29,7 @@ fn get_table_name(name: Option<String>) -> String {
 
 fn get_column_name(expr: &Expr) -> &str {
     match expr {
-        Expr::ComplexExpr(x) => "",
+        Expr::ComplexExpr(_) => "",
         Expr::SimpleExpr(e) => match e {
             SimpleExpr::Address => "address",
             SimpleExpr::Bool => "bool",
@@ -92,7 +93,7 @@ impl Context {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Node {
     pub name: Option<String>,
     pub _type: Type,
@@ -101,6 +102,19 @@ pub struct Node {
     pub left: Option<Box<Node>>,
     pub right: Option<Box<Node>>,
     pub expr: Expr,
+}
+
+impl fmt::Debug for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Node")
+            .field("name", &self.name)
+            .field("_type", &self._type)
+            .field("table_name", &self.table_name)
+            .field("column_name", &self.column_name)
+            .field("left", &self.left)
+            .field("right", &self.right)
+            .finish()
+    }
 }
 
 impl Node {
