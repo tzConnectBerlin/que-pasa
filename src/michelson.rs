@@ -87,7 +87,7 @@ pub fn preparse_storage(json: &JsonValue) -> JsonValue {
 }
 
 pub fn preparse_storage2(v: &mut Vec<JsonValue>) -> JsonValue {
-    if v.len() <= 1 {
+    if v.len() == 1 {
         return v[0].clone();
     } else {
         let ele = v.pop();
@@ -181,7 +181,17 @@ pub fn update(value: &Value, node: &Node) {
     update2(value, node, get_id(), None);
 }
 
-pub fn update2(value: &Value, node: &Node, id: u32, fk_id: Option<u32>) {
+pub fn update2(value: &Value, node: &Node, mut id: u32, mut fk_id: Option<u32>) {
+    match node._type {
+        // When a new table is initialised, we increment id and make the old id the fk constraint
+        crate::node::Type::Table => {
+            debug!("Creating table from node {:#?}", node);
+            fk_id = Some(id);
+            id = get_id();
+        }
+        _ => (),
+    }
+
     match value {
         Value::Pair(left, right) => {
             let l = node.left.as_ref().unwrap();
@@ -190,11 +200,9 @@ pub fn update2(value: &Value, node: &Node, id: u32, fk_id: Option<u32>) {
             update2(left, l, id, fk_id);
         }
         Value::List(l) => {
-            let new_id = get_id();
-            debug!("Got id {}", id);
             for element in l {
                 debug!("Elt: {:?}", element);
-                update2(*&element, node, new_id, Some(id));
+                update2(*&element, node, id, fk_id);
             }
         }
         Value::Elt(keys, values) => {
@@ -216,7 +224,7 @@ pub fn update2(value: &Value, node: &Node, id: u32, fk_id: Option<u32>) {
                 "{} {} = {:?} {:?}",
                 table_name, column_name, value, node.expr
             );
-            crate::table::add_row(table_name, id, fk_id, column_name, value.clone());
+            crate::table::insert::add_column(table_name, id, fk_id, column_name, value.clone());
         }
     }
 }

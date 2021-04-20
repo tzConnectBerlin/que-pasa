@@ -1,5 +1,6 @@
 use postgresql_generator::PostgresqlGenerator;
 
+extern crate chrono;
 extern crate clap;
 extern crate curl;
 #[macro_use]
@@ -91,6 +92,14 @@ fn main() {
             debug!("storage: {:#?}", result);
             debug!("{:#?}", michelson::update(&result, &node));
         }
-        debug!("{:#?}", crate::table::get_inserts());
+        let inserts = crate::table::insert::get_inserts();
+        let mut keys = inserts
+            .keys()
+            .collect::<Vec<&crate::table::insert::InsertKey>>();
+        keys.sort_by_key(|a| a.id);
+        let mut generator = PostgresqlGenerator::new();
+        for key in keys.iter() {
+            println!("{}", generator.build_insert(inserts.get(key).unwrap()));
+        }
     }
 }

@@ -1,5 +1,6 @@
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
+use chrono::{DateTime, Utc};
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
@@ -113,5 +114,56 @@ impl PostgresqlGenerator {
         v.push(self.end_table());
         v.push(self.create_index(table));
         v.join("\n")
+    }
+
+    fn escape(s: &String) -> String {
+        s.clone()
+    }
+
+    fn quote(value: &crate::michelson::Value) -> String {
+        match value {
+            crate::michelson::Value::Address(s)
+            | crate::michelson::Value::Bytes(s)
+            | crate::michelson::Value::String(s) => format!(r#"'{}'"#, Self::escape(&s)),
+            crate::michelson::Value::Bool(val) => {
+                if *val {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
+            crate::michelson::Value::Int(b)
+            | crate::michelson::Value::Mutez(b)
+            | crate::michelson::Value::Nat(b) => b.to_str_radix(10).to_string(),
+            crate::michelson::Value::None => "NULL".to_string(),
+            crate::michelson::Value::Timestamp(t) => {
+                let date_time: chrono::DateTime<Utc> = chrono::DateTime::from(*t);
+                date_time.to_rfc3339()
+            }
+            crate::michelson::Value::Elt(_, _)
+            | crate::michelson::Value::List(_)
+            | crate::michelson::Value::Pair(_, _)
+            | crate::michelson::Value::Unit => panic!("quote called with {:?}", value),
+        }
+    }
+
+    pub fn build_insert(&mut self, insert: &crate::table::insert::Insert) -> String {
+        let columns: String = insert
+            .columns
+            .iter()
+            .map(|x| x.name.clone())
+            .collect::<Vec<String>>()
+            .join(", ");
+        let values: String = insert
+            .columns
+            .iter()
+            .map(|x| Self::quote(&x.value))
+            .collect::<Vec<String>>()
+            .join(", ");
+        let sql = format!(
+            r#"INSERT INTO "{}" ({}) VALUES ({});\n"#,
+            insert.table_name, columns, values,
+        );
+        sql
     }
 }
