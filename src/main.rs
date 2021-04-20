@@ -33,6 +33,14 @@ fn main() {
                 .help("Sets the id of the contract to use")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("levels")
+                .short("l")
+                .long("levels")
+                .value_name("LEVELS")
+                .help("Gives the set of levels to load")
+                .takes_value(true),
+        )
         .subcommand(
             SubCommand::with_name("generate-sql")
                 .about("Generated table definitions")
@@ -42,7 +50,7 @@ fn main() {
 
     let contract_id = matches.value_of("contract_id").unwrap();
 
-    let json = michelson::get_everything(contract_id).unwrap();
+    let json = michelson::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
     let ast = storage::storage_from_json(storage_definition);
@@ -53,20 +61,33 @@ fn main() {
 
     let mut builder = table_builder::TableBuilder::new();
     let _tables = builder.populate(&node);
-    //debug!("{:#?}", builder.tables);
+
+    /// If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
         let mut generator = PostgresqlGenerator::new();
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
         for (_name, table) in sorted_tables {
             print!("{}", generator.create_table_definition(table));
+            println!();
         }
         return;
     }
 
-    let storage = &json["storage"];
-    let v = michelson::preparse_storage(storage);
-    let result = michelson::parse_storage(&v);
-    debug!("storage: {:#?}", result);
-    michelson::update(&result, &node);
+    if let Some(levels) = matches.value_of("levels") {
+        let levels = levels
+            .to_string()
+            .split(",")
+            .map(|x| x.to_string().parse().expect("Couldn't parse level as u32"))
+            .collect::<Vec<u32>>();
+        print!("Loading level");
+        for level in levels {
+            print!(" {}", level);
+            let json = michelson::get_storage(&contract_id.to_string(), level).unwrap();
+            let v = michelson::preparse_storage(&json);
+            let result = michelson::parse_storage(&v);
+            debug!("storage: {:#?}", result);
+            michelson::update(&result, &node);
+        }
+    }
 }

@@ -7,6 +7,7 @@ use std::str::FromStr;
 use std::time::SystemTime;
 
 pub fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
+    debug!("Loading: {}", uri);
     let mut response = Vec::new();
     let mut handle = Easy::new();
     handle.timeout(std::time::Duration::from_secs(20))?;
@@ -23,17 +24,21 @@ pub fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
     Ok(json)
 }
 
-pub fn get_storage(contract_id: &String) -> Result<JsonValue, Box<dyn Error>> {
+pub fn get_storage(contract_id: &String, level: u32) -> Result<JsonValue, Box<dyn Error>> {
     load(&format!(
-        "https://testnet-tezos.giganode.io/chains/main/blocks/head/context/contracts/{}/storage",
-        contract_id
+        "https://testnet-tezos.giganode.io/chains/main/blocks/{}/context/contracts/{}/storage",
+        level, contract_id
     ))
 }
 
-pub fn get_everything(contract_id: &str) -> Result<JsonValue, Box<dyn Error>> {
+pub fn get_everything(contract_id: &str, level: Option<u32>) -> Result<JsonValue, Box<dyn Error>> {
+    let level = match level {
+        Some(x) => format!("{}", x),
+        None => "head".to_string(),
+    };
     let url = format!(
-        "https://testnet-tezos.giganode.io/chains/main/blocks/head/context/contracts/{}/script",
-        contract_id
+        "https://testnet-tezos.giganode.io/chains/main/blocks/{}/context/contracts/{}/script",
+        level, contract_id
     );
     debug!("Loading contract data for {} url is {}", contract_id, url);
     load(&url)
@@ -71,7 +76,6 @@ pub fn preparse_storage(json: &JsonValue) -> JsonValue {
 
 pub fn preparse_storage2(v: &mut Vec<JsonValue>) -> JsonValue {
     if v.len() <= 1 {
-        println!("{:?}", v);
         return v[0].clone();
     } else {
         let ele = v.pop();
@@ -98,9 +102,12 @@ pub fn parse_storage(json: &JsonValue) -> Value {
     if let Some(s) = &json["prim"].as_str() {
         match s {
             &"Pair" => {
-                if let JsonValue::Array(array) = &json["args"] {
+                let args = json["args"].clone();
+                if let JsonValue::Array(mut array) = args {
                     if array.len() != 2 {
-                        panic!("Pair with array length of {}", array.len());
+                        let mut array = array.clone();
+                        let parsed = preparse_storage2(&mut array);
+                        return parse_storage(&parsed);
                     }
                     return Value::Pair(
                         Box::new(parse_storage(&array[0])),
@@ -119,7 +126,7 @@ pub fn parse_storage(json: &JsonValue) -> Value {
                     );
                 }
             }
-            _ => (),
+            _ => panic!("Unknown prim {}", json["prim"]),
         }
     }
 
@@ -140,7 +147,8 @@ pub fn parse_storage(json: &JsonValue) -> Value {
             _ => panic!("Couldn't match {} in {}", key.to_string(), json.to_string()),
         };
     }
-    panic!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
+    error!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
+    Value::None
 }
 
 pub fn prim(s: &String) -> Value {
