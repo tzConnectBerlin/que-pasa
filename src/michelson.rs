@@ -60,10 +60,6 @@ fn bigint(source: &String) -> Result<BigInt, Box<dyn Error>> {
     Ok(BigInt::from_str(&source).unwrap())
 }
 
-fn str(source: json::short::Short) -> String {
-    String::from(source.to_string())
-}
-
 pub fn preparse_storage(json: &JsonValue) -> JsonValue {
     if let JsonValue::Array(mut a) = json.clone() {
         a.reverse();

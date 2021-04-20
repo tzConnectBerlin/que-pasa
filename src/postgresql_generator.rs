@@ -16,11 +16,11 @@ impl PostgresqlGenerator {
             SimpleExpr::Bool => self.bool(&column.name),
             SimpleExpr::Bytes => self.bytes(&column.name),
             SimpleExpr::Int => self.int(&column.name),
+            SimpleExpr::Mutez => self.numeric(&column.name),
             SimpleExpr::Nat => self.nat(&column.name),
             SimpleExpr::String => self.string(&column.name),
             SimpleExpr::Timestamp => self.timestamp(&column.name),
             SimpleExpr::Unit => self.unit(&column.name),
-            _ => panic!("Unexpected type {:?}", column.expr),
         }
     }
 
@@ -41,6 +41,10 @@ impl PostgresqlGenerator {
     }
 
     pub fn nat(&mut self, name: &String) -> String {
+        format!("{} NUMERIC(64) NULL", name)
+    }
+
+    pub fn numeric(&mut self, name: &String) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
@@ -101,6 +105,7 @@ impl PostgresqlGenerator {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(&table.name));
         let mut columns: Vec<String> = self.create_columns(table);
+        columns[0] = format!("\t{}", columns[0]);
         if let Some(fk) = self.create_foreign_key_constraint(&table) {
             columns.push(fk);
         }

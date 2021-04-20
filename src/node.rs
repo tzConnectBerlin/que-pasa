@@ -76,7 +76,7 @@ impl Context {
     }
 
     pub fn next(&self) -> Self {
-        let mut ctx = self.clone();
+        let ctx = self.clone();
         ctx
     }
 
