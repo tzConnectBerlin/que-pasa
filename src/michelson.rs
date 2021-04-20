@@ -4,7 +4,19 @@ use json::JsonValue;
 use num::BigInt;
 use std::error::Error;
 use std::str::FromStr;
+use std::sync::Mutex;
 use std::time::SystemTime;
+
+lazy_static! {
+    static ref IDS: Mutex<u32> = Mutex::new(1u32);
+}
+
+fn get_id() -> u32 {
+    let id = &mut *IDS.lock().unwrap();
+    let val = *id;
+    *id = *id + 1u32;
+    val
+}
 
 pub fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
     debug!("Loading: {}", uri);
@@ -44,7 +56,7 @@ pub fn get_everything(contract_id: &str, level: Option<u32>) -> Result<JsonValue
     load(&url)
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Address(String),
     Bool(bool),
@@ -90,6 +102,8 @@ pub fn preparse_storage2(v: &mut Vec<JsonValue>) -> JsonValue {
     }
 }
 
+/// Goes through the actual stored data and builds up a structure which can be used in combination with the node
+/// data to stash it in the database.
 pub fn parse_storage(json: &JsonValue) -> Value {
     if let JsonValue::Array(a) = json {
         let mut inner: Vec<Box<Value>> = vec![];
@@ -103,9 +117,10 @@ pub fn parse_storage(json: &JsonValue) -> Value {
         match s {
             &"Pair" => {
                 let args = json["args"].clone();
-                if let JsonValue::Array(mut array) = args {
+                if let JsonValue::Array(array) = args {
                     if array.len() != 2 {
                         let mut array = array.clone();
+                        array.reverse();
                         let parsed = preparse_storage2(&mut array);
                         return parse_storage(&parsed);
                     }
@@ -132,6 +147,7 @@ pub fn parse_storage(json: &JsonValue) -> Value {
 
     let keys: Vec<String> = json.entries().map(|(a, _)| String::from(a)).collect();
     if keys.len() == 1 {
+        // it's a leaf node, hence a value.
         let key = &keys[0];
         let s = String::from(json[key].as_str().unwrap());
         return match key.as_str() {
@@ -159,25 +175,33 @@ pub fn prim(s: &String) -> Value {
     }
 }
 
+/// Walks simultaneously through the table definition and the actual values it finds, and attempts
+/// to match them. Panics if it cannot do this (i.e. they do not match).
 pub fn update(value: &Value, node: &Node) {
+    update2(value, node, get_id(), None);
+}
+
+pub fn update2(value: &Value, node: &Node, id: u32, fk_id: Option<u32>) {
     match value {
         Value::Pair(left, right) => {
             let l = node.left.as_ref().unwrap();
             let r = node.right.as_ref().unwrap();
-            update(left, l);
-            update(right, r);
+            update2(right, r, id, fk_id);
+            update2(left, l, id, fk_id);
         }
         Value::List(l) => {
+            let new_id = get_id();
+            debug!("Got id {}", id);
             for element in l {
                 debug!("Elt: {:?}", element);
-                update(*&element, node);
+                update2(*&element, node, new_id, Some(id));
             }
         }
         Value::Elt(keys, values) => {
             let l = node.left.as_ref().unwrap();
             let r = node.right.as_ref().unwrap();
-            update(keys, l);
-            update(values, r);
+            update2(keys, l, id, fk_id);
+            update2(values, r, id, fk_id);
         }
         _ => {
             let table_name = match node.table_name.as_ref() {
@@ -191,7 +215,8 @@ pub fn update(value: &Value, node: &Node) {
             debug!(
                 "{} {} = {:?} {:?}",
                 table_name, column_name, value, node.expr
-            )
+            );
+            crate::table::add_row(table_name, id, fk_id, column_name, value.clone());
         }
     }
 }

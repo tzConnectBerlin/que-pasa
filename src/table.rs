@@ -1,7 +1,9 @@
+use crate::michelson::Value;
 use crate::node::Node;
 use crate::storage::{Expr, SimpleExpr};
 
-use std::vec::Vec;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 #[derive(Clone, Debug)]
 pub struct Column {
@@ -55,4 +57,78 @@ impl Table {
             _ => panic!("add_column called with ComplexExpr {:?}", &node.expr),
         }
     }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct InsertKey {
+    pub table_name: String,
+    pub id: u32,
+}
+
+pub type Inserts = HashMap<InsertKey, Insert>;
+
+lazy_static! {
+    static ref INSERTS: Mutex<Inserts> = Mutex::new(HashMap::new());
+}
+
+pub fn add_insert(table_name: String, id: u32, fk_id: Option<u32>, rows: Vec<Row>) {
+    let inserts: &mut Inserts = &mut *INSERTS.lock().unwrap();
+    inserts.insert(
+        InsertKey {
+            table_name: table_name.clone(),
+            id,
+        },
+        Insert {
+            table_name,
+            id,
+            fk_id,
+            rows,
+        },
+    );
+}
+
+pub fn add_row(table_name: String, id: u32, fk_id: Option<u32>, column_name: String, value: Value) {
+    let mut insert = match get_insert(table_name.clone(), id, fk_id) {
+        Some(x) => x,
+        None => Insert {
+            table_name: table_name.clone(),
+            id,
+            fk_id,
+            rows: vec![],
+        },
+    };
+    insert.rows.push(Row {
+        name: column_name,
+        value,
+    });
+    add_insert(table_name, id, fk_id, insert.rows.clone());
+}
+
+pub fn get_insert(table_name: String, id: u32, fk_id: Option<u32>) -> Option<Insert> {
+    match (*INSERTS.lock().unwrap()).get(&InsertKey { table_name, id }) {
+        Some(e) => {
+            assert!(e.fk_id == fk_id);
+
+            Some((*e).clone())
+        }
+        None => None,
+    }
+}
+
+pub fn get_inserts() -> Inserts {
+    (*INSERTS.lock().unwrap()).clone()
+}
+
+#[derive(Clone, Debug)]
+pub struct Insert {
+    pub table_name: String,
+    pub id: u32,
+    pub fk_id: Option<u32>,
+    pub rows: Vec<Row>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Row {
+    pub name: String,
+    pub value: Value,
 }

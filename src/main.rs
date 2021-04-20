@@ -9,6 +9,8 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate substring;
+#[macro_use]
+extern crate maplit;
 
 use clap::{App, Arg, SubCommand};
 
@@ -87,7 +89,8 @@ fn main() {
             let v = michelson::preparse_storage(&json);
             let result = michelson::parse_storage(&v);
             debug!("storage: {:#?}", result);
-            michelson::update(&result, &node);
+            debug!("{:#?}", michelson::update(&result, &node));
         }
+        debug!("{:#?}", crate::table::get_inserts());
     }
 }
