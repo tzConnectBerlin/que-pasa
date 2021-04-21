@@ -90,16 +90,20 @@ fn main() {
             let v = michelson::preparse_storage(&json);
             let result = michelson::parse_storage(&v);
             debug!("storage: {:#?}", result);
-            debug!("{:#?}", michelson::update(&result, &node));
+            let result = michelson::update(&result, &node);
+            debug!("{:#?}", result);
         }
+        println!("");
         let inserts = crate::table::insert::get_inserts();
         let mut keys = inserts
             .keys()
             .collect::<Vec<&crate::table::insert::InsertKey>>();
         keys.sort_by_key(|a| a.id);
         let mut generator = PostgresqlGenerator::new();
+        println!("keys len: {}", keys.len());
         for key in keys.iter() {
             println!("{}", generator.build_insert(inserts.get(key).unwrap()));
         }
+        println!("");
     }
 }

@@ -90,9 +90,16 @@ impl PostgresqlGenerator {
         )
     }
 
+    fn parent_name(name: &String) -> Option<String> {
+        if let Some(pos) = name.rfind(".") {
+            Some(name.as_str()[0..pos].to_string())
+        } else {
+            None
+        }
+    }
+
     fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
-        if let Some(pos) = table.name.rfind(".") {
-            let parent = &table.name.as_str()[0..pos];
+        if let Some(parent) = Self::parent_name(&table.name) {
             Some(format!(
                 "FOREIGN KEY {}_id REFERENCES {}(id)",
                 parent, parent
@@ -148,21 +155,28 @@ impl PostgresqlGenerator {
     }
 
     pub fn build_insert(&mut self, insert: &crate::table::insert::Insert) -> String {
-        let columns: String = insert
+        let mut columns: String = insert
             .columns
             .iter()
             .map(|x| x.name.clone())
             .collect::<Vec<String>>()
             .join(", ");
-        let values: String = insert
+        let mut values: String = insert
             .columns
             .iter()
             .map(|x| Self::quote(&x.value))
             .collect::<Vec<String>>()
             .join(", ");
+        if let Some(fk_id) = insert.fk_id {
+            columns.push_str(&format!(
+                ", {}_id",
+                Self::parent_name(&insert.table_name).unwrap()
+            ));
+            values.push_str(&format!(", {}", fk_id));
+        }
         let sql = format!(
-            r#"INSERT INTO "{}" ({}) VALUES ({});\n"#,
-            insert.table_name, columns, values,
+            r#"INSERT INTO "{}" (id, {}) VALUES ({}, {});"#,
+            insert.table_name, columns, insert.id, values,
         );
         sql
     }

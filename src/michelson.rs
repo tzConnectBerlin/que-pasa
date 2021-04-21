@@ -36,11 +36,26 @@ pub fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
     Ok(json)
 }
 
+/// Load from the ../test directory, only for testing
+fn load_test(name: &str) -> String {
+    std::fs::read_to_string(std::path::Path::new(name)).unwrap()
+}
+
 pub fn get_storage(contract_id: &String, level: u32) -> Result<JsonValue, Box<dyn Error>> {
     load(&format!(
         "https://testnet-tezos.giganode.io/chains/main/blocks/{}/context/contracts/{}/storage",
         level, contract_id
     ))
+}
+
+#[test]
+fn test_generate() {
+    let json = json::parse(&load_test(
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
+    ))
+    .unwrap();
+    let storage_definition = &json["code"][1]["args"][0];
+    let ast = crate::storage::storage_from_json(storage_definition.clone());
 }
 
 pub fn get_everything(contract_id: &str, level: Option<u32>) -> Result<JsonValue, Box<dyn Error>> {
@@ -54,6 +69,31 @@ pub fn get_everything(contract_id: &str, level: Option<u32>) -> Result<JsonValue
     );
     debug!("Loading contract data for {} url is {}", contract_id, url);
     load(&url)
+}
+
+pub fn get_operations(
+    contract_id: &str,
+    level: Option<u32>,
+) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+    let level = match level {
+        Some(x) => format!("{}", x),
+        None => "head".to_string(),
+    };
+    let url = format!(
+        "https://testnet-tezos.giganode.io/chains/main/blocks/{}",
+        level
+    );
+    let json = load(&url)?;
+    if let JsonValue::Array(operations) = &json["operations"][3] {
+        let mut result = vec![];
+        for operation in operations {
+            result.push(operation.clone());
+        }
+        Ok(result)
+    } else {
+        let err: Box<dyn Error> = String::from("No operations found in block").into();
+        Err(err)
+    }
 }
 
 #[derive(Clone, Debug)]
