@@ -10,11 +10,10 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate substring;
-#[macro_use]
-extern crate maplit;
 
 use clap::{App, Arg, SubCommand};
 
+pub mod highlevel;
 pub mod michelson;
 pub mod node;
 pub mod postgresql_generator;
@@ -53,7 +52,7 @@ fn main() {
 
     let contract_id = matches.value_of("contract_id").unwrap();
 
-    let json = michelson::get_everything(contract_id, None).unwrap();
+    let json = michelson::StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
     let ast = storage::storage_from_json(storage_definition);
@@ -65,7 +64,7 @@ fn main() {
     let mut builder = table_builder::TableBuilder::new();
     let _tables = builder.populate(&node);
 
-    /// If generate-sql command is given, just output SQL and quit.
+    // If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
         let mut generator = PostgresqlGenerator::new();
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -86,11 +85,14 @@ fn main() {
         print!("Loading level");
         for level in levels {
             print!(" {}", level);
-            let json = michelson::get_storage(&contract_id.to_string(), level).unwrap();
-            let v = michelson::preparse_storage(&json);
-            let result = michelson::parse_storage(&v);
+            let mut storage_parser = michelson::StorageParser::new();
+            let json = storage_parser
+                .get_storage(&contract_id.to_string(), level)
+                .unwrap();
+            let v = storage_parser.preparse_storage(&json);
+            let result = storage_parser.parse_storage(&v);
             debug!("storage: {:#?}", result);
-            let result = michelson::update(&result, &node);
+            let result = storage_parser.update(&result, &node);
             debug!("{:#?}", result);
         }
         println!("");

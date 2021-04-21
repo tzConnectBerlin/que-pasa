@@ -131,7 +131,8 @@ impl PostgresqlGenerator {
         match value {
             crate::michelson::Value::Address(s)
             | crate::michelson::Value::Bytes(s)
-            | crate::michelson::Value::String(s) => format!(r#"'{}'"#, Self::escape(&s)),
+            | crate::michelson::Value::String(s)
+            | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
             crate::michelson::Value::Bool(val) => {
                 if *val {
                     "true".to_string()
@@ -148,9 +149,11 @@ impl PostgresqlGenerator {
                 date_time.to_rfc3339()
             }
             crate::michelson::Value::Elt(_, _)
+            | crate::michelson::Value::Left(_)
             | crate::michelson::Value::List(_)
             | crate::michelson::Value::Pair(_, _)
-            | crate::michelson::Value::Unit => panic!("quote called with {:?}", value),
+            | crate::michelson::Value::Right(_)
+            | crate::michelson::Value::Unit(None) => panic!("quote called with {:?}", value),
         }
     }
 

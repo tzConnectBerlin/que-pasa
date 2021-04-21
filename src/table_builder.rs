@@ -4,7 +4,7 @@ use crate::table::Table;
 
 use std::collections::HashMap;
 
-type TableMap = HashMap<String, Table>;
+pub type TableMap = HashMap<String, Table>;
 
 pub struct TableBuilder {
     pub tables: TableMap,

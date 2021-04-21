@@ -2,9 +2,6 @@ use crate::michelson::Value;
 use crate::node::Node;
 use crate::storage::{Expr, SimpleExpr};
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 #[derive(Clone, Debug)]
 pub struct Column {
     pub name: String,
