@@ -50,6 +50,8 @@ pub enum Type {
     Table,
     TableIndex,
     Column,
+    Unit,
+    OrEnumeration,
 }
 
 #[derive(Clone, Debug)]
@@ -99,18 +101,21 @@ pub struct Node {
     pub _type: Type,
     pub table_name: Option<String>,
     pub column_name: Option<String>,
+    pub value: Option<String>,
     pub left: Option<Box<Node>>,
     pub right: Option<Box<Node>>,
     pub expr: Expr,
 }
 
 impl fmt::Debug for Node {
+    // to stop it recursing into the Expr type
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Node")
             .field("name", &self.name)
             .field("_type", &self._type)
             .field("table_name", &self.table_name)
             .field("column_name", &self.column_name)
+            .field("value", &self.value)
             .field("left", &self.left)
             .field("right", &self.right)
             .finish()
@@ -131,6 +136,7 @@ impl Node {
             _type: c._type,
             table_name: Some(c.table_name.clone()),
             column_name: name,
+            value: None,
             left: None,
             right: None,
             expr: ele.expr.clone(),
@@ -159,7 +165,9 @@ impl Node {
                     n
                 }
                 ComplexExpr::Option(_inner_expr) => Self::build(context, (**_inner_expr).clone()),
-                ComplexExpr::Or(_this, _that) => Self::build_or(&mut context, &ele),
+                ComplexExpr::OrEnumeration(_this, _that) => {
+                    Self::build_enumeration_or(&mut context, &ele, &ele.name.clone().unwrap())
+                }
             },
             Expr::SimpleExpr(_) => {
                 context._type = Type::Column;
@@ -169,17 +177,37 @@ impl Node {
         node
     }
 
-    pub fn build_or(context: &mut Context, ele: &Ele) -> Node {
+    pub fn build_enumeration_or(context: &mut Context, ele: &Ele, column_name: &String) -> Node {
+        let mut node = Self::new(context, ele);
+        node.name = Some(column_name.clone());
+        node.column_name = Some(column_name.clone());
         match ele.expr {
-            Expr::SimpleExpr(_) => {
-                context._type = Type::Column;
-                Self::new(context, ele)
-            }
+            Expr::SimpleExpr(e) => match e {
+                SimpleExpr::Unit => {
+                    println!("Unit match: {:?}", e);
+                    context._type = Type::Unit;
+                    node.value = ele.name.clone();
+                }
+                _ => panic!("Wrong type {:?}", e),
+            },
             Expr::ComplexExpr(ref e) => match e {
-                ComplexExpr::Or(_this, _that) => Self::build_or(context, _this),
+                ComplexExpr::OrEnumeration(this, that) => {
+                    node._type = Type::OrEnumeration;
+                    node.left = Some(Box::new(Self::build_enumeration_or(
+                        context,
+                        this,
+                        column_name,
+                    )));
+                    node.right = Some(Box::new(Self::build_enumeration_or(
+                        context,
+                        that,
+                        column_name,
+                    )));
+                }
                 _ => panic!("Complicated or! {:#?}", ele),
             },
         }
+        node
     }
 
     pub fn build_index(mut context: Context, ele: Ele) -> Node {

@@ -6,6 +6,14 @@ use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;
 
+macro_rules! add_column {
+    ($self: expr, $node:expr) => {{
+        let mut table = $self.get_table(&$node);
+        table.add_column(&$node);
+        $self.store_table(table);
+    }};
+}
+
 pub struct TableBuilder {
     pub tables: TableMap,
 }
@@ -41,17 +49,11 @@ impl TableBuilder {
                 self.populate(&node.left.expect(&format!("got pair {:#?}", foo)).clone());
                 self.populate(&node.right.unwrap().clone());
             }
-            Type::Column => {
-                let mut table = self.get_table(&node);
-                table.add_column(&node);
-                self.store_table(table)
-            }
+            Type::Column => add_column!(self, node),
+            Type::OrEnumeration => (),
+            Type::Unit => add_column!(self, node),
             Type::TableIndex => match node.expr {
-                Expr::SimpleExpr(_) => {
-                    let mut table = self.get_table(&node);
-                    table.add_index(&node);
-                    self.store_table(table);
-                }
+                Expr::SimpleExpr(_) => add_column!(self, node),
                 Expr::ComplexExpr(ref expr) => match expr {
                     ComplexExpr::Pair(_, _) => {
                         self.populate(&node.left.unwrap());

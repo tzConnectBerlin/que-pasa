@@ -115,7 +115,7 @@ fn test_block() {
 
             let big_map_diff_json =
                 operation["contents"][0]["metadata"]["operation_result"]["big_map_diff"].clone();
-
+            println!("big map diff: {}", big_map_diff_json.to_string());
             if let JsonValue::Array(a) = big_map_diff_json {
                 for big_map_diff in a {
                     storage_parser.process_big_map(&big_map_diff);

@@ -156,7 +156,7 @@ impl StorageParser {
                 &"Pair" => {
                     if args.len() != 2 {
                         let mut args = args.clone();
-                        args.reverse(); // TODO: figure out the whole clone thing
+                        args.reverse(); // TODO: figure out the whole reverse thing
                         let parsed = self.preparse_storage2(&mut args);
                         return self.parse_storage(&parsed);
                     }
@@ -206,8 +206,8 @@ impl StorageParser {
     pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
         println!("{}", json.to_string());
         let big_map_id: u32 = json["big_map"].to_string().parse().unwrap();
-        let key: Value = self.parse_storage(&json["key"]);
-        let value: Value = self.parse_storage(&json["value"]);
+        let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]));
+        let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]));
         let node: Node = self.big_map_map.get(&big_map_id).unwrap().clone();
         match json["action"].as_str().unwrap() {
             "update" => {
@@ -244,8 +244,12 @@ impl StorageParser {
                 self.update2(keys, l, id, fk_id);
                 self.update2(values, r, id, fk_id);
             }
-            Value::Left(left) => self.update2(left, node.right.as_ref().unwrap(), id, fk_id), // TODO: figure out why left
-            Value::Right(right) => self.update2(right, node.left.as_ref().unwrap(), id, fk_id), // TODO: and right reversed
+            Value::Left(left) => {
+                self.update2(left, node.left.as_ref().unwrap(), id, fk_id);
+            }
+            Value::Right(right) => {
+                self.update2(right, node.right.as_ref().unwrap(), id, fk_id);
+            }
             Value::List(l) => {
                 for element in l {
                     debug!("Elt: {:?}", element);
@@ -258,21 +262,23 @@ impl StorageParser {
                 self.update2(right, r, id, fk_id);
                 self.update2(left, l, id, fk_id);
             }
-            Value::Unit(None) => self.update2(
-                &Value::Unit(Some(node.name.as_ref().unwrap().clone())),
-                node,
-                id,
-                fk_id,
-            ),
+            Value::Unit(None) => {
+                println!("Unit: value is {:#?}, node is {:#?}", value, node);
+                let name = match node.name.as_ref() {
+                    Some(x) => x.clone(),
+                    None => "Unknown Unit name".to_string(),
+                };
+                self.update2(
+                    &Value::Unit(Some(node.value.as_ref().unwrap().clone())),
+                    node,
+                    id,
+                    fk_id,
+                );
+            }
             _ => {
-                let table_name = match node.table_name.as_ref() {
-                    Some(x) => x.clone(),
-                    None => "".to_string(),
-                };
-                let column_name = match node.column_name.as_ref() {
-                    Some(x) => x.clone(),
-                    None => "".to_string(),
-                };
+                let table_name = node.table_name.as_ref().unwrap().to_string();
+                println!("node: {:?} value: {:?}", node, value);
+                let column_name = node.column_name.as_ref().unwrap().to_string();
                 debug!(
                     "{} {} = {:?} {:?}",
                     table_name, column_name, value, node.expr

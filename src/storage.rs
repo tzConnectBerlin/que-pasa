@@ -18,7 +18,7 @@ pub enum ComplexExpr {
     BigMap(Box<Ele>, Box<Ele>),
     Map(Box<Ele>, Box<Ele>),
     Pair(Box<Ele>, Box<Ele>),
-    Or(Box<Ele>, Box<Ele>),
+    OrEnumeration(Box<Ele>, Box<Ele>),
     Option(Box<Ele>), // TODO: move this out into SimpleExpr??
 }
 
@@ -71,6 +71,21 @@ macro_rules! complex_expr {
     }};
 }
 
+/// An or can be a variant record, or a simple enumeration.
+pub fn is_enumeration_or(json: &JsonValue) -> bool {
+    let args = args(&json);
+    let prim = match &json["prim"] {
+        JsonValue::Short(s) => s.as_str(),
+        JsonValue::String(s) => s.as_str(),
+        _ => return false,
+    };
+    match prim {
+        "or" => true,
+        "unit" => true,
+        _ => false,
+    }
+}
+
 pub fn storage_from_json(json: JsonValue) -> Ele {
     let annot = annotation(&json);
     let args = args(&json);
@@ -94,7 +109,16 @@ pub fn storage_from_json(json: JsonValue) -> Ele {
                     )))),
                 }
             }
-            "or" => complex_expr!(ComplexExpr::Or, annot, args),
+            "or" => {
+                if is_enumeration_or(&json) {
+                    complex_expr!(ComplexExpr::OrEnumeration, annot, args)
+                } else {
+                    panic!(
+                        "Or used as variant record found, don't know how to deal with it {}",
+                        json.to_string()
+                    );
+                }
+            }
             "pair" => {
                 if args.clone().unwrap().len() != 2 {
                     panic!("Pair with {} args", args.clone().unwrap().len());
