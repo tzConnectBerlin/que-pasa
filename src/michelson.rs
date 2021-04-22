@@ -37,7 +37,7 @@ pub enum Value {
     Unit(Option<String>),
 }
 
-type BigMapMap = std::collections::HashMap<u32, Node>;
+type BigMapMap = std::collections::HashMap<u32, (Option<u32>, Node)>;
 
 pub struct StorageParser {
     big_map_map: BigMapMap,
@@ -208,12 +208,12 @@ impl StorageParser {
         let big_map_id: u32 = json["big_map"].to_string().parse().unwrap();
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]));
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]));
-        let node: Node = self.big_map_map.get(&big_map_id).unwrap().clone();
+        let (fk, node): (Option<u32>, Node) = self.big_map_map.get(&big_map_id).unwrap().clone();
         match json["action"].as_str().unwrap() {
             "update" => {
                 let id = get_id();
-                self.update2(&key, &node.left.unwrap(), id, None);
-                self.update2(&value, &node.right.unwrap(), id, None);
+                self.read_storage_internal(&key, &node.left.unwrap(), id, fk);
+                self.read_storage_internal(&value, &node.right.unwrap(), id, fk);
             }
             _ => panic!("{}", json.to_string()),
         };
@@ -222,17 +222,23 @@ impl StorageParser {
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. Panics if it cannot do this (i.e. they do not match).
-    pub fn update(&mut self, value: &Value, node: &Node) {
-        self.update2(value, node, get_id(), None);
+    pub fn read_storage(&mut self, value: &Value, node: &Node) {
+        self.read_storage_internal(value, node, get_id(), None);
     }
 
-    pub fn update2(&mut self, value: &Value, node: &Node, mut id: u32, mut fk_id: Option<u32>) {
+    pub fn read_storage_internal(
+        &mut self,
+        value: &Value,
+        node: &Node,
+        mut id: u32,
+        mut fk_id: Option<u32>,
+    ) {
         match node._type {
             // When a new table is initialised, we increment id and make the old id the fk constraint
             crate::node::Type::Table => {
-                debug!("Creating table from node {:#?}", node);
                 fk_id = Some(id);
                 id = get_id();
+                println!("Creating table from node {:?} with id {} and fk_id {:?}", node, id, fk_id);
             }
             _ => (),
         }
@@ -241,41 +247,41 @@ impl StorageParser {
             Value::Elt(keys, values) => {
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
-                self.update2(keys, l, id, fk_id);
-                self.update2(values, r, id, fk_id);
+                self.read_storage_internal(keys, l, id, fk_id);
+                self.read_storage_internal(values, r, id, fk_id);
             }
             Value::Left(left) => {
-                self.update2(left, node.left.as_ref().unwrap(), id, fk_id);
+                self.read_storage_internal(left, node.left.as_ref().unwrap(), id, fk_id);
             }
             Value::Right(right) => {
-                self.update2(right, node.right.as_ref().unwrap(), id, fk_id);
+                self.read_storage_internal(right, node.right.as_ref().unwrap(), id, fk_id);
             }
             Value::List(l) => {
                 for element in l {
                     debug!("Elt: {:?}", element);
-                    self.update2(*&element, node, id, fk_id);
+                    self.read_storage_internal(*&element, node, id, fk_id);
                 }
             }
             Value::Pair(left, right) => {
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
-                self.update2(right, r, id, fk_id);
-                self.update2(left, l, id, fk_id);
+                self.read_storage_internal(right, r, id, fk_id);
+                self.read_storage_internal(left, l, id, fk_id);
             }
             Value::Unit(None) => {
                 println!("Unit: value is {:#?}, node is {:#?}", value, node);
                 let name = match node.name.as_ref() {
                     Some(x) => x.clone(),
-                    None => "Unknown Unit name".to_string(),
+                    None => panic!("Unknown Unit {:?}", node),
                 };
-                self.update2(
+                self.read_storage_internal(
                     &Value::Unit(Some(node.value.as_ref().unwrap().clone())),
                     node,
                     id,
                     fk_id,
                 );
             }
-            _ => {
+            _ => { // this is a value, and should be saved.
                 let table_name = node.table_name.as_ref().unwrap().to_string();
                 println!("node: {:?} value: {:?}", node, value);
                 let column_name = node.column_name.as_ref().unwrap().to_string();
@@ -291,14 +297,15 @@ impl StorageParser {
                             println!("{:?}", value);
                             if let Value::Int(i) = value {
                                 println!("{}", i);
-                                self.save_bigmap_location(i.to_u32().unwrap(), node.clone());
+                                self.save_bigmap_location(i.to_u32().unwrap(), fk_id, node.clone());
                             } else {
                                 panic!("Found big map with non-int id: {:?}", node);
                             }
                         }
                         _ => (),
                     },
-                    _ => crate::table::insert::add_column(
+                    _ =>
+                        crate::table::insert::add_column(
                         table_name,
                         id,
                         fk_id,
@@ -310,8 +317,8 @@ impl StorageParser {
         }
     }
 
-    fn save_bigmap_location(&mut self, id: u32, node: Node) {
-        println!("Saving {} -> {:?}", id, node);
-        self.big_map_map.insert(id, node);
+    fn save_bigmap_location(&mut self, id: u32, fk: Option<u32>, node: Node) {
+        println!("Saving {} -> ({:?}, {:?})", id, fk, node);
+        self.big_map_map.insert(id, (fk, node));
     }
 }

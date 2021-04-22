@@ -111,7 +111,7 @@ fn test_block() {
 
             let preparsed_storage = storage_parser.preparse_storage(&storage_json);
             let parsed_storage = storage_parser.parse_storage(&preparsed_storage);
-            storage_parser.update(&parsed_storage, &node);
+            storage_parser.read_storage(&parsed_storage, &node);
 
             let big_map_diff_json =
                 operation["contents"][0]["metadata"]["operation_result"]["big_map_diff"].clone();
@@ -121,11 +121,17 @@ fn test_block() {
                     storage_parser.process_big_map(&big_map_diff);
                 }
             }
-            let inserts = crate::table::insert::get_inserts();
-            let mut generator = postgresql_generator::PostgresqlGenerator::new();
-            for (key, value) in &inserts {
-                println!("{}", generator.build_insert(inserts.get(&key).unwrap()));
+            {
+                let inserts = crate::table::insert::get_inserts();
+                let mut generator = postgresql_generator::PostgresqlGenerator::new();
+                for (key, value) in &inserts {
+                    println!(
+                        "{}",
+                        generator.build_insert(inserts.get(&key).unwrap(), level)
+                    );
+                }
             }
+            crate::table::insert::get_inserts().clear();
         }
     }
 }

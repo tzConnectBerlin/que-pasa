@@ -83,7 +83,7 @@ pub mod insert {
 
     pub type Inserts = HashMap<InsertKey, Insert>;
 
-    lazy_static! {
+    lazy_static! { // TODO: clean this up.
         static ref INSERTS: Mutex<Inserts> = Mutex::new(HashMap::new());
     }
 
@@ -103,6 +103,11 @@ pub mod insert {
         );
     }
 
+    pub fn clear_inserts() {
+        let inserts: &mut Inserts = &mut *INSERTS.lock().unwrap();
+        inserts.clear();
+    }
+
     pub fn add_column(
         table_name: String,
         id: u32,
@@ -110,6 +115,9 @@ pub mod insert {
         column_name: String,
         value: Value,
     ) {
+        println!("add_column {}, {}, {:?}, {}, {:?}",
+                 table_name, id, fk_id, column_name, value);
+
         let mut insert = match get_insert(table_name.clone(), id, fk_id) {
             Some(x) => x,
             None => Insert {
@@ -130,7 +138,6 @@ pub mod insert {
         match (*INSERTS.lock().unwrap()).get(&InsertKey { table_name, id }) {
             Some(e) => {
                 assert!(e.fk_id == fk_id);
-
                 Some((*e).clone())
             }
             None => None,

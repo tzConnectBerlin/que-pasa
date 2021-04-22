@@ -92,20 +92,24 @@ fn main() {
             let v = storage_parser.preparse_storage(&json);
             let result = storage_parser.parse_storage(&v);
             debug!("storage: {:#?}", result);
-            let result = storage_parser.update(&result, &node);
+            let result = storage_parser.read_storage(&result, &node);
             debug!("{:#?}", result);
+            println!("");
+            let inserts = crate::table::insert::get_inserts().clone();
+            let mut keys = inserts
+                .keys()
+                .collect::<Vec<&crate::table::insert::InsertKey>>();
+            keys.sort_by_key(|a| a.id);
+            let mut generator = PostgresqlGenerator::new();
+            println!("keys len: {}", keys.len());
+            for key in keys.iter() {
+                println!(
+                    "{}",
+                    generator.build_insert(inserts.get(key).unwrap(), level)
+                );
+            }
+            println!("");
+            crate::table::insert::get_inserts().clear();
         }
-        println!("");
-        let inserts = crate::table::insert::get_inserts();
-        let mut keys = inserts
-            .keys()
-            .collect::<Vec<&crate::table::insert::InsertKey>>();
-        keys.sort_by_key(|a| a.id);
-        let mut generator = PostgresqlGenerator::new();
-        println!("keys len: {}", keys.len());
-        for key in keys.iter() {
-            println!("{}", generator.build_insert(inserts.get(key).unwrap()));
-        }
-        println!("");
     }
 }

@@ -157,7 +157,7 @@ impl PostgresqlGenerator {
         }
     }
 
-    pub fn build_insert(&mut self, insert: &crate::table::insert::Insert) -> String {
+    pub fn build_insert(&mut self, insert: &crate::table::insert::Insert, level: u32) -> String {
         let mut columns: String = insert
             .columns
             .iter()
@@ -177,6 +177,8 @@ impl PostgresqlGenerator {
             ));
             values.push_str(&format!(", {}", fk_id));
         }
+        columns.push_str(", _level");
+        values.push_str(&format!(", {}", level));
         let sql = format!(
             r#"INSERT INTO "{}" (id, {}) VALUES ({}, {});"#,
             insert.table_name, columns, insert.id, values,
