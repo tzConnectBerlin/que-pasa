@@ -1,6 +1,6 @@
 use crate::michelson::Value;
 use crate::node::Node;
-use crate::storage::{Expr, SimpleExpr};
+use crate::storage::{ComplexExpr, Expr, SimpleExpr};
 
 #[derive(Clone, Debug)]
 pub struct Column {
@@ -19,7 +19,7 @@ impl Table {
     pub fn new(name: String) -> Self {
         let new_table = Self {
             name,
-            indices: vec![],
+            indices: vec!["_level".to_string()],
             columns: vec![],
         };
         new_table
@@ -51,20 +51,41 @@ impl Table {
                     expr: e.clone(),
                 });
             }
-            _ => panic!("add_column called with ComplexExpr {:?}", &node.expr),
+            Expr::ComplexExpr(ce) => match ce {
+                ComplexExpr::OrEnumeration(_, _) => {
+                    self.columns.push(Column {
+                        name: name,
+                        expr: SimpleExpr::Unit, // What will ultimately go in is a Unit
+                    })
+                }
+                _ => panic!("add_column called with ComplexExpr {:?}", &node.expr),
+            },
         }
     }
 }
 
 pub mod insert {
     use crate::table::Value;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     use std::sync::Mutex;
 
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct InsertKey {
         pub table_name: String,
         pub id: u32,
+    }
+
+    impl std::cmp::Ord for InsertKey {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            format!("{}{}", other.table_name, other.id)
+                .cmp(&format!("{}{}", self.table_name, self.id))
+        }
+    }
+
+    impl PartialOrd for InsertKey {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
     }
 
     #[derive(Clone, Debug)]
@@ -81,13 +102,17 @@ pub mod insert {
         pub columns: Vec<Column>,
     }
 
-    pub type Inserts = HashMap<InsertKey, Insert>;
+    pub type Inserts = BTreeMap<InsertKey, Insert>;
 
     lazy_static! { // TODO: clean this up.
-        static ref INSERTS: Mutex<Inserts> = Mutex::new(HashMap::new());
+        static ref INSERTS: Mutex<Inserts> = Mutex::new(BTreeMap::new());
     }
 
     pub fn add_insert(table_name: String, id: u32, fk_id: Option<u32>, columns: Vec<Column>) {
+        debug!(
+            "table::add_insert {}, {}, {:?}, {:?}",
+            table_name, id, fk_id, columns
+        );
         let inserts: &mut Inserts = &mut *INSERTS.lock().unwrap();
         inserts.insert(
             InsertKey {
@@ -115,8 +140,10 @@ pub mod insert {
         column_name: String,
         value: Value,
     ) {
-        println!("add_column {}, {}, {:?}, {}, {:?}",
-                 table_name, id, fk_id, column_name, value);
+        debug!(
+            "add_column {}, {}, {:?}, {}, {:?}",
+            table_name, id, fk_id, column_name, value
+        );
 
         let mut insert = match get_insert(table_name.clone(), id, fk_id) {
             Some(x) => x,

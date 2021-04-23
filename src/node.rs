@@ -184,7 +184,7 @@ impl Node {
         match ele.expr {
             Expr::SimpleExpr(e) => match e {
                 SimpleExpr::Unit => {
-                    println!("Unit match: {:?}", e);
+                    debug!("Unit match: {:?}", e);
                     context._type = Type::Unit;
                     node.value = ele.name.clone();
                 }

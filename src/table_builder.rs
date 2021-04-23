@@ -6,14 +6,6 @@ use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;
 
-macro_rules! add_column {
-    ($self: expr, $node:expr) => {{
-        let mut table = $self.get_table(&$node);
-        table.add_column(&$node);
-        $self.store_table(table);
-    }};
-}
-
 pub struct TableBuilder {
     pub tables: TableMap,
 }
@@ -23,6 +15,18 @@ impl TableBuilder {
         Self {
             tables: TableMap::new(),
         }
+    }
+
+    fn add_column(&mut self, node: &Node) {
+        let mut table = self.get_table(node);
+        table.add_column(node);
+        self.store_table(table);
+    }
+
+    fn add_index(&mut self, node: &Node) {
+        let mut table = self.get_table(node);
+        table.add_index(node);
+        self.store_table(table);
     }
 
     fn get_table(&self, node: &Node) -> Table {
@@ -49,11 +53,11 @@ impl TableBuilder {
                 self.populate(&node.left.expect(&format!("got pair {:#?}", foo)).clone());
                 self.populate(&node.right.unwrap().clone());
             }
-            Type::Column => add_column!(self, node),
-            Type::OrEnumeration => (),
-            Type::Unit => add_column!(self, node),
+            Type::Column => self.add_column(&node),
+            Type::OrEnumeration => self.add_column(&node),
+            Type::Unit => (),
             Type::TableIndex => match node.expr {
-                Expr::SimpleExpr(_) => add_column!(self, node),
+                Expr::SimpleExpr(_) => self.add_index(&node),
                 Expr::ComplexExpr(ref expr) => match expr {
                     ComplexExpr::Pair(_, _) => {
                         self.populate(&node.left.unwrap());

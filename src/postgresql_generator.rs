@@ -1,10 +1,37 @@
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
+use postgres::{Client, NoTls, Transaction};
+use std::error::Error;
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {}
+
+pub fn connect() -> Result<Client, Box<dyn Error>> {
+    let url = dotenv!("DATABASE_URL");
+    debug!("DATABASE_URL={}", url);
+    Ok(Client::connect(url, NoTls)?)
+}
+
+pub fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {
+    Ok(client.transaction()?)
+}
+
+pub fn commit(transaction: Transaction) -> Result<(), Box<dyn Error>> {
+    Ok(transaction.commit()?)
+}
+
+pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn Error>> {
+    debug!("postgresql_generator::exec {}:", sql);
+    match transaction.execute(sql.as_str(), &[]) {
+        Ok(x) => {
+            assert!(x == 1);
+            Ok(x)
+        }
+        Err(e) => Err(Box::new(crate::error::Error::new(&e.to_string()))),
+    }
+}
 
 impl PostgresqlGenerator {
     pub fn new() -> Self {
@@ -75,7 +102,10 @@ impl PostgresqlGenerator {
     }
 
     pub fn create_columns(&mut self, table: &Table) -> Vec<String> {
-        let mut cols: Vec<String> = vec![];
+        let mut cols: Vec<String> = match Self::parent_name(&table.name) {
+            Some(x) => vec![format!(r#""{}_id" BIGINT NOT NULL"#, x)],
+            None => vec![],
+        };
         for column in &table.columns {
             cols.push(self.create_sql(column.clone()));
         }
@@ -84,7 +114,7 @@ impl PostgresqlGenerator {
 
     pub fn create_index(&mut self, table: &Table) -> String {
         format!(
-            "CREATE UNIQUE INDEX ON \"{}\"(_level, {});\n",
+            "CREATE UNIQUE INDEX ON \"{}\"({});\n",
             table.name,
             table.indices.join(", ")
         )
@@ -101,7 +131,7 @@ impl PostgresqlGenerator {
     fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
         if let Some(parent) = Self::parent_name(&table.name) {
             Some(format!(
-                "FOREIGN KEY {}_id REFERENCES {}(id)",
+                r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
                 parent, parent
             ))
         } else {
@@ -172,7 +202,7 @@ impl PostgresqlGenerator {
             .join(", ");
         if let Some(fk_id) = insert.fk_id {
             columns.push_str(&format!(
-                ", {}_id",
+                r#", "{}_id""#,
                 Self::parent_name(&insert.table_name).unwrap()
             ));
             values.push_str(&format!(", {}", fk_id));
@@ -180,7 +210,7 @@ impl PostgresqlGenerator {
         columns.push_str(", _level");
         values.push_str(&format!(", {}", level));
         let sql = format!(
-            r#"INSERT INTO "{}" (id, {}) VALUES ({}, {});"#,
+            r#"INSERT INTO "{}" (id, {}) VALUES ({}, {})"#,
             insert.table_name, columns, insert.id, values,
         );
         sql

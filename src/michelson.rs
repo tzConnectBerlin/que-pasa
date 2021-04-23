@@ -1,20 +1,26 @@
 use crate::node::Node;
+use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
+use regex::Regex;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+const NODE_URL: &str = "http://edo2full.newby.org:8732";
+//const NODE_URL: &str = "https://testnet-tezos.giganode.io";
+
 lazy_static! {
     static ref IDS: Mutex<u32> = Mutex::new(1u32);
 }
 
-fn get_id() -> u32 {
+pub fn get_id() -> u32 {
     let id = &mut *IDS.lock().unwrap();
     let val = *id;
     *id = *id + 1u32;
+    debug!("michelson::get_id {}", id);
     val
 }
 
@@ -37,7 +43,7 @@ pub enum Value {
     Unit(Option<String>),
 }
 
-type BigMapMap = std::collections::HashMap<u32, (Option<u32>, Node)>;
+type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
 
 pub struct StorageParser {
     big_map_map: BigMapMap,
@@ -68,14 +74,20 @@ impl StorageParser {
         Ok(json)
     }
 
+    pub fn head() -> Result<u32, Box<dyn Error>> {
+        let json = Self::load(&format!("{}/chains/main/blocks/head", NODE_URL))?;
+        Ok(json["header"]["level"].as_u32().unwrap())
+    }
+
+    // Gets the storage at a level
     pub fn get_storage(
         &self,
         contract_id: &String,
         level: u32,
     ) -> Result<JsonValue, Box<dyn Error>> {
         Self::load(&format!(
-            "https://testnet-tezos.giganode.io/chains/main/blocks/{}/context/contracts/{}/storage",
-            level, contract_id
+            "{}/chains/main/blocks/{}/context/contracts/{}/storage",
+            NODE_URL, level, contract_id
         ))
     }
 
@@ -88,11 +100,65 @@ impl StorageParser {
             None => "head".to_string(),
         };
         let url = format!(
-            "https://testnet-tezos.giganode.io/chains/main/blocks/{}/context/contracts/{}/script",
-            level, contract_id
+            "{}/chains/main/blocks/{}/context/contracts/{}/script",
+            NODE_URL, level, contract_id
         );
         debug!("Loading contract data for {} url is {}", contract_id, url);
         Self::load(&url)
+    }
+
+    pub fn get_big_map_operations_from_operations(
+        json: &JsonValue,
+    ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+        if let JsonValue::Array(a) =
+            &json["contents"][0]["metadata"]["operation_result"]["big_map_diff"]
+        {
+            Ok(a.clone())
+        } else {
+            Err(crate::error::Error::boxed(&format!(
+                "Not array: {}",
+                json.to_string()
+            )))
+        }
+    }
+
+    pub fn get_storage_from_operation(json: &JsonValue) -> Result<JsonValue, Box<dyn Error>> {
+        Ok(json["contents"][0]["metadata"]["operation_result"]["storage"].clone())
+    }
+
+    pub fn get_operations_from_node(
+        contract_id: &str,
+        level: Option<u32>,
+    ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+        let level = match level {
+            Some(x) => format!("{}", x),
+            None => "head".to_string(),
+        };
+        let url = format!("{}/chains/main/blocks/{}", NODE_URL, level);
+        let json = StorageParser::load(&url)?;
+        Self::get_operations_from_block_json(contract_id, &json)
+    }
+
+    pub fn get_operations_from_block_json(
+        contract_id: &str,
+        json: &JsonValue,
+    ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+        if let JsonValue::Array(operations) = &json["operations"][3] {
+            let mut result = vec![];
+            for operation in operations {
+                if let JsonValue::String(id) = &operation["contents"][0]["destination"] {
+                    if id == contract_id {
+                        result.push(operation.clone());
+                    } else {
+                        debug!("{} Didn't match!", id);
+                    }
+                }
+            }
+            Ok(result)
+        } else {
+            let err: Box<dyn Error> = String::from("No operations section found in block").into();
+            Err(err)
+        }
     }
 
     fn bigint(source: &String) -> Result<BigInt, Box<dyn Error>> {
@@ -121,6 +187,21 @@ impl StorageParser {
                     rest,
                 ]
             };
+        }
+    }
+
+    fn is_just_numbers(text: &str) -> bool {
+        lazy_static! {
+            static ref TIMESTAMP_REGEX: Regex = Regex::new("^[0-9]+$").unwrap();
+        }
+        TIMESTAMP_REGEX.is_match(text)
+    }
+
+    fn parse_date(date: &str) -> Result<DateTime<Utc>, Box<dyn Error>> {
+        if Self::is_just_numbers(date) {
+            Ok(Utc.timestamp(date.parse()?, 0))
+        } else {
+            Ok(DateTime::parse_from_rfc3339(date)?.with_timezone(&Utc))
         }
     }
 
@@ -204,16 +285,16 @@ impl StorageParser {
     }
 
     pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
-        println!("{}", json.to_string());
+        debug!("process_big_map {}", json.to_string());
         let big_map_id: u32 = json["big_map"].to_string().parse().unwrap();
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]));
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]));
-        let (fk, node): (Option<u32>, Node) = self.big_map_map.get(&big_map_id).unwrap().clone();
+        let (fk, node): (u32, Node) = self.big_map_map.get(&big_map_id).unwrap().clone();
         match json["action"].as_str().unwrap() {
             "update" => {
                 let id = get_id();
-                self.read_storage_internal(&key, &node.left.unwrap(), id, fk);
-                self.read_storage_internal(&value, &node.right.unwrap(), id, fk);
+                self.read_storage_internal(&key, &node.left.unwrap(), id, Some(fk));
+                self.read_storage_internal(&value, &node.right.unwrap(), id, Some(fk));
             }
             _ => panic!("{}", json.to_string()),
         };
@@ -222,8 +303,31 @@ impl StorageParser {
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. Panics if it cannot do this (i.e. they do not match).
-    pub fn read_storage(&mut self, value: &Value, node: &Node) {
+    pub fn read_storage(&mut self, value: &Value, node: &Node) -> Result<(), Box<dyn Error>> {
         self.read_storage_internal(value, node, get_id(), None);
+        Ok(())
+    }
+
+    // we detect the start of a new table by the annotations in the Node struct. But we only want to
+    // do this once per table, so we must ensure we don't get confused by multiple Elts for multiple
+    // rows
+    fn is_new_table(node: &Node, value: &Value) -> bool {
+        match node._type {
+            // When a new table is initialised, we increment id and make the old id the fk constraint
+            crate::node::Type::Table => match node.expr {
+                crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::Map(_, _)) => {
+                    match value {
+                        Value::Elt(_, _) => false,
+                        Value::List(_) => true,
+                        _ => {
+                            panic!("Unexpected value {:?}", value);
+                        }
+                    }
+                }
+                _ => false,
+            },
+            _ => false,
+        }
     }
 
     pub fn read_storage_internal(
@@ -233,18 +337,20 @@ impl StorageParser {
         mut id: u32,
         mut fk_id: Option<u32>,
     ) {
-        match node._type {
-            // When a new table is initialised, we increment id and make the old id the fk constraint
-            crate::node::Type::Table => {
-                fk_id = Some(id);
-                id = get_id();
-                println!("Creating table from node {:?} with id {} and fk_id {:?}", node, id, fk_id);
-            }
-            _ => (),
+        debug!("read_storage_internal id: {} Node: {:?}", id, node);
+        if Self::is_new_table(node, value) {
+            // get a new id and make the old one the current foreign key
+            fk_id = Some(id);
+            id = get_id();
+            debug!(
+                "Creating table from node {:?} with id {} and fk_id {:?}",
+                node, id, fk_id
+            );
         }
 
         match value {
             Value::Elt(keys, values) => {
+                // entry in a map or a big map.
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
                 self.read_storage_internal(keys, l, id, fk_id);
@@ -269,11 +375,7 @@ impl StorageParser {
                 self.read_storage_internal(left, l, id, fk_id);
             }
             Value::Unit(None) => {
-                println!("Unit: value is {:#?}, node is {:#?}", value, node);
-                let name = match node.name.as_ref() {
-                    Some(x) => x.clone(),
-                    None => panic!("Unknown Unit {:?}", node),
-                };
+                debug!("Unit: value is {:#?}, node is {:#?}", value, node);
                 self.read_storage_internal(
                     &Value::Unit(Some(node.value.as_ref().unwrap().clone())),
                     node,
@@ -281,31 +383,33 @@ impl StorageParser {
                     fk_id,
                 );
             }
-            _ => { // this is a value, and should be saved.
+            _ => {
+                // this is a value, and should be saved.
                 let table_name = node.table_name.as_ref().unwrap().to_string();
-                println!("node: {:?} value: {:?}", node, value);
+                debug!("node: {:?} value: {:?}", node, value);
                 let column_name = node.column_name.as_ref().unwrap().to_string();
                 debug!(
                     "{} {} = {:?} {:?}",
                     table_name, column_name, value, node.expr
                 );
 
-                // If this is a big map, save the id
+                // If this is a big map, save the id for later processing, and the fk_id currently
+                // being used
                 match &node.expr {
                     crate::storage::Expr::ComplexExpr(ce) => match ce {
                         crate::storage::ComplexExpr::BigMap(_, _) => {
-                            println!("{:?}", value);
+                            debug!("{:?}", value);
                             if let Value::Int(i) = value {
-                                println!("{}", i);
-                                self.save_bigmap_location(i.to_u32().unwrap(), fk_id, node.clone());
+                                debug!("{}", i);
+                                debug!("Saving bigmap {:} with parent {}", i, id);
+                                self.save_bigmap_location(i.to_u32().unwrap(), id, node.clone());
                             } else {
                                 panic!("Found big map with non-int id: {:?}", node);
                             }
                         }
                         _ => (),
                     },
-                    _ =>
-                        crate::table::insert::add_column(
+                    _ => crate::table::insert::add_column(
                         table_name,
                         id,
                         fk_id,
@@ -317,8 +421,8 @@ impl StorageParser {
         }
     }
 
-    fn save_bigmap_location(&mut self, id: u32, fk: Option<u32>, node: Node) {
-        println!("Saving {} -> ({:?}, {:?})", id, fk, node);
-        self.big_map_map.insert(id, (fk, node));
+    fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, node: Node) {
+        debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, node);
+        self.big_map_map.insert(bigmap_id, (fk, node));
     }
 }
