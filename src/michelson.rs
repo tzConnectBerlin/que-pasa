@@ -1,3 +1,4 @@
+use crate::error::Res;
 use crate::node::Node;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
@@ -7,7 +8,6 @@ use regex::Regex;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::Mutex;
-use std::time::SystemTime;
 
 const NODE_URL: &str = "http://edo2full.newby.org:8732";
 //const NODE_URL: &str = "https://testnet-tezos.giganode.io";
@@ -39,8 +39,14 @@ pub enum Value {
     Pair(Box<Value>, Box<Value>),
     Right(Box<Value>),
     String(String),
-    Timestamp(SystemTime),
+    Timestamp(DateTime<Utc>),
     Unit(Option<String>),
+}
+
+#[derive(Clone, Debug)]
+pub struct Level {
+    pub _level: u32,
+    pub hash: String,
 }
 
 type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
@@ -56,7 +62,8 @@ impl StorageParser {
         }
     }
 
-    pub fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
+    /// Load a uri (of course)
+    fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
         debug!("Loading: {}", uri);
         let mut response = Vec::new();
         let mut handle = Easy::new();
@@ -74,12 +81,28 @@ impl StorageParser {
         Ok(json)
     }
 
-    pub fn head() -> Result<u32, Box<dyn Error>> {
+    /// Return the highest level on the chain
+    pub fn head() -> Res<Level> {
         let json = Self::load(&format!("{}/chains/main/blocks/head", NODE_URL))?;
-        Ok(json["header"]["level"].as_u32().unwrap())
+        Ok(Level {
+            _level: json["header"]["level"]
+                .as_u32()
+                .ok_or(crate::error::Error::boxed("Couldn't get level from node"))?,
+            hash: json["hash"].to_string(),
+        })
     }
 
-    // Gets the storage at a level
+    pub fn level(level: u32) -> Res<Level> {
+        let json = Self::load(&format!("{}/chains/main/blocks/{}", NODE_URL, level))?;
+        Ok(Level {
+            _level: json["header"]["level"]
+                .as_u32()
+                .ok_or(crate::error::Error::boxed("Couldn't get level from node"))?,
+            hash: json["hash"].to_string(),
+        })
+    }
+
+    /// Get the storage at a level
     pub fn get_storage(
         &self,
         contract_id: &String,
@@ -91,6 +114,7 @@ impl StorageParser {
         ))
     }
 
+    /// Get all of the data for the contract.
     pub fn get_everything(
         contract_id: &str,
         level: Option<u32>,
@@ -107,6 +131,7 @@ impl StorageParser {
         Self::load(&url)
     }
 
+    /// Pass in a set of operations from the node, get back the parts which update big maps
     pub fn get_big_map_operations_from_operations(
         json: &JsonValue,
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
@@ -190,30 +215,28 @@ impl StorageParser {
         }
     }
 
-    fn is_just_numbers(text: &str) -> bool {
-        lazy_static! {
-            static ref TIMESTAMP_REGEX: Regex = Regex::new("^[0-9]+$").unwrap();
-        }
-        TIMESTAMP_REGEX.is_match(text)
-    }
-
-    fn parse_date(date: &str) -> Result<DateTime<Utc>, Box<dyn Error>> {
-        if Self::is_just_numbers(date) {
-            Ok(Utc.timestamp(date.parse()?, 0))
-        } else {
-            Ok(DateTime::parse_from_rfc3339(date)?.with_timezone(&Utc))
+    fn parse_date(value: &Value) -> Result<DateTime<Utc>, Box<dyn Error>> {
+        match value {
+            Value::Int(s) => {
+                let ts: i64 = s.to_i64().ok_or("Num conversion failed")?;
+                Ok(Utc.timestamp(ts, 0))
+            }
+            _ => Err(crate::error::Error::boxed(&format!(
+                "Can't parse {:?}",
+                value
+            ))),
         }
     }
 
     /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
     /// data to stash it in the database.
-    pub fn parse_storage(&self, json: &JsonValue) -> Value {
+    pub fn parse_storage(&self, json: &JsonValue) -> Res<Value> {
         if let JsonValue::Array(a) = json {
             let mut inner: Vec<Box<Value>> = vec![];
             for i in a {
-                inner.push(Box::new(self.parse_storage(&i)));
+                inner.push(Box::new(self.parse_storage(&i)?));
             }
-            return Value::List(inner);
+            return Ok(Value::List(inner));
         }
         let args: Vec<JsonValue> = match &json["args"] {
             JsonValue::Array(a) => a.clone(),
@@ -225,29 +248,29 @@ impl StorageParser {
                     if args.len() != 2 {
                         panic!("Pair with array length of {}", args.len());
                     }
-                    return Value::Elt(
-                        Box::new(self.parse_storage(&args[0])),
-                        Box::new(self.parse_storage(&args[1])),
-                    );
+                    return Ok(Value::Elt(
+                        Box::new(self.parse_storage(&args[0])?),
+                        Box::new(self.parse_storage(&args[1])?),
+                    ));
                 }
-                &"False" => return Value::Bool(false),
-                &"Left" => return Value::Left(Box::new(self.parse_storage(&args[0]))),
-                &"None" => return Value::None,
-                &"Right" => return Value::Right(Box::new(self.parse_storage(&args[0]))),
+                &"False" => return Ok(Value::Bool(false)),
+                &"Left" => return Ok(Value::Left(Box::new(self.parse_storage(&args[0])?))),
+                &"None" => return Ok(Value::None),
+                &"Right" => return Ok(Value::Right(Box::new(self.parse_storage(&args[0])?))),
                 &"Pair" => {
                     if args.len() != 2 {
                         let mut args = args.clone();
-                        args.reverse(); // TODO: figure out the whole reverse thing
+                        args.reverse(); // so we can pop() afterward. But TODO: fix
                         let parsed = self.preparse_storage2(&mut args);
                         return self.parse_storage(&parsed);
                     }
-                    return Value::Pair(
-                        Box::new(self.parse_storage(&args[0])),
-                        Box::new(self.parse_storage(&args[1])),
-                    );
+                    return Ok(Value::Pair(
+                        Box::new(self.parse_storage(&args[0])?),
+                        Box::new(self.parse_storage(&args[1])?),
+                    ));
                 }
                 &"Some" => return self.parse_storage(&args[0]),
-                &"Unit" => return Value::Unit(None),
+                &"Unit" => return Ok(Value::Unit(None)),
                 _ => {
                     panic!("Unknown prim {}", json["prim"]);
                 }
@@ -260,20 +283,20 @@ impl StorageParser {
             let key = &keys[0];
             let s = String::from(json[key].as_str().unwrap());
             return match key.as_str() {
-                "address" => Value::Address(s),
-                "bytes" => Value::Bytes(s),
-                "int" => Value::Int(Self::bigint(&s.to_string()).unwrap()),
-                "mutez" => Value::Mutez(Self::bigint(&s).unwrap()),
-                "nat" => Value::Nat(Self::bigint(&s).unwrap()),
-                "string" => Value::String(s),
-                "timestamp" => Value::Timestamp(SystemTime::now()), // TODO: parse
-                "unit" => Value::Unit(None),
-                "prim" => Self::prim(&s),
+                "address" => Ok(Value::Address(s)),
+                "bytes" => Ok(Value::Bytes(s)),
+                "int" => Ok(Value::Int(Self::bigint(&s.to_string())?)),
+                "mutez" => Ok(Value::Mutez(Self::bigint(&s)?)),
+                "nat" => Ok(Value::Nat(Self::bigint(&s).unwrap())),
+                "string" => Ok(Value::String(s)),
+                //"timestamp" => Ok(Value::Timestamp(s)),
+                "unit" => Ok(Value::Unit(None)),
+                "prim" => Ok(Self::prim(&s)),
                 _ => panic!("Couldn't match {} in {}", key.to_string(), json.to_string()),
             };
         }
         error!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
-        Value::None
+        Ok(Value::None)
     }
 
     pub fn prim(s: &String) -> Value {
@@ -287,8 +310,8 @@ impl StorageParser {
     pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
         debug!("process_big_map {}", json.to_string());
         let big_map_id: u32 = json["big_map"].to_string().parse().unwrap();
-        let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]));
-        let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]));
+        let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
+        let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
         let (fk, node): (u32, Node) = self.big_map_map.get(&big_map_id).unwrap().clone();
         match json["action"].as_str().unwrap() {
             "update" => {
@@ -393,8 +416,8 @@ impl StorageParser {
                     table_name, column_name, value, node.expr
                 );
 
-                // If this is a big map, save the id for later processing, and the fk_id currently
-                // being used
+                // If this is a big map, save the id and the fk_id currently
+                // being used, for later processing
                 match &node.expr {
                     crate::storage::Expr::ComplexExpr(ce) => match ce {
                         crate::storage::ComplexExpr::BigMap(_, _) => {
@@ -409,6 +432,15 @@ impl StorageParser {
                         }
                         _ => (),
                     },
+                    crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Timestamp) => {
+                        crate::table::insert::add_column(
+                            table_name,
+                            id,
+                            fk_id,
+                            column_name,
+                            Value::Timestamp(Self::parse_date(&value.clone()).unwrap()),
+                        );
+                    }
                     _ => crate::table::insert::add_column(
                         table_name,
                         id,

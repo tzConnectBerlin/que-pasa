@@ -79,6 +79,7 @@ fn main() {
     // If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
         let mut generator = PostgresqlGenerator::new();
+        println!("{}", generator.create_common_tables());
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
         for (_name, table) in sorted_tables {
@@ -93,44 +94,7 @@ fn main() {
         print!("Loading levels");
         for level in levels {
             print!("level {}", level);
-            let mut storage_parser = StorageParser::new();
-            let json = storage_parser
-                .get_storage(&contract_id.to_string(), level)
-                .unwrap();
-            let v = storage_parser.preparse_storage(&json);
-            let result = storage_parser.parse_storage(&v);
-            debug!("storage: {:#?}", result);
-            let result = storage_parser.read_storage(&result, &node);
-            debug!("{:#?}", result);
-
-            let operations =
-                StorageParser::get_operations_from_node(contract_id, Some(level)).unwrap();
-            for operation in operations {
-                let big_map_ops =
-                    StorageParser::get_big_map_operations_from_operations(&operation).unwrap();
-                for big_map_op in big_map_ops {
-                    storage_parser.process_big_map(&big_map_op).unwrap();
-                }
-            }
-            let inserts = crate::table::insert::get_inserts().clone();
-            let mut keys = inserts
-                .keys()
-                .collect::<Vec<&crate::table::insert::InsertKey>>();
-            keys.sort_by_key(|a| a.id);
-            debug!("keys: {:?}", keys);
-            let mut generator = PostgresqlGenerator::new();
-            let mut connection = postgresql_generator::connect().unwrap();
-            let mut transaction = postgresql_generator::transaction(&mut connection).unwrap();
-            for key in keys.iter() {
-                postgresql_generator::exec(
-                    &mut transaction,
-                    &generator.build_insert(inserts.get(key).unwrap(), level),
-                )
-                .unwrap();
-            }
-            println!("");
-            transaction.commit().unwrap();
-            crate::table::insert::clear_inserts();
+            crate::highlevel::save_level(&node, contract_id, level);
             debug!("Inserts now {:?}", crate::table::insert::get_inserts());
         }
         return;
@@ -139,8 +103,8 @@ fn main() {
     // No args so we will just start at the beginning.
 
     let head = StorageParser::head().unwrap();
-    println!("Head is block {}. starting there.", head);
-    let mut level = head + 1;
+    println!("Head is block {}. starting there.", head._level);
+    let mut level = head._level + 1;
     loop {
         level -= 1;
         print!("{} ", level);
@@ -157,9 +121,9 @@ fn main() {
             .unwrap();
         print!(".");
         let v = storage_parser.preparse_storage(&json);
-        let result = storage_parser.parse_storage(&v);
+        let result = storage_parser.parse_storage(&v).unwrap();
         debug!("storage: {:#?}", result);
-        let result = storage_parser.read_storage(&result, &node);
+        let result = storage_parser.read_storage(&result, &node).unwrap();
         debug!("{:#?}", result);
         print!(".");
         let inserts = crate::table::insert::get_inserts().clone();

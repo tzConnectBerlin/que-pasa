@@ -1,5 +1,7 @@
 use std::fmt;
 
+pub type Res<T> = Result<T, Box<dyn std::error::Error>>;
+
 #[derive(Debug)]
 pub struct Error {
     details: String,

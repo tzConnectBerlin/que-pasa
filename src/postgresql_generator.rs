@@ -1,3 +1,5 @@
+use crate::error::Res;
+use crate::michelson::Level;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
 use chrono::Utc;
@@ -8,7 +10,7 @@ use std::vec::Vec;
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {}
 
-pub fn connect() -> Result<Client, Box<dyn Error>> {
+pub fn connect() -> Res<Client> {
     let url = dotenv!("DATABASE_URL");
     debug!("DATABASE_URL={}", url);
     Ok(Client::connect(url, NoTls)?)
@@ -31,6 +33,16 @@ pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn 
         }
         Err(e) => Err(Box::new(crate::error::Error::new(&e.to_string()))),
     }
+}
+
+pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
+    exec(
+        transaction,
+        &format!(
+            "INSERT INTO levels(_level, hash) VALUES ({}, '{}')",
+            level._level, level.hash
+        ),
+    )
 }
 
 impl PostgresqlGenerator {
@@ -81,7 +93,7 @@ impl PostgresqlGenerator {
     }
 
     pub fn timestamp(&mut self, name: &String) -> String {
-        format!("{} VARCHAR(128) NULL", name)
+        format!("{} TIMESTAMP NULL", name)
     }
 
     pub fn unit(&mut self, name: &String) -> String {
@@ -89,16 +101,11 @@ impl PostgresqlGenerator {
     }
 
     pub fn start_table(&mut self, name: &String) -> String {
-        format!(
-            "CREATE TABLE \"{}\" (\n\
-                \tid SERIAL PRIMARY KEY,\n\
-                \t _level INTEGER NOT NULL,",
-            name
-        )
+        format!(include_str!("../sql/postgresql-table-header.sql"), name)
     }
 
     pub fn end_table(&mut self) -> String {
-        format!(");\n")
+        include_str!("../sql/postgresql-table-footer.sql").to_string()
     }
 
     pub fn create_columns(&mut self, table: &Table) -> Vec<String> {
@@ -139,6 +146,10 @@ impl PostgresqlGenerator {
         }
     }
 
+    pub fn create_common_tables(&mut self) -> String {
+        include_str!("../sql/postgresql-common-tables.sql").to_string()
+    }
+
     pub fn create_table_definition(&mut self, table: &Table) -> String {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(&table.name));
@@ -147,7 +158,9 @@ impl PostgresqlGenerator {
         if let Some(fk) = self.create_foreign_key_constraint(&table) {
             columns.push(fk);
         }
-        v.push(columns.join(",\n\t"));
+        let mut s = columns.join(",\n\t");
+        s.push_str(",\n\t");
+        v.push(s);
         v.push(self.end_table());
         v.push(self.create_index(table));
         v.join("\n")
@@ -176,7 +189,7 @@ impl PostgresqlGenerator {
             crate::michelson::Value::None => "NULL".to_string(),
             crate::michelson::Value::Timestamp(t) => {
                 let date_time: chrono::DateTime<Utc> = chrono::DateTime::from(*t);
-                date_time.to_rfc3339()
+                format!("'{}'", date_time.to_rfc2822())
             }
             crate::michelson::Value::Elt(_, _)
             | crate::michelson::Value::Left(_)
