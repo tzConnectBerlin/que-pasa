@@ -4,7 +4,6 @@ use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
-use regex::Regex;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -22,6 +21,15 @@ pub fn get_id() -> u32 {
     *id = *id + 1u32;
     debug!("michelson::get_id {}", id);
     val
+}
+
+pub fn curr_id() -> u32 {
+    *IDS.lock().unwrap()
+}
+
+pub fn set_id(new_id: u32) {
+    let id = &mut *IDS.lock().unwrap();
+    *id = new_id;
 }
 
 #[derive(Clone, Debug)]
@@ -226,6 +234,44 @@ impl StorageParser {
                 value
             ))),
         }
+    }
+
+    pub fn decode_address(hex: &str) -> Res<String> {
+        if hex.len() != 44 {
+            return Err(crate::error::Error::boxed(&format!(
+                "44 length byte arrays only supported right now, got {}",
+                hex
+            )));
+        }
+        let implicit = &hex[0..2] == "00";
+        let kt = &hex[0..2] == "01";
+        let _type = &hex[2..4];
+        let rest = &hex[4..];
+        let new_hex = if kt {
+            format!("025a79{}", &hex[2..42]).to_string()
+        } else if implicit {
+            match _type {
+                "00" => format!("06a19f{}", rest).to_string(),
+                "01" => format!("06a1a1{}", rest).to_string(),
+                "02" => format!("06a1a4{}", rest).to_string(),
+                _ => {
+                    return Err(crate::error::Error::boxed(&format!(
+                        "Did not recognise byte array {}",
+                        hex
+                    )))
+                }
+            }
+        } else {
+            return Err(crate::error::Error::boxed(&format!(
+                "Unknown format {}",
+                hex
+            )));
+        };
+        println!("new_hex: {}", new_hex);
+        let encoded = bs58::encode(hex::decode(new_hex.as_str())?)
+            .with_check()
+            .into_string();
+        Ok(encoded)
     }
 
     /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
@@ -441,6 +487,19 @@ impl StorageParser {
                             Value::Timestamp(Self::parse_date(&value.clone()).unwrap()),
                         );
                     }
+                    // crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
+                    //     if let Value::Address(a) = value {
+                    //         crate::table::insert::add_column(
+                    //             table_name,
+                    //             id,
+                    //             fk_id,
+                    //             column_name,
+                    //             Value::Address(Self::decode_address(&a).unwrap()),
+                    //         )
+                    //     } else {
+                    //         panic!("Got a non-address passed in where I expected an address");
+                    //     }
+                    // }
                     _ => crate::table::insert::add_column(
                         table_name,
                         id,
@@ -456,5 +515,22 @@ impl StorageParser {
     fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, node: Node) {
         debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, node);
         self.big_map_map.insert(bigmap_id, (fk, node));
+    }
+}
+
+#[test]
+fn test_decode() {
+    let test_data = vec![
+        (
+            "00006b82198cb179e8306c1bedd08f12dc863f328886",
+            "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
+        ),
+        (
+            "01d62a20fd2574884476f3da2f1a41bb8cc289f8cc00",
+            "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
+        ),
+    ];
+    for (from, to) in test_data {
+        assert_eq!(to, StorageParser::decode_address(from).unwrap().as_str());
     }
 }

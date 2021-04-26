@@ -35,6 +35,40 @@ pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn 
     }
 }
 
+pub fn get_missing_levels(
+    connection: &mut Client,
+    origination: Option<i32>,
+    end: i32,
+) -> Res<Vec<i32>> {
+    let start = match origination {
+        Some(x) => x,
+        None => 1,
+    };
+    let mut rows: Vec<i32> = vec![];
+    for row in connection.query(
+        format!("SELECT * from generate_series({},{}) s(i) WHERE NOT EXISTS (SELECT _level FROM levels WHERE _level = s.i)", start, end).as_str(), &[])? {
+        rows.push(row.get(0));
+    }
+    rows.reverse();
+    Ok(rows)
+}
+
+pub fn get_max_id(connection: &mut Client) -> Res<i32> {
+    let max_id: i32 = connection.query("SELECT max_id FROM max_id", &[])?[0].get(0);
+    Ok(max_id + 1)
+}
+
+pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
+    let updated = connection.execute("UPDATE max_id SET max_id=$1", &[&max_id])?;
+    if updated == 1 {
+        Ok(())
+    } else {
+        Err(crate::error::Error::boxed(
+            &"Wrong number of rows in max_id table. Please fix manually. Sorry",
+        ))
+    }
+}
+
 pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     exec(
         transaction,
@@ -65,7 +99,7 @@ impl PostgresqlGenerator {
     }
 
     pub fn address(&mut self, name: &String) -> String {
-        format!("{} VARCHAR(128) NULL", name)
+        format!("{} VARCHAR(127) NULL", name)
     }
 
     pub fn bool(&mut self, name: &String) -> String {
@@ -173,7 +207,6 @@ impl PostgresqlGenerator {
     fn quote(value: &crate::michelson::Value) -> String {
         match value {
             crate::michelson::Value::Address(s)
-            | crate::michelson::Value::Bytes(s)
             | crate::michelson::Value::String(s)
             | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
             crate::michelson::Value::Bool(val) => {
@@ -182,6 +215,15 @@ impl PostgresqlGenerator {
                 } else {
                     "false".to_string()
                 }
+            }
+            crate::michelson::Value::Bytes(s) => {
+                format!(
+                    "'{}'",
+                    match crate::michelson::StorageParser::decode_address(&s) {
+                        Ok(a) => a,
+                        Err(_) => s.to_string(),
+                    }
+                )
             }
             crate::michelson::Value::Int(b)
             | crate::michelson::Value::Mutez(b)

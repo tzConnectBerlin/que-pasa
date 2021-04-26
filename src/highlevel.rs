@@ -10,6 +10,13 @@ use crate::table_builder;
 
 use std::error::Error;
 
+pub fn init() -> Res<()> {
+    crate::michelson::set_id(
+        postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32,
+    );
+    Ok(())
+}
+
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
@@ -65,6 +72,7 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
         .unwrap();
     }
     println!("");
+    postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
     transaction.commit().unwrap();
     crate::table::insert::clear_inserts();
     Ok(())

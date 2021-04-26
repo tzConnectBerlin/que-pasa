@@ -1,11 +1,13 @@
 use postgresql_generator::PostgresqlGenerator;
 
+extern crate bs58;
 extern crate chrono;
 extern crate clap;
 extern crate curl;
 #[macro_use]
 extern crate dotenv_codegen;
 extern crate dotenv;
+extern crate hex;
 #[macro_use]
 extern crate json;
 #[macro_use]
@@ -89,61 +91,36 @@ fn main() {
         return;
     }
 
+    // set the ID in the DB.
+    highlevel::init().unwrap();
+
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
         print!("Loading levels");
         for level in levels {
             print!("level {}", level);
-            crate::highlevel::save_level(&node, contract_id, level);
+            crate::highlevel::save_level(&node, contract_id, level).unwrap();
             debug!("Inserts now {:?}", crate::table::insert::get_inserts());
         }
         return;
     }
 
     // No args so we will just start at the beginning.
+    let missing_levels: Vec<i32> = postgresql_generator::get_missing_levels(
+        &mut postgresql_generator::connect().unwrap(),
+        None,
+        michelson::StorageParser::head().unwrap()._level as i32,
+    )
+    .unwrap();
 
-    let head = StorageParser::head().unwrap();
-    println!("Head is block {}. starting there.", head._level);
-    let mut level = head._level + 1;
-    loop {
-        level -= 1;
-        print!("{} ", level);
-        let mut storage_parser = StorageParser::new();
-        let operations = StorageParser::get_operations_from_node(contract_id, Some(level)).unwrap();
-
-        if operations.len() == 0 {
-            println!("");
-            continue;
-        }
-
-        let json = storage_parser
-            .get_storage(&contract_id.to_string(), level)
-            .unwrap();
-        print!(".");
-        let v = storage_parser.preparse_storage(&json);
-        let result = storage_parser.parse_storage(&v).unwrap();
-        debug!("storage: {:#?}", result);
-        let result = storage_parser.read_storage(&result, &node).unwrap();
-        debug!("{:#?}", result);
-        print!(".");
-        let inserts = crate::table::insert::get_inserts().clone();
-        let mut keys = inserts
-            .keys()
-            .collect::<Vec<&crate::table::insert::InsertKey>>();
-        keys.sort_by_key(|a| a.id);
-        let mut generator = PostgresqlGenerator::new();
-        for key in keys.iter() {
-            debug!(
-                "{}",
-                generator.build_insert(inserts.get(key).unwrap(), level)
-            );
-        }
-        crate::table::insert::get_inserts().clear();
+    for level in missing_levels {
+        print!("level {}", level);
+        crate::highlevel::save_level(&node, contract_id, level as u32).unwrap();
+        debug!("Inserts now {:?}", crate::table::insert::get_inserts());
     }
 }
 
-// takes args of the form X,Y-Z,A and returns a vector of the individual numbers
-// ranges in the form X-Y are INCLUSIVE
+// get range of args in the form 1,2,3 or 1-3. All ranges inclusive.
 fn range(arg: &String) -> Vec<u32> {
     let mut result = vec![];
     for h in arg.split(',') {
