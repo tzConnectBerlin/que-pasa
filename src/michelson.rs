@@ -487,19 +487,20 @@ impl StorageParser {
                             Value::Timestamp(Self::parse_date(&value.clone()).unwrap()),
                         );
                     }
-                    // crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
-                    //     if let Value::Address(a) = value {
-                    //         crate::table::insert::add_column(
-                    //             table_name,
-                    //             id,
-                    //             fk_id,
-                    //             column_name,
-                    //             Value::Address(Self::decode_address(&a).unwrap()),
-                    //         )
-                    //     } else {
-                    //         panic!("Got a non-address passed in where I expected an address");
-                    //     }
-                    // }
+                    crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
+                        crate::table::insert::add_column(
+                            table_name,
+                            id,
+                            fk_id,
+                            column_name,
+                            if let Value::Bytes(a) = value {
+                                // sometimes we get bytes where we expected an address.
+                                Value::Address(Self::decode_address(&a).unwrap())
+                            } else {
+                                value.clone()
+                            },
+                        );
+                    }
                     _ => crate::table::insert::add_column(
                         table_name,
                         id,

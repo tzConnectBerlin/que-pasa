@@ -58,6 +58,7 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
     let mut generator = PostgresqlGenerator::new();
     let mut connection = postgresql_generator::connect()?;
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
+    postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
     postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
     for key in keys.iter() {
         postgresql_generator::exec(

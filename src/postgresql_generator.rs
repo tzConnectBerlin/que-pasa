@@ -79,6 +79,13 @@ pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     )
 }
 
+pub fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
+    exec(
+        transaction,
+        &format!("DELETE FROM levels where _level = {}", level._level),
+    )
+}
+
 impl PostgresqlGenerator {
     pub fn new() -> Self {
         Self {}
