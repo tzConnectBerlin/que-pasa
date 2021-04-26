@@ -101,13 +101,39 @@ impl StorageParser {
     }
 
     pub fn level(level: u32) -> Res<Level> {
-        let json = Self::load(&format!("{}/chains/main/blocks/{}", NODE_URL, level))?;
+        let json = Self::level_json(level)?;
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
                 .ok_or(crate::error::Error::boxed("Couldn't get level from node"))?,
             hash: json["hash"].to_string(),
         })
+    }
+
+    pub fn level_json(level: u32) -> Res<JsonValue> {
+        Self::load(&format!("{}/chains/main/blocks/{}", NODE_URL, level))
+    }
+
+    pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {
+        if let JsonValue::Array(array) = &json["operations"][3] {
+            for op in array {
+                debug!("operation: {}", op.to_string());
+                if let JsonValue::Array(sub_ops) = &op["contents"] {
+                    for sub_op in sub_ops {
+                        debug!("destination: {}", sub_op["destination"].to_string());
+                        if sub_op["destination"].to_string().as_str() == contract_id {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        } else {
+            return Err(crate::error::Error::boxed(&format!(
+                "Didn't find operations in JSON {:#?}",
+                json
+            )));
+        }
+        Ok(false)
     }
 
     /// Get the storage at a level
@@ -143,16 +169,29 @@ impl StorageParser {
     pub fn get_big_map_operations_from_operations(
         json: &JsonValue,
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
-        if let JsonValue::Array(a) =
-            &json["contents"][0]["metadata"]["operation_result"]["big_map_diff"]
-        {
-            Ok(a.clone())
-        } else {
-            Err(crate::error::Error::boxed(&format!(
-                "Not array: {}",
-                json.to_string()
-            )))
+        let mut result: Vec<JsonValue> = vec![];
+        match json {
+            JsonValue::Object(attributes) => {
+                for (key, value) in attributes.iter() {
+                    debug!("{}", key);
+                    if key.eq(&"big_map_diff".to_string()) {
+                        if let JsonValue::Array(a) = value {
+                            return Ok(a.clone());
+                        }
+                    };
+                    if let JsonValue::Object(_) = value {
+                        result.extend(Self::get_big_map_operations_from_operations(&value)?);
+                    }
+                    if let JsonValue::Array(a) = value {
+                        for i in a {
+                            result.extend(Self::get_big_map_operations_from_operations(&i)?);
+                        }
+                    }
+                }
+            }
+            _ => (),
         }
+        Ok(result)
     }
 
     pub fn get_storage_from_operation(json: &JsonValue) -> Result<JsonValue, Box<dyn Error>> {
@@ -179,11 +218,18 @@ impl StorageParser {
         if let JsonValue::Array(operations) = &json["operations"][3] {
             let mut result = vec![];
             for operation in operations {
-                if let JsonValue::String(id) = &operation["contents"][0]["destination"] {
-                    if id == contract_id {
-                        result.push(operation.clone());
-                    } else {
-                        debug!("{} Didn't match!", id);
+                if let JsonValue::Array(ops) = &operation["contents"] {
+                    for op in ops {
+                        debug!("op= {:?}", op);
+                        if let Some(dest) = &op["destination"].as_str() {
+                            if dest == &contract_id {
+                                debug!("Match!");
+                                debug!("{:?}", operation);
+                                result.push(operation.clone());
+                            }
+                        } else {
+                            debug!("{:?} Didn't match!", &op["destination"]);
+                        }
                     }
                 }
             }
@@ -267,7 +313,6 @@ impl StorageParser {
                 hex
             )));
         };
-        println!("new_hex: {}", new_hex);
         let encoded = bs58::encode(hex::decode(new_hex.as_str())?)
             .with_check()
             .into_string();
@@ -358,14 +403,19 @@ impl StorageParser {
         let big_map_id: u32 = json["big_map"].to_string().parse().unwrap();
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
-        let (fk, node): (u32, Node) = self.big_map_map.get(&big_map_id).unwrap().clone();
-        match json["action"].as_str().unwrap() {
-            "update" => {
-                let id = get_id();
-                self.read_storage_internal(&key, &node.left.unwrap(), id, Some(fk));
-                self.read_storage_internal(&value, &node.right.unwrap(), id, Some(fk));
+        if let Some((fk, node)) = self.big_map_map.get(&big_map_id) {
+            let fk = fk.clone();
+            let node = node.clone();
+            match json["action"].as_str().unwrap() {
+                "update" => {
+                    let id = get_id();
+                    self.read_storage_internal(&key, &node.left.unwrap(), id, Some(fk));
+                    self.read_storage_internal(&value, &node.right.unwrap(), id, Some(fk));
+                }
+                _ => panic!("{}", json.to_string()),
             }
-            _ => panic!("{}", json.to_string()),
+        } else {
+            debug!("Someone else's big map! {}", big_map_id);
         };
         Ok(())
     }
@@ -455,7 +505,7 @@ impl StorageParser {
             _ => {
                 // this is a value, and should be saved.
                 let table_name = node.table_name.as_ref().unwrap().to_string();
-                debug!("node: {:?} value: {:?}", node, value);
+                println!("node: {:?} value: {:?}", node, value);
                 let column_name = node.column_name.as_ref().unwrap().to_string();
                 debug!(
                     "{} {} = {:?} {:?}",

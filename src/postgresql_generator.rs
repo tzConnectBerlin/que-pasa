@@ -27,10 +27,7 @@ pub fn commit(transaction: Transaction) -> Result<(), Box<dyn Error>> {
 pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn Error>> {
     debug!("postgresql_generator::exec {}:", sql);
     match transaction.execute(sql.as_str(), &[]) {
-        Ok(x) => {
-            assert!(x == 1);
-            Ok(x)
-        }
+        Ok(x) => Ok(x),
         Err(e) => Err(Box::new(crate::error::Error::new(&e.to_string()))),
     }
 }

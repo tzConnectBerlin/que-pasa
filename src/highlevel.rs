@@ -33,6 +33,18 @@ pub fn get_tables_from_node(node: &Node) -> Result<table_builder::TableMap, Box<
 
 pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
     let mut storage_parser = StorageParser::new();
+    let mut generator = PostgresqlGenerator::new();
+    let mut connection = postgresql_generator::connect()?;
+    let mut transaction = postgresql_generator::transaction(&mut connection)?;
+
+    let json = StorageParser::level_json(level)?;
+    if !StorageParser::level_has_tx_for_us(&json, contract_id)? {
+        postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
+        postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
+        transaction.commit()?;
+        return Ok(());
+    }
+
     let json = storage_parser
         .get_storage(&contract_id.to_string(), level)
         .unwrap();
@@ -43,6 +55,7 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
     debug!("{:#?}", result);
 
     let operations = StorageParser::get_operations_from_node(contract_id, Some(level))?;
+    debug!("Operations: {:#?}", operations);
     for operation in operations {
         let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operation)?;
         for big_map_op in big_map_ops {
@@ -55,9 +68,6 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
         .collect::<Vec<&crate::table::insert::InsertKey>>();
     keys.sort_by_key(|a| a.id);
     debug!("keys: {:?}", keys);
-    let mut generator = PostgresqlGenerator::new();
-    let mut connection = postgresql_generator::connect()?;
-    let mut transaction = postgresql_generator::transaction(&mut connection)?;
     postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
     postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
     for key in keys.iter() {
@@ -69,8 +79,7 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
                     .ok_or(crate::error::Error::boxed("No insert for key"))?,
                 level,
             ),
-        )
-        .unwrap();
+        )?;
     }
     println!("");
     postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
@@ -107,12 +116,36 @@ fn test_generate() {
 }
 
 #[test]
+fn test_has_tx_for_us() {
+    let pass_json = json::parse(&load_test(
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132240.json",
+    ))
+    .unwrap();
+    assert_eq!(
+        true,
+        StorageParser::level_has_tx_for_us(&pass_json, "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq")
+            .unwrap()
+    );
+    let fail_json = json::parse(&load_test(
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-123327.json",
+    ))
+    .unwrap();
+    assert_eq!(
+        false,
+        StorageParser::level_has_tx_for_us(&fail_json, "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq")
+            .unwrap()
+    );
+}
+
+#[test]
 fn test_block() {
+    let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
     let script_json = json::parse(&load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
     ))
     .unwrap();
     let node = get_node_from_script_json(&script_json).unwrap();
+    println!("Node: {:?}", node);
     for level in vec![
         132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222, 132240,
         132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383,
@@ -124,6 +157,8 @@ fn test_block() {
         )))
         .unwrap();
 
+        println!("Level: {}", level);
+
         let operations = StorageParser::get_operations_from_block_json(
             "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             &level_json,
@@ -131,10 +166,14 @@ fn test_block() {
         .unwrap();
 
         for operation in &operations {
-            debug!("level {}, {}", level, operation.to_string());
+            println!("level {}, {}", level, operation.to_string());
+            if operation["contents"]["destination"].to_string().as_str() != contract_id {
+                println!("{} is not our contract_id", operation["destination"]);
+                continue;
+            }
             let storage_json = StorageParser::get_storage_from_operation(&operation).unwrap();
 
-            debug!("storage_json: {:?}", storage_json);
+            println!("storage_json: {:?}", storage_json);
 
             let mut storage_parser = StorageParser::new();
 
@@ -161,6 +200,28 @@ fn test_block() {
         }
         println!("");
         crate::table::insert::clear_inserts();
+    }
+}
+
+#[test]
+fn test_get_big_map_operations_from_operations() {
+    let json = json::parse(&load_test(
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-149127.json",
+    ))
+    .unwrap();
+    let ops = StorageParser::get_operations_from_block_json(
+        &"KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
+        &json,
+    )
+    .unwrap();
+
+    let mut diff_ops: Vec<JsonValue> = vec![];
+    for op in ops {
+        diff_ops.extend(StorageParser::get_big_map_operations_from_operations(&op).unwrap());
+    }
+
+    for op in diff_ops {
+        println!("{}", op.to_string());
     }
 }
 
