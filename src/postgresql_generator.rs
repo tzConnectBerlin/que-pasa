@@ -34,9 +34,9 @@ pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn 
 
 pub fn get_missing_levels(
     connection: &mut Client,
-    origination: Option<i32>,
-    end: i32,
-) -> Res<Vec<i32>> {
+    origination: Option<u32>,
+    end: u32,
+) -> Res<Vec<u32>> {
     let start = match origination {
         Some(x) => x,
         None => 1,
@@ -47,7 +47,7 @@ pub fn get_missing_levels(
         rows.push(row.get(0));
     }
     rows.reverse();
-    Ok(rows)
+    Ok(rows.iter().map(|x| *x as u32).collect::<Vec<u32>>())
 }
 
 pub fn get_max_id(connection: &mut Client) -> Res<i32> {
@@ -62,6 +62,38 @@ pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
     } else {
         Err(crate::error::Error::boxed(
             &"Wrong number of rows in max_id table. Please fix manually. Sorry",
+        ))
+    }
+}
+
+/// get the origination of the contract, which is currently store in the levels (will change)
+pub fn set_origination(connection: &mut Client, level: u32) -> Res<()> {
+    let mut transaction = connection.transaction()?;
+    exec(
+        &mut transaction,
+        &"UPDATE levels SET is_origination = FALSE".to_string(),
+    )?;
+    exec(
+        &mut transaction,
+        &format!(
+            "UPDATE levels SET is_origination = TRUE where _level={}",
+            level,
+        ),
+    )?;
+    transaction.commit()?;
+    Ok(())
+}
+
+pub fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
+    let result = connection.query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
+    if result.len() == 0 {
+        Ok(None)
+    } else if result.len() == 1 {
+        let level: i32 = result[0].get(0);
+        Ok(Some(level as u32))
+    } else {
+        Err(crate::error::Error::boxed(
+            "Too many results for get_origination",
         ))
     }
 }

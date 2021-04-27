@@ -31,7 +31,17 @@ pub fn get_tables_from_node(node: &Node) -> Result<table_builder::TableMap, Box<
     Ok(builder.tables)
 }
 
-pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
+pub fn get_origination(_contract_id: &str) -> Res<Option<u32>> {
+    postgresql_generator::get_origination(&mut postgresql_generator::connect()?)
+}
+
+pub fn set_origination(level: u32, _contract_id: &str) -> Res<()> {
+    postgresql_generator::set_origination(&mut postgresql_generator::connect()?, level)
+}
+
+pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<bool> {
+    let mut found_origination = false;
+
     let mut storage_parser = StorageParser::new();
     let mut generator = PostgresqlGenerator::new();
     let mut connection = postgresql_generator::connect()?;
@@ -42,7 +52,12 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
         postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
         postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
         transaction.commit()?;
-        return Ok(());
+        return Ok(found_origination);
+    }
+
+    if StorageParser::block_has_contract_origination(&json, contract_id)? {
+        set_origination(level, contract_id)?;
+        found_origination = true;
     }
 
     let json = storage_parser
@@ -56,11 +71,9 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
 
     let operations = StorageParser::get_operations_from_node(contract_id, Some(level))?;
     debug!("Operations: {:#?}", operations);
-    for operation in operations {
-        let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operation)?;
-        for big_map_op in big_map_ops {
-            storage_parser.process_big_map(&big_map_op)?;
-        }
+    let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
+    for big_map_op in big_map_ops {
+        storage_parser.process_big_map(&big_map_op)?;
     }
     let inserts = crate::table::insert::get_inserts().clone();
     let mut keys = inserts
@@ -85,7 +98,7 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<()> {
     postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
     transaction.commit().unwrap();
     crate::table::insert::clear_inserts();
-    Ok(())
+    Ok(found_origination)
 }
 
 /// Load from the ../test directory, only for testing
@@ -181,22 +194,16 @@ fn test_block() {
             let parsed_storage = storage_parser.parse_storage(&preparsed_storage).unwrap();
             storage_parser.read_storage(&parsed_storage, &node).unwrap();
 
-            for operation in &operations {
-                let big_map_ops =
-                    StorageParser::get_big_map_operations_from_operations(operation).unwrap();
-                for big_map_op in big_map_ops {
-                    storage_parser.process_big_map(&big_map_op).unwrap();
-                }
+            let big_map_ops =
+                StorageParser::get_big_map_operations_from_operations(&operations).unwrap();
+            for big_map_op in big_map_ops {
+                storage_parser.process_big_map(&big_map_op).unwrap();
             }
         }
         let inserts = crate::table::insert::get_inserts();
         let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
-        let keys: Vec<_> = inserts.keys().collect();
-        for (key, value) in &inserts {
-            println!(
-                "{}",
-                generator.build_insert(inserts.get(&key).unwrap(), level)
-            );
+        for (_key, value) in &inserts {
+            println!("{}", generator.build_insert(value, level));
         }
         println!("");
         crate::table::insert::clear_inserts();
@@ -215,15 +222,36 @@ fn test_get_big_map_operations_from_operations() {
     )
     .unwrap();
 
-    let mut diff_ops: Vec<JsonValue> = vec![];
-    for op in ops {
-        diff_ops.extend(StorageParser::get_big_map_operations_from_operations(&op).unwrap());
-    }
+    let diff_ops: Vec<JsonValue> =
+        StorageParser::get_big_map_operations_from_operations(&ops).unwrap();
 
     assert_eq!(diff_ops.len(), 8);
 
     for op in diff_ops {
         println!("{}", op.to_string());
+    }
+}
+
+#[test]
+fn test_get_origination_operations_from_block() {
+    let matching = json::parse(&load_test(
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json",
+    ))
+    .unwrap();
+    let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
+    assert!(StorageParser::block_has_contract_origination(&matching, &contract_id).unwrap());
+
+    for level in vec![
+        132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219, 132222, 132240, 132242,
+        132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383, 132384,
+        132388, 132390, 135501, 138208, 149127,
+    ] {
+        let level_json = json::parse(&load_test(&format!(
+            "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-{}.json",
+            level
+        )))
+        .unwrap();
+        assert!(!StorageParser::block_has_contract_origination(&level_json, &contract_id).unwrap());
     }
 }
 

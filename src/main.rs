@@ -105,18 +105,38 @@ fn main() {
         return;
     }
 
-    // No args so we will just start at the beginning.
-    let missing_levels: Vec<i32> = postgresql_generator::get_missing_levels(
-        &mut postgresql_generator::connect().unwrap(),
-        None,
-        michelson::StorageParser::head().unwrap()._level as i32,
-    )
-    .unwrap();
+    // No args so we will first load missing levels
 
-    for level in missing_levels {
-        print!("level {}", level);
-        crate::highlevel::save_level(&node, contract_id, level as u32).unwrap();
-        debug!("Inserts now {:?}", crate::table::insert::get_inserts());
+    loop {
+        let origination_level = highlevel::get_origination(&contract_id).unwrap();
+
+        let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
+            &mut postgresql_generator::connect().unwrap(),
+            origination_level,
+            michelson::StorageParser::head().unwrap()._level,
+        )
+        .unwrap();
+        missing_levels.reverse();
+
+        if missing_levels.len() == 0 {
+            // finally through them
+            break;
+        }
+
+        while let Some(level) = missing_levels.pop() {
+            print!("level {}", level);
+            let found_origination =
+                crate::highlevel::save_level(&node, contract_id, level as u32).unwrap();
+            if found_origination {
+                println!(
+                    "Found new origination level {}",
+                    highlevel::get_origination(&contract_id).unwrap().unwrap()
+                );
+                break;
+            }
+            println!(" {} remaining", missing_levels.len());
+            debug!("Inserts now {:?}", crate::table::insert::get_inserts());
+        }
     }
 }
 
