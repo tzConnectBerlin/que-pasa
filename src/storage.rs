@@ -112,7 +112,7 @@ pub fn storage_from_json(json: JsonValue) -> Ele {
                 if is_enumeration_or(&json) {
                     complex_expr!(ComplexExpr::OrEnumeration, annot, args)
                 } else {
-                    panic!(
+                    unimplemented!(
                         "Or used as variant record found, don't know how to deal with it {}",
                         json.to_string()
                     );

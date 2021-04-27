@@ -165,26 +165,30 @@ impl StorageParser {
         Self::load(&url)
     }
 
-    /// Pass in a set of operations from the node, get back the parts which update big maps
     pub fn get_big_map_operations_from_operations(
+        // TODO: make more specific.
         json: &JsonValue,
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+        Self::get_matching_from_operations(&json, &"big_map_diff")
+    }
+
+    /// Pass in some json, get back matching fields
+    pub fn get_matching_from_operations(json: &JsonValue, what: &str) -> Res<Vec<JsonValue>> {
         let mut result: Vec<JsonValue> = vec![];
         match json {
             JsonValue::Object(attributes) => {
                 for (key, value) in attributes.iter() {
-                    debug!("{}", key);
-                    if key.eq(&"big_map_diff".to_string()) {
+                    if key.eq(&what.to_string()) {
                         if let JsonValue::Array(a) = value {
                             return Ok(a.clone());
                         }
                     };
                     if let JsonValue::Object(_) = value {
-                        result.extend(Self::get_big_map_operations_from_operations(&value)?);
+                        result.extend(Self::get_matching_from_operations(&value, what)?);
                     }
                     if let JsonValue::Array(a) = value {
                         for i in a {
-                            result.extend(Self::get_big_map_operations_from_operations(&i)?);
+                            result.extend(Self::get_matching_from_operations(&i, what)?);
                         }
                     }
                 }

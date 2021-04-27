@@ -161,7 +161,7 @@ impl Node {
                     context._type = Type::Pair;
                     let mut n = Self::new(&context, &ele);
                     n.left = Some(Box::new(Self::build(context.next(), (**left).clone())));
-                    n.right = Some(Box::new(Self::build(context.next(), (**right).clone()))); // TODO: Make the count work
+                    n.right = Some(Box::new(Self::build(context.next(), (**right).clone())));
                     n
                 }
                 ComplexExpr::Option(_inner_expr) => Self::build(context, (**_inner_expr).clone()),

@@ -220,6 +220,8 @@ fn test_get_big_map_operations_from_operations() {
         diff_ops.extend(StorageParser::get_big_map_operations_from_operations(&op).unwrap());
     }
 
+    assert_eq!(diff_ops.len(), 8);
+
     for op in diff_ops {
         println!("{}", op.to_string());
     }
