@@ -525,7 +525,7 @@ impl StorageParser {
             Value::List(l) => {
                 for element in l {
                     debug!("Elt: {:?}", element);
-                    self.read_storage_internal(*&element, node, id, fk_id);
+                    self.read_storage_internal(*&element, node, get_id(), fk_id);
                 }
             }
             Value::Pair(left, right) => {
