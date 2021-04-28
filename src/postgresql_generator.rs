@@ -11,9 +11,9 @@ use std::vec::Vec;
 pub struct PostgresqlGenerator {}
 
 pub fn connect() -> Res<Client> {
-    let url = dotenv!("DATABASE_URL");
+    let url = std::env::var(&"DATABASE_URL").unwrap();
     debug!("DATABASE_URL={}", url);
-    Ok(Client::connect(url, NoTls)?)
+    Ok(Client::connect(&url, NoTls)?)
 }
 
 pub fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {
