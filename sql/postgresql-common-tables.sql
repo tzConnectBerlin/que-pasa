@@ -1,6 +1,7 @@
 CREATE TABLE levels (
         id SERIAL PRIMARY KEY,
         _level INTEGER NOT NULL,
+        is_origination BOOLEAN DEFAULT FALSE,
         hash VARCHAR(60));
 
 

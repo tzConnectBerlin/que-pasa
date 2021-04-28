@@ -165,19 +165,56 @@ impl StorageParser {
         Self::load(&url)
     }
 
-    pub fn get_big_map_operations_from_operations(
-        // TODO: make more specific.
-        json: &JsonValue,
+    pub fn get_originations_from_block(
+        block: &JsonValue,
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
-        Self::get_matching_from_operations(&json, &"big_map_diff")
+        let mut result = vec![];
+        if let JsonValue::Array(operations) = &block["operations"] {
+            for ops in operations {
+                if let JsonValue::Array(array) = ops {
+                    for op in array {
+                        result.extend(Self::get_matching_from_operations(
+                            &op,
+                            &"originated_contracts",
+                        )?);
+                    }
+                }
+            }
+        } else {
+            return Err(crate::error::Error::boxed(&format!(
+                "operations not found in json {}",
+                block.to_string(),
+            )));
+        }
+        Ok(result)
+    }
+
+    pub fn block_has_contract_origination(block: &JsonValue, contract_id: &str) -> Res<bool> {
+        Ok(Self::get_originations_from_block(block)?
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>()
+            .contains(&contract_id.to_string()))
+    }
+
+    pub fn get_big_map_operations_from_operations(
+        ops: &Vec<JsonValue>,
+    ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+        let mut result = vec![];
+        for op in ops {
+            result.extend(Self::get_matching_from_operations(op, &"big_map_diff")?);
+        }
+        Ok(result)
     }
 
     /// Pass in some json, get back matching fields
     pub fn get_matching_from_operations(json: &JsonValue, what: &str) -> Res<Vec<JsonValue>> {
+        // TODO: make more specific.
         let mut result: Vec<JsonValue> = vec![];
         match json {
             JsonValue::Object(attributes) => {
                 for (key, value) in attributes.iter() {
+                    println!("key: {}", key);
                     if key.eq(&what.to_string()) {
                         if let JsonValue::Array(a) = value {
                             return Ok(a.clone());
