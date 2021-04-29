@@ -37,6 +37,7 @@ pub fn get_origination(_contract_id: &str) -> Res<Option<u32>> {
 
 pub struct SaveLevelResult {
     pub is_origination: bool,
+    pub tx_count: u32,
 }
 
 pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<SaveLevelResult> {
@@ -54,6 +55,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
         transaction.commit()?;
         return Ok(SaveLevelResult {
             is_origination: true,
+            tx_count: 0,
         });
     }
 
@@ -62,7 +64,8 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
         postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
         transaction.commit()?;
         return Ok(SaveLevelResult {
-            is_origination: found_origination,
+            is_origination: false,
+            tx_count: 0,
         });
     }
 
@@ -76,7 +79,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     debug!("{:#?}", result);
 
     let operations = StorageParser::get_operations_from_node(contract_id, Some(level))?;
-    debug!("Operations: {:#?}", operations);
+    let tx_count = operations.len() as u32;
     let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
     for big_map_op in big_map_ops {
         storage_parser.process_big_map(&big_map_op)?;
@@ -105,7 +108,8 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     transaction.commit().unwrap();
     crate::table::insert::clear_inserts();
     Ok(SaveLevelResult {
-        is_origination: found_origination,
+        is_origination: false,
+        tx_count,
     })
 }
 
