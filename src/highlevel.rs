@@ -35,29 +35,35 @@ pub fn get_origination(_contract_id: &str) -> Res<Option<u32>> {
     postgresql_generator::get_origination(&mut postgresql_generator::connect()?)
 }
 
-pub fn set_origination(level: u32, _contract_id: &str) -> Res<()> {
-    postgresql_generator::set_origination(&mut postgresql_generator::connect()?, level)
+pub struct SaveLevelResult {
+    pub is_origination: bool,
 }
 
-pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<bool> {
-    let mut found_origination = false;
-
+pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<SaveLevelResult> {
     let mut storage_parser = StorageParser::new();
     let mut generator = PostgresqlGenerator::new();
     let mut connection = postgresql_generator::connect()?;
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
-
     let json = StorageParser::level_json(level)?;
+
+    if StorageParser::block_has_contract_origination(&json, contract_id)? {
+        debug!("Setting origination to true");
+        postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
+        postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
+        postgresql_generator::set_origination(&mut transaction, level)?;
+        transaction.commit()?;
+        return Ok(SaveLevelResult {
+            is_origination: true,
+        });
+    }
+
     if !StorageParser::level_has_tx_for_us(&json, contract_id)? {
         postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
         postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
         transaction.commit()?;
-        return Ok(found_origination);
-    }
-
-    if StorageParser::block_has_contract_origination(&json, contract_id)? {
-        set_origination(level, contract_id)?;
-        found_origination = true;
+        return Ok(SaveLevelResult {
+            is_origination: found_origination,
+        });
     }
 
     let json = storage_parser
@@ -98,7 +104,9 @@ pub fn save_level(node: &Node, contract_id: &str, level: u32) -> Res<bool> {
     postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
     transaction.commit().unwrap();
     crate::table::insert::clear_inserts();
-    Ok(found_origination)
+    Ok(SaveLevelResult {
+        is_origination: found_origination,
+    })
 }
 
 /// Load from the ../test directory, only for testing

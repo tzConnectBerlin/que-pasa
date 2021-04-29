@@ -214,7 +214,6 @@ impl StorageParser {
         match json {
             JsonValue::Object(attributes) => {
                 for (key, value) in attributes.iter() {
-                    println!("key: {}", key);
                     if key.eq(&what.to_string()) {
                         if let JsonValue::Array(a) = value {
                             return Ok(a.clone());

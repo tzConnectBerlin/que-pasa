@@ -67,20 +67,18 @@ pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
 }
 
 /// get the origination of the contract, which is currently store in the levels (will change)
-pub fn set_origination(connection: &mut Client, level: u32) -> Res<()> {
-    let mut transaction = connection.transaction()?;
+pub fn set_origination(transaction: &mut Transaction, level: u32) -> Res<()> {
     exec(
-        &mut transaction,
-        &"UPDATE levels SET is_origination = FALSE".to_string(),
+        transaction,
+        &"UPDATE levels SET is_origination = FALSE WHERE is_origination = TRUE".to_string(),
     )?;
     exec(
-        &mut transaction,
+        transaction,
         &format!(
             "UPDATE levels SET is_origination = TRUE where _level={}",
             level,
         ),
     )?;
-    transaction.commit()?;
     Ok(())
 }
 

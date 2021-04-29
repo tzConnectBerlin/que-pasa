@@ -99,7 +99,7 @@ fn main() {
         print!("Loading levels");
         for level in levels {
             print!("level {}", level);
-            crate::highlevel::save_level(&node, contract_id, level).unwrap();
+            crate::highlevel::load_and_store_level(&node, contract_id, level).unwrap();
             debug!("Inserts now {:?}", crate::table::insert::get_inserts());
         }
         return;
@@ -126,7 +126,9 @@ fn main() {
         while let Some(level) = missing_levels.pop() {
             print!("level {}", level);
             let found_origination =
-                crate::highlevel::save_level(&node, contract_id, level as u32).unwrap();
+                crate::highlevel::load_and_store_level(&node, contract_id, level as u32)
+                    .unwrap()
+                    .is_origination;
             if found_origination {
                 println!(
                     "Found new origination level {}",
