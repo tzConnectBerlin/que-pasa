@@ -23,7 +23,7 @@ The database URL is set in the environment variable `DATABASE_URL`, like this:
 DATABASE_URL=postgres://newby:foobar@localhost:5433/tezos
 ```
 
-Running the indexer can be done in several ways. The least efficient is simply to run it with no arguments. Invoked in this way it will start from the head of the chain and work back, storing transactions directed at the contract it's been told about. Of course this will take a while, and you do not wish to do that. In the `scripts/` directory you will find a script called `get-levels.py`, which asks Better Call Dev for the levels relevant to this contract. You execute the script like this:
+Running the indexer can be done in several ways. The least efficient is simply to run it with no arguments. Invoked in this way it will start from the head of the chain and work back, storing transactions directed at the contract it's been told about. Of course this will take a while, and you do not wish to wait. In the `scripts/` directory you will find a script called `get-levels.py`, which asks Better Call Dev for the levels relevant to this contract. You execute the script like this:
 ```
 newby@stink:~/projects/tezos/storage2sql$ ./script/get-levels.py edo2net KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq
 149127,149127,138208,138208,138201,138201,135501,135501,132390,132390,132388,132384,132383,132367,132367,132343,132343,132339,132327,132318,132318,132300,132300,132298,132285,132282,132278,132278,132262,132262,132259,132259,132242,132240,132222,132219,132219,132211,132201,132201,132091
@@ -35,12 +35,12 @@ cargo run -- -c KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq -l 149127,149127,138208,138
      Running `target/debug/storage2sql -c KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq -l 149127,149127,138208,138208,138201,138201,135501,135501,132390,132390,132388,132384,132383,132367,132367,132343,132343,132339,132327,132318,132318,132300,132300,132298,132285,132282,132278,132278,132262,132262,132259,132259,132242,132240,132222,132219,132219,132211,132201,132201,132091 --init`
 Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort
 ```
-which will delete all data from the database, read in the levels passed, and all levels between these numbers as imported.
+Note the `--init` argument, which will delete all data from the database. The `-l` argument reads in the levels passed, and then all levels between these numbers are marked as imported.
 
 
 ## Database structure
 
-The main table in the DB is `storage`; all other tables have a prefix which indicates where they are in the contract storage. For instance a map called `foo` in the main storage will live in a table called `storage.foo`, with a foreign key constraint, `storage_id` pointing back to the storage row which relates to it. Deeper levels of nesting will o on, and on.
+The main table in the DB is `storage`; all other tables have a prefix which indicates where they are in the contract storage. For instance a map called `foo` in the main storage will live in a table called `storage.foo`, with a foreign key constraint, `storage_id` pointing back to the storage row which relates to it. Deeper levels of nesting will go on, and on.
 
 All tables have a `_level` field, which enables searching the database for its state at any time, while also making simple queries much more complicated. See below for some SQL queries which return the current state of the database, and are suitable for creating views.
 

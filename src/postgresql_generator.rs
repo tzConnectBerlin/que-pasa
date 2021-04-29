@@ -216,7 +216,7 @@ impl PostgresqlGenerator {
 
     pub fn create_index(&mut self, table: &Table) -> String {
         format!(
-            "CREATE UNIQUE INDEX ON \"{}\"({});\n",
+            "CREATE INDEX ON \"{}\"({});\n",
             table.name,
             table.indices.join(", ")
         )
