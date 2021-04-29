@@ -15,13 +15,20 @@ contract_id = sys.argv[2]
 
 bcd_url = f"https://api.better-call.dev/v1/contract/{network}/{contract_id}/operations"
 
-offset = 0
-count = 10
 levels = []
-with urllib.request.urlopen(f"{bcd_url}?count={count}&offset={offset}") as url:
-    data = json.loads(url.read().decode())
-    operations = data["operations"]
-    for operation in operations:
-        levels.append(str(operation["level"]))
+last_id_query = ""
+while True:
+    u = f"{bcd_url}{last_id_query}"
+    #print(u)
+    with urllib.request.urlopen(u) as url:
+        data = json.loads(url.read().decode())
+        last_id = data["last_id"]
+        if last_id == "0":
+            break
+        else:
+            last_id_query=f"?last_id={last_id}"
+        operations = data["operations"]
+        for operation in operations:
+            levels.append(str(operation["level"]))
 
 print(",".join(levels))

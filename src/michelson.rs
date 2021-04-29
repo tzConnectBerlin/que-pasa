@@ -545,7 +545,6 @@ impl StorageParser {
             _ => {
                 // this is a value, and should be saved.
                 let table_name = node.table_name.as_ref().unwrap().to_string();
-                println!("node: {:?} value: {:?}", node, value);
                 let column_name = node.column_name.as_ref().unwrap().to_string();
                 debug!(
                     "{} {} = {:?} {:?}",

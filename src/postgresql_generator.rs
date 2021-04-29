@@ -32,6 +32,33 @@ pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn 
     }
 }
 
+pub fn delete_everything(connection: &mut Client) -> Res<u64> {
+    Ok(connection.execute("DELETE FROM levels", &[])?)
+}
+
+pub fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
+    Ok(connection.execute(
+        format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
+}
+
+pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
+    let result = connection.query(
+        "SELECT _level, hash, is_origination FROM levels ORDER BY _level DESC LIMIT 1",
+        &[],
+    )?;
+    if result.len() == 0 {
+        Ok(None)
+    } else if result.len() == 1 {
+        let _level: i32 = result[0].get(0);
+        Ok(Some(Level {
+            _level: _level as u32,
+            hash: result[0].get(1),
+        }))
+    } else {
+        Err(crate::error::Error::boxed("Too many results for get_head"))
+    }
+}
+
 pub fn get_missing_levels(
     connection: &mut Client,
     origination: Option<u32>,

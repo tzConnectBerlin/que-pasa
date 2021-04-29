@@ -103,7 +103,6 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
             ),
         )?;
     }
-    println!("");
     postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
     transaction.commit().unwrap();
     crate::table::insert::clear_inserts();
