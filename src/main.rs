@@ -121,8 +121,8 @@ fn main() {
         }
 
         if init {
-            let first: u32 = levels.iter().min().unwrap().clone();
-            let head = michelson::StorageParser::head().unwrap().clone();
+            let first: u32 = *levels.iter().min().unwrap();
+            let head = michelson::StorageParser::head().unwrap();
             postgresql_generator::fill_in_levels(
                 &mut postgresql_generator::connect().unwrap(),
                 first,
@@ -147,7 +147,7 @@ fn main() {
         .unwrap();
         missing_levels.reverse();
 
-        if missing_levels.len() == 0 {
+        if missing_levels.is_empty() {
             // finally through them
             break;
         }
@@ -219,9 +219,9 @@ fn range(arg: &String) -> Vec<u32> {
     let mut result = vec![];
     for h in arg.split(',') {
         let s = String::from(h);
-        match s.find("-") {
+        match s.find('-') {
             Some(_) => {
-                let fromto: Vec<String> = s.split('-').map(|x| String::from(x)).collect();
+                let fromto: Vec<String> = s.split('-').map(String::from).collect();
                 for i in fromto[0].parse::<u32>().unwrap()..fromto[1].parse::<u32>().unwrap() + 1 {
                     result.push(i);
                 }
@@ -231,7 +231,7 @@ fn range(arg: &String) -> Vec<u32> {
             }
         }
     }
-    result.sort();
+    result.sort_unstable();
     result.reverse();
     result
 }
