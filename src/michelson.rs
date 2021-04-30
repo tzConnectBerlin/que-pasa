@@ -1,6 +1,6 @@
 use crate::error::Res;
 use crate::node::Node;
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
@@ -315,6 +315,11 @@ impl StorageParser {
                 let ts: i64 = s.to_i64().ok_or("Num conversion failed")?;
                 Ok(Utc.timestamp(ts, 0))
             }
+            Value::String(s) => {
+                println!("{}", s);
+                let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
+                Ok(fixedoffset.with_timezone(&Utc))
+            }
             _ => Err(crate::error::Error::boxed(&format!(
                 "Can't parse {:?}",
                 value
@@ -426,7 +431,7 @@ impl StorageParser {
                 _ => panic!("Couldn't match {} in {}", key.to_string(), json.to_string()),
             };
         }
-        error!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
+        debug!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
         Ok(Value::None)
     }
 
