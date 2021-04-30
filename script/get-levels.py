@@ -31,4 +31,8 @@ while True:
         for operation in operations:
             levels.append(str(operation["level"]))
 
+
+# remove duplicates
+levels = list(dict.fromkeys(levels))
+
 print(",".join(levels))
