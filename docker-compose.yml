@@ -1,0 +1,17 @@
+version: "3.1"
+services:
+  db:
+    image: postgres:12
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=quepasa
+      - POSTGRES_PASSWORD=quepasa
+      - POSTGRES_DB=tezos
+    volumes:
+      - ./contract.sql:/docker-entrypoint-initdb.d/init.sql
+      - quepasa-db:/var/lib/postgresql/data
+    ports: ["5432:5432"]
+
+volumes:
+  quepasa-db:
+    external: false
