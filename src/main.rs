@@ -93,6 +93,8 @@ fn main() {
         for (_name, table) in sorted_tables {
             print!("{}", generator.create_table_definition(table));
             println!();
+            print!("{}", generator.create_view_definition(table));
+            println!();
         }
         return;
     }

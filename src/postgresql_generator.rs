@@ -261,6 +261,33 @@ impl PostgresqlGenerator {
         v.join("\n")
     }
 
+    pub fn create_view_definition(&mut self, table: &Table) -> String {
+        if table.name == "storage" {
+            return "".to_string();
+        }
+        let mut indices = table.indices.clone();
+        indices.remove(indices.iter().position(|x| *x == "_level").unwrap());
+        format!(
+            r#"
+CREATE VIEW "{}_live" AS (
+        SELECT t1.* FROM "{}" t1
+        INNER JOIN (
+                SELECT {}, MAX(_level) AS _level FROM "{}"
+        GROUP BY {}) t2
+        ON t1._level = t2._level {} );
+"#,
+            table.name,
+            table.name,
+            indices.join(", "),
+            table.name,
+            indices.join(", "),
+            indices
+                .iter()
+                .map(|x| format!(" AND t1.{} = t2.{}", x, x))
+                .collect::<String>()
+        )
+    }
+
     fn escape(s: &String) -> String {
         s.clone()
     }
