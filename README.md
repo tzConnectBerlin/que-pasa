@@ -19,24 +19,28 @@ storage-sql -c <contract_id> generate-sql
 it will load and parse the contract's storage, and generate a SQL representation of it. This can be ingested directly by `psql`.
 
 The database URL is set in the environment variable `DATABASE_URL`, like this:
+
 ```
 DATABASE_URL=postgres://newby:foobar@localhost:5433/tezos
 ```
 
 Running the indexer can be done in several ways. The least efficient is simply to run it with no arguments. Invoked in this way it will start from the head of the chain and work back, storing transactions directed at the contract it's been told about. Of course this will take a while, and you do not wish to wait. In the `scripts/` directory you will find a script called `get-levels.py`, which asks Better Call Dev for the levels relevant to this contract. You execute the script like this:
+
 ```
 newby@stink:~/projects/tezos/storage2sql$ ./script/get-levels.py edo2net KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq
 149127,149127,138208,138208,138201,138201,135501,135501,132390,132390,132388,132384,132383,132367,132367,132343,132343,132339,132327,132318,132318,132300,132300,132298,132285,132282,132278,132278,132262,132262,132259,132259,132242,132240,132222,132219,132219,132211,132201,132201,132091
 ```
+
 The comma-separated list of levels can be imported into the indexer as so,
+
 ```
 cargo run -- -c KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq -l 149127,149127,138208,138208,138201,138201,135501,135501,132390,132390,132388,132384,132383,132367,132367,132343,132343,132339,132327,132318,132318,132300,132300,132298,132285,132282,132278,132278,132262,132262,132259,132259,132242,132240,132222,132219,132219,132211,132201,132201,132091 --init
     Finished dev [unoptimized + debuginfo] target(s) in 0.05s
      Running `target/debug/storage2sql -c KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq -l 149127,149127,138208,138208,138201,138201,135501,135501,132390,132390,132388,132384,132383,132367,132367,132343,132343,132339,132327,132318,132318,132300,132300,132298,132285,132282,132278,132278,132262,132262,132259,132259,132242,132240,132222,132219,132219,132211,132201,132201,132091 --init`
 Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort
 ```
-Note the `--init` argument, which will delete all data from the database. The `-l` argument reads in the levels passed, and then all levels between these numbers are marked as imported.
 
+Note the `--init` argument, which will delete all data from the database. The `-l` argument reads in the levels passed, and then all levels between these numbers are marked as imported.
 
 ## Database structure
 
@@ -48,9 +52,23 @@ Variant records come in two varieties. The simplest are those which are simply o
 
 Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed. If the most recent version of the map for the keys you specify has this flag set, there is no row.
 
+## Make Commands
 
+- `make gen-sql CONTRACT=<ADDRESS>` to generate the sql and save it in `contract.sql`
 
+- `make start-db` to start the database.
 
+- `make db CONTRACT=<ADDRESS>` runs `gen-sql` and `start-db` sequentially.
+
+- `make fill CONTRACT=<ADDRESS>` to fill the database with relevant transactions data.
+
+- `make start-graphql` to start the graphql server and graphiql.
+
+- `make start-indexer CONTRACT=<ADDRESS>` to start the indexer.
+
+- `make down-db` to bring down the database.
+
+- `make destroy-db` to bring down the database and destroy the docker volume.
 
 ## Cook book
 
