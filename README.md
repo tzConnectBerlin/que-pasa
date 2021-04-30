@@ -40,6 +40,7 @@ Note the `--init` argument, which will delete all data from the database. The `-
 
 ## Database structure
 
+### Tables
 The main table in the DB is `storage`; all other tables have a prefix which indicates where they are in the contract storage. For instance a map called `foo` in the main storage will live in a table called `storage.foo`, with a foreign key constraint, `storage_id` pointing back to the storage row which relates to it. Deeper levels of nesting will go on, and on.
 
 All tables have a `_level` field, which enables searching the database for its state at any time, while also making simple queries much more complicated. See below for some SQL queries which return the current state of the database, and are suitable for creating views.
@@ -48,7 +49,17 @@ Variant records come in two varieties. The simplest are those which are simply o
 
 Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed. If the most recent version of the map for the keys you specify has this flag set, there is no row.
 
+### Views
 
+Each table `xxx.yyy` has a corresponding view, `xxx.yyy_now`, which shows the current state of the storage.
+
+### Keys
+
+There are foreign keys pointing back all the way to the `storage` and `levels` tables, with `ON DELETE CASCADE` set. If you wish to remove a level and all trace of it, simply delete from the `levels` table, and all else will follow.
+
+## Getting data out
+
+We don't attempt to build a reporting layer--at the moment we're loving [PostGraphile](https://www.graphile.org/postgraphile/), which makes a GraphQL interface automatically.
 
 
 

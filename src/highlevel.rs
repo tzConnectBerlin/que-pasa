@@ -69,9 +69,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
         });
     }
 
-    let json = storage_parser
-        .get_storage(&contract_id.to_string(), level)
-        .unwrap();
+    let json = storage_parser.get_storage(&contract_id.to_string(), level)?;
     let v = storage_parser.preparse_storage(&json);
     let result = storage_parser.parse_storage(&v)?;
     debug!("storage: {:#?}", result);
@@ -104,7 +102,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
         )?;
     }
     postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
-    transaction.commit().unwrap();
+    transaction.commit()?;
     crate::table::insert::clear_inserts();
     Ok(SaveLevelResult {
         is_origination: false,

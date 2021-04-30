@@ -85,7 +85,7 @@ impl StorageParser {
             })?;
             transfer.perform()?;
         }
-        let json = json::parse(&std::str::from_utf8(&response)?).unwrap();
+        let json = json::parse(&std::str::from_utf8(&response)?)?;
         Ok(json)
     }
 
@@ -281,7 +281,7 @@ impl StorageParser {
     }
 
     fn bigint(source: &String) -> Result<BigInt, Box<dyn Error>> {
-        Ok(BigInt::from_str(&source).unwrap())
+        Ok(BigInt::from_str(&source)?)
     }
 
     pub fn preparse_storage(&self, json: &JsonValue) -> JsonValue {
@@ -417,13 +417,13 @@ impl StorageParser {
         if keys.len() == 1 {
             // it's a leaf node, hence a value.
             let key = &keys[0];
-            let s = String::from(json[key].as_str().unwrap());
+            let s = String::from(json[key].as_str().ok_or(format!("Key {} not found", key))?);
             return match key.as_str() {
                 "address" => Ok(Value::Address(s)),
                 "bytes" => Ok(Value::Bytes(s)),
                 "int" => Ok(Value::Int(Self::bigint(&s.to_string())?)),
                 "mutez" => Ok(Value::Mutez(Self::bigint(&s)?)),
-                "nat" => Ok(Value::Nat(Self::bigint(&s).unwrap())),
+                "nat" => Ok(Value::Nat(Self::bigint(&s)?)),
                 "string" => Ok(Value::String(s)),
                 //"timestamp" => Ok(Value::Timestamp(s)),
                 "unit" => Ok(Value::Unit(None)),
@@ -445,17 +445,30 @@ impl StorageParser {
 
     pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
         debug!("process_big_map {}", json.to_string());
-        let big_map_id: u32 = json["big_map"].to_string().parse().unwrap();
+        let big_map_id: u32 = json["big_map"].to_string().parse()?;
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
         if let Some((fk, node)) = self.big_map_map.get(&big_map_id) {
             let fk = fk.clone();
             let node = node.clone();
-            match json["action"].as_str().unwrap() {
+            match json["action"]
+                .as_str()
+                .ok_or("Couldn't find 'action' in JSON")?
+            {
                 "update" => {
                     let id = get_id();
-                    self.read_storage_internal(&key, &node.left.unwrap(), id, Some(fk));
-                    self.read_storage_internal(&value, &node.right.unwrap(), id, Some(fk));
+                    self.read_storage_internal(
+                        &key,
+                        &*node.left.ok_or("Missing key to big map")?,
+                        id,
+                        Some(fk),
+                    );
+                    self.read_storage_internal(
+                        &value,
+                        &*node.right.ok_or("Missing value to big map")?,
+                        id,
+                        Some(fk),
+                    );
                 }
                 _ => panic!("{}", json.to_string()),
             }
