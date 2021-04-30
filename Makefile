@@ -15,7 +15,7 @@ destroy-db:
 					docker-compose down -v
 
 start-graphql:
-							cd graphql && npm start
+							cd graphql && npm install && npm start
 
 start-indexer:
 							cargo run -- -c $(CONTRACT)
