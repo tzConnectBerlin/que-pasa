@@ -1,7 +1,8 @@
+use crate::err;
+use crate::error::Res;
 use crate::node::{Node, Type};
 use crate::storage::{ComplexExpr, Expr};
 use crate::table::Table;
-
 use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;
@@ -41,17 +42,13 @@ impl TableBuilder {
         self.tables.insert(table.name.clone(), table);
     }
 
-    pub fn populate(&mut self, node: &Node) {
+    pub fn populate(&mut self, node: &Node) -> Res<()> {
         let foo = node.clone();
         let node = node.clone();
         match node._type {
-            Type::Pair => {
-                self.populate(&node.left.expect(&format!("got pair {:#?}", foo)).clone());
-                self.populate(&node.right.unwrap().clone());
-            }
-            Type::Table => {
-                self.populate(&node.left.expect(&format!("got pair {:#?}", foo)).clone());
-                self.populate(&node.right.unwrap().clone());
+            Type::Pair | Type::Table => {
+                self.populate(&*node.left.ok_or(err!("Left null"))?)?;
+                self.populate(&*node.right.ok_or(err!("Right null"))?)?;
             }
             Type::Column => self.add_column(&node),
             Type::OrEnumeration => self.add_column(&node),
@@ -60,12 +57,13 @@ impl TableBuilder {
                 Expr::SimpleExpr(_) => self.add_index(&node),
                 Expr::ComplexExpr(ref expr) => match expr {
                     ComplexExpr::Pair(_, _) => {
-                        self.populate(&node.left.unwrap());
-                        self.populate(&node.right.unwrap());
+                        self.populate(&*node.left.ok_or(err!("Left null"))?)?;
+                        self.populate(&*node.right.ok_or(err!("Right null"))?)?;
                     }
                     _ => panic!("Found unexpected structure in index: {:#?}", expr),
                 },
             },
         }
+        Ok(())
     }
 }

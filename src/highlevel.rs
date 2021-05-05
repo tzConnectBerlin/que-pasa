@@ -1,5 +1,4 @@
-use json::JsonValue;
-
+use crate::err;
 use crate::error::Res;
 use crate::michelson::StorageParser;
 use crate::node::{Context, Node};
@@ -7,6 +6,7 @@ use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
 use crate::storage;
 use crate::table_builder;
+use json::JsonValue;
 
 use std::error::Error;
 
@@ -27,7 +27,7 @@ pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
 
 pub fn get_tables_from_node(node: &Node) -> Result<table_builder::TableMap, Box<dyn Error>> {
     let mut builder = table_builder::TableBuilder::new();
-    builder.populate(&node);
+    builder.populate(&node)?;
     Ok(builder.tables)
 }
 

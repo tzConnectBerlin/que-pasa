@@ -1,3 +1,4 @@
+use crate::err;
 use crate::error::Res;
 use crate::node::Node;
 use chrono::{DateTime, TimeZone, Utc};
@@ -39,6 +40,7 @@ pub enum Value {
     Bytes(String),
     Elt(Box<Value>, Box<Value>),
     Int(BigInt),
+    KeyHash(String),
     Left(Box<Value>),
     List(Vec<Box<Value>>),
     Mutez(BigInt),
@@ -95,7 +97,7 @@ impl StorageParser {
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
-                .ok_or(crate::error::Error::boxed("Couldn't get level from node"))?,
+                .ok_or(err!("Couldn't get level from node"))?,
             hash: json["hash"].to_string(),
         })
     }
@@ -105,7 +107,7 @@ impl StorageParser {
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
-                .ok_or(crate::error::Error::boxed("Couldn't get level from node"))?,
+                .ok_or(err!("Couldn't get level from node"))?,
             hash: json["hash"].to_string(),
         })
     }
@@ -128,10 +130,7 @@ impl StorageParser {
                 }
             }
         } else {
-            return Err(crate::error::Error::boxed(&format!(
-                "Didn't find operations in JSON {:#?}",
-                json
-            )));
+            return Err(err!("Didn't find operations in JSON {:#?}", json));
         }
         Ok(false)
     }
@@ -181,10 +180,7 @@ impl StorageParser {
                 }
             }
         } else {
-            return Err(crate::error::Error::boxed(&format!(
-                "operations not found in json {}",
-                block.to_string(),
-            )));
+            return Err(err!("operations not found in json {}", block.to_string()));
         }
         Ok(result)
     }
@@ -320,19 +316,16 @@ impl StorageParser {
                 let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
                 Ok(fixedoffset.with_timezone(&Utc))
             }
-            _ => Err(crate::error::Error::boxed(&format!(
-                "Can't parse {:?}",
-                value
-            ))),
+            _ => Err(err!("Can't parse {:?}", value)),
         }
     }
 
     pub fn decode_address(hex: &str) -> Res<String> {
         if hex.len() != 44 {
-            return Err(crate::error::Error::boxed(&format!(
+            return Err(err!(
                 "44 length byte arrays only supported right now, got {}",
                 hex
-            )));
+            ));
         }
         let implicit = &hex[0..2] == "00";
         let kt = &hex[0..2] == "01";
@@ -345,18 +338,10 @@ impl StorageParser {
                 "00" => format!("06a19f{}", rest).to_string(),
                 "01" => format!("06a1a1{}", rest).to_string(),
                 "02" => format!("06a1a4{}", rest).to_string(),
-                _ => {
-                    return Err(crate::error::Error::boxed(&format!(
-                        "Did not recognise byte array {}",
-                        hex
-                    )))
-                }
+                _ => return Err(err!("Did not recognise byte array {}", hex)),
             }
         } else {
-            return Err(crate::error::Error::boxed(&format!(
-                "Unknown format {}",
-                hex
-            )));
+            return Err(err!("Unknown format {}", hex));
         };
         let encoded = bs58::encode(hex::decode(new_hex.as_str())?)
             .with_check()

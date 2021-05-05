@@ -2,6 +2,13 @@ use std::fmt;
 
 pub type Res<T> = Result<T, Box<dyn std::error::Error>>;
 
+#[macro_export]
+macro_rules! err {
+    ( $( $a:expr) , + ) => {
+        crate::error::Error::boxed(format!( $( $a, )* ).as_str())
+    };
+}
+
 #[derive(Debug)]
 pub struct Error {
     details: String,

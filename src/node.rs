@@ -144,11 +144,14 @@ impl Node {
     }
 
     pub fn build(mut context: Context, ele: Ele) -> Node {
-        let name = ele.name.clone();
+        let name = match &ele.name {
+            Some(x) => x.clone(),
+            None => format!("noname{}", crate::michelson::get_id()),
+        };
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
-                    let context = context.start_table(get_table_name(name));
+                    let context = context.start_table(get_table_name(Some(name)));
                     let mut n = Self::new(&context, &ele);
                     n.left = Some(Box::new(Self::build_index(
                         context.next_with_state(Type::TableIndex),
@@ -166,7 +169,7 @@ impl Node {
                 }
                 ComplexExpr::Option(_inner_expr) => Self::build(context, (**_inner_expr).clone()),
                 ComplexExpr::OrEnumeration(_this, _that) => {
-                    Self::build_enumeration_or(&mut context, &ele, &ele.name.clone().unwrap())
+                    Self::build_enumeration_or(&mut context, &ele, &name)
                 }
             },
             Expr::SimpleExpr(_) => {

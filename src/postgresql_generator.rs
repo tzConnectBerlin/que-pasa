@@ -151,6 +151,7 @@ impl PostgresqlGenerator {
             SimpleExpr::Bool => self.bool(&column.name),
             SimpleExpr::Bytes => self.bytes(&column.name),
             SimpleExpr::Int => self.int(&column.name),
+            SimpleExpr::KeyHash => self.string(&column.name),
             SimpleExpr::Mutez => self.numeric(&column.name),
             SimpleExpr::Nat => self.nat(&column.name),
             SimpleExpr::String => self.string(&column.name),
@@ -295,6 +296,7 @@ CREATE VIEW "{}_live" AS (
     fn quote(value: &crate::michelson::Value) -> String {
         match value {
             crate::michelson::Value::Address(s)
+            | crate::michelson::Value::KeyHash(s)
             | crate::michelson::Value::String(s)
             | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
             crate::michelson::Value::Bool(val) => {

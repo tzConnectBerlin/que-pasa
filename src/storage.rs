@@ -6,6 +6,7 @@ pub enum SimpleExpr {
     Bool,
     Bytes,
     Int,
+    KeyHash,
     Mutez,
     Nat,
     String,
@@ -96,6 +97,7 @@ pub fn storage_from_json(json: JsonValue) -> Ele {
             "bool" => simple_expr!(SimpleExpr::Bool, annot),
             "bytes" => simple_expr!(SimpleExpr::Bytes, annot),
             "int" => simple_expr!(SimpleExpr::Int, annot),
+            "key_hash" => simple_expr!(SimpleExpr::KeyHash, annot),
             "map" => complex_expr!(ComplexExpr::Map, annot, args),
             "mutez" => simple_expr!(SimpleExpr::Mutez, annot),
             "nat" => simple_expr!(SimpleExpr::Nat, annot),
@@ -127,7 +129,7 @@ pub fn storage_from_json(json: JsonValue) -> Ele {
             "string" => simple_expr!(SimpleExpr::String, annot),
             "timestamp" => simple_expr!(SimpleExpr::Timestamp, annot),
             "unit" => simple_expr!(SimpleExpr::Unit, annot),
-            _ => panic!("Unexpected storage json: {:#?}", json),
+            _ => panic!("Unexpected storage json: {} {:#?}", prim.as_str(), json),
         }
     } else {
         panic!("Wrong JS {}", json.to_string());
