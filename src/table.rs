@@ -1,14 +1,15 @@
 use crate::michelson::Value;
 use crate::node::Node;
 use crate::storage::{ComplexExpr, Expr, SimpleExpr};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub expr: SimpleExpr,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,
     pub indices: Vec<String>,
@@ -88,13 +89,13 @@ pub mod insert {
         }
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Column {
         pub name: String,
         pub value: Value,
     }
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Insert {
         pub table_name: String,
         pub id: u32,

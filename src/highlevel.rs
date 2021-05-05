@@ -1,4 +1,3 @@
-use crate::err;
 use crate::error::Res;
 use crate::michelson::StorageParser;
 use crate::node::{Context, Node};
@@ -7,20 +6,15 @@ use crate::postgresql_generator::PostgresqlGenerator;
 use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
-
 use std::error::Error;
-
-pub fn init() -> Res<()> {
-    crate::michelson::set_id(
-        postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32,
-    );
-    Ok(())
-}
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
-    let ast = storage::storage_from_json(storage_definition);
+    let ast = storage::storage_from_json(storage_definition)?;
     let node = Node::build(Context::init(), ast);
     Ok(node)
 }
@@ -41,8 +35,9 @@ pub struct SaveLevelResult {
 }
 
 pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<SaveLevelResult> {
-    let mut storage_parser = StorageParser::new();
     let mut generator = PostgresqlGenerator::new();
+    let id = postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32;
+    let mut storage_parser = StorageParser::new(id);
     let mut connection = postgresql_generator::connect()?;
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
     let json = StorageParser::level_json(level)?;
@@ -101,7 +96,10 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
             ),
         )?;
     }
-    postgresql_generator::set_max_id(&mut transaction, crate::michelson::get_id() as i32)?;
+    postgresql_generator::set_max_id(
+        &mut transaction,
+        storage_parser.id_generator.get_id() as i32,
+    )?;
     transaction.commit()?;
     crate::table::insert::clear_inserts();
     Ok(SaveLevelResult {
@@ -123,17 +121,28 @@ fn test_generate() {
     ))
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
-    let ast = crate::storage::storage_from_json(storage_definition.clone());
+    let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
     let node = Node::build(Context::init(), ast);
-    let _tables = get_tables_from_node(&node);
     let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = table_builder::TableBuilder::new();
-    builder.populate(&node);
+    builder.populate(&node).unwrap();
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
     sorted_tables.sort_by_key(|a| a.0);
+    let mut tables: Vec<crate::table::Table> = vec![];
     for (_name, table) in sorted_tables {
         print!("{}", generator.create_table_definition(table));
+        tables.push(table.clone());
         println!();
+    }
+    println!("{}", serde_json::to_string(&tables).unwrap());
+
+    let p = Path::new("test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json");
+    let file = File::open(p).unwrap();
+    let reader = BufReader::new(file);
+    let v: Vec<crate::table::Table> = serde_json::from_reader(reader).unwrap();
+    assert_eq!(v.len(), tables.len());
+    for i in 0..v.len() {
+        assert_eq!(v[i], tables[i]);
     }
 }
 
@@ -197,7 +206,7 @@ fn test_block() {
 
             println!("storage_json: {:?}", storage_json);
 
-            let mut storage_parser = StorageParser::new();
+            let mut storage_parser = StorageParser::new(1);
 
             let preparsed_storage = storage_parser.preparse_storage(&storage_json);
             let parsed_storage = storage_parser.parse_storage(&preparsed_storage).unwrap();
@@ -214,7 +223,6 @@ fn test_block() {
         for (_key, value) in &inserts {
             println!("{}", generator.build_insert(value, level));
         }
-        println!("");
         crate::table::insert::clear_inserts();
     }
 }

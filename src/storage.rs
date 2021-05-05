@@ -1,6 +1,8 @@
+use crate::err;
+use crate::error::Res;
 use json::JsonValue;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SimpleExpr {
     Address,
     Bool,
@@ -14,7 +16,7 @@ pub enum SimpleExpr {
     Unit,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ComplexExpr {
     BigMap(Box<Ele>, Box<Ele>),
     Map(Box<Ele>, Box<Ele>),
@@ -23,13 +25,13 @@ pub enum ComplexExpr {
     Option(Box<Ele>), // TODO: move this out into SimpleExpr??
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Expr {
     SimpleExpr(SimpleExpr),
     ComplexExpr(ComplexExpr),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Ele {
     pub expr: Expr,
     pub name: Option<String>,
@@ -65,8 +67,8 @@ macro_rules! complex_expr {
         Ele {
             name: $name,
             expr: Expr::ComplexExpr($typ(
-                Box::new(storage_from_json(args[0].clone())),
-                Box::new(storage_from_json(args[1].clone())),
+                Box::new(storage_from_json(args[0].clone())?),
+                Box::new(storage_from_json(args[1].clone())?),
             )),
         }
     }};
@@ -86,33 +88,33 @@ pub fn is_enumeration_or(json: &JsonValue) -> bool {
     }
 }
 
-pub fn storage_from_json(json: JsonValue) -> Ele {
+pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
     let annot = annotation(&json);
     let args = args(&json);
     debug!("prim is {:?}", json["prim"]);
     if let JsonValue::Short(prim) = &json["prim"] {
         match prim.as_str() {
-            "address" => simple_expr!(SimpleExpr::Address, annot),
-            "big_map" => complex_expr!(ComplexExpr::BigMap, annot, args),
-            "bool" => simple_expr!(SimpleExpr::Bool, annot),
-            "bytes" => simple_expr!(SimpleExpr::Bytes, annot),
-            "int" => simple_expr!(SimpleExpr::Int, annot),
-            "key_hash" => simple_expr!(SimpleExpr::KeyHash, annot),
-            "map" => complex_expr!(ComplexExpr::Map, annot, args),
-            "mutez" => simple_expr!(SimpleExpr::Mutez, annot),
-            "nat" => simple_expr!(SimpleExpr::Nat, annot),
+            "address" => Ok(simple_expr!(SimpleExpr::Address, annot)),
+            "big_map" => Ok(complex_expr!(ComplexExpr::BigMap, annot, args)),
+            "bool" => Ok(simple_expr!(SimpleExpr::Bool, annot)),
+            "bytes" => Ok(simple_expr!(SimpleExpr::Bytes, annot)),
+            "int" => Ok(simple_expr!(SimpleExpr::Int, annot)),
+            "key_hash" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
+            "map" => Ok(complex_expr!(ComplexExpr::Map, annot, args)),
+            "mutez" => Ok(simple_expr!(SimpleExpr::Mutez, annot)),
+            "nat" => Ok(simple_expr!(SimpleExpr::Nat, annot)),
             "option" => {
-                let args = args.unwrap();
-                Ele {
+                let args = args.ok_or(err!("Args was none!"))?;
+                Ok(Ele {
                     name: annot,
                     expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_from_json(
                         args[0].clone(),
-                    )))),
-                }
+                    )?))),
+                })
             }
             "or" => {
                 if is_enumeration_or(&json) {
-                    complex_expr!(ComplexExpr::OrEnumeration, annot, args)
+                    Ok(complex_expr!(ComplexExpr::OrEnumeration, annot, args))
                 } else {
                     unimplemented!(
                         "Or used as variant record found, don't know how to deal with it {}",
@@ -121,15 +123,22 @@ pub fn storage_from_json(json: JsonValue) -> Ele {
                 }
             }
             "pair" => {
-                if args.clone().unwrap().len() != 2 {
-                    panic!("Pair with {} args", args.clone().unwrap().len());
+                if args.clone().ok_or(err!("NoneError"))?.len() != 2 {
+                    return Err(err!(
+                        "Pair with {} args",
+                        args.clone().ok_or(err!("NoneError"))?.len()
+                    ));
                 }
-                complex_expr!(ComplexExpr::Pair, annot, args)
+                Ok(complex_expr!(ComplexExpr::Pair, annot, args))
             }
-            "string" => simple_expr!(SimpleExpr::String, annot),
-            "timestamp" => simple_expr!(SimpleExpr::Timestamp, annot),
-            "unit" => simple_expr!(SimpleExpr::Unit, annot),
-            _ => panic!("Unexpected storage json: {} {:#?}", prim.as_str(), json),
+            "string" => Ok(simple_expr!(SimpleExpr::String, annot)),
+            "timestamp" => Ok(simple_expr!(SimpleExpr::Timestamp, annot)),
+            "unit" => Ok(simple_expr!(SimpleExpr::Unit, annot)),
+            _ => Err(err!(
+                "Unexpected storage json: {} {:#?}",
+                prim.as_str(),
+                json
+            )),
         }
     } else {
         panic!("Wrong JS {}", json.to_string());

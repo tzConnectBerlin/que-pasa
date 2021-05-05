@@ -14,6 +14,10 @@ extern crate lazy_static;
 extern crate log;
 extern crate postgres;
 extern crate regex;
+#[macro_use]
+extern crate serde;
+#[macro_use]
+extern crate serde_json;
 
 use clap::{App, Arg, SubCommand};
 
@@ -74,7 +78,7 @@ fn main() {
     let json = StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
-    let ast = storage::storage_from_json(storage_definition);
+    let ast = storage::storage_from_json(storage_definition).unwrap();
 
     // Build the internal representation from the node storage defition
     let node = node::Node::build(node::Context::init(), ast);
@@ -108,9 +112,6 @@ fn main() {
         postgresql_generator::delete_everything(&mut postgresql_generator::connect().unwrap())
             .unwrap();
     }
-
-    // set the ID in the DB.
-    highlevel::init().unwrap();
 
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());

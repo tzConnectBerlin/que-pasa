@@ -43,12 +43,11 @@ impl TableBuilder {
     }
 
     pub fn populate(&mut self, node: &Node) -> Res<()> {
-        let foo = node.clone();
         let node = node.clone();
         match node._type {
             Type::Pair | Type::Table => {
-                self.populate(&*node.left.ok_or(err!("Left null"))?)?;
-                self.populate(&*node.right.ok_or(err!("Right null"))?)?;
+                self.populate(&*node.left.ok_or(err!("Left is None"))?)?;
+                self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
             }
             Type::Column => self.add_column(&node),
             Type::OrEnumeration => self.add_column(&node),
@@ -57,8 +56,8 @@ impl TableBuilder {
                 Expr::SimpleExpr(_) => self.add_index(&node),
                 Expr::ComplexExpr(ref expr) => match expr {
                     ComplexExpr::Pair(_, _) => {
-                        self.populate(&*node.left.ok_or(err!("Left null"))?)?;
-                        self.populate(&*node.right.ok_or(err!("Right null"))?)?;
+                        self.populate(&*node.left.ok_or(err!("Left is None"))?)?;
+                        self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
                     }
                     _ => panic!("Found unexpected structure in index: {:#?}", expr),
                 },

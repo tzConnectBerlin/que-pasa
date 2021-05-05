@@ -7,33 +7,36 @@ use json::JsonValue;
 use num::{BigInt, ToPrimitive};
 use std::error::Error;
 use std::str::FromStr;
+use std::sync::atomic::AtomicU32;
 use std::sync::Mutex;
 
-const NODE_URL: &str = "http://edo2full.newby.org:8732";
-//const NODE_URL: &str = "https://testnet-tezos.giganode.io";
-
 lazy_static! {
-    static ref IDS: Mutex<u32> = Mutex::new(1u32);
+    static ref NODE_URL: String = match std::env::var("NODE_URL") {
+        Ok(s) => s.clone(),
+        Err(_) => "http://edo2full.newby.org:8732".to_string(),
+    };
 }
 
-pub fn get_id() -> u32 {
-    let id = &mut *IDS.lock().unwrap();
-    let val = *id;
-    *id = *id + 1u32;
-    debug!("michelson::get_id {}", id);
-    val
+pub struct IdGenerator {
+    id: AtomicU32,
 }
 
-pub fn curr_id() -> u32 {
-    *IDS.lock().unwrap()
+impl IdGenerator {
+    pub fn new(initial_value: u32) -> Self {
+        Self {
+            id: AtomicU32::new(initial_value),
+        }
+    }
+
+    pub fn get_id(&mut self) -> u32 {
+        let mut id = self.id.get_mut();
+        let old_id: u32 = *id;
+        *id += 1;
+        old_id
+    }
 }
 
-pub fn set_id(new_id: u32) {
-    let id = &mut *IDS.lock().unwrap();
-    *id = new_id;
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Value {
     Address(String),
     Bool(bool),
@@ -63,12 +66,14 @@ type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
 
 pub struct StorageParser {
     big_map_map: BigMapMap,
+    pub id_generator: IdGenerator,
 }
 
 impl StorageParser {
-    pub fn new() -> Self {
+    pub fn new(initial_id: u32) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
+            id_generator: IdGenerator::new(initial_id),
         }
     }
 
@@ -93,7 +98,7 @@ impl StorageParser {
 
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
-        let json = Self::load(&format!("{}/chains/main/blocks/head", NODE_URL))?;
+        let json = Self::load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
@@ -113,7 +118,7 @@ impl StorageParser {
     }
 
     pub fn level_json(level: u32) -> Res<JsonValue> {
-        Self::load(&format!("{}/chains/main/blocks/{}", NODE_URL, level))
+        Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))
     }
 
     pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {
@@ -143,7 +148,7 @@ impl StorageParser {
     ) -> Result<JsonValue, Box<dyn Error>> {
         Self::load(&format!(
             "{}/chains/main/blocks/{}/context/contracts/{}/storage",
-            NODE_URL, level, contract_id
+            *NODE_URL, level, contract_id
         ))
     }
 
@@ -158,7 +163,7 @@ impl StorageParser {
         };
         let url = format!(
             "{}/chains/main/blocks/{}/context/contracts/{}/script",
-            NODE_URL, level, contract_id
+            *NODE_URL, level, contract_id
         );
         debug!("Loading contract data for {} url is {}", contract_id, url);
         Self::load(&url)
@@ -242,7 +247,7 @@ impl StorageParser {
             Some(x) => format!("{}", x),
             None => "head".to_string(),
         };
-        let url = format!("{}/chains/main/blocks/{}", NODE_URL, level);
+        let url = format!("{}/chains/main/blocks/{}", *NODE_URL, level);
         let json = StorageParser::load(&url)?;
         Self::get_operations_from_block_json(contract_id, &json)
     }
@@ -441,7 +446,7 @@ impl StorageParser {
                 .ok_or("Couldn't find 'action' in JSON")?
             {
                 "update" => {
-                    let id = get_id();
+                    let id = self.id_generator.get_id();
                     self.read_storage_internal(
                         &key,
                         &*node.left.ok_or("Missing key to big map")?,
@@ -466,7 +471,8 @@ impl StorageParser {
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. Panics if it cannot do this (i.e. they do not match).
     pub fn read_storage(&mut self, value: &Value, node: &Node) -> Result<(), Box<dyn Error>> {
-        self.read_storage_internal(value, node, get_id(), None);
+        let id = self.id_generator.get_id();
+        self.read_storage_internal(value, node, id, None);
         Ok(())
     }
 
@@ -503,7 +509,7 @@ impl StorageParser {
         if Self::is_new_table(node, value) {
             // get a new id and make the old one the current foreign key
             fk_id = Some(id);
-            id = get_id();
+            id = self.id_generator.get_id();
             debug!(
                 "Creating table from node {:?} with id {} and fk_id {:?}",
                 node, id, fk_id
@@ -527,7 +533,8 @@ impl StorageParser {
             Value::List(l) => {
                 for element in l {
                     debug!("Elt: {:?}", element);
-                    self.read_storage_internal(element, node, get_id(), fk_id);
+                    let id = self.id_generator.get_id();
+                    self.read_storage_internal(element, node, id, fk_id);
                 }
             }
             Value::Pair(left, right) => {

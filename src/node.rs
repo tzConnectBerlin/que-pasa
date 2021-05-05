@@ -1,23 +1,25 @@
 use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Mutex;
 
 type Indexes = HashMap<String, u32>;
 
-lazy_static! {
-    static ref INDEXES: Mutex<Indexes> = Mutex::new(HashMap::new());
+thread_local! {
+    static INDEXES: RefCell<Indexes> = RefCell::new(HashMap::new());
 }
 
 fn get_index(_table_name: &String) -> u32 {
     let table_name = &String::from("foo"); // all tables have the same number space
-    let indexes: &mut Indexes = &mut *INDEXES.lock().unwrap();
-    let x: u32 = match indexes.get(table_name) {
-        Some(x) => *x,
-        None => 0,
-    };
-    indexes.insert(table_name.clone(), x + 1);
-    x
+    INDEXES.with(|indexes| {
+        let x: u32 = match indexes.borrow_mut().get(table_name) {
+            Some(x) => *x,
+            None => 0,
+        };
+        indexes.borrow_mut().insert(table_name.clone(), x + 1);
+        x
+    })
 }
 
 fn get_table_name(name: Option<String>) -> String {
@@ -124,12 +126,9 @@ impl fmt::Debug for Node {
 
 impl Node {
     pub fn new(c: &Context, ele: &Ele) -> Self {
-        let name = match c._type {
-            Type::Pair => None,
-            _ => match &ele.name {
-                Some(e) => Some(e.clone()),
-                None => Some(c.name(ele)),
-            },
+        let name = match &ele.name {
+            Some(e) => Some(e.clone()),
+            None => Some(c.name(ele)),
         };
         Self {
             name: name.clone(),
@@ -146,7 +145,7 @@ impl Node {
     pub fn build(mut context: Context, ele: Ele) -> Node {
         let name = match &ele.name {
             Some(x) => x.clone(),
-            None => format!("noname{}", crate::michelson::get_id()),
+            None => "noname".to_string(),
         };
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
