@@ -16,7 +16,6 @@ extern crate postgres;
 extern crate regex;
 #[macro_use]
 extern crate serde;
-#[macro_use]
 extern crate serde_json;
 
 use clap::{App, Arg, SubCommand};
@@ -95,7 +94,7 @@ fn main() {
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
         for (_name, table) in sorted_tables {
-            print!("{}", generator.create_table_definition(table));
+            print!("{}", generator.create_table_definition(table).unwrap());
             println!();
             print!("{}", generator.create_view_definition(table));
             println!();

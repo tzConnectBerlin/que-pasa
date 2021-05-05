@@ -1,3 +1,4 @@
+use crate::err;
 use crate::error::Res;
 use crate::michelson::Level;
 use crate::storage::SimpleExpr;
@@ -145,18 +146,19 @@ impl PostgresqlGenerator {
         Self {}
     }
 
-    pub fn create_sql(&mut self, column: Column) -> String {
+    pub fn create_sql(&mut self, column: Column) -> Res<String> {
         match column.expr {
-            SimpleExpr::Address => self.address(&column.name),
-            SimpleExpr::Bool => self.bool(&column.name),
-            SimpleExpr::Bytes => self.bytes(&column.name),
-            SimpleExpr::Int => self.int(&column.name),
-            SimpleExpr::KeyHash => self.string(&column.name),
-            SimpleExpr::Mutez => self.numeric(&column.name),
-            SimpleExpr::Nat => self.nat(&column.name),
-            SimpleExpr::String => self.string(&column.name),
-            SimpleExpr::Timestamp => self.timestamp(&column.name),
-            SimpleExpr::Unit => self.unit(&column.name),
+            SimpleExpr::Address => Ok(self.address(&column.name)),
+            SimpleExpr::Bool => Ok(self.bool(&column.name)),
+            SimpleExpr::Bytes => Ok(self.bytes(&column.name)),
+            SimpleExpr::Int => Ok(self.int(&column.name)),
+            SimpleExpr::KeyHash => Ok(self.string(&column.name)),
+            SimpleExpr::Mutez => Ok(self.numeric(&column.name)),
+            SimpleExpr::Nat => Ok(self.nat(&column.name)),
+            SimpleExpr::Stop => Err(err!("Stop type can't be stored")),
+            SimpleExpr::String => Ok(self.string(&column.name)),
+            SimpleExpr::Timestamp => Ok(self.timestamp(&column.name)),
+            SimpleExpr::Unit => Ok(self.unit(&column.name)),
         }
     }
 
@@ -204,15 +206,15 @@ impl PostgresqlGenerator {
         include_str!("../sql/postgresql-table-footer.sql").to_string()
     }
 
-    pub fn create_columns(&mut self, table: &Table) -> Vec<String> {
+    pub fn create_columns(&mut self, table: &Table) -> Res<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
             Some(x) => vec![format!(r#""{}_id" BIGINT NOT NULL"#, x)],
             None => vec![],
         };
         for column in &table.columns {
-            cols.push(self.create_sql(column.clone()));
+            cols.push(self.create_sql(column.clone())?);
         }
-        cols
+        Ok(cols)
     }
 
     pub fn create_index(&mut self, table: &Table) -> String {
@@ -246,10 +248,10 @@ impl PostgresqlGenerator {
         include_str!("../sql/postgresql-common-tables.sql").to_string()
     }
 
-    pub fn create_table_definition(&mut self, table: &Table) -> String {
+    pub fn create_table_definition(&mut self, table: &Table) -> Res<String> {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(&table.name));
-        let mut columns: Vec<String> = self.create_columns(table);
+        let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
         if let Some(fk) = self.create_foreign_key_constraint(&table) {
             columns.push(fk);
@@ -259,7 +261,7 @@ impl PostgresqlGenerator {
         v.push(s);
         v.push(self.end_table());
         v.push(self.create_index(table));
-        v.join("\n")
+        Ok(v.join("\n"))
     }
 
     pub fn create_view_definition(&mut self, table: &Table) -> String {

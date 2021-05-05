@@ -122,7 +122,9 @@ fn test_generate() {
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
     let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
+    println!("{:#?}", ast);
     let node = Node::build(Context::init(), ast);
+    println!("{:#?}", node);
     let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = table_builder::TableBuilder::new();
     builder.populate(&node).unwrap();
@@ -130,7 +132,7 @@ fn test_generate() {
     sorted_tables.sort_by_key(|a| a.0);
     let mut tables: Vec<crate::table::Table> = vec![];
     for (_name, table) in sorted_tables {
-        print!("{}", generator.create_table_definition(table));
+        print!("{}", generator.create_table_definition(table).unwrap());
         tables.push(table.clone());
         println!();
     }

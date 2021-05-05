@@ -2,7 +2,6 @@ use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Mutex;
 
 type Indexes = HashMap<String, u32>;
 
@@ -46,7 +45,7 @@ fn get_column_name(expr: &Expr) -> &str {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Type {
     Pair,
     Table,
@@ -97,7 +96,7 @@ impl Context {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Node {
     pub name: Option<String>,
     pub _type: Type,
@@ -160,6 +159,7 @@ impl Node {
                     n
                 }
                 ComplexExpr::Pair(left, right) => {
+                    println!("Pair: left: {:?} right: {:?}", left, right);
                     context._type = Type::Pair;
                     let mut n = Self::new(&context, &ele);
                     n.left = Some(Box::new(Self::build(context.next(), (**left).clone())));
@@ -168,6 +168,8 @@ impl Node {
                 }
                 ComplexExpr::Option(_inner_expr) => Self::build(context, (**_inner_expr).clone()),
                 ComplexExpr::OrEnumeration(_this, _that) => {
+                    context._type = Type::OrEnumeration;
+                    println!("Or: left: {:?} right: {:?}", _this, _that);
                     Self::build_enumeration_or(&mut context, &ele, &name)
                 }
             },
@@ -181,6 +183,7 @@ impl Node {
 
     pub fn build_enumeration_or(context: &mut Context, ele: &Ele, column_name: &String) -> Node {
         let mut node = Self::new(context, ele);
+        println!("OrNode: {:?} ele: {:?}", node, ele);
         node.name = Some(column_name.clone());
         node.column_name = Some(column_name.clone());
         match ele.expr {

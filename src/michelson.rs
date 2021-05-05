@@ -8,7 +8,6 @@ use num::{BigInt, ToPrimitive};
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
-use std::sync::Mutex;
 
 lazy_static! {
     static ref NODE_URL: String = match std::env::var("NODE_URL") {
@@ -29,7 +28,7 @@ impl IdGenerator {
     }
 
     pub fn get_id(&mut self) -> u32 {
-        let mut id = self.id.get_mut();
+        let id = self.id.get_mut();
         let old_id: u32 = *id;
         *id += 1;
         old_id
@@ -482,6 +481,7 @@ impl StorageParser {
     fn is_new_table(node: &Node, value: &Value) -> bool {
         match node._type {
             // When a new table is initialised, we increment id and make the old id the fk constraint
+            crate::node::Type::OrEnumeration => return true,
             crate::node::Type::Table => match node.expr {
                 crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::Map(_, _)) => {
                     match value {
@@ -506,6 +506,12 @@ impl StorageParser {
         mut fk_id: Option<u32>,
     ) {
         debug!("read_storage_internal id: {} Node: {:?}", id, node);
+        match node.expr {
+            // we don't even try to store lambdas.
+            crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Stop) => return,
+            _ => (),
+        }
+
         if Self::is_new_table(node, value) {
             // get a new id and make the old one the current foreign key
             fk_id = Some(id);

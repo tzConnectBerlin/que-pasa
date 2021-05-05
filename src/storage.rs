@@ -11,12 +11,13 @@ pub enum SimpleExpr {
     KeyHash,
     Mutez,
     Nat,
+    Stop,
     String,
     Timestamp,
     Unit,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ComplexExpr {
     BigMap(Box<Ele>, Box<Ele>),
     Map(Box<Ele>, Box<Ele>),
@@ -25,13 +26,13 @@ pub enum ComplexExpr {
     Option(Box<Ele>), // TODO: move this out into SimpleExpr??
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
     SimpleExpr(SimpleExpr),
     ComplexExpr(ComplexExpr),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Ele {
     pub expr: Expr,
     pub name: Option<String>,

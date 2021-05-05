@@ -44,13 +44,30 @@ impl TableBuilder {
 
     pub fn populate(&mut self, node: &Node) -> Res<()> {
         let node = node.clone();
-        match node._type {
-            Type::Pair | Type::Table => {
-                self.populate(&*node.left.ok_or(err!("Left is None"))?)?;
+        match &node._type {
+            Type::Pair => {
+                let left = node.left.clone();
+                self.populate(&*left.ok_or(err!("Left is None, node is {:?}", &node))?)?;
                 self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
             }
+            Type::Table => {
+                if let Some(left) = node.left {
+                    self.populate(&left)?;
+                }
+                if let Some(right) = node.right {
+                    self.populate(&right)?;
+                }
+            }
             Type::Column => self.add_column(&node),
-            Type::OrEnumeration => self.add_column(&node),
+            Type::OrEnumeration => {
+                self.add_column(&node);
+                if let Some(left) = node.left {
+                    self.populate(&*left)?;
+                }
+                if let Some(right) = node.right {
+                    self.populate(&*right)?;
+                }
+            }
             Type::Unit => (),
             Type::TableIndex => match node.expr {
                 Expr::SimpleExpr(_) => self.add_index(&node),
