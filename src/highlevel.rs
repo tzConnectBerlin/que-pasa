@@ -7,7 +7,6 @@ use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
 use ron::ser::{to_string_pretty, PrettyConfig};
-use serde::Serialize;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
@@ -174,6 +173,9 @@ fn test_has_tx_for_us() {
 
 #[test]
 fn test_block() {
+    // this tests the generated table structures against known good ones.
+    // if it fails for a good reason, the output can be used to repopulate the
+    // test files.
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
     let script_json = json::parse(&load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
@@ -247,7 +249,7 @@ fn test_block() {
             crate::table::insert::clear_inserts();
         }
     }
-    assert!(inserts_tested > 0);
+    assert_eq!(inserts_tested, 16);
 }
 
 #[test]

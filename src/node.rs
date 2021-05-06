@@ -38,6 +38,7 @@ fn get_column_name(expr: &Expr) -> &str {
             SimpleExpr::Int => "int",
             SimpleExpr::Nat => "nat",
             SimpleExpr::String => "string",
+            SimpleExpr::KeyHash => "string", // TODO: check this with the data
             SimpleExpr::Timestamp => "timestamp",
             SimpleExpr::Unit => "unit",
             _ => panic!("Unexpected type {:?}", e),
@@ -184,14 +185,10 @@ impl Node {
         node.name = Some(column_name.clone());
         node.column_name = Some(column_name.clone());
         match ele.expr {
-            Expr::SimpleExpr(e) => match e {
-                SimpleExpr::Unit => {
-                    debug!("Unit match: {:?}", e);
-                    context._type = Type::Unit;
-                    node.value = ele.name.clone();
-                }
-                _ => panic!("Wrong type {:?}", e),
-            },
+            Expr::SimpleExpr(e) => {
+                context._type = Type::Table;
+                node.value = ele.name.clone();
+            }
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::OrEnumeration(this, that) => {
                     node._type = Type::OrEnumeration;
@@ -206,7 +203,12 @@ impl Node {
                         column_name,
                     )));
                 }
-                _ => panic!("Complicated or! {:#?}", ele),
+                _ => {
+                    return Self::build(
+                        context.start_table(ele.name.clone().unwrap()),
+                        ele.clone(),
+                    );
+                }
             },
         }
         node
