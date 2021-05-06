@@ -1,0 +1,133 @@
+{
+    (
+        table_name: "storage",
+        id: 1,
+    ): (
+        table_name: "storage",
+        id: 1,
+        fk_id: None,
+        columns: [
+            (
+                name: "stablecoin",
+                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Int((1, [
+                    15,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 2,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 2,
+        fk_id: Some(1),
+        columns: [
+            (
+                name: "idx_nat_35",
+                value: Int((1, [
+                    13,
+                ])),
+            ),
+            (
+                name: "nat_36",
+                value: Int((1, [
+                    3903053373,
+                    4110948536,
+                    5,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 7,
+    ): (
+        table_name: "storage.ledger",
+        id: 7,
+        fk_id: Some(1),
+        columns: [
+            (
+                name: "idx_nat_23",
+                value: Int((1, [
+                    15,
+                ])),
+            ),
+            (
+                name: "idx_address_22",
+                value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    2241060413,
+                    2302720651,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 5,
+    ): (
+        table_name: "storage.ledger",
+        id: 5,
+        fk_id: Some(1),
+        columns: [
+            (
+                name: "idx_nat_23",
+                value: Int((1, [
+                    15,
+                ])),
+            ),
+            (
+                name: "idx_address_22",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 3,
+    ): (
+        table_name: "storage.ledger",
+        id: 3,
+        fk_id: Some(1),
+        columns: [
+            (
+                name: "idx_nat_23",
+                value: Int((1, [
+                    13,
+                ])),
+            ),
+            (
+                name: "idx_address_22",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+        ],
+    ),
+}

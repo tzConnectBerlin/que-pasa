@@ -75,7 +75,7 @@ pub mod insert {
     use std::collections::BTreeMap;
     use std::sync::Mutex;
 
-    #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+    #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
     pub struct InsertKey {
         pub table_name: String,
         pub id: u32,
@@ -94,13 +94,13 @@ pub mod insert {
         }
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     pub struct Column {
         pub name: String,
         pub value: Value,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     pub struct Insert {
         pub table_name: String,
         pub id: u32,

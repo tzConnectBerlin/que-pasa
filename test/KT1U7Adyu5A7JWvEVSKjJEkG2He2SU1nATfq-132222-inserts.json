@@ -1,0 +1,26 @@
+{
+    (
+        table_name: "storage",
+        id: 1,
+    ): (
+        table_name: "storage",
+        id: 1,
+        fk_id: None,
+        columns: [
+            (
+                name: "stablecoin",
+                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Int((1, [
+                    6,
+                ])),
+            ),
+        ],
+    ),
+}

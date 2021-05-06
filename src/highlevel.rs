@@ -6,6 +6,8 @@ use crate::postgresql_generator::PostgresqlGenerator;
 use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
+use ron::ser::{to_string_pretty, PrettyConfig};
+use serde::Serialize;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
@@ -57,7 +59,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     if !StorageParser::level_has_tx_for_us(&json, contract_id)? {
         postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
         postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
-        transaction.commit()?;
+        transaction.commit()?; // TODO: think about this
         return Ok(SaveLevelResult {
             is_origination: false,
             tx_count: 0,
@@ -179,6 +181,7 @@ fn test_block() {
     .unwrap();
     let node = get_node_from_script_json(&script_json).unwrap();
     println!("Node: {:?}", node);
+    let mut inserts_tested = 0;
     for level in vec![
         132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222, 132240,
         132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383,
@@ -197,36 +200,54 @@ fn test_block() {
             &level_json,
         )
         .unwrap();
-
         for operation in &operations {
-            println!("level {}, {}", level, operation.to_string());
-            if operation["contents"]["destination"].to_string().as_str() != contract_id {
-                println!("{} is not our contract_id", operation["destination"]);
-                continue;
+            if let JsonValue::Array(contents) = &operation["contents"] {
+                let operation = contents[0].clone();
+                if contents[0]["destination"].to_string().as_str() != contract_id {
+                    println!("{} is not our contract_id", operation["destination"]);
+                    continue;
+                }
+                let storage_json = StorageParser::get_storage_from_operation(&operation).unwrap();
+
+                let mut storage_parser = StorageParser::new(1);
+
+                let preparsed_storage = storage_parser.preparse_storage(&storage_json);
+                let parsed_storage = storage_parser.parse_storage(&preparsed_storage).unwrap();
+                storage_parser.read_storage(&parsed_storage, &node).unwrap();
+
+                let big_map_ops =
+                    StorageParser::get_big_map_operations_from_operations(&operations).unwrap();
+                for big_map_op in big_map_ops {
+                    storage_parser.process_big_map(&big_map_op).unwrap();
+                }
             }
-            let storage_json = StorageParser::get_storage_from_operation(&operation).unwrap();
+            let inserts = crate::table::insert::get_inserts();
+            let filename = format!("test/{}-{}-inserts.json", contract_id, level);
 
-            println!("storage_json: {:?}", storage_json);
-
-            let mut storage_parser = StorageParser::new(1);
-
-            let preparsed_storage = storage_parser.preparse_storage(&storage_json);
-            let parsed_storage = storage_parser.parse_storage(&preparsed_storage).unwrap();
-            storage_parser.read_storage(&parsed_storage, &node).unwrap();
-
-            let big_map_ops =
-                StorageParser::get_big_map_operations_from_operations(&operations).unwrap();
-            for big_map_op in big_map_ops {
-                storage_parser.process_big_map(&big_map_op).unwrap();
+            println!("cat > {} <<ENDOFJSON", filename);
+            println!(
+                "{}",
+                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+            );
+            println!("ENDOFJSON");
+            let p = Path::new(&filename);
+            if let Ok(file) = File::open(p) {
+                let reader = BufReader::new(file);
+                let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
+                assert_eq!(v.keys().len(), inserts.keys().len());
+                for key in inserts.keys() {
+                    assert_eq!(v.get(key).unwrap(), inserts.get(key).unwrap());
+                }
+                inserts_tested += 1;
             }
+            // let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
+            // for (_key, value) in &inserts {
+            //     println!("{}", generator.build_insert(value, level));
+            // }
+            crate::table::insert::clear_inserts();
         }
-        let inserts = crate::table::insert::get_inserts();
-        let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
-        for (_key, value) in &inserts {
-            println!("{}", generator.build_insert(value, level));
-        }
-        crate::table::insert::clear_inserts();
     }
+    assert!(inserts_tested > 0);
 }
 
 #[test]

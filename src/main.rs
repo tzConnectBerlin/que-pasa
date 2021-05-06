@@ -14,6 +14,7 @@ extern crate lazy_static;
 extern crate log;
 extern crate postgres;
 extern crate regex;
+extern crate ron;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;

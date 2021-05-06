@@ -35,7 +35,7 @@ impl IdGenerator {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Address(String),
     Bool(bool),
@@ -235,7 +235,7 @@ impl StorageParser {
     }
 
     pub fn get_storage_from_operation(json: &JsonValue) -> Result<JsonValue, Box<dyn Error>> {
-        Ok(json["contents"][0]["metadata"]["operation_result"]["storage"].clone())
+        Ok(json["metadata"]["operation_result"]["storage"].clone())
     }
 
     pub fn get_operations_from_node(

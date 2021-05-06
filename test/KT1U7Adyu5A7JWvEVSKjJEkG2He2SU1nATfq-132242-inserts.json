@@ -1,0 +1,154 @@
+{
+    (
+        table_name: "storage",
+        id: 1,
+    ): (
+        table_name: "storage",
+        id: 1,
+        fk_id: None,
+        columns: [
+            (
+                name: "stablecoin",
+                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Int((1, [
+                    6,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions",
+        id: 5,
+    ): (
+        table_name: "storage.questions",
+        id: 5,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "state",
+                value: Unit(Some("questionMarketClosed")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions",
+        id: 2,
+    ): (
+        table_name: "storage.questions",
+        id: 2,
+        fk_id: Some(1),
+        columns: [
+            (
+                name: "idx_string_4",
+                value: String("QmaQMoz6osCTtnFrgvgGuKJvMt9BP4HpBsScPaYJSrcRi1"),
+            ),
+            (
+                name: "uniswap_contribution_factor",
+                value: Int((1, [
+                    0,
+                    2155486032,
+                    1793925996,
+                    63108872,
+                ])),
+            ),
+            (
+                name: "yes_preference",
+                value: Int((1, [
+                    0,
+                    2299528944,
+                    4019822861,
+                    1199068575,
+                ])),
+            ),
+            (
+                name: "total_auction_quantity",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+            (
+                name: "nat_18",
+                value: Int((1, [
+                    5,
+                ])),
+            ),
+            (
+                name: "lqt_token_id",
+                value: Int((1, [
+                    6,
+                ])),
+            ),
+            (
+                name: "no_token_id",
+                value: Int((1, [
+                    5,
+                ])),
+            ),
+            (
+                name: "yes_token_id",
+                value: Int((1, [
+                    4,
+                ])),
+            ),
+            (
+                name: "market_close",
+                value: Timestamp("2021-03-31T08:32:00Z"),
+            ),
+            (
+                name: "auction_end",
+                value: Timestamp("2021-03-31T08:30:00Z"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions.auction_bids",
+        id: 4,
+    ): (
+        table_name: "storage.questions.auction_bids",
+        id: 4,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "idx_address_11",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Int((1, [
+                    0,
+                    2299528944,
+                    4019822861,
+                    1199068575,
+                ])),
+            ),
+            (
+                name: "quantity",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+            (
+                name: "rate",
+                value: Int((1, [
+                    2023686144,
+                    221189111,
+                ])),
+            ),
+        ],
+    ),
+}
