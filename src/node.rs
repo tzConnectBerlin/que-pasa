@@ -186,7 +186,7 @@ impl Node {
         node.column_name = Some(column_name.clone());
         match ele.expr {
             Expr::SimpleExpr(e) => {
-                context._type = Type::Table;
+                context._type = Type::Column;
                 node.value = ele.name.clone();
             }
             Expr::ComplexExpr(ref e) => match e {
@@ -204,6 +204,7 @@ impl Node {
                     )));
                 }
                 _ => {
+                    debug!("Starting table from OR with ele {:?}", ele);
                     return Self::build(
                         context.start_table(ele.name.clone().unwrap()),
                         ele.clone(),

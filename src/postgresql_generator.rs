@@ -147,19 +147,24 @@ impl PostgresqlGenerator {
     }
 
     pub fn create_sql(&mut self, column: Column) -> Res<String> {
+        let name = Self::quote_id(&column.name);
         match column.expr {
-            SimpleExpr::Address => Ok(self.address(&column.name)),
-            SimpleExpr::Bool => Ok(self.bool(&column.name)),
-            SimpleExpr::Bytes => Ok(self.bytes(&column.name)),
-            SimpleExpr::Int => Ok(self.int(&column.name)),
-            SimpleExpr::KeyHash => Ok(self.string(&column.name)),
-            SimpleExpr::Mutez => Ok(self.numeric(&column.name)),
-            SimpleExpr::Nat => Ok(self.nat(&column.name)),
+            SimpleExpr::Address => Ok(self.address(&name)),
+            SimpleExpr::Bool => Ok(self.bool(&name)),
+            SimpleExpr::Bytes => Ok(self.bytes(&name)),
+            SimpleExpr::Int => Ok(self.int(&name)),
+            SimpleExpr::KeyHash => Ok(self.string(&name)),
+            SimpleExpr::Mutez => Ok(self.numeric(&name)),
+            SimpleExpr::Nat => Ok(self.nat(&name)),
             SimpleExpr::Stop => Err(err!("Stop type can't be stored")),
-            SimpleExpr::String => Ok(self.string(&column.name)),
-            SimpleExpr::Timestamp => Ok(self.timestamp(&column.name)),
-            SimpleExpr::Unit => Ok(self.unit(&column.name)),
+            SimpleExpr::String => Ok(self.string(&name)),
+            SimpleExpr::Timestamp => Ok(self.timestamp(&name)),
+            SimpleExpr::Unit => Ok(self.unit(&name)),
         }
+    }
+
+    fn quote_id(s: &str) -> String {
+        format!("\"{}\"", s)
     }
 
     pub fn address(&mut self, name: &String) -> String {
@@ -217,17 +222,33 @@ impl PostgresqlGenerator {
         Ok(cols)
     }
 
+    fn indices(&self, table: &Table) -> Vec<String> {
+        let mut indices = table.indices.clone();
+        if let Some(parent_key) = self.parent_key(table) {
+            indices.push(parent_key);
+        }
+        indices
+    }
+
     pub fn create_index(&mut self, table: &Table) -> String {
         format!(
             "CREATE INDEX ON \"{}\"({});\n",
             table.name,
-            table.indices.join(", ")
+            self.indices(table).join(", ")
         )
     }
 
     fn parent_name(name: &String) -> Option<String> {
         if let Some(pos) = name.rfind(".") {
             Some(name.as_str()[0..pos].to_string())
+        } else {
+            None
+        }
+    }
+
+    fn parent_key(&self, table: &Table) -> Option<String> {
+        if let Some(parent) = Self::parent_name(&table.name) {
+            Some(format!(r#""{}_id""#, parent))
         } else {
             None
         }
@@ -268,7 +289,7 @@ impl PostgresqlGenerator {
         if table.name == "storage" {
             return "".to_string();
         }
-        let mut indices = table.indices.clone();
+        let mut indices = self.indices(table);
         indices.remove(indices.iter().position(|x| *x == "_level").unwrap());
         format!(
             r#"
@@ -338,7 +359,7 @@ CREATE VIEW "{}_live" AS (
         let mut columns: String = insert
             .columns
             .iter()
-            .map(|x| x.name.clone())
+            .map(|x| Self::quote_id(&x.name))
             .collect::<Vec<String>>()
             .join(", ");
         let mut values: String = insert

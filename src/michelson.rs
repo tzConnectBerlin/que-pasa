@@ -481,7 +481,7 @@ impl StorageParser {
     fn is_new_table(node: &Node, value: &Value) -> bool {
         match node._type {
             // When a new table is initialised, we increment id and make the old id the fk constraint
-            crate::node::Type::OrEnumeration => return true,
+            crate::node::Type::OrEnumeration => return false, // TODO: check
             crate::node::Type::Table => match node.expr {
                 crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::Map(_, _)) => {
                     match value {

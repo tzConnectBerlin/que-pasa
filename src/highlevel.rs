@@ -182,7 +182,6 @@ fn test_block() {
     ))
     .unwrap();
     let node = get_node_from_script_json(&script_json).unwrap();
-    println!("Node: {:?}", node);
     let mut inserts_tested = 0;
     for level in vec![
         132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222, 132240,
@@ -194,8 +193,6 @@ fn test_block() {
             level
         )))
         .unwrap();
-
-        println!("Level: {}", level);
 
         let operations = StorageParser::get_operations_from_block_json(
             "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
