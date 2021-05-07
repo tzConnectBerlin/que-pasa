@@ -355,16 +355,20 @@ impl StorageParser {
     /// data to stash it in the database.
     pub fn parse_storage(&self, json: &JsonValue) -> Res<Value> {
         if let JsonValue::Array(a) = json {
-            if a.len() == 0 {
-                // must understand why this happens
-                return Ok(Value::None);
+            match a.len() {
+                0 => {
+                    // TODO: must understand why this happens
+                    return Ok(Value::None);
+                }
+                1 => {
+                    return self.parse_storage(&a[0]);
+                }
+                _ => {
+                    let left = Box::new(self.parse_storage(&a[0].clone())?);
+                    let right = Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
+                    return Ok(Value::Pair(left, right));
+                }
             }
-            if a.len() == 1 {
-                return self.parse_storage(&a[0]);
-            }
-            let left = Box::new(self.parse_storage(&a[0].clone())?);
-            let right = Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
-            return Ok(Value::Pair(left, right));
         }
         let args: Vec<JsonValue> = match &json["args"] {
             JsonValue::Array(a) => a.clone(),
@@ -457,12 +461,23 @@ impl StorageParser {
                         id,
                         None,
                     );
-                    self.read_storage_internal(
-                        &value,
-                        &*node.right.ok_or("Missing value to big map")?,
-                        id,
-                        None,
-                    );
+                    match value {
+                        Value::None => {
+                            crate::table::insert::add_column(
+                                node.table_name.ok_or("Missing name for table")?,
+                                id,
+                                None,
+                                "deleted".to_string(),
+                                Value::Bool(true),
+                            );
+                        }
+                        _ => self.read_storage_internal(
+                            &value,
+                            &*node.right.ok_or("Missing value to big map")?,
+                            id,
+                            None,
+                        ),
+                    }
                 }
                 "alloc" => {
                     debug!("Alloc called like this: {}", json.to_string());
