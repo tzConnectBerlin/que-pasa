@@ -66,7 +66,6 @@ Big map updates are stored independently of the rest of the storage, as one woul
 - `make start-graphql` to start the graphql server and graphiql.
 
 - `make start-indexer CONTRACT=<ADDRESS>` to start the indexer.
->>>>>>> 1c05f9de1a2af2e41698406a7dc13e2960ca0174
 
 - `make down-db` to bring down the database.
 

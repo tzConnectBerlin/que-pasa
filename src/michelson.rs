@@ -355,11 +355,12 @@ impl StorageParser {
     /// data to stash it in the database.
     pub fn parse_storage(&self, json: &JsonValue) -> Res<Value> {
         if let JsonValue::Array(a) = json {
-            let mut inner: Vec<Box<Value>> = vec![];
-            for i in a {
-                inner.push(Box::new(self.parse_storage(&i)?));
+            if a.len() == 1 {
+                return self.parse_storage(&a[0]);
             }
-            return Ok(Value::List(inner));
+            let left = Box::new(self.parse_storage(&a[0].clone())?);
+            let right = Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
+            return Ok(Value::Pair(left, right));
         }
         let args: Vec<JsonValue> = match &json["args"] {
             JsonValue::Array(a) => a.clone(),
@@ -436,6 +437,7 @@ impl StorageParser {
         let big_map_id: u32 = json["big_map"].to_string().parse()?;
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
+        println!("process_big_map value: {:#?}", value);
         if let Some((fk, node)) = self.big_map_map.get(&big_map_id) {
             let fk = fk.clone();
             let node = node.clone();
