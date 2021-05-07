@@ -355,6 +355,10 @@ impl StorageParser {
     /// data to stash it in the database.
     pub fn parse_storage(&self, json: &JsonValue) -> Res<Value> {
         if let JsonValue::Array(a) = json {
+            if a.len() == 0 {
+                // must understand why this happens
+                return Ok(Value::None);
+            }
             if a.len() == 1 {
                 return self.parse_storage(&a[0]);
             }
@@ -491,6 +495,7 @@ impl StorageParser {
                     match value {
                         Value::Elt(_, _) => false,
                         Value::List(_) => true,
+                        Value::None => false,
                         _ => {
                             panic!("Unexpected value {:?}", value);
                         }
