@@ -123,7 +123,6 @@ impl StorageParser {
     pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {
         if let JsonValue::Array(array) = &json["operations"][3] {
             for op in array {
-                debug!("operation: {}", op.to_string());
                 if let JsonValue::Array(sub_ops) = &op["contents"] {
                     for sub_op in sub_ops {
                         debug!("destination: {}", sub_op["destination"].to_string());
@@ -260,7 +259,6 @@ impl StorageParser {
             for operation in operations {
                 if let JsonValue::Array(ops) = &operation["contents"] {
                     for op in ops {
-                        debug!("op= {:?}", op);
                         if let Some(dest) = &op["destination"].as_str() {
                             if dest == &contract_id {
                                 debug!("Match!");
@@ -395,6 +393,7 @@ impl StorageParser {
                     ));
                 }
                 &"Some" => return self.parse_storage(&args[0]),
+                &"True" => return Ok(Value::Bool(true)),
                 &"Unit" => return Ok(Value::Unit(None)),
                 _ => {
                     panic!("Unknown prim {}", json["prim"]);
@@ -450,14 +449,17 @@ impl StorageParser {
                         &key,
                         &*node.left.ok_or("Missing key to big map")?,
                         id,
-                        Some(fk),
+                        None,
                     );
                     self.read_storage_internal(
                         &value,
                         &*node.right.ok_or("Missing value to big map")?,
                         id,
-                        Some(fk),
+                        None,
                     );
+                }
+                "alloc" => {
+                    debug!("Alloc called like this: {}", json.to_string());
                 }
                 _ => panic!("{}", json.to_string()),
             }
@@ -479,7 +481,7 @@ impl StorageParser {
     // do this once per table, so we must ensure we don't get confused by multiple Elts for multiple
     // rows
     fn is_new_table(node: &Node, value: &Value) -> bool {
-        match node._type {
+        let result = match node._type {
             // When a new table is initialised, we increment id and make the old id the fk constraint
             crate::node::Type::OrEnumeration => return false, // TODO: check
             crate::node::Type::Table => match node.expr {
@@ -495,7 +497,9 @@ impl StorageParser {
                 _ => false,
             },
             _ => false,
-        }
+        };
+        debug!("is_new_table returning {:?}", result);
+        result
     }
 
     pub fn read_storage_internal(
@@ -505,7 +509,6 @@ impl StorageParser {
         mut id: u32,
         mut fk_id: Option<u32>,
     ) {
-        debug!("read_storage_internal id: {} Node: {:?}", id, node);
         match node.expr {
             // we don't even try to store lambdas.
             crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Stop) => return,

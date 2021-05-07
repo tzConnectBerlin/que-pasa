@@ -176,7 +176,7 @@ impl PostgresqlGenerator {
     }
 
     pub fn bytes(&mut self, name: &String) -> String {
-        format!("{} VARCHAR(128) NULL", name)
+        format!("{} TEXT NULL", name)
     }
 
     pub fn int(&mut self, name: &String) -> String {
@@ -213,7 +213,7 @@ impl PostgresqlGenerator {
 
     pub fn create_columns(&mut self, table: &Table) -> Res<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
-            Some(x) => vec![format!(r#""{}_id" BIGINT NOT NULL"#, x)],
+            Some(x) => vec![format!(r#""{}_id" BIGINT"#, x)],
             None => vec![],
         };
         for column in &table.columns {
@@ -378,7 +378,10 @@ CREATE VIEW "{}_live" AS (
         columns.push_str(", _level");
         values.push_str(&format!(", {}", level));
         let sql = format!(
-            r#"INSERT INTO "{}" (id, {}) VALUES ({}, {})"#,
+            r#"INSERT INTO "{}"
+(id, {})
+VALUES
+({}, {})"#,
             insert.table_name, columns, insert.id, values,
         );
         sql

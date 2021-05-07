@@ -175,7 +175,8 @@ fn test_has_tx_for_us() {
 fn test_block() {
     // this tests the generated table structures against known good ones.
     // if it fails for a good reason, the output can be used to repopulate the
-    // test files.
+    // test files. To do this:
+    // `cargo test -- --test test_block | bash`
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
     let script_json = json::parse(&load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",

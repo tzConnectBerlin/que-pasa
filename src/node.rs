@@ -36,6 +36,7 @@ fn get_column_name(expr: &Expr) -> &str {
             SimpleExpr::Bool => "bool",
             SimpleExpr::Bytes => "bytes",
             SimpleExpr::Int => "int",
+            SimpleExpr::Mutez => "int",
             SimpleExpr::Nat => "nat",
             SimpleExpr::String => "string",
             SimpleExpr::KeyHash => "string", // TODO: check this with the data
@@ -59,6 +60,7 @@ pub enum Type {
 #[derive(Clone, Debug)]
 pub struct Context {
     table_name: String,
+    prefix: String,
     _type: Type,
 }
 
@@ -66,16 +68,29 @@ impl Context {
     pub fn init() -> Self {
         Context {
             table_name: "storage".to_string(),
+            prefix: "".to_string(),
             _type: Type::Table,
         }
     }
 
     pub fn name(&self, ele: &Ele) -> String {
-        let index = get_index(&self.table_name);
-        let name = get_column_name(&ele.expr);
+        let name = match &ele.name {
+            Some(x) => x.to_string(),
+            None => format!(
+                "{}_{}",
+                get_column_name(&ele.expr),
+                get_index(&self.table_name),
+            ),
+        };
+        let initial = format!(
+            "{}{}{}",
+            self.prefix,
+            if self.prefix.len() == 0 { "" } else { "_" },
+            name,
+        );
         match self._type {
-            Type::TableIndex => format!("idx_{}_{}", name, index),
-            _ => format!("{}_{}", name, index),
+            Type::TableIndex => format!("idx_{}", initial),
+            _ => format!("{}", initial),
         }
     }
 
@@ -87,6 +102,16 @@ impl Context {
     pub fn next_with_state(&self, new_state: Type) -> Self {
         let mut c = self.next();
         c._type = new_state;
+        c
+    }
+
+    pub fn next_with_prefix(&self, prefix: Option<String>) -> Self {
+        let mut c = self.next();
+        if let Some(prefix) = prefix {
+            c.prefix = prefix;
+            // let sep = if self.prefix.len() == 0 { "" } else { "." };
+            // c.prefix = format!("{}{}{}", self.prefix, sep, prefix);
+        }
         c
     }
 
@@ -125,16 +150,13 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    pub fn new(c: &Context, ele: &Ele) -> Self {
-        let name = match &ele.name {
-            Some(e) => Some(e.clone()),
-            None => Some(c.name(ele)),
-        };
+    pub fn new(ctx: &Context, ele: &Ele) -> Self {
+        let name = ctx.name(ele);
         Self {
-            name: name.clone(),
-            _type: c._type,
-            table_name: Some(c.table_name.clone()),
-            column_name: name,
+            name: Some(name.clone()),
+            _type: ctx._type,
+            table_name: Some(ctx.table_name.clone()),
+            column_name: Some(name),
             value: None,
             left: None,
             right: None,
@@ -150,7 +172,7 @@ impl Node {
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
-                    let context = context.start_table(get_table_name(Some(name)));
+                    let context = context.start_table(get_table_name(Some(name.clone())));
                     let mut n = Self::new(&context, &ele);
                     n.left = Some(Box::new(Self::build_index(
                         context.next_with_state(Type::TableIndex),
@@ -160,10 +182,11 @@ impl Node {
                     n
                 }
                 ComplexExpr::Pair(left, right) => {
-                    context._type = Type::Pair;
                     let mut n = Self::new(&context, &ele);
-                    n.left = Some(Box::new(Self::build(context.next(), (**left).clone())));
-                    n.right = Some(Box::new(Self::build(context.next(), (**right).clone())));
+                    let mut context = context.next_with_prefix(ele.name);
+                    context._type = Type::Pair;
+                    n.left = Some(Box::new(Self::build(context.clone(), (**left).clone())));
+                    n.right = Some(Box::new(Self::build(context, (**right).clone())));
                     n
                 }
                 ComplexExpr::Option(_inner_expr) => Self::build(context, (**_inner_expr).clone()),
@@ -185,7 +208,7 @@ impl Node {
         node.name = Some(column_name.clone());
         node.column_name = Some(column_name.clone());
         match ele.expr {
-            Expr::SimpleExpr(e) => {
+            Expr::SimpleExpr(_) => {
                 context._type = Type::Column;
                 node.value = ele.name.clone();
             }
@@ -222,15 +245,10 @@ impl Node {
                     panic!("Got a map where I expected an index");
                 }
                 ComplexExpr::Pair(left, right) => {
+                    let ctx = context.next_with_prefix(ele.name.clone());
                     let mut n = Self::new(&context, &ele);
-                    n.left = Some(Box::new(Self::build_index(
-                        context.next(),
-                        (**left).clone(),
-                    )));
-                    n.right = Some(Box::new(Self::build_index(
-                        context.next(),
-                        (**right).clone(),
-                    )));
+                    n.left = Some(Box::new(Self::build_index(ctx.next(), (**left).clone())));
+                    n.right = Some(Box::new(Self::build_index(ctx, (**right).clone())));
                     n
                 }
                 _ => panic!("Unexpected input to index"),
