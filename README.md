@@ -41,6 +41,7 @@ Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to ab
 ```
 
 Note the `--init` argument, which will delete all data from the database. The `-l` argument reads in the levels passed, and then all levels between these numbers are marked as imported.
+npm install -g postgraphile
 
 ## Database structure
 

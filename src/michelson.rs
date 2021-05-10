@@ -460,6 +460,7 @@ impl StorageParser {
                         &*node.left.ok_or("Missing key to big map")?,
                         id,
                         None,
+                        node.table_name.clone(),
                     );
                     match value {
                         Value::None => {
@@ -476,6 +477,7 @@ impl StorageParser {
                             &*node.right.ok_or("Missing value to big map")?,
                             id,
                             None,
+                            node.table_name.clone(),
                         ),
                     }
                 }
@@ -494,34 +496,15 @@ impl StorageParser {
     /// to match them. Panics if it cannot do this (i.e. they do not match).
     pub fn read_storage(&mut self, value: &Value, node: &Node) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
-        self.read_storage_internal(value, node, id, None);
+        crate::table::insert::add_column(
+            "storage".to_string(),
+            id,
+            None,
+            "deleted".to_string(),
+            Value::Bool(false),
+        );
+        self.read_storage_internal(value, node, id, None, Some("storage".to_string()));
         Ok(())
-    }
-
-    // we detect the start of a new table by the annotations in the Node struct. But we only want to
-    // do this once per table, so we must ensure we don't get confused by multiple Elts for multiple
-    // rows
-    fn is_new_table(node: &Node, value: &Value) -> bool {
-        let result = match node._type {
-            // When a new table is initialised, we increment id and make the old id the fk constraint
-            crate::node::Type::OrEnumeration => return false, // TODO: check
-            crate::node::Type::Table => match node.expr {
-                crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::Map(_, _)) => {
-                    match value {
-                        Value::Elt(_, _) => false,
-                        Value::List(_) => true,
-                        Value::None => false,
-                        _ => {
-                            panic!("Unexpected value {:?}", value);
-                        }
-                    }
-                }
-                _ => false,
-            },
-            _ => false,
-        };
-        debug!("is_new_table returning {:?}", result);
-        result
     }
 
     pub fn read_storage_internal(
@@ -530,6 +513,7 @@ impl StorageParser {
         node: &Node,
         mut id: u32,
         mut fk_id: Option<u32>,
+        mut last_table: Option<String>,
     ) {
         match node.expr {
             // we don't even try to store lambdas.
@@ -537,8 +521,10 @@ impl StorageParser {
             _ => (),
         }
 
-        if Self::is_new_table(node, value) {
-            // get a new id and make the old one the current foreign key
+        if last_table != node.table_name {
+            debug!("{:?} <> {:?} new table", last_table, node.table_name);
+
+            last_table = node.table_name.clone();
             fk_id = Some(id);
             id = self.id_generator.get_id();
             debug!(
@@ -552,27 +538,39 @@ impl StorageParser {
                 // entry in a map or a big map.
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
-                self.read_storage_internal(keys, l, id, fk_id);
-                self.read_storage_internal(values, r, id, fk_id);
+                self.read_storage_internal(keys, l, id, fk_id, last_table.clone());
+                self.read_storage_internal(values, r, id, fk_id, last_table.clone());
             }
             Value::Left(left) => {
-                self.read_storage_internal(left, node.left.as_ref().unwrap(), id, fk_id);
+                self.read_storage_internal(
+                    left,
+                    node.left.as_ref().unwrap(),
+                    id,
+                    fk_id,
+                    last_table.clone(),
+                );
             }
             Value::Right(right) => {
-                self.read_storage_internal(right, node.right.as_ref().unwrap(), id, fk_id);
+                self.read_storage_internal(
+                    right,
+                    node.right.as_ref().unwrap(),
+                    id,
+                    fk_id,
+                    last_table.clone(),
+                );
             }
             Value::List(l) => {
                 for element in l {
                     debug!("Elt: {:?}", element);
                     let id = self.id_generator.get_id();
-                    self.read_storage_internal(element, node, id, fk_id);
+                    self.read_storage_internal(element, node, id, fk_id, last_table.clone());
                 }
             }
             Value::Pair(left, right) => {
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
-                self.read_storage_internal(right, r, id, fk_id);
-                self.read_storage_internal(left, l, id, fk_id);
+                self.read_storage_internal(right, r, id, fk_id, last_table.clone());
+                self.read_storage_internal(left, l, id, fk_id, last_table.clone());
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
@@ -581,6 +579,7 @@ impl StorageParser {
                     node,
                     id,
                     fk_id,
+                    None,
                 );
             }
             _ => {
