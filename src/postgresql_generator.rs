@@ -146,20 +146,20 @@ impl PostgresqlGenerator {
         Self {}
     }
 
-    pub fn create_sql(&mut self, column: Column) -> Res<String> {
+    pub fn create_sql(&mut self, column: Column) -> Option<String> {
         let name = Self::quote_id(&column.name);
         match column.expr {
-            SimpleExpr::Address => Ok(self.address(&name)),
-            SimpleExpr::Bool => Ok(self.bool(&name)),
-            SimpleExpr::Bytes => Ok(self.bytes(&name)),
-            SimpleExpr::Int => Ok(self.int(&name)),
-            SimpleExpr::KeyHash => Ok(self.string(&name)),
-            SimpleExpr::Mutez => Ok(self.numeric(&name)),
-            SimpleExpr::Nat => Ok(self.nat(&name)),
-            SimpleExpr::Stop => Err(err!("Stop type can't be stored")),
-            SimpleExpr::String => Ok(self.string(&name)),
-            SimpleExpr::Timestamp => Ok(self.timestamp(&name)),
-            SimpleExpr::Unit => Ok(self.unit(&name)),
+            SimpleExpr::Address => Some(self.address(&name)),
+            SimpleExpr::Bool => Some(self.bool(&name)),
+            SimpleExpr::Bytes => Some(self.bytes(&name)),
+            SimpleExpr::Int => Some(self.int(&name)),
+            SimpleExpr::KeyHash => Some(self.string(&name)),
+            SimpleExpr::Mutez => Some(self.numeric(&name)),
+            SimpleExpr::Nat => Some(self.nat(&name)),
+            SimpleExpr::Stop => None,
+            SimpleExpr::String => Some(self.string(&name)),
+            SimpleExpr::Timestamp => Some(self.timestamp(&name)),
+            SimpleExpr::Unit => Some(self.unit(&name)),
         }
     }
 
@@ -217,7 +217,10 @@ impl PostgresqlGenerator {
             None => vec![],
         };
         for column in &table.columns {
-            cols.push(self.create_sql(column.clone())?);
+            match self.create_sql(column.clone()) {
+                Some(val) => cols.push(val),
+                None => (),
+            }
         }
         Ok(cols)
     }

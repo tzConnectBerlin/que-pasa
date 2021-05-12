@@ -135,6 +135,7 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
             "string" => Ok(simple_expr!(SimpleExpr::String, annot)),
             "timestamp" => Ok(simple_expr!(SimpleExpr::Timestamp, annot)),
             "unit" => Ok(simple_expr!(SimpleExpr::Unit, annot)),
+            "lambda" => Ok(simple_expr!(SimpleExpr::Stop, annot)),
             _ => Err(err!(
                 "Unexpected storage json: {} {:#?}",
                 prim.as_str(),
