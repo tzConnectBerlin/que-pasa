@@ -42,6 +42,7 @@ fn get_column_name(expr: &Expr) -> &str {
             SimpleExpr::KeyHash => "string", // TODO: check this with the data
             SimpleExpr::Timestamp => "timestamp",
             SimpleExpr::Unit => "unit",
+            SimpleExpr::Stop => "stop",
             _ => panic!("Unexpected type {:?}", e),
         },
     }

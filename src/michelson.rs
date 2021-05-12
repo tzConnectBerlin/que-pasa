@@ -292,18 +292,21 @@ impl StorageParser {
     }
 
     pub fn preparse_storage2(&self, v: &mut Vec<JsonValue>) -> JsonValue {
-        if v.len() == 1 {
-            return v[0].clone();
-        } else {
-            let ele = v.pop();
-            let rest = self.preparse_storage2(v);
-            return object! {
-                "prim": "Pair",
-                "args": [
-                    ele,
-                    rest,
-                ]
-            };
+        match v.len() {
+            0 => panic!("Called empty"),
+            1 => v[0].clone(),
+            _ => {
+                let ele = v.pop();
+                debug!("{:?}", v);
+                let rest = self.preparse_storage2(v);
+                return object! {
+                    "prim": "Pair",
+                    "args": [
+                        ele,
+                        rest,
+                    ]
+                };
+            }
         }
     }
 
@@ -354,6 +357,7 @@ impl StorageParser {
     /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
     /// data to stash it in the database.
     pub fn parse_storage(&self, json: &JsonValue) -> Res<Value> {
+        debug!("parse_storage: {:?}", json);
         if let JsonValue::Array(a) = json {
             match a.len() {
                 0 => {
@@ -375,8 +379,10 @@ impl StorageParser {
             _ => vec![],
         };
         if let Some(s) = &json["prim"].as_str() {
-            match s {
-                &"Elt" => {
+            let mut prim = s.to_string();
+            prim.make_ascii_uppercase();
+            match prim.as_str() {
+                "ELT" => {
                     if args.len() != 2 {
                         panic!("Elt with array length of {}", args.len());
                     }
@@ -385,25 +391,32 @@ impl StorageParser {
                         Box::new(self.parse_storage(&args[1])?),
                     ));
                 }
-                &"False" => return Ok(Value::Bool(false)),
-                &"Left" => return Ok(Value::Left(Box::new(self.parse_storage(&args[0])?))),
-                &"None" => return Ok(Value::None),
-                &"Right" => return Ok(Value::Right(Box::new(self.parse_storage(&args[0])?))),
-                &"Pair" => {
-                    if args.len() != 2 {
-                        let mut args = args.clone();
-                        args.reverse(); // so we can pop() afterward. But TODO: fix
-                        let parsed = self.preparse_storage2(&mut args);
-                        return self.parse_storage(&parsed);
+                "FALSE" => return Ok(Value::Bool(false)),
+                "LEFT" => return Ok(Value::Left(Box::new(self.parse_storage(&args[0])?))),
+                "NONE" => return Ok(Value::None),
+                "RIGHT" => return Ok(Value::Right(Box::new(self.parse_storage(&args[0])?))),
+                "PAIR" => {
+                    match args.len() {
+                        0 | 1 => return Ok(Value::None),
+                        2 => {
+                            return Ok(Value::Pair(
+                                Box::new(self.parse_storage(&args[0])?),
+                                Box::new(self.parse_storage(&args[1])?),
+                            ));
+                        }
+                        _ => {
+                            let mut args = args.clone();
+                            args.reverse(); // so we can pop() afterward. But TODO: fix
+                            let parsed = self.preparse_storage2(&mut args);
+                            return self.parse_storage(&parsed);
+                        }
                     }
-                    return Ok(Value::Pair(
-                        Box::new(self.parse_storage(&args[0])?),
-                        Box::new(self.parse_storage(&args[1])?),
-                    ));
                 }
-                &"Some" => return self.parse_storage(&args[0]),
-                &"True" => return Ok(Value::Bool(true)),
-                &"Unit" => return Ok(Value::Unit(None)),
+                "PUSH" => return Ok(Value::None),
+                "SOME" => return self.parse_storage(&args[0]),
+                "TRUE" => return Ok(Value::Bool(true)),
+                "UNIT" => return Ok(Value::Unit(None)),
+
                 _ => {
                     panic!("Unknown prim {}", json["prim"]);
                 }
