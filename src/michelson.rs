@@ -413,12 +413,20 @@ impl StorageParser {
                     }
                 }
                 "PUSH" => return Ok(Value::None),
-                "SOME" => return self.parse_storage(&args[0]),
+                "SOME" => {
+                    if args.len() > 0 {
+                        return self.parse_storage(&args[0]);
+                    } else {
+                        warn!("Got SOME with no content");
+                        return Ok(Value::None);
+                    }
+                }
                 "TRUE" => return Ok(Value::Bool(true)),
                 "UNIT" => return Ok(Value::Unit(None)),
 
                 _ => {
-                    panic!("Unknown prim {}", json["prim"]);
+                    warn!("Unknown prim {}", json["prim"]);
+                    return Ok(Value::None);
                 }
             }
         }
@@ -438,7 +446,9 @@ impl StorageParser {
                 //"timestamp" => Ok(Value::Timestamp(s)),
                 "unit" => Ok(Value::Unit(None)),
                 "prim" => Ok(Self::prim(&s)),
-                _ => panic!("Couldn't match {} in {}", key.to_string(), json.to_string()),
+                _ => {
+                    panic!("Couldn't match {} in {}", key.to_string(), json.to_string());
+                }
             };
         }
 
