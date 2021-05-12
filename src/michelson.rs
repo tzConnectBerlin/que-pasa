@@ -441,7 +441,17 @@ impl StorageParser {
                 _ => panic!("Couldn't match {} in {}", key.to_string(), json.to_string()),
             };
         }
-        debug!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
+
+        match json {
+            JsonValue::Array(a) => {
+                let mut array = a.clone();
+                array.reverse();
+                return self.parse_storage(&self.preparse_storage2(&mut array));
+            }
+            _ => (),
+        }
+
+        error!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
         Ok(Value::None)
     }
 

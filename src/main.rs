@@ -217,7 +217,7 @@ fn main() {
 
 fn level_text(level: u32, result: &crate::highlevel::SaveLevelResult) -> String {
     format!(
-        "Level {} {} transactions for us, origination={}",
+        "level {} {} transactions for us, origination={}",
         level, result.tx_count, result.is_origination
     )
 }
