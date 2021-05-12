@@ -364,9 +364,9 @@ impl StorageParser {
                     return self.parse_storage(&a[0]);
                 }
                 _ => {
-                    let left = Box::new(self.parse_storage(&a[0].clone())?);
-                    let right = Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
-                    return Ok(Value::Pair(left, right));
+                    // let left = Box::new(self.parse_storage(&a[0].clone())?);
+                    // let right = Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
+                    // return Ok(Value::Pair(left, right));
                 }
             }
         }
@@ -378,7 +378,7 @@ impl StorageParser {
             match s {
                 &"Elt" => {
                     if args.len() != 2 {
-                        panic!("Pair with array length of {}", args.len());
+                        panic!("Elt with array length of {}", args.len());
                     }
                     return Ok(Value::Elt(
                         Box::new(self.parse_storage(&args[0])?),
@@ -579,7 +579,7 @@ impl StorageParser {
                     node,
                     id,
                     fk_id,
-                    None,
+                    last_table.clone(),
                 );
             }
             _ => {
