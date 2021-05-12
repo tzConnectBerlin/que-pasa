@@ -6,6 +6,7 @@ extern crate clap;
 extern crate curl;
 extern crate dotenv;
 extern crate hex;
+extern crate indicatif;
 #[macro_use]
 extern crate json;
 #[macro_use]
@@ -29,6 +30,8 @@ pub mod postgresql_generator;
 pub mod storage;
 pub mod table;
 pub mod table_builder;
+
+use indicatif::ProgressBar;
 
 use michelson::StorageParser;
 
@@ -174,6 +177,8 @@ fn main() {
 
     // At last, normal operation.
 
+    let progress_bar = ProgressBar::new_spinner();
+
     loop {
         let chain_head = michelson::StorageParser::head().unwrap();
         let db_head = postgresql_generator::get_head(&mut postgresql_generator::connect().unwrap())
@@ -191,7 +196,9 @@ fn main() {
             return;
         } else {
             // they are equal, so we will just check that the hashes match.
-            if db_head.hash == chain_head.hash { // if they match, nothing to do.
+            if db_head.hash == chain_head.hash {
+                // if they match, nothing to do.
+                progress_bar.tick();
             } else {
                 println!("");
                 println!(
