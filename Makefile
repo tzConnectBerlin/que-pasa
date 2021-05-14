@@ -3,7 +3,11 @@ NETWORK="edo2net"
 BLOCKS=""
 
 gen-sql:
-				cargo run -- -c $(CONTRACT) generate-sql > contract.sql
+ifeq ($(strip $(CONTRACT)),"")
+	$(error variable CONTRACT not set)
+else
+				cargo run -- -c $(CONTRACT) generate-sql > contract.sql/init.sql
+endif
 
 start-db:
 				docker-compose up -d
@@ -18,11 +22,19 @@ start-graphql:
 							cd graphql && npm install && npm start
 
 start-indexer:
+ifeq ($(strip $(CONTRACT)),"")
+	$(error variable CONTRACT not set)
+else
 							cargo run -- -c $(CONTRACT)
+endif
 
 fill:
+ifeq ($(strip $(CONTRACT)),"")
+	$(error variable CONTRACT not set)
+else
 		$(eval BLOCKS := $(shell python ./script/get-levels.py $(NETWORK) $(CONTRACT)))
 		cargo run -- -c $(CONTRACT) -l $(BLOCKS)
+endif
 
 db:
 	make gen-sql
