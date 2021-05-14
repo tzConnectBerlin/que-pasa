@@ -202,7 +202,7 @@ fn main() {
             } else {
                 println!("");
                 println!(
-                    "Hashes don't match: {} (db) <> {} (chain)",
+                    "Hashes don't match: {:?} (db) <> {:?} (chain)",
                     db_head.hash, chain_head.hash
                 );
                 let mut connection = postgresql_generator::connect().unwrap();

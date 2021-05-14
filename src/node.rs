@@ -7,7 +7,7 @@ type Indexes = HashMap<String, u32>;
 
 thread_local! {
     static INDEXES: RefCell<Indexes> = RefCell::new(HashMap::new());
-}
+} // thread_local so unit tests can run in ||el
 
 fn get_index(_table_name: &String) -> u32 {
     let table_name = &String::from("foo"); // all tables have the same number space
@@ -190,7 +190,9 @@ impl Node {
                     n.right = Some(Box::new(Self::build(context, (**right).clone())));
                     n
                 }
-                ComplexExpr::Option(_inner_expr) => Self::build(context, (**_inner_expr).clone()),
+                ComplexExpr::Option(_inner_expr) => {
+                    Self::build(context, Self::ele_with_annot(_inner_expr, ele.name))
+                }
                 ComplexExpr::OrEnumeration(_this, _that) => {
                     context._type = Type::OrEnumeration;
                     Self::build_enumeration_or(&mut context, &ele, &name)
@@ -209,9 +211,12 @@ impl Node {
         node.name = Some(column_name.clone());
         node.column_name = Some(column_name.clone());
         match ele.expr {
-            Expr::SimpleExpr(_) => {
+            Expr::SimpleExpr(SimpleExpr::Unit) => {
                 context._type = Type::Column;
                 node.value = ele.name.clone();
+            }
+            Expr::SimpleExpr(_) => {
+                return Self::build(context.start_table(ele.name.clone().unwrap()), ele.clone());
             }
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::OrEnumeration(this, that) => {
@@ -237,6 +242,17 @@ impl Node {
             },
         }
         node
+    }
+
+    fn ele_with_annot(ele: &Ele, annot: Option<String>) -> Ele {
+        match &ele.name {
+            Some(x) => ele.clone(),
+            None => {
+                let mut e = ele.clone();
+                e.name = annot;
+                e
+            }
+        }
     }
 
     pub fn build_index(mut context: Context, ele: Ele) -> Node {
