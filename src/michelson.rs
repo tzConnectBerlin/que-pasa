@@ -11,7 +11,7 @@ use std::sync::atomic::AtomicU32;
 
 lazy_static! {
     static ref NODE_URL: String = match std::env::var("NODE_URL") {
-        Ok(s) => s.clone(),
+        Ok(s) => s,
         Err(_) => "http://edo2full.newby.org:8732".to_string(),
     };
 }
@@ -44,7 +44,7 @@ pub enum Value {
     Int(BigInt),
     KeyHash(String),
     Left(Box<Value>),
-    List(Vec<Box<Value>>),
+    List(Vec<Value>),
     Mutez(BigInt),
     Nat(BigInt),
     None,
@@ -101,7 +101,7 @@ impl StorageParser {
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
-                .ok_or(err!("Couldn't get level from node"))?,
+                .ok_or_else(|| err!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
         })
     }
@@ -191,13 +191,11 @@ impl StorageParser {
     pub fn block_has_contract_origination(block: &JsonValue, contract_id: &str) -> Res<bool> {
         Ok(Self::get_originations_from_block(block)?
             .iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .contains(&contract_id.to_string()))
+            .any(|x| x == contract_id.to_string()))
     }
 
     pub fn get_big_map_operations_from_operations(
-        ops: &Vec<JsonValue>,
+        ops: &[JsonValue],
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
         let mut result = vec![];
         for op in ops {
@@ -340,9 +338,9 @@ impl StorageParser {
             format!("025a79{}", &hex[2..42]).to_string()
         } else if implicit {
             match _type {
-                "00" => format!("06a19f{}", rest).to_string(),
-                "01" => format!("06a1a1{}", rest).to_string(),
-                "02" => format!("06a1a4{}", rest).to_string(),
+                "00" => format!("06a19f{}", rest),
+                "01" => format!("06a1a1{}", rest),
+                "02" => format!("06a1a4{}", rest),
                 _ => return Err(err!("Did not recognise byte array {}", hex)),
             }
         } else {
@@ -405,7 +403,7 @@ impl StorageParser {
                             ));
                         }
                         _ => {
-                            let mut args = args.clone();
+                            let mut args = args;
                             args.reverse(); // so we can pop() afterward. But TODO: fix
                             let parsed = self.preparse_storage2(&mut args);
                             return self.parse_storage(&parsed);
@@ -414,7 +412,7 @@ impl StorageParser {
                 }
                 "PUSH" => return Ok(Value::None),
                 "SOME" => {
-                    if args.len() > 0 {
+                    if !args.is_empty() {
                         return self.parse_storage(&args[0]);
                     } else {
                         warn!("Got SOME with no content");
@@ -439,7 +437,7 @@ impl StorageParser {
             return match key.as_str() {
                 "address" => Ok(Value::Address(s)),
                 "bytes" => Ok(Value::Bytes(s)),
-                "int" => Ok(Value::Int(Self::bigint(&s.to_string())?)),
+                "int" => Ok(Value::Int(Self::bigint(&s)?)),
                 "mutez" => Ok(Value::Mutez(Self::bigint(&s)?)),
                 "nat" => Ok(Value::Nat(Self::bigint(&s)?)),
                 "string" => Ok(Value::String(s)),
@@ -452,13 +450,10 @@ impl StorageParser {
             };
         }
 
-        match json {
-            JsonValue::Array(a) => {
-                let mut array = a.clone();
-                array.reverse();
-                return self.parse_storage(&self.preparse_storage2(&mut array));
-            }
-            _ => (),
+        if let JsonValue::Array(a) = json {
+            let mut array = a.clone();
+            array.reverse();
+            return self.parse_storage(&self.preparse_storage2(&mut array));
         }
 
         warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
@@ -477,8 +472,7 @@ impl StorageParser {
         let big_map_id: u32 = json["big_map"].to_string().parse()?;
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
-        if let Some((fk, node)) = self.big_map_map.get(&big_map_id) {
-            let fk = fk.clone();
+        if let Some((_fk, node)) = self.big_map_map.get(&big_map_id) {
             let node = node.clone();
             match json["action"]
                 .as_str()
@@ -508,7 +502,7 @@ impl StorageParser {
                             &*node.right.ok_or("Missing value to big map")?,
                             id,
                             None,
-                            node.table_name.clone(),
+                            node.table_name,
                         ),
                     }
                 }
@@ -597,7 +591,7 @@ node: {:?}",
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
                 self.read_storage_internal(keys, l, id, fk_id, last_table.clone());
-                self.read_storage_internal(values, r, id, fk_id, last_table.clone());
+                self.read_storage_internal(values, r, id, fk_id, last_table);
             }
             Value::Left(left) => {
                 self.read_storage_internal(
@@ -605,7 +599,7 @@ node: {:?}",
                     node.left.as_ref().unwrap(),
                     id,
                     fk_id,
-                    last_table.clone(),
+                    last_table,
                 );
             }
             Value::Right(right) => {
@@ -614,7 +608,7 @@ node: {:?}",
                     node.right.as_ref().unwrap(),
                     id,
                     fk_id,
-                    last_table.clone(),
+                    last_table,
                 );
             }
             Value::List(l) => {
@@ -628,7 +622,7 @@ node: {:?}",
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
                 self.read_storage_internal(right, r, id, fk_id, last_table.clone());
-                self.read_storage_internal(left, l, id, fk_id, last_table.clone());
+                self.read_storage_internal(left, l, id, fk_id, last_table);
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
@@ -639,7 +633,6 @@ node: {:?}",
                     node.column_name.as_ref().unwrap().to_string(),
                     Value::String(node.value.clone().unwrap()),
                 );
-                return;
             }
             _ => {
                 // this is a value, and should be saved.

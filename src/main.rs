@@ -200,7 +200,7 @@ fn main() {
                 // if they match, nothing to do.
                 progress_bar.tick();
             } else {
-                println!("");
+                println!();
                 println!(
                     "Hashes don't match: {:?} (db) <> {:?} (chain)",
                     db_head.hash, chain_head.hash
