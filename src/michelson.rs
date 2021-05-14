@@ -562,6 +562,7 @@ node: {:?}",
                         Value::Left(left) => resolve_or(left, &node.left.as_ref().unwrap()),
                         Value::Right(right) => resolve_or(right, &node.right.as_ref().unwrap()),
                         Value::Pair(_, _) => node.table_name.clone(),
+                        Value::Unit(val) => val.clone(),
                         _ => node.name.clone(),
                     }
                 }

@@ -1,5 +1,6 @@
 #!/bin/bash
-
+export NODE_URL=http://edo2full.newby.org:8732
+. .env
 psql -c 'drop database tezos'
 psql -c 'create database tezos'
 cargo run -- -c KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq generate-sql|psql tezos

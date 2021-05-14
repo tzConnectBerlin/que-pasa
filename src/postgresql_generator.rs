@@ -247,6 +247,9 @@ impl PostgresqlGenerator {
     }
 
     fn parent_name(name: &String) -> Option<String> {
+        // if name.len() < 64 {
+        //     return Some(name.clone());
+        // }
         if let Some(pos) = name.rfind(".") {
             Some(name.as_str()[0..pos].to_string())
         } else {
