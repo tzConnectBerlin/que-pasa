@@ -8,6 +8,10 @@
         fk_id: None,
         columns: [
             (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
                 name: "stablecoin",
                 value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
@@ -25,20 +29,20 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 2,
+        id: 7,
     ): (
         table_name: "storage.token_total_supply",
-        id: 2,
-        fk_id: Some(1),
+        id: 7,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_35",
+                name: "idx_tokens_nat_33",
                 value: Int((1, [
                     12,
                 ])),
             ),
             (
-                name: "nat_36",
+                name: "tokens_nat_34",
                 value: Int((1, [
                     1217727865,
                     1225424440,
@@ -48,48 +52,48 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 5,
+        id: 8,
     ): (
         table_name: "storage.ledger",
-        id: 5,
-        fk_id: Some(1),
+        id: 8,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_23",
+                name: "idx_tokens_nat_21",
                 value: Int((1, [
-                    12,
+                    10,
                 ])),
             ),
             (
-                name: "idx_address_22",
+                name: "idx_tokens_address_20",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
-                name: "balance",
+                name: "tokens_balance",
                 value: Int((0, [])),
             ),
         ],
     ),
     (
         table_name: "storage.ledger",
-        id: 3,
+        id: 10,
     ): (
         table_name: "storage.ledger",
-        id: 3,
-        fk_id: Some(1),
+        id: 10,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_23",
+                name: "idx_tokens_nat_21",
                 value: Int((1, [
-                    10,
+                    12,
                 ])),
             ),
             (
-                name: "idx_address_22",
+                name: "idx_tokens_address_20",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
-                name: "balance",
+                name: "tokens_balance",
                 value: Int((0, [])),
             ),
         ],
