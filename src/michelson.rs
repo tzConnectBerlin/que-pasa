@@ -632,14 +632,14 @@ node: {:?}",
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
+                crate::table::insert::add_column(
+                    node.table_name.as_ref().unwrap().to_string(),
+                    id,
+                    fk_id,
+                    node.column_name.as_ref().unwrap().to_string(),
+                    Value::String(node.value.clone().unwrap()),
+                );
                 return;
-                // self.read_storage_internal(
-                //     &Value::Unit(Some(node.value.as_ref().unwrap().clone())),
-                //     node,
-                //     id,
-                //     fk_id,
-                //     last_table.clone(),
-                // );
             }
             _ => {
                 // this is a value, and should be saved.
