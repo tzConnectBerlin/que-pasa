@@ -51,9 +51,10 @@ pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
         Ok(None)
     } else if result.len() == 1 {
         let _level: i32 = result[0].get(0);
+        let hash: Option<String> = result[0].get(1);
         Ok(Some(Level {
             _level: _level as u32,
-            hash: result[0].get(1),
+            hash: hash,
         }))
     } else {
         Err(crate::error::Error::boxed("Too many results for get_head"))
@@ -128,8 +129,12 @@ pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     exec(
         transaction,
         &format!(
-            "INSERT INTO levels(_level, hash) VALUES ({}, '{}')",
-            level._level, level.hash
+            "INSERT INTO levels(_level, hash) VALUES ({}, {})",
+            level._level,
+            match &level.hash {
+                Some(hash) => format!("'{}'", hash),
+                None => "NULL".to_string(),
+            }
         ),
     )
 }

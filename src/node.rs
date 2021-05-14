@@ -209,9 +209,12 @@ impl Node {
         node.name = Some(column_name.clone());
         node.column_name = Some(column_name.clone());
         match ele.expr {
-            Expr::SimpleExpr(_) => {
+            Expr::SimpleExpr(SimpleExpr::Unit) => {
                 context._type = Type::Column;
                 node.value = ele.name.clone();
+            }
+            Expr::SimpleExpr(_) => {
+                return Self::build(context.start_table(ele.name.clone().unwrap()), ele.clone());
             }
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::OrEnumeration(this, that) => {

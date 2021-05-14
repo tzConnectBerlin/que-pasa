@@ -84,8 +84,8 @@ pub fn is_enumeration_or(json: &JsonValue) -> bool {
     };
     match prim {
         "or" => true,
-        "unit" => true,
-        _ => false,
+        "unit" => false,
+        _ => true,
     }
 }
 

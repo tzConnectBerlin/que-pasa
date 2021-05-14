@@ -58,7 +58,7 @@ pub enum Value {
 #[derive(Clone, Debug)]
 pub struct Level {
     pub _level: u32,
-    pub hash: String,
+    pub hash: Option<String>,
 }
 
 type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
@@ -102,7 +102,7 @@ impl StorageParser {
             _level: json["header"]["level"]
                 .as_u32()
                 .ok_or(err!("Couldn't get level from node"))?,
-            hash: json["hash"].to_string(),
+            hash: Some(json["hash"].to_string()),
         })
     }
 
@@ -112,7 +112,7 @@ impl StorageParser {
             _level: json["header"]["level"]
                 .as_u32()
                 .ok_or(err!("Couldn't get level from node"))?,
-            hash: json["hash"].to_string(),
+            hash: Some(json["hash"].to_string()),
         })
     }
 
@@ -461,7 +461,7 @@ impl StorageParser {
             _ => (),
         }
 
-        error!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
+        warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
         Ok(Value::None)
     }
 
@@ -474,11 +474,9 @@ impl StorageParser {
     }
 
     pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
-        debug!("process_big_map {}", json.to_string());
         let big_map_id: u32 = json["big_map"].to_string().parse()?;
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
-        println!("process_big_map value: {:#?}", value);
         if let Some((fk, node)) = self.big_map_map.get(&big_map_id) {
             let fk = fk.clone();
             let node = node.clone();
@@ -551,6 +549,32 @@ impl StorageParser {
         match node.expr {
             // we don't even try to store lambdas.
             crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Stop) => return,
+            // or enumerations need to be evaluated once to populate the enum field,
+            // and once to fill in auxiliary tables.
+            crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::OrEnumeration(_, _)) => {
+                fn resolve_or(value: &Value, node: &Node) -> Option<String> {
+                    debug!(
+                        "resolve_or: value: {:?}
+node: {:?}",
+                        value, node
+                    );
+                    match value {
+                        Value::Left(left) => resolve_or(left, &node.left.as_ref().unwrap()),
+                        Value::Right(right) => resolve_or(right, &node.right.as_ref().unwrap()),
+                        Value::Pair(_, _) => node.table_name.clone(),
+                        _ => node.name.clone(),
+                    }
+                }
+                if let Some(val) = resolve_or(value, node) {
+                    crate::table::insert::add_column(
+                        node.table_name.as_ref().unwrap().to_string(),
+                        id,
+                        fk_id,
+                        node.column_name.clone().unwrap(),
+                        Value::Unit(Some(val)),
+                    );
+                };
+            }
             _ => (),
         }
 
@@ -607,13 +631,14 @@ impl StorageParser {
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
-                self.read_storage_internal(
-                    &Value::Unit(Some(node.value.as_ref().unwrap().clone())),
-                    node,
-                    id,
-                    fk_id,
-                    last_table.clone(),
-                );
+                return;
+                // self.read_storage_internal(
+                //     &Value::Unit(Some(node.value.as_ref().unwrap().clone())),
+                //     node,
+                //     id,
+                //     fk_id,
+                //     last_table.clone(),
+                // );
             }
             _ => {
                 // this is a value, and should be saved.
