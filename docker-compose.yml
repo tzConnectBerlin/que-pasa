@@ -8,7 +8,7 @@ services:
       - POSTGRES_PASSWORD=quepasa
       - POSTGRES_DB=tezos
     volumes:
-      - ./contract.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./contract.sql:/docker-entrypoint-initdb.d/
       - quepasa-db:/var/lib/postgresql/data
     ports: ["5432:5432"]
 
