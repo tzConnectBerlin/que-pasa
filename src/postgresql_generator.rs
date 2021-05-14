@@ -192,7 +192,7 @@ impl PostgresqlGenerator {
     }
 
     pub fn string(&mut self, name: &String) -> String {
-        format!("{} VARCHAR(128) NULL", name)
+        format!("{} TEXT NULL", name)
     }
 
     pub fn timestamp(&mut self, name: &String) -> String {
