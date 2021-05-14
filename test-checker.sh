@@ -4,11 +4,12 @@ set -e
 
 CONTRACT=KT1XLhXjUSdgGZ4jXNRFeH9rMMbxQeH3JGzK
 LEVELS=232659,232644,230772,230744,230736,230556,230554,230552,230550,230548,230546,230544,230542,230540,230538,230536,230534,230532,230530,230528
+DATABASE_URL=postgres://quepasa:quepasa@localhost:5432/tezos
 
 # KT1MuXVJMwW6Dra1g9FZBdpDmk6KANResXD4
 #LEVELS=233648,233645,233567,233565,233563,233561,233559,233557,233555,233553,233551,233549,233547,233545,233543
 #  `./script/get-levels.py edo2net $CONTRACT`
-psql -c 'drop database tezos'
-psql -c 'create database tezos'
+psql $DATABASE_URL -c 'drop database tezos'
+psql $DATABASE_URL -c 'create database tezos'
 cargo run -- -c $CONTRACT generate-sql| psql tezos
 cargo run -- -c $CONTRACT -l $LEVELS
