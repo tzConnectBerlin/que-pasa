@@ -42,8 +42,9 @@ impl TableBuilder {
         self.tables.insert(table.name.clone(), table);
     }
 
-    pub fn populate(&mut self, node: &Node) -> Res<()> {
+    pub fn populate(&mut self, node: &Node) -> Res<Vec<String>> {
         let node = node.clone();
+        let mut big_maps_name = vec![];
         match &node._type {
             Type::Pair => {
                 let left = node.left.clone();
@@ -51,6 +52,11 @@ impl TableBuilder {
                 self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
             }
             Type::Table => {
+                //if the table is a bigmap the name is used to be inserted in the database
+                match &node.table_name{
+                    Some(table_name) => {big_maps_name.push(table_name.clone())}
+                    _ => {}
+                }
                 if let Some(left) = node.left {
                     self.populate(&left)?;
                 }
@@ -80,6 +86,6 @@ impl TableBuilder {
                 },
             },
         }
-        Ok(())
+        Ok(big_maps_name)
     }
 }

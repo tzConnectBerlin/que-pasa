@@ -59,7 +59,7 @@ pub enum Type {
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    table_name: String,
+    pub table_name: String,
     prefix: String,
     _type: Type,
 }
@@ -275,5 +275,4 @@ impl Node {
             }
         };
         node
-    }
-}
+    }}

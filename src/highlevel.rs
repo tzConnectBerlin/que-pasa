@@ -73,6 +73,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
 
     let operations = StorageParser::get_operations_from_node(contract_id, Some(level))?;
     let tx_count = operations.len() as u32;
+    //storageParser.store_big_map_list();
     let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
     for big_map_op in big_map_ops {
         storage_parser.process_big_map(&big_map_op)?;
