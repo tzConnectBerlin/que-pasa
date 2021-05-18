@@ -15,7 +15,8 @@ pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
     let ast = storage::storage_from_json(storage_definition)?;
-    let node = Node::build(Context::init(), ast);
+    let mut big_map_tables_names = Vec::new();
+    let node = Node::build(Context::init(), ast, &mut big_map_tables_names);
     Ok(node)
 }
 

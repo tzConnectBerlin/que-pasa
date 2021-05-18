@@ -293,7 +293,7 @@ impl PostgresqlGenerator {
         sql_commands.join("\n")
     }
 
-    pub fn create_big_map_table(&mut self, context: Context, tables_names: Vec<String>) -> String{
+    pub fn create_big_map_table(&mut self, context: Context, tables_names: Vec<String>) -> String {
 
         let mut columns = vec![];
 

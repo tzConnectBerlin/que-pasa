@@ -86,18 +86,20 @@ fn main() {
     // Build the internal representation from the node storage defition
     let context = node::Context::init();
     //use a reference here for more efficient memory management
-    let node = node::Node::build(context.clone(), ast);
+    let mut big_map_tables_names = Vec::new();
+    let node = node::Node::build(context.clone(), ast, &mut big_map_tables_names);
     //debug!("{:#?}", node);
 
     // Make a SQL-compatible representation
     let mut builder = table_builder::TableBuilder::new();
-    let big_map_tables_names = builder.populate(&node);
+    builder.populate(&node);
+    debug!("{:#?}", big_map_tables_names);
 
     // If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
         let mut generator = PostgresqlGenerator::new();
         println!("{}", generator.create_common_tables());
-        println!("{}", generator.create_big_map_table(context.clone(), big_map_tables_names.unwrap()));
+        println!("{}", generator.create_big_map_table(context.clone(), big_map_tables_names));
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
         for (_name, table) in sorted_tables {
