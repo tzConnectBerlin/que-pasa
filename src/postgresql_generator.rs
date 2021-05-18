@@ -316,6 +316,25 @@ impl PostgresqlGenerator {
         table_definition
     }
 
+    pub fn create_view_store_all(&mut self, tables_names: Vec<String>) -> String {
+
+        let mut query = String::new();
+        query.push_str("CREATE VIEW storage_all AS SELECT DISTINCT ON (l._level) l._level, ");
+        query.push_str(&tables_names.iter().map(|x| format!(r#""{}".id as "{}_id""#, x, x)).collect::<Vec<String>>().join(", "));
+        query.push_str("\nFROM levels l\n");
+        query.push_str(&tables_names.iter().map(|x|
+            [
+                "LEFT JOIN\n",
+                format!(
+                r#"(SELECT id, MAX(_level) AS max_level FROM "{}" GROUP BY id, _level ORDER BY max_level DESC) as "{}" ON l._level >= "{}".max_level"#,
+                x, x, x
+                ).as_str()
+            ].concat()
+        ).collect::<Vec<String>>().join("\n"));
+        query.push_str("\nORDER BY _level DESC;\n");
+        return query;
+    }
+
     pub fn create_table_definition(&mut self, table: &Table) -> Res<String> {
         let mut v: Vec<String> = vec![];
         v.push(self.start_table(&table.name));

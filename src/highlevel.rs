@@ -125,7 +125,12 @@ fn test_generate() {
     let storage_definition = &json["code"][1]["args"][0];
     let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
     println!("{:#?}", ast);
-    let node = Node::build(Context::init(), ast);
+    //let node = Node::build(Context::init(), ast);
+    let context = Context::init();
+    let mut big_map_tables_names = Vec::new();
+    //initialize the big_map_tables_names with the starting table_name "storage"
+    big_map_tables_names.push(context.table_name.clone());
+    let node = Node::build(context.clone(), ast, &mut big_map_tables_names);
     println!("{:#?}", node);
     let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = table_builder::TableBuilder::new();
@@ -145,6 +150,7 @@ fn test_generate() {
     let reader = BufReader::new(file);
     let v: Vec<crate::table::Table> = serde_json::from_reader(reader).unwrap();
     assert_eq!(v.len(), tables.len());
+    //test doesn't verify view exist
     for i in 0..v.len() {
         assert_eq!(v[i], tables[i]);
     }

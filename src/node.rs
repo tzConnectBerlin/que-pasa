@@ -180,6 +180,8 @@ impl Node {
                     )));
                     n.right = Some(Box::new(Self::build(context, (**value).clone(), big_map_names)));
                     let table_name = n.table_name.clone();
+                    //if big_map push it in array
+                    //Write better??
                     match e {
                         ComplexExpr::BigMap(key, value) => {big_map_names.push(table_name.unwrap());}
                         _ => {}
