@@ -39,7 +39,7 @@ pub fn delete_everything(connection: &mut Client) -> Res<u64> {
 
 pub fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
     Ok(connection.execute(
-        format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
+            format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
 }
 
 pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
@@ -87,7 +87,7 @@ pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
         Ok(())
     } else {
         Err(crate::error::Error::boxed(
-            &"Wrong number of rows in max_id table. Please fix manually. Sorry",
+                &"Wrong number of rows in max_id table. Please fix manually. Sorry",
         ))
     }
 }
@@ -117,7 +117,7 @@ pub fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
         Ok(Some(level as u32))
     } else {
         Err(crate::error::Error::boxed(
-            "Too many results for get_origination",
+                "Too many results for get_origination",
         ))
     }
 }
@@ -265,8 +265,8 @@ impl PostgresqlGenerator {
     fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
         if let Some(parent) = Self::parent_name(&table.name) {
             Some(format!(
-                r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
-                parent, parent
+                    r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
+                    parent, parent
             ))
         } else {
             None
@@ -284,15 +284,12 @@ impl PostgresqlGenerator {
         let mut sql_commands = vec![];
 
         for name in big_map_names {
-        let sql = format!(
-            r#"INSERT INTO "{}"
-({})
-VALUES
-({})"#,
-            table.name, columns, name
-        );
-        sql_commands.push(sql);
-       } 
+            let sql = format!(
+                r#"INSERT INTO "{}" ({}) VALUES ({})"#,
+                table.name, columns, name
+            );
+            sql_commands.push(sql);
+        } 
         sql_commands.join("\n")
     }
 
@@ -350,15 +347,15 @@ CREATE VIEW "{}_live" AS (
         GROUP BY {}) t2
         ON t1._level = t2._level);
 "#,
-            table.name,
-            table.name,
-            indices.join(", "),
-            table.name,
-            indices.join(", "),
-            // indices
-            //     .iter()
-            //     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
-            //    .collect::<String>()
+table.name,
+table.name,
+indices.join(", "),
+table.name,
+indices.join(", "),
+// indices
+//     .iter()
+//     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
+//    .collect::<String>()
         )
     }
 
@@ -369,9 +366,9 @@ CREATE VIEW "{}_live" AS (
     fn quote(value: &crate::michelson::Value) -> String {
         match value {
             crate::michelson::Value::Address(s)
-            | crate::michelson::Value::KeyHash(s)
-            | crate::michelson::Value::String(s)
-            | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
+                | crate::michelson::Value::KeyHash(s)
+                | crate::michelson::Value::String(s)
+                | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
             crate::michelson::Value::Bool(val) => {
                 if *val {
                     "true".to_string()
@@ -385,23 +382,23 @@ CREATE VIEW "{}_live" AS (
                     match crate::michelson::StorageParser::decode_address(&s) {
                         Ok(a) => a,
                         Err(_) => s.to_string(),
-                    }
+                }
                 )
             }
             crate::michelson::Value::Int(b)
-            | crate::michelson::Value::Mutez(b)
-            | crate::michelson::Value::Nat(b) => b.to_str_radix(10).to_string(),
+                | crate::michelson::Value::Mutez(b)
+                | crate::michelson::Value::Nat(b) => b.to_str_radix(10).to_string(),
             crate::michelson::Value::None => "NULL".to_string(),
             crate::michelson::Value::Timestamp(t) => {
                 let date_time: chrono::DateTime<Utc> = chrono::DateTime::from(*t);
                 format!("'{}'", date_time.to_rfc2822())
             }
             crate::michelson::Value::Elt(_, _)
-            | crate::michelson::Value::Left(_)
-            | crate::michelson::Value::List(_)
-            | crate::michelson::Value::Pair(_, _)
-            | crate::michelson::Value::Right(_)
-            | crate::michelson::Value::Unit(None) => panic!("quote called with {:?}", value),
+                | crate::michelson::Value::Left(_)
+                | crate::michelson::Value::List(_)
+                | crate::michelson::Value::Pair(_, _)
+                | crate::michelson::Value::Right(_)
+                | crate::michelson::Value::Unit(None) => panic!("quote called with {:?}", value),
         }
     }
 
@@ -420,8 +417,8 @@ CREATE VIEW "{}_live" AS (
             .join(", ");
         if let Some(fk_id) = insert.fk_id {
             columns.push_str(&format!(
-                r#", "{}_id""#,
-                Self::parent_name(&insert.table_name).unwrap()
+                    r#", "{}_id""#,
+                    Self::parent_name(&insert.table_name).unwrap()
             ));
             values.push_str(&format!(", {}", fk_id));
         }
@@ -432,7 +429,7 @@ CREATE VIEW "{}_live" AS (
 (id, {})
 VALUES
 ({}, {})"#,
-            insert.table_name, columns, insert.id, values,
+insert.table_name, columns, insert.id, values,
         );
         sql
     }
