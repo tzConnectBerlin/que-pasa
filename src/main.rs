@@ -19,6 +19,7 @@ extern crate ron;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;
+extern crate spinners;
 
 use clap::{App, Arg, SubCommand};
 
@@ -30,8 +31,6 @@ pub mod postgresql_generator;
 pub mod storage;
 pub mod table;
 pub mod table_builder;
-
-use indicatif::ProgressBar;
 
 use michelson::StorageParser;
 
@@ -177,7 +176,7 @@ fn main() {
 
     // At last, normal operation.
 
-    let progress_bar = ProgressBar::new_spinner();
+    let spinner = spinners::Spinner::new(spinners::Spinners::Line, "waiting for new block ".into());
 
     loop {
         let chain_head = michelson::StorageParser::head().unwrap();
@@ -198,7 +197,6 @@ fn main() {
             // they are equal, so we will just check that the hashes match.
             if db_head.hash == chain_head.hash {
                 // if they match, nothing to do.
-                progress_bar.tick();
             } else {
                 println!();
                 println!(
