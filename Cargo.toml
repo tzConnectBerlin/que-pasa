@@ -10,6 +10,7 @@ edition = "2018"
 
 
 [dependencies]
+atty = "0.2.14"
 bs58 = { version = "0.4.0", features = ["check"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = "2.33.3"

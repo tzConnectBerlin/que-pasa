@@ -1,5 +1,6 @@
 use postgresql_generator::PostgresqlGenerator;
 
+extern crate atty;
 extern crate bs58;
 extern crate chrono;
 extern crate clap;
@@ -33,6 +34,21 @@ pub mod table;
 pub mod table_builder;
 
 use michelson::StorageParser;
+
+fn stdout_is_tty() -> bool {
+    atty::is(atty::Stream::Stdout)
+}
+
+#[macro_export]
+macro_rules! p {
+    ( $( $a:expr) , + ) => {
+        if stdout_is_tty() {
+            println!( $( $a, )* );
+        } else {
+            info!( $( $a, )* );
+        }
+    };
+}
 
 fn main() {
     //dotenv::dotenv().ok();
@@ -120,7 +136,7 @@ fn main() {
         for level in &levels {
             let result =
                 crate::highlevel::load_and_store_level(&node, contract_id, *level).unwrap();
-            println!("{}", level_text(*level, &result));
+            p!("{}", level_text(*level, &result));
         }
 
         if init {
@@ -159,13 +175,13 @@ fn main() {
             let store_result =
                 crate::highlevel::load_and_store_level(&node, contract_id, level as u32).unwrap();
             if store_result.is_origination {
-                println!(
+                p!(
                     "Found new origination level {}",
                     highlevel::get_origination(&contract_id).unwrap().unwrap()
                 );
                 break;
             }
-            println!(
+            p!(
                 " {} transactions for us, {} remaining",
                 store_result.tx_count,
                 missing_levels.len()
@@ -175,10 +191,14 @@ fn main() {
     }
 
     // At last, normal operation.
-
-    let spinner = spinners::Spinner::new(spinners::Spinners::Line, "waiting for new block ".into());
-
     loop {
+        let _spinner;
+
+        if stdout_is_tty() {
+            _spinner =
+                spinners::Spinner::new(spinners::Spinners::Line, "waiting for new block ".into());
+        }
+
         let chain_head = michelson::StorageParser::head().unwrap();
         let db_head = postgresql_generator::get_head(&mut postgresql_generator::connect().unwrap())
             .unwrap()
@@ -187,21 +207,22 @@ fn main() {
         if chain_head._level > db_head._level {
             for level in (db_head._level + 1)..=chain_head._level {
                 let result = highlevel::load_and_store_level(&node, contract_id, level).unwrap();
-                println!("{}", level_text(level, &result));
+                p!("{}", level_text(level, &result));
             }
             continue;
         } else if db_head._level > chain_head._level {
-            println!("More levels in DB than chain, bailing!");
+            p!("More levels in DB than chain, bailing!");
             return;
         } else {
             // they are equal, so we will just check that the hashes match.
             if db_head.hash == chain_head.hash {
                 // if they match, nothing to do.
             } else {
-                println!();
-                println!(
+                p!("");
+                p!(
                     "Hashes don't match: {:?} (db) <> {:?} (chain)",
-                    db_head.hash, chain_head.hash
+                    db_head.hash,
+                    chain_head.hash
                 );
                 let mut connection = postgresql_generator::connect().unwrap();
                 let mut transaction = connection.transaction().unwrap();
