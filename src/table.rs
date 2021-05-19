@@ -53,14 +53,14 @@ impl Table {
         match &node.expr {
             Expr::SimpleExpr(e) => {
                 self.columns.push(Column {
-                    name: name,
+                    name,
                     expr: e.clone(),
                 });
             }
             Expr::ComplexExpr(ce) => match ce {
                 ComplexExpr::OrEnumeration(_, _) => {
                     self.columns.push(Column {
-                        name: name,
+                        name,
                         expr: SimpleExpr::Unit, // What will ultimately go in is a Unit
                     })
                 }

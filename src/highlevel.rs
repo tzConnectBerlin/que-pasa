@@ -6,10 +6,9 @@ use crate::postgresql_generator::PostgresqlGenerator;
 use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
-use ron::ser::{to_string_pretty, PrettyConfig};
 use std::error::Error;
-use std::fs::File;
 use std::io::BufReader;
+use std::fs::File;
 use std::path::Path;
 
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
@@ -78,7 +77,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     for big_map_op in big_map_ops {
         storage_parser.process_big_map(&big_map_op)?;
     }
-    let inserts = crate::table::insert::get_inserts().clone();
+    let inserts = crate::table::insert::get_inserts();
     let mut keys = inserts
         .keys()
         .collect::<Vec<&crate::table::insert::InsertKey>>();
@@ -92,7 +91,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
             &generator.build_insert(
                 inserts
                     .get(key)
-                    .ok_or(crate::error::Error::boxed("No insert for key"))?,
+                    .ok_or_else(|| crate::error::Error::boxed("No insert for key"))?,
                 level,
             ),
         )?;
@@ -177,6 +176,7 @@ fn test_block() {
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this:
     // `cargo test -- --test test_block | bash`
+    use ron::ser::{to_string_pretty, PrettyConfig};
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
     let script_json = json::parse(&load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",

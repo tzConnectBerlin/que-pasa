@@ -8,6 +8,10 @@
         fk_id: None,
         columns: [
             (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
                 name: "stablecoin",
                 value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),

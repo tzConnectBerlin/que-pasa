@@ -1,4 +1,3 @@
-use crate::err;
 use crate::error::Res;
 use crate::michelson::Level;
 use crate::storage::SimpleExpr;
@@ -54,7 +53,7 @@ pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
         let hash: Option<String> = result[0].get(1);
         Ok(Some(Level {
             _level: _level as u32,
-            hash: hash,
+            hash,
         }))
     } else {
         Err(crate::error::Error::boxed("Too many results for get_head"))
@@ -66,10 +65,7 @@ pub fn get_missing_levels(
     origination: Option<u32>,
     end: u32,
 ) -> Res<Vec<u32>> {
-    let start = match origination {
-        Some(x) => x,
-        None => 1,
-    };
+    let start = origination.unwrap_or(1);
     let mut rows: Vec<i32> = vec![];
     for row in connection.query(
         format!("SELECT * from generate_series({},{}) s(i) WHERE NOT EXISTS (SELECT _level FROM levels WHERE _level = s.i)", start, end).as_str(), &[])? {
@@ -113,7 +109,7 @@ pub fn set_origination(transaction: &mut Transaction, level: u32) -> Res<()> {
 
 pub fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
     let result = connection.query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
-    if result.len() == 0 {
+    if result.is_empty() {
         Ok(None)
     } else if result.len() == 1 {
         let level: i32 = result[0].get(0);
@@ -309,17 +305,17 @@ CREATE VIEW "{}_live" AS (
         INNER JOIN (
                 SELECT {}, MAX(_level) AS _level FROM "{}"
         GROUP BY {}) t2
-        ON t1._level = t2._level {} );
+        ON t1._level = t2._level);
 "#,
             table.name,
             table.name,
             indices.join(", "),
             table.name,
             indices.join(", "),
-            indices
-                .iter()
-                .map(|x| format!(" AND t1.{} = t2.{}", x, x))
-                .collect::<String>()
+            // indices
+            //     .iter()
+            //     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
+            //    .collect::<String>()
         )
     }
 

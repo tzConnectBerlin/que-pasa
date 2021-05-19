@@ -8,6 +8,10 @@
         fk_id: None,
         columns: [
             (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
                 name: "stablecoin",
                 value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
@@ -25,20 +29,20 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 4,
+        id: 9,
     ): (
         table_name: "storage.token_total_supply",
-        id: 4,
-        fk_id: Some(1),
+        id: 9,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_35",
+                name: "idx_tokens_nat_33",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "nat_36",
+                name: "tokens_nat_34",
                 value: Int((1, [
                     3903053373,
                     4110948536,
@@ -49,20 +53,20 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 3,
+        id: 8,
     ): (
         table_name: "storage.token_total_supply",
-        id: 3,
-        fk_id: Some(1),
+        id: 8,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_35",
+                name: "idx_tokens_nat_33",
                 value: Int((1, [
                     14,
                 ])),
             ),
             (
-                name: "nat_36",
+                name: "tokens_nat_34",
                 value: Int((1, [
                     1661992960,
                     1808227885,
@@ -73,20 +77,20 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 2,
+        id: 7,
     ): (
         table_name: "storage.token_total_supply",
-        id: 2,
-        fk_id: Some(1),
+        id: 7,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_35",
+                name: "idx_tokens_nat_33",
                 value: Int((1, [
                     13,
                 ])),
             ),
             (
-                name: "nat_36",
+                name: "tokens_nat_34",
                 value: Int((1, [
                     2241060413,
                     2302720651,
@@ -96,11 +100,11 @@
     ),
     (
         table_name: "storage.questions",
-        id: 11,
+        id: 16,
     ): (
         table_name: "storage.questions",
-        id: 11,
-        fk_id: Some(1),
+        id: 16,
+        fk_id: None,
         columns: [
             (
                 name: "idx_string_4",
@@ -133,23 +137,23 @@
                 ])),
             ),
             (
-                name: "nat_18",
+                name: "winning_token",
                 value: None,
             ),
             (
-                name: "lqt_token_id",
+                name: "tokens_lqt_token_id",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "no_token_id",
+                name: "tokens_no_token_id",
                 value: Int((1, [
                     14,
                 ])),
             ),
             (
-                name: "yes_token_id",
+                name: "tokens_yes_token_id",
                 value: Int((1, [
                     13,
                 ])),
@@ -164,7 +168,7 @@
             ),
             (
                 name: "state",
-                value: Unit(Some("questionAuctionWithdrawOpen")),
+                value: String("questionAuctionWithdrawOpen"),
             ),
             (
                 name: "owner",
@@ -174,11 +178,11 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 13,
+        id: 17,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 13,
-        fk_id: Some(11),
+        id: 17,
+        fk_id: Some(16),
         columns: [
             (
                 name: "idx_address_11",
@@ -212,24 +216,24 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 9,
+        id: 14,
     ): (
         table_name: "storage.ledger",
-        id: 9,
-        fk_id: Some(1),
+        id: 14,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_23",
+                name: "idx_tokens_nat_21",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "idx_address_22",
+                name: "idx_tokens_address_20",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
-                name: "balance",
+                name: "tokens_balance",
                 value: Int((1, [
                     3903053373,
                     4110948536,
@@ -240,24 +244,24 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 7,
+        id: 12,
     ): (
         table_name: "storage.ledger",
-        id: 7,
-        fk_id: Some(1),
+        id: 12,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_23",
+                name: "idx_tokens_nat_21",
                 value: Int((1, [
                     14,
                 ])),
             ),
             (
-                name: "idx_address_22",
+                name: "idx_tokens_address_20",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
-                name: "balance",
+                name: "tokens_balance",
                 value: Int((1, [
                     1661992960,
                     1808227885,
@@ -268,24 +272,24 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 5,
+        id: 10,
     ): (
         table_name: "storage.ledger",
-        id: 5,
-        fk_id: Some(1),
+        id: 10,
+        fk_id: None,
         columns: [
             (
-                name: "idx_nat_23",
+                name: "idx_tokens_nat_21",
                 value: Int((1, [
                     13,
                 ])),
             ),
             (
-                name: "idx_address_22",
+                name: "idx_tokens_address_20",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
-                name: "balance",
+                name: "tokens_balance",
                 value: Int((1, [
                     2241060413,
                     2302720651,

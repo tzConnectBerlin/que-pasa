@@ -43,7 +43,6 @@ fn get_column_name(expr: &Expr) -> &str {
             SimpleExpr::Timestamp => "timestamp",
             SimpleExpr::Unit => "unit",
             SimpleExpr::Stop => "stop",
-            _ => panic!("Unexpected type {:?}", e),
         },
     }
 }
@@ -246,7 +245,7 @@ impl Node {
 
     fn ele_with_annot(ele: &Ele, annot: Option<String>) -> Ele {
         match &ele.name {
-            Some(x) => ele.clone(),
+            Some(_) => ele.clone(),
             None => {
                 let mut e = ele.clone();
                 e.name = annot;
