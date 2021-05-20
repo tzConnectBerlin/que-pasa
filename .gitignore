@@ -2,4 +2,4 @@
 contract.sql
 node_modules
 .env
-.githook
+.githooks
