@@ -7,8 +7,8 @@ use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
 use std::error::Error;
-use std::io::BufReader;
 use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
