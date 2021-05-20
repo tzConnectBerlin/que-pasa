@@ -450,11 +450,11 @@ impl StorageParser {
             };
         }
 
-        if let JsonValue::Array(a) = json {
-            let mut array = a.clone();
-            array.reverse();
-            return self.parse_storage(&self.preparse_storage2(&mut array));
-        }
+        // if let JsonValue::Array(a) = json {
+        //     let mut array = a.clone();
+        //     array.reverse();
+        //     return self.parse_storage(&self.preparse_storage2(&mut array));
+        // }
 
         warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
         Ok(Value::None)
@@ -619,6 +619,11 @@ node: {:?}",
                 }
             }
             Value::Pair(left, right) => {
+                debug!(
+                    "node: {:?}
+value: {:?}",
+                    node, value
+                );
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
                 self.read_storage_internal(right, r, id, fk_id, last_table.clone());
