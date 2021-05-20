@@ -183,49 +183,64 @@ fn test_block() {
     // test files. To do this:
     // `cargo test -- --test test_block | bash`
     use ron::ser::{to_string_pretty, PrettyConfig};
-    let contract_id = vec![
-        "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-        "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
-        "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
+
+    #[derive(Debug)]
+    struct Contract<'a> {
+        id: &'a str,
+        levels: Vec<i32>,
+        operation_count: usize,
+    };
+
+    let contracts: [Contract; 3] = [
+        Contract {
+            id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
+            levels: vec![
+                132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222,
+                132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
+                132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
+            ],
+            operation_count: 16,
+        },
+        Contract {
+            id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
+            levels: vec![
+                228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466, 228467, 228468,
+                228490, 228505, 228506, 228507, 228508, 228509, 228510, 228511, 228512, 228516,
+                228521, 228522, 228523, 228524, 228525, 228526, 228527,
+            ],
+            operation_count: 28,
+        },
+        Contract {
+            id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
+            levels: vec![
+                147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813, 147814, 147815,
+                147816,
+            ],
+            operation_count: 10,
+        },
     ];
-    let levels = vec![
-        vec![
-            132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222, 132240,
-            132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383,
-            132384, 132388, 132390, 135501, 138208, 149127,
-        ],
-        vec![
-            228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466, 228467, 228468, 228490,
-            228505, 228506, 228507, 228508, 228509, 228510, 228511, 228512, 228516, 228521, 228522,
-            228523, 228524, 228525, 228526, 228527,
-        ],
-        vec![
-            147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813, 147814, 147815, 147816,
-        ],
-    ];
-    let size = [16, 28, 10];
-    for i in 0..3 {
-        println!("i {}", i);
-        let script_json =
-            json::parse(&load_test(&format!("test/{}.script", contract_id[i]))).unwrap();
+
+    for contract in contracts {
+        println!("contract {:?}", contract);
+        let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let node = get_node_from_script_json(&script_json).unwrap();
         let mut inserts_tested = 0;
-        for level in &levels[i] {
+        for level in &contract.levels {
             let level_json = json::parse(&load_test(&format!(
                 "test/{}.level-{}.json",
-                contract_id[i], level
+                contract.id, level
             )))
             .unwrap();
 
             let operations = StorageParser::get_operations_from_block_json(
-                &format!("{}", contract_id[i]),
+                &format!("{}", contract.id),
                 &level_json,
             )
             .unwrap();
             for operation in &operations {
                 if let JsonValue::Array(contents) = &operation["contents"] {
                     let operation = contents[0].clone();
-                    if contents[0]["destination"].to_string().as_str() != contract_id[i] {
+                    if contents[0]["destination"].to_string().as_str() != contract.id {
                         println!("{} is not our contract_id", operation["destination"]);
                         continue;
                     }
@@ -246,7 +261,7 @@ fn test_block() {
                 }
 
                 let inserts = crate::table::insert::get_inserts();
-                let filename = format!("test/{}-{}-inserts.json", contract_id[i], level);
+                let filename = format!("test/{}-{}-inserts.json", contract.id, level);
                 //println!("{} {}", filename, i);
 
                 println!("cat > {} <<ENDOFJSON", filename);
@@ -275,7 +290,7 @@ fn test_block() {
                 crate::table::insert::clear_inserts();
             }
         }
-        assert_eq!(inserts_tested, size[i]);
+        assert_eq!(inserts_tested, contract.operation_count);
     }
 }
 
