@@ -7,9 +7,6 @@ use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
 use std::error::Error;
-use std::io::BufReader;
-use std::fs::File;
-use std::path::Path;
 
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
@@ -118,6 +115,9 @@ fn load_test(name: &str) -> String {
 
 #[test]
 fn test_generate() {
+    use std::fs::File;
+    use std::io::BufReader;
+    use std::path::Path;
     let json = json::parse(&load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
     ))

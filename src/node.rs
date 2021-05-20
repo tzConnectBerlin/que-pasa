@@ -187,7 +187,7 @@ impl Node {
                     //if big_map push it in array
                     //Write better??
                     match e {
-                        ComplexExpr::BigMap(_, value) => {
+                        ComplexExpr::BigMap(_, _) => {
                             big_map_names.push(table_name.unwrap());
                         }
                         _ => {}
