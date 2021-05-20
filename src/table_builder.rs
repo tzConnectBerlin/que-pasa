@@ -51,6 +51,7 @@ impl TableBuilder {
                 self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
             }
             Type::Table => {
+                //if the table is a bigmap the name is used to be inserted in the database
                 if let Some(left) = node.left {
                     self.populate(&left)?;
                 }

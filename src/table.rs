@@ -94,6 +94,7 @@ pub mod insert {
         }
     }
 
+    //Change name for more clarity?
     #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
     pub struct Column {
         pub name: String,

@@ -97,6 +97,8 @@ impl StorageParser {
 
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
+        let current_line = line!();
+        println!("{:?} {}", *NODE_URL, current_line);
         let json = Self::load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
         Ok(Level {
             _level: json["header"]["level"]
@@ -467,6 +469,26 @@ impl StorageParser {
             _ => panic!("Don't know what to do with prim {}", s),
         }
     }
+
+    /*
+    pub fn store_big_map_list(mut context: Context) -> () {
+
+        for id in store_big_map_list.iter {
+            //create table
+            //create column
+            //populate with value
+            let context = context.start_table(get_table_name(Some(name.clone())));
+            let id = self.id_generator.get_id();
+            crate::table::insert::add_column(
+                "storage".to_string(),
+                id,
+                None,
+                "deleted".to_string(),
+                Value::Int(id)
+            );
+        }
+    }
+            */
 
     pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
         let big_map_id: u32 = json["big_map"].to_string().parse()?;
