@@ -111,7 +111,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
 /// Load from the ../test directory, only for testing
 #[allow(dead_code)]
 fn load_test(name: &str) -> String {
-    println!("{}", name);
+    //println!("{}", name);
     std::fs::read_to_string(std::path::Path::new(name)).unwrap()
 }
 
@@ -185,7 +185,7 @@ fn test_block() {
     use ron::ser::{to_string_pretty, PrettyConfig};
     let contract_id = vec![
         "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-        //"KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
+        "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
         "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
     ];
     let levels = vec![
@@ -194,19 +194,17 @@ fn test_block() {
             132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383,
             132384, 132388, 132390, 135501, 138208, 149127,
         ],
-        /*
-         vec![
-             228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466, 228467, 228468, 228490,
-             228505, 228506, 228507, 228508, 228509, 228510, 228511, 228512, 228516, 228521, 228522,
-             228523, 228524, 228525, 228526, 228527,
-         ],
-        */
+        vec![
+            228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466, 228467, 228468, 228490,
+            228505, 228506, 228507, 228508, 228509, 228510, 228511, 228512, 228516, 228521, 228522,
+            228523, 228524, 228525, 228526, 228527,
+        ],
         vec![
             147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813, 147814, 147815, 147816,
         ],
     ];
-    let size = [16, 16, 16];
-    for i in 1..2 {
+    let size = [16, 28, 10];
+    for i in 0..3 {
         println!("i {}", i);
         let script_json =
             json::parse(&load_test(&format!("test/{}.script", contract_id[i]))).unwrap();
@@ -249,7 +247,7 @@ fn test_block() {
 
                 let inserts = crate::table::insert::get_inserts();
                 let filename = format!("test/{}-{}-inserts.json", contract_id[i], level);
-                println!("{} {}", filename, i);
+                //println!("{} {}", filename, i);
 
                 println!("cat > {} <<ENDOFJSON", filename);
                 println!(
@@ -275,7 +273,6 @@ fn test_block() {
                 //     println!("{}", generator.build_insert(value, level));
                 // }
                 crate::table::insert::clear_inserts();
-                inserts_tested = 16;
             }
         }
         assert_eq!(inserts_tested, size[i]);
