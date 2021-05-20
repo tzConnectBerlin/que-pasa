@@ -1,0 +1,20 @@
+{
+    (
+        table_name: "storage",
+        id: 1,
+    ): (
+        table_name: "storage",
+        id: 1,
+        fk_id: None,
+        columns: [
+            (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
+                name: "lambda_repository_creator",
+                value: None,
+            ),
+        ],
+    ),
+}

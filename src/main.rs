@@ -99,12 +99,17 @@ fn main() {
     let ast = storage::storage_from_json(storage_definition).unwrap();
 
     // Build the internal representation from the node storage defition
-    let node = node::Node::build(node::Context::init(), ast);
-    debug!("{:#?}", node);
+    let context = node::Context::init();
+    let mut big_map_table_names = Vec::new();
+    //initialize the big_map_table_names with the starting table_name "storage"
+    big_map_table_names.push(context.table_name.clone());
+    let node = node::Node::build(context.clone(), ast, &mut big_map_table_names);
+    //debug!("{:#?}", node);
 
     // Make a SQL-compatible representation
     let mut builder = table_builder::TableBuilder::new();
-    let _tables = builder.populate(&node);
+    builder.populate(&node).unwrap();
+    //debug!("{:#?}", big_map_table_names);
 
     // If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
@@ -118,6 +123,7 @@ fn main() {
             print!("{}", generator.create_view_definition(table));
             println!();
         }
+        println!("{}", generator.create_view_store_all(big_map_table_names));
         return;
     }
 
