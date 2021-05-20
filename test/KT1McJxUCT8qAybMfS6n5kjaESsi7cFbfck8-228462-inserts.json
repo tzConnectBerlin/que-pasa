@@ -12,18 +12,22 @@
                 value: Bool(false),
             ),
             (
-                name: "stablecoin",
-                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
-            ),
-            (
-                name: "owner",
+                name: "lambda_repository_creator",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
+        ],
+    ),
+    (
+        table_name: "storage.lambda_map",
+        id: 7,
+    ): (
+        table_name: "storage.lambda_map",
+        id: 7,
+        fk_id: None,
+        columns: [
             (
-                name: "last_token_created",
-                value: Int((1, [
-                    6,
-                ])),
+                name: "idx_lambda_repository_string_43",
+                value: String("auction_withdraw_endpoint"),
             ),
         ],
     ),
