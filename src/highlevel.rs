@@ -7,9 +7,6 @@ use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
 use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
 
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
@@ -119,41 +116,44 @@ fn load_test(name: &str) -> String {
 
 #[test]
 fn test_generate() {
-    let contract_id_array = vec![
-        "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-        "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
-        "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
-    ];
-    for contract_id in contract_id_array {
-        let json = json::parse(&load_test(&format!("test/{}.script", contract_id))).unwrap();
-        let storage_definition = &json["code"][1]["args"][0];
-        let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
-        println!("{:#?}", ast);
-        let mut big_map_tables_names = Vec::new();
-        let node = Node::build(Context::init(), ast, &mut big_map_tables_names);
-        println!("{:#?}", node);
-        let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
-        let mut builder = table_builder::TableBuilder::new();
-        builder.populate(&node).unwrap();
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-        let mut tables: Vec<crate::table::Table> = vec![];
-        for (_name, table) in sorted_tables {
-            print!("{}", generator.create_table_definition(table).unwrap());
-            tables.push(table.clone());
-            println!();
-        }
-        println!("{}", serde_json::to_string(&tables).unwrap());
+    use std::fs::File;
+    use std::io::BufReader;
+    use std::path::Path;
+    let json = json::parse(&load_test(
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
+    ))
+    .unwrap();
+    let storage_definition = &json["code"][1]["args"][0];
+    let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
+    println!("{:#?}", ast);
+    //let node = Node::build(Context::init(), ast);
+    let context = Context::init();
+    let mut big_map_tables_names = Vec::new();
+    //initialize the big_map_tables_names with the starting table_name "storage"
+    big_map_tables_names.push(context.table_name.clone());
+    let node = Node::build(context.clone(), ast, &mut big_map_tables_names);
+    println!("{:#?}", node);
+    let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
+    let mut builder = table_builder::TableBuilder::new();
+    builder.populate(&node).unwrap();
+    let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+    sorted_tables.sort_by_key(|a| a.0);
+    let mut tables: Vec<crate::table::Table> = vec![];
+    for (_name, table) in sorted_tables {
+        print!("{}", generator.create_table_definition(table).unwrap());
+        tables.push(table.clone());
+        println!();
+    }
+    println!("{}", serde_json::to_string(&tables).unwrap());
 
-        let file_path = format!("test/{}.tables.json", contract_id);
-        let p = Path::new(&file_path);
-        let file = File::open(p).unwrap();
-        let reader = BufReader::new(file);
-        let v: Vec<crate::table::Table> = serde_json::from_reader(reader).unwrap();
-        assert_eq!(v.len(), tables.len());
-        for i in 0..v.len() {
-            assert_eq!(v[i], tables[i]);
-        }
+    let p = Path::new("test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json");
+    let file = File::open(p).unwrap();
+    let reader = BufReader::new(file);
+    let v: Vec<crate::table::Table> = serde_json::from_reader(reader).unwrap();
+    assert_eq!(v.len(), tables.len());
+    //test doesn't verify view exist
+    for i in 0..v.len() {
+        assert_eq!(v[i], tables[i]);
     }
 }
 
