@@ -1,8 +1,8 @@
 use crate::error::Res;
 use crate::michelson::Level;
+use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
-use crate::node::{Context};
 use chrono::Utc;
 use postgres::{Client, NoTls, Transaction};
 use std::error::Error;
@@ -87,7 +87,7 @@ pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
         Ok(())
     } else {
         Err(crate::error::Error::boxed(
-                &"Wrong number of rows in max_id table. Please fix manually. Sorry",
+            &"Wrong number of rows in max_id table. Please fix manually. Sorry",
         ))
     }
 }
@@ -117,7 +117,7 @@ pub fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
         Ok(Some(level as u32))
     } else {
         Err(crate::error::Error::boxed(
-                "Too many results for get_origination",
+            "Too many results for get_origination",
         ))
     }
 }
@@ -265,8 +265,8 @@ impl PostgresqlGenerator {
     fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
         if let Some(parent) = Self::parent_name(&table.name) {
             Some(format!(
-                    r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
-                    parent, parent
+                r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
+                parent, parent
             ))
         } else {
             None
@@ -278,9 +278,12 @@ impl PostgresqlGenerator {
     }
 
     pub fn fill_big_map_table(&mut self, table: &Table, big_map_names: Vec<String>) -> String {
-
-        let columns = table.columns.iter().map(|x| x.name.clone())
-            .collect::<Vec<String>>().join(",");
+        let columns = table
+            .columns
+            .iter()
+            .map(|x| x.name.clone())
+            .collect::<Vec<String>>()
+            .join(",");
         let mut sql_commands = vec![];
 
         for name in big_map_names {
@@ -289,25 +292,24 @@ impl PostgresqlGenerator {
                 table.name, columns, name
             );
             sql_commands.push(sql);
-        } 
+        }
         sql_commands.join("\n")
     }
 
     pub fn create_big_map_table(&mut self, context: Context, tables_names: Vec<String>) -> String {
-
         let mut columns = vec![];
 
-        let column = Column{
+        let column = Column {
             name: "big_map_table_name".to_string(),
-            expr: SimpleExpr::String 
+            expr: SimpleExpr::String,
         };
 
         columns.push(column);
 
-        let table = Table{
+        let table = Table {
             name: context.start_table("big_map".to_string()).table_name,
             indices: vec![],
-            columns: columns
+            columns: columns,
         };
 
         let big_map = self.fill_big_map_table(&table, tables_names);
@@ -317,10 +319,15 @@ impl PostgresqlGenerator {
     }
 
     pub fn create_view_store_all(&mut self, tables_names: Vec<String>) -> String {
-
         let mut query = String::new();
         query.push_str("CREATE VIEW storage_all AS SELECT DISTINCT ON (l._level) l._level, ");
-        query.push_str(&tables_names.iter().map(|x| format!(r#""{}".id as "{}_id""#, x, x)).collect::<Vec<String>>().join(", "));
+        query.push_str(
+            &tables_names
+                .iter()
+                .map(|x| format!(r#""{}".id as "{}_id""#, x, x))
+                .collect::<Vec<String>>()
+                .join(", "),
+        );
         query.push_str("\nFROM levels l\n");
         query.push_str(&tables_names.iter().map(|x|
             [
@@ -366,15 +373,15 @@ CREATE VIEW "{}_live" AS (
         GROUP BY {}) t2
         ON t1._level = t2._level);
 "#,
-table.name,
-table.name,
-indices.join(", "),
-table.name,
-indices.join(", "),
-// indices
-//     .iter()
-//     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
-//    .collect::<String>()
+            table.name,
+            table.name,
+            indices.join(", "),
+            table.name,
+            indices.join(", "),
+            // indices
+            //     .iter()
+            //     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
+            //    .collect::<String>()
         )
     }
 
@@ -385,9 +392,9 @@ indices.join(", "),
     fn quote(value: &crate::michelson::Value) -> String {
         match value {
             crate::michelson::Value::Address(s)
-                | crate::michelson::Value::KeyHash(s)
-                | crate::michelson::Value::String(s)
-                | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
+            | crate::michelson::Value::KeyHash(s)
+            | crate::michelson::Value::String(s)
+            | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
             crate::michelson::Value::Bool(val) => {
                 if *val {
                     "true".to_string()
@@ -401,23 +408,23 @@ indices.join(", "),
                     match crate::michelson::StorageParser::decode_address(&s) {
                         Ok(a) => a,
                         Err(_) => s.to_string(),
-                }
+                    }
                 )
             }
             crate::michelson::Value::Int(b)
-                | crate::michelson::Value::Mutez(b)
-                | crate::michelson::Value::Nat(b) => b.to_str_radix(10).to_string(),
+            | crate::michelson::Value::Mutez(b)
+            | crate::michelson::Value::Nat(b) => b.to_str_radix(10).to_string(),
             crate::michelson::Value::None => "NULL".to_string(),
             crate::michelson::Value::Timestamp(t) => {
                 let date_time: chrono::DateTime<Utc> = chrono::DateTime::from(*t);
                 format!("'{}'", date_time.to_rfc2822())
             }
             crate::michelson::Value::Elt(_, _)
-                | crate::michelson::Value::Left(_)
-                | crate::michelson::Value::List(_)
-                | crate::michelson::Value::Pair(_, _)
-                | crate::michelson::Value::Right(_)
-                | crate::michelson::Value::Unit(None) => panic!("quote called with {:?}", value),
+            | crate::michelson::Value::Left(_)
+            | crate::michelson::Value::List(_)
+            | crate::michelson::Value::Pair(_, _)
+            | crate::michelson::Value::Right(_)
+            | crate::michelson::Value::Unit(None) => panic!("quote called with {:?}", value),
         }
     }
 
@@ -436,8 +443,8 @@ indices.join(", "),
             .join(", ");
         if let Some(fk_id) = insert.fk_id {
             columns.push_str(&format!(
-                    r#", "{}_id""#,
-                    Self::parent_name(&insert.table_name).unwrap()
+                r#", "{}_id""#,
+                Self::parent_name(&insert.table_name).unwrap()
             ));
             values.push_str(&format!(", {}", fk_id));
         }
@@ -448,7 +455,7 @@ indices.join(", "),
 (id, {})
 VALUES
 ({}, {})"#,
-insert.table_name, columns, insert.id, values,
+            insert.table_name, columns, insert.id, values,
         );
         sql
     }

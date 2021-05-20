@@ -470,7 +470,7 @@ impl StorageParser {
         }
     }
 
-            /*
+    /*
     pub fn store_big_map_list(mut context: Context) -> () {
 
         for id in store_big_map_list.iter {
@@ -486,7 +486,7 @@ impl StorageParser {
                 "deleted".to_string(),
                 Value::Int(id)
             );
-        }    
+        }
     }
             */
 
