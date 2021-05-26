@@ -450,11 +450,11 @@ impl StorageParser {
             };
         }
 
-        // if let JsonValue::Array(a) = json {
-        //     let mut array = a.clone();
-        //     array.reverse();
-        //     return self.parse_storage(&self.preparse_storage2(&mut array));
-        // }
+        if let JsonValue::Array(a) = json {
+            let mut array = a.clone();
+            array.reverse();
+            return self.parse_storage(&self.preparse_storage2(&mut array));
+        }
 
         warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
         Ok(Value::None)
