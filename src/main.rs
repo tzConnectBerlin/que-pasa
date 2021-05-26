@@ -234,8 +234,8 @@ fn main() {
                 let mut transaction = connection.transaction().unwrap();
                 postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
                 transaction.commit().unwrap();
-                std::thread::sleep(std::time::Duration::from_millis(1500));
             }
+            std::thread::sleep(std::time::Duration::from_millis(1500));
         }
     }
 }
