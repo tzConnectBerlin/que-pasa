@@ -1,5 +1,6 @@
 use crate::error::Res;
 use crate::michelson::Level;
+use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
 use chrono::Utc;
@@ -38,7 +39,7 @@ pub fn delete_everything(connection: &mut Client) -> Res<u64> {
 
 pub fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
     Ok(connection.execute(
-        format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
+            format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
 }
 
 pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
@@ -274,6 +275,71 @@ impl PostgresqlGenerator {
 
     pub fn create_common_tables(&mut self) -> String {
         include_str!("../sql/postgresql-common-tables.sql").to_string()
+    }
+
+    pub fn fill_big_map_table(&mut self, table: &Table, big_map_names: Vec<String>) -> String {
+        let columns = table
+            .columns
+            .iter()
+            .map(|x| x.name.clone())
+            .collect::<Vec<String>>()
+            .join(",");
+        let mut sql_commands = vec![];
+
+        for name in big_map_names {
+            let sql = format!(
+                r#"INSERT INTO "{}" ({}) VALUES ({})"#,
+                table.name, columns, name
+            );
+            sql_commands.push(sql);
+        }
+        sql_commands.join("\n")
+    }
+
+    pub fn create_big_map_table(&mut self, context: Context, tables_names: Vec<String>) -> String {
+        let mut columns = vec![];
+
+        let column = Column {
+            name: "big_map_table_name".to_string(),
+            expr: SimpleExpr::String,
+        };
+
+        columns.push(column);
+
+        let table = Table {
+            name: context.start_table("big_map".to_string()).table_name,
+            indices: vec![],
+            columns: columns,
+        };
+
+        let big_map = self.fill_big_map_table(&table, tables_names);
+        let mut table_definition = self.create_table_definition(&table).unwrap();
+        table_definition.push_str(&big_map);
+        table_definition
+    }
+
+    pub fn create_view_store_all(&mut self, tables_names: Vec<String>) -> String {
+        let mut query = String::new();
+        query.push_str("CREATE VIEW storage_all AS SELECT DISTINCT ON (l._level) l._level, ");
+        query.push_str(
+            &tables_names
+                .iter()
+                .map(|x| format!(r#""{}".id as "{}_id""#, x, x))
+                .collect::<Vec<String>>()
+                .join(", "),
+        );
+        query.push_str("\nFROM levels l\n");
+        query.push_str(&tables_names.iter().map(|x|
+            [
+                "LEFT JOIN\n",
+                format!(
+                r#"(SELECT id, MAX(_level) AS max_level FROM "{}" GROUP BY id, _level ORDER BY max_level DESC) as "{}" ON l._level >= "{}".max_level"#,
+                x, x, x
+                ).as_str()
+            ].concat()
+        ).collect::<Vec<String>>().join("\n"));
+        query.push_str("\nORDER BY _level DESC;\n");
+        return query;
     }
 
     pub fn create_table_definition(&mut self, table: &Table) -> Res<String> {

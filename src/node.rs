@@ -59,7 +59,7 @@ pub enum Type {
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    table_name: String,
+    pub table_name: String,
     prefix: String,
     _type: Type,
 }
@@ -164,7 +164,7 @@ impl Node {
         }
     }
 
-    pub fn build(mut context: Context, ele: Ele) -> Node {
+    pub fn build(mut context: Context, ele: Ele, big_map_names: &mut Vec<String>) -> Node {
         let name = match &ele.name {
             Some(x) => x.clone(),
             None => "noname".to_string(),
@@ -178,23 +178,46 @@ impl Node {
                         context.next_with_state(Type::TableIndex),
                         (**key).clone(),
                     )));
-                    n.right = Some(Box::new(Self::build(context, (**value).clone())));
+                    n.right = Some(Box::new(Self::build(
+                        context,
+                        (**value).clone(),
+                        big_map_names,
+                    )));
+                    let table_name = n.table_name.clone();
+                    //if big_map push it in array
+                    //Write better??
+                    match e {
+                        ComplexExpr::BigMap(_, _) => {
+                            big_map_names.push(table_name.unwrap());
+                        }
+                        _ => {}
+                    }
                     n
                 }
                 ComplexExpr::Pair(left, right) => {
                     let mut n = Self::new(&context, &ele);
                     let mut context = context.next_with_prefix(ele.name);
                     context._type = Type::Pair;
-                    n.left = Some(Box::new(Self::build(context.clone(), (**left).clone())));
-                    n.right = Some(Box::new(Self::build(context, (**right).clone())));
+                    n.left = Some(Box::new(Self::build(
+                        context.clone(),
+                        (**left).clone(),
+                        big_map_names,
+                    )));
+                    n.right = Some(Box::new(Self::build(
+                        context,
+                        (**right).clone(),
+                        big_map_names,
+                    )));
                     n
                 }
-                ComplexExpr::Option(_inner_expr) => {
-                    Self::build(context, Self::ele_with_annot(_inner_expr, ele.name))
-                }
+                ComplexExpr::Option(_inner_expr) => Self::build(
+                    context,
+                    Self::ele_with_annot(_inner_expr, ele.name),
+                    big_map_names,
+                ),
                 ComplexExpr::OrEnumeration(_this, _that) => {
                     context._type = Type::OrEnumeration;
-                    Self::build_enumeration_or(&mut context, &ele, &name)
+                    Self::build_enumeration_or(&mut context, &ele, &name, big_map_names)
                 }
             },
             Expr::SimpleExpr(_) => {
@@ -205,7 +228,12 @@ impl Node {
         node
     }
 
-    pub fn build_enumeration_or(context: &mut Context, ele: &Ele, column_name: &String) -> Node {
+    pub fn build_enumeration_or(
+        context: &mut Context,
+        ele: &Ele,
+        column_name: &String,
+        big_map_names: &mut Vec<String>,
+    ) -> Node {
         let mut node = Self::new(context, ele);
         node.name = Some(column_name.clone());
         node.column_name = Some(column_name.clone());
@@ -215,7 +243,11 @@ impl Node {
                 node.value = ele.name.clone();
             }
             Expr::SimpleExpr(_) => {
-                return Self::build(context.start_table(ele.name.clone().unwrap()), ele.clone());
+                return Self::build(
+                    context.start_table(ele.name.clone().unwrap()),
+                    ele.clone(),
+                    big_map_names,
+                );
             }
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::OrEnumeration(this, that) => {
@@ -224,11 +256,13 @@ impl Node {
                         context,
                         this,
                         column_name,
+                        big_map_names,
                     )));
                     node.right = Some(Box::new(Self::build_enumeration_or(
                         context,
                         that,
                         column_name,
+                        big_map_names,
                     )));
                 }
                 _ => {
@@ -236,6 +270,7 @@ impl Node {
                     return Self::build(
                         context.start_table(ele.name.clone().unwrap()),
                         ele.clone(),
+                        big_map_names,
                     );
                 }
             },
