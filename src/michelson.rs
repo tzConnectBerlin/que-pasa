@@ -368,9 +368,14 @@ impl StorageParser {
                     return self.parse_storage(&a[0]);
                 }
                 _ => {
-                    // let left = Box::new(self.parse_storage(&a[0].clone())?);
-                    // let right = Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
-                    // return Ok(Value::Pair(left, right));
+                    if a.len() < 400 {
+                        let left = Box::new(self.parse_storage(&a[0].clone())?);
+                        let right =
+                            Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
+                        return Ok(Value::Pair(left, right));
+                    } else {
+                        return Ok(Value::None);
+                    }
                 }
             }
         }
@@ -453,9 +458,11 @@ impl StorageParser {
         }
 
         if let JsonValue::Array(a) = json {
-            let mut array = a.clone();
-            array.reverse();
-            return self.parse_storage(&self.preparse_storage2(&mut array));
+            if a.len() < 400 {
+                let mut array = a.clone();
+                array.reverse();
+                return self.parse_storage(&self.preparse_storage2(&mut array));
+            }
         }
 
         warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
