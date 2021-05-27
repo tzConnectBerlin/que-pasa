@@ -33,7 +33,71 @@
             ),
             (
                 name: "state",
-                value: Unit(Some("markets_auctionRunning")),
+                value: Unit(Some("storage.market_map.auctionRunning")),
+            ),
+            (
+                name: "currency",
+                value: Unit(Some("metadata_fa12")),
+            ),
+            (
+                name: "metadata_adjudicator",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "metadata_description",
+                value: String("Question: who Answer: when"),
+            ),
+            (
+                name: "metadata_ipfs_hash",
+                value: String("Qmauaqx7i71AoxCbWQbMsqrXJNvchsbKZytTfjRsW1JMq5"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.fa12",
+        id: 11,
+    ): (
+        table_name: "storage.market_map.fa12",
+        id: 11,
+        fk_id: Some(9),
+        columns: [
+            (
+                name: "metadata_fa12",
+                value: Address("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.auctionRunning",
+        id: 10,
+    ): (
+        table_name: "storage.market_map.auctionRunning",
+        id: 10,
+        fk_id: Some(9),
+        columns: [
+            (
+                name: "auctionRunning_uniswap_contribution",
+                value: Int((1, [
+                    3506304640,
+                    72643160,
+                ])),
+            ),
+            (
+                name: "auctionRunning_yes_preference",
+                value: Int((1, [
+                    3521954640,
+                    72643160,
+                ])),
+            ),
+            (
+                name: "auctionRunning_quantity",
+                value: Int((1, [
+                    4000010000,
+                ])),
+            ),
+            (
+                name: "auctionRunning_auction_period_end",
+                value: Timestamp("2021-05-04T11:48:09Z"),
             ),
         ],
     ),

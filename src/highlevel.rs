@@ -227,7 +227,6 @@ fn test_block() {
     ];
 
     for contract in &contracts {
-        println!("contract {:?}", contract);
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let node = get_node_from_script_json(&script_json).unwrap();
         let mut inserts_tested = 0;
@@ -247,7 +246,7 @@ fn test_block() {
                 if let JsonValue::Array(contents) = &operation["contents"] {
                     let operation = contents[0].clone();
                     if contents[0]["destination"].to_string().as_str() != contract.id {
-                        println!("{} is not our contract_id", operation["destination"]);
+                        //println!("{} is not our contract_id", operation["destination"]);
                         continue;
                     }
                     let storage_json =
@@ -275,13 +274,23 @@ fn test_block() {
                     "{}",
                     to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
                 );
-                println!("ENDOFJSON");
+                println!(
+                    "ENDOFJSON
+"
+                );
 
                 let p = Path::new(&filename);
 
                 if let Ok(file) = File::open(p) {
                     let reader = BufReader::new(file);
                     let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
+                    //                     println!(
+                    //                         "
+                    // file: {:#?}
+
+                    // generated: {:#?}",
+                    //                         v, inserts
+                    //                     );
                     assert_eq!(v.keys().len(), inserts.keys().len());
                     for key in inserts.keys() {
                         assert_eq!(v.get(key).unwrap(), inserts.get(key).unwrap());
