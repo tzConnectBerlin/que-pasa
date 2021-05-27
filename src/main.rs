@@ -178,8 +178,16 @@ fn main() {
         }
 
         while let Some(level) = missing_levels.pop() {
-            let store_result =
-                crate::highlevel::load_and_store_level(&node, contract_id, level as u32).unwrap();
+            let store_result = loop {
+                match crate::highlevel::load_and_store_level(&node, contract_id, level as u32) {
+                    Ok(x) => break x,
+                    Err(e) => {
+                        warn!("Error contacting node: {:?}", e);
+                        std::thread::sleep(std::time::Duration::from_millis(1500));
+                    }
+                };
+            };
+
             if store_result.is_origination {
                 p!(
                     "Found new origination level {}",

@@ -3,7 +3,7 @@ use crate::michelson::Level;
 use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use postgres::{Client, NoTls, Transaction};
 use std::error::Error;
 use std::vec::Vec;

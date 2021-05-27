@@ -3,7 +3,7 @@ CREATE TABLE levels (
         _level INTEGER NOT NULL,
         is_origination BOOLEAN DEFAULT FALSE,
         hash VARCHAR(60),
-        baked_at TIMESTAMP);
+        baked_at TIMESTAMP WITH TIME ZONE);
 
 
 CREATE UNIQUE INDEX levels__level ON levels(_level);

@@ -110,7 +110,6 @@ impl StorageParser {
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
         let current_line = line!();
-        println!("{:?} {}", *NODE_URL, current_line);
         let json = Self::load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
         Ok(Level {
             _level: json["header"]["level"]
