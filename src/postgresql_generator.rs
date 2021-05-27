@@ -3,7 +3,7 @@ use crate::michelson::Level;
 use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use postgres::{Client, NoTls, Transaction};
 use std::error::Error;
 use std::vec::Vec;
@@ -52,7 +52,7 @@ pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
     } else if result.len() == 1 {
         let _level: i32 = result[0].get(0);
         let hash: Option<String> = result[0].get(1);
-        let baked_at: Option<DateTime<Utc>> = result[0].get(2);
+        let baked_at: Option<DateTime<Utc>> = result[0].get(3);
         Ok(Some(Level {
             _level: _level as u32,
             hash,
