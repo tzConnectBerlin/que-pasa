@@ -51,7 +51,7 @@ macro_rules! p {
 }
 
 fn main() {
-    //dotenv::dotenv().ok();
+    dotenv::dotenv().ok();
     env_logger::init();
     let matches = App::new("Tezos Contract Baby Indexer")
         .version("0.0")

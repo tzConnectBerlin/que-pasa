@@ -3,7 +3,7 @@ use crate::michelson::Level;
 use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use postgres::{Client, NoTls, Transaction};
 use std::error::Error;
 use std::vec::Vec;
@@ -44,7 +44,7 @@ pub fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
 
 pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
     let result = connection.query(
-        "SELECT _level, hash, is_origination FROM levels ORDER BY _level DESC LIMIT 1",
+        "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
         &[],
     )?;
     if result.len() == 0 {
@@ -52,9 +52,11 @@ pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
     } else if result.len() == 1 {
         let _level: i32 = result[0].get(0);
         let hash: Option<String> = result[0].get(1);
+        let baked_at: Option<DateTime<Utc>> = result[0].get(2);
         Ok(Some(Level {
             _level: _level as u32,
             hash,
+            baked_at,
         }))
     } else {
         Err(crate::error::Error::boxed("Too many results for get_head"))
@@ -126,10 +128,15 @@ pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     exec(
         transaction,
         &format!(
-            "INSERT INTO levels(_level, hash) VALUES ({}, {})",
+            "INSERT INTO levels(_level, hash, baked_at) VALUES ({}, {}, {})",
             level._level,
             match &level.hash {
                 Some(hash) => format!("'{}'", hash),
+                None => "NULL".to_string(),
+            },
+            match &level.baked_at {
+                Some(baked_at) =>
+                    PostgresqlGenerator::quote(&crate::michelson::Value::Timestamp(*baked_at)),
                 None => "NULL".to_string(),
             }
         ),

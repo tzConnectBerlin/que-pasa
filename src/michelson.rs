@@ -59,6 +59,7 @@ pub enum Value {
 pub struct Level {
     pub _level: u32,
     pub hash: Option<String>,
+    pub baked_at: Option<DateTime<Utc>>,
 }
 
 type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
@@ -95,6 +96,17 @@ impl StorageParser {
         Ok(json)
     }
 
+    fn parse_rfc3339(rfc3339: &str) -> Res<DateTime<Utc>> {
+        let fixedoffset = chrono::DateTime::parse_from_rfc3339(rfc3339)?;
+        Ok(fixedoffset.with_timezone(&Utc))
+    }
+
+    fn timestamp_from_block(json: &JsonValue) -> Res<DateTime<Utc>> {
+        Self::parse_rfc3339(json["header"]["timestamp"].as_str().ok_or(err!(
+            "Couldn't parse string {:?}",
+            json["header"]["timestamp"]
+        ))?)
+    }
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
         let current_line = line!();
@@ -105,6 +117,7 @@ impl StorageParser {
                 .as_u32()
                 .ok_or_else(|| err!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
+            baked_at: Some(Self::timestamp_from_block(&json)?),
         })
     }
 
@@ -115,6 +128,7 @@ impl StorageParser {
                 .as_u32()
                 .ok_or(err!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
+            baked_at: Some(Self::timestamp_from_block(&json)?),
         })
     }
 
