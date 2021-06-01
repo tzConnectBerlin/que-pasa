@@ -3,11 +3,15 @@ use crate::error::Res;
 use crate::node::Node;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
+use itertools::Itertools;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
+use std::collections::HashMap;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
+
+const MAX_ARAY_LENGTH: usize = 20; // Max length of array that we'll convert to PAIRs.
 
 lazy_static! {
     static ref NODE_URL: String = match std::env::var("NODE_URL") {
@@ -79,7 +83,7 @@ impl StorageParser {
 
     /// Load a uri (of course)
     fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
-        debug!("Loading: {}", uri);
+        debug!("Loading: {}", uri,);
         let mut response = Vec::new();
         let mut handle = Easy::new();
         handle.timeout(std::time::Duration::from_secs(20))?;
@@ -109,7 +113,6 @@ impl StorageParser {
     }
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
-        let current_line = line!();
         let json = Self::load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
         Ok(Level {
             _level: json["header"]["level"]
@@ -212,6 +215,7 @@ impl StorageParser {
     pub fn get_big_map_operations_from_operations(
         ops: &[JsonValue],
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
+        debug!("get_big_map_operations_from_operations got {:#?}", ops);
         let mut result = vec![];
         for op in ops {
             result.extend(Self::get_matching_from_operations(op, &"big_map_diff")?);
@@ -381,7 +385,7 @@ impl StorageParser {
                     return self.parse_storage(&a[0]);
                 }
                 _ => {
-                    if a.len() < 400 {
+                    if a.len() < MAX_ARAY_LENGTH {
                         let left = Box::new(self.parse_storage(&a[0].clone())?);
                         let right =
                             Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
@@ -510,17 +514,27 @@ impl StorageParser {
     }
             */
 
-    pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
+    pub fn process_big_map(
+        &mut self,
+        json: &JsonValue,
+        done_hash_maps: &mut HashMap<String, bool>,
+    ) -> Result<(), Box<dyn Error>> {
+        debug!("process_big_map: {}", json.to_string());
         let big_map_id: u32 = json["big_map"].to_string().parse()?;
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
         let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
         if let Some((_fk, node)) = self.big_map_map.get(&big_map_id) {
+            debug!("big_map_update: {:#?}", json);
             let node = node.clone();
             match json["action"]
                 .as_str()
                 .ok_or("Couldn't find 'action' in JSON")?
             {
                 "update" => {
+                    if done_hash_maps.contains_key(&json["key_hash"].to_string()) {
+                        return Ok(());
+                    }
+                    done_hash_maps.insert(json["key_hash"].to_string(), true);
                     let id = self.id_generator.get_id();
                     self.read_storage_internal(
                         &key,

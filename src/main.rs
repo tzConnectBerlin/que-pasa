@@ -1,6 +1,8 @@
+#![feature(format_args_capture)]
 use postgresql_generator::PostgresqlGenerator;
 
 extern crate atty;
+extern crate backtrace;
 extern crate bs58;
 extern crate chrono;
 extern crate clap;
@@ -8,6 +10,7 @@ extern crate curl;
 extern crate dotenv;
 extern crate hex;
 extern crate indicatif;
+extern crate itertools;
 #[macro_use]
 extern crate json;
 #[macro_use]
@@ -21,6 +24,7 @@ extern crate ron;
 extern crate serde;
 extern crate serde_json;
 extern crate spinners;
+extern crate termion;
 
 use clap::{App, Arg, SubCommand};
 
@@ -34,6 +38,9 @@ pub mod table;
 pub mod table_builder;
 
 use michelson::StorageParser;
+use termion::cursor;
+use termion::cursor::DetectCursorPos;
+use termion::raw::IntoRawMode;
 
 fn stdout_is_tty() -> bool {
     atty::is(atty::Stream::Stdout)
@@ -204,13 +211,30 @@ fn main() {
         }
     }
 
+    let is_tty = stdout_is_tty();
+
+    let print_status = |level: u32, result: &crate::highlevel::SaveLevelResult| -> () {
+        if is_tty {
+            let mut stdout = std::io::stdout().into_raw_mode().unwrap();
+
+            let cursor_pos = stdout.cursor_pos().unwrap();
+            print!(
+                "{}{}",
+                cursor::Goto(3, cursor_pos.1),
+                level_text(level, result)
+            );
+        } else {
+            p!("{}", level_text(level, result));
+        }
+    };
+
     // At last, normal operation.
     loop {
         let _spinner;
 
-        if stdout_is_tty() {
-            _spinner =
-                spinners::Spinner::new(spinners::Spinners::Line, "waiting for new block ".into());
+        if is_tty {
+            _spinner = spinners::Spinner::new(spinners::Spinners::Line, "".into());
+            //print!("Waiting for first block");
         }
 
         let chain_head = michelson::StorageParser::head().unwrap();
@@ -221,7 +245,7 @@ fn main() {
         if chain_head._level > db_head._level {
             for level in (db_head._level + 1)..=chain_head._level {
                 let result = highlevel::load_and_store_level(&node, contract_id, level).unwrap();
-                p!("{}", level_text(level, &result));
+                print_status(level, &result);
             }
             continue;
         } else if db_head._level > chain_head._level {
