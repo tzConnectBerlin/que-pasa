@@ -80,9 +80,8 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
     debug!("big_map operations count={}", big_map_ops.len());
 
-    let mut done_big_maps: HashMap<String, bool> = HashMap::new();
     for big_map_op in big_map_ops {
-        storage_parser.process_big_map(&big_map_op, &mut done_big_maps)?;
+        storage_parser.process_big_map(&big_map_op)?;
     }
     let inserts = crate::table::insert::get_inserts();
     let mut keys = inserts

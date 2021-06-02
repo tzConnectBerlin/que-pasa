@@ -218,11 +218,15 @@ impl StorageParser {
         debug!("get_big_map_operations_from_operations got {:#?}", ops);
         let mut result = vec![];
         for op in ops {
-            if let JsonValue::Array(a) =
-                &op["contents"][2]["metadata"]["operation_result"]["big_map_diff"]
-            {
-                debug!("adding big_map_operations {:?}", a);
-                result.extend(a.clone());
+            if let JsonValue::Array(contents) = &op["contents"] {
+                for content in contents {
+                    if let JsonValue::Array(a) =
+                        &content["metadata"]["operation_result"]["big_map_diff"]
+                    {
+                        debug!("adding big_map_operations {:?}", a);
+                        result.extend(a.clone());
+                    }
+                }
             }
         }
         Ok(result)
@@ -510,11 +514,7 @@ impl StorageParser {
         }
     }
 
-    pub fn process_big_map(
-        &mut self,
-        json: &JsonValue,
-        done_hash_maps: &mut HashMap<String, bool>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
         debug!("process_big_map: {}", json.to_string());
         let big_map_id: u32 = json["big_map"].to_string().parse()?;
         let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
@@ -527,12 +527,6 @@ impl StorageParser {
                 .ok_or("Couldn't find 'action' in JSON")?
             {
                 "update" => {
-                    let key_hash = json["key_hash"].to_string();
-                    if done_hash_maps.contains_key(&key_hash) {
-                        debug!("Skipping {}", key_hash);
-                        //                       return Ok(());
-                    }
-                    done_hash_maps.insert(key_hash, true);
                     let id = self.id_generator.get_id();
                     self.read_storage_internal(
                         &key,
