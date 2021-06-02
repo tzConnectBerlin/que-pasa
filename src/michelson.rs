@@ -218,7 +218,11 @@ impl StorageParser {
         debug!("get_big_map_operations_from_operations got {:#?}", ops);
         let mut result = vec![];
         for op in ops {
-            result.extend(Self::get_matching_from_operations(op, &"big_map_diff")?);
+            if let JsonValue::Array(a) =
+                &op["contents"][2]["metadata"]["operation_result"]["big_map_diff"]
+            {
+                result.extend(a.clone());
+            }
         }
         Ok(result)
     }
@@ -494,26 +498,6 @@ impl StorageParser {
         }
     }
 
-    /*
-    pub fn store_big_map_list(mut context: Context) -> () {
-
-        for id in store_big_map_list.iter {
-            //create table
-            //create column
-            //populate with value
-            let context = context.start_table(get_table_name(Some(name.clone())));
-            let id = self.id_generator.get_id();
-            crate::table::insert::add_column(
-                "storage".to_string(),
-                id,
-                None,
-                "deleted".to_string(),
-                Value::Int(id)
-            );
-        }
-    }
-            */
-
     pub fn process_big_map(
         &mut self,
         json: &JsonValue,
@@ -531,10 +515,12 @@ impl StorageParser {
                 .ok_or("Couldn't find 'action' in JSON")?
             {
                 "update" => {
-                    if done_hash_maps.contains_key(&json["key_hash"].to_string()) {
-                        return Ok(());
+                    let key_hash = json["key_hash"].to_string();
+                    if done_hash_maps.contains_key(&key_hash) {
+                        debug!("Skipping {}", key_hash);
+                        //                       return Ok(());
                     }
-                    done_hash_maps.insert(json["key_hash"].to_string(), true);
+                    done_hash_maps.insert(key_hash, true);
                     let id = self.id_generator.get_id();
                     self.read_storage_internal(
                         &key,
