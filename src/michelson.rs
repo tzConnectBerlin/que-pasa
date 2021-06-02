@@ -221,6 +221,7 @@ impl StorageParser {
             if let JsonValue::Array(a) =
                 &op["contents"][2]["metadata"]["operation_result"]["big_map_diff"]
             {
+                debug!("adding big_map_operations {:?}", a);
                 result.extend(a.clone());
             }
         }
@@ -271,6 +272,20 @@ impl StorageParser {
         Self::get_operations_from_block_json(contract_id, &json)
     }
 
+    fn ops_has_operation_for_contract_id(ops: &Vec<JsonValue>, contract_id: &str) -> bool {
+        for op in ops {
+            if let Some(dest) = &op["destination"].as_str() {
+                if dest == &contract_id {
+                    debug!("Match!");
+                    return true;
+                }
+            } else {
+                debug!("{:?} Didn't match!", &op["destination"]);
+            }
+        }
+        return false;
+    }
+
     pub fn get_operations_from_block_json(
         contract_id: &str,
         json: &JsonValue,
@@ -279,19 +294,16 @@ impl StorageParser {
             let mut result = vec![];
             for operation in operations {
                 if let JsonValue::Array(ops) = &operation["contents"] {
-                    for op in ops {
-                        if let Some(dest) = &op["destination"].as_str() {
-                            if dest == &contract_id {
-                                debug!("Match!");
-                                debug!("{:?}", operation);
-                                result.push(operation.clone());
-                            }
-                        } else {
-                            debug!("{:?} Didn't match!", &op["destination"]);
-                        }
+                    if Self::ops_has_operation_for_contract_id(ops, contract_id) {
+                        result.push(operation.clone());
                     }
                 }
             }
+            debug!(
+                "get_operations_from_block_json returning arr len {} {:#?}",
+                result.len(),
+                result
+            );
             Ok(result)
         } else {
             let err: Box<dyn Error> = String::from("No operations section found in block").into();
