@@ -1,8 +1,8 @@
 
 CONTRACT=""
-NETWORK="edo2net"
+NETWORK="florencenet"
 BLOCKS=""
-NODE_URL = "http://edo2full.newby.org:8732"
+NODE_URL = "http://florence.newby.org:8732"
 
 gen-sql:
 ifeq ($(strip $(CONTRACT)),"")
