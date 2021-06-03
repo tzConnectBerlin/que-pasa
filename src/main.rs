@@ -28,6 +28,7 @@ extern crate termion;
 
 use clap::{App, Arg, SubCommand};
 
+pub mod block;
 pub mod error;
 pub mod highlevel;
 pub mod michelson;

@@ -135,7 +135,9 @@ impl StorageParser {
     }
 
     pub fn level_json(level: u32) -> Res<JsonValue> {
-        Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))
+        let res = Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))?;
+        let block: crate::block::Root = serde_json::from_str(&res.to_string())?;
+        Ok(res)
     }
 
     pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {
