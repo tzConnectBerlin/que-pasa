@@ -42,7 +42,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     let mut storage_parser = StorageParser::new(id);
     let mut connection = postgresql_generator::connect()?;
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
-    let json = StorageParser::level_json(level)?;
+    let (json, block) = StorageParser::level_json(level)?;
 
     if StorageParser::block_has_contract_origination(&json, contract_id)? {
         debug!("Setting origination to true");
@@ -328,7 +328,7 @@ fn test_get_big_map_operations_from_operations() {
     let diff_ops: Vec<JsonValue> =
         StorageParser::get_big_map_operations_from_operations(&ops).unwrap();
 
-    assert_eq!(diff_ops.len(), 8);
+    assert_eq!(diff_ops.len(), 6);
 
     for op in diff_ops {
         println!("{}", op.to_string());

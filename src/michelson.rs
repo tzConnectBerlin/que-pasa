@@ -1,3 +1,4 @@
+use crate::block;
 use crate::err;
 use crate::error::Res;
 use crate::node::Node;
@@ -124,20 +125,18 @@ impl StorageParser {
     }
 
     pub fn level(level: u32) -> Res<Level> {
-        let json = Self::level_json(level)?;
+        let (json, block) = Self::level_json(level)?;
         Ok(Level {
-            _level: json["header"]["level"]
-                .as_u32()
-                .ok_or(err!("Couldn't get level from node"))?,
-            hash: Some(json["hash"].to_string()),
+            _level: block.header.level as u32,
+            hash: Some(block.hash),
             baked_at: Some(Self::timestamp_from_block(&json)?),
         })
     }
 
-    pub fn level_json(level: u32) -> Res<JsonValue> {
+    pub fn level_json(level: u32) -> Res<(JsonValue, block::Block)> {
         let res = Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))?;
-        let block: crate::block::Root = serde_json::from_str(&res.to_string())?;
-        Ok(res)
+        let block: crate::block::Block = serde_json::from_str(&res.to_string())?;
+        Ok((res, block))
     }
 
     pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {

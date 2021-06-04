@@ -1,6 +1,6 @@
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Root {
+pub struct Block {
     pub protocol: String,
     #[serde(rename = "chain_id")]
     pub chain_id: String,
@@ -131,7 +131,7 @@ pub struct BalanceUpdate {
     pub kind: String,
     pub contract: Option<String>,
     pub change: String,
-    pub origin: String,
+    pub origin: Option<String>,
     pub category: Option<String>,
     pub delegate: Option<String>,
     pub cycle: Option<i64>,
@@ -165,7 +165,7 @@ pub struct Content {
     pub storage_limit: Option<String>,
     pub amount: Option<String>,
     pub destination: Option<String>,
-    pub parameters: Option<Parameters2>,
+    pub parameters: Option<Parameters>,
     pub balance: Option<String>,
     pub script: Option<Script>,
 }
@@ -189,7 +189,7 @@ pub struct Operations {
 #[serde(rename_all = "camelCase")]
 pub struct Metadata2 {
     #[serde(rename = "balance_updates")]
-    pub balance_updates: Vec<BalanceUpdate2>,
+    pub balance_updates: Vec<BalanceUpdate>,
     pub delegate: Option<String>,
     #[serde(default)]
     pub slots: Vec<i64>,
@@ -202,18 +202,6 @@ pub struct Metadata2 {
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BalanceUpdate2 {
-    pub kind: String,
-    pub contract: Option<String>,
-    pub change: String,
-    pub origin: String,
-    pub category: Option<String>,
-    pub delegate: Option<String>,
-    pub cycle: Option<i64>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct OperationResult {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
@@ -221,7 +209,7 @@ pub struct OperationResult {
     pub big_map_diff: Option<Vec<BigMapDiff>>,
     #[serde(rename = "balance_updates")]
     #[serde(default)]
-    pub balance_updates: Option<Vec<BalanceUpdate3>>,
+    pub balance_updates: Option<Vec<BalanceUpdate>>,
     #[serde(rename = "consumed_gas")]
     pub consumed_gas: Option<String>,
     #[serde(rename = "consumed_milligas")]
@@ -265,8 +253,13 @@ pub struct Key {
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Arg {
+    pub prim: Option<String>,
     pub bytes: Option<String>,
     pub int: Option<String>,
+    #[serde(default)]
+    pub args: Option<Vec<Arg>>,
+    pub annots: Option<Vec<String>>,
+    pub string: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -275,6 +268,7 @@ pub struct Value {
     pub string: Option<String>,
     pub prim: Option<String>,
     #[serde(default)]
+    pub bytes: Option<String>,
     pub args: Vec<::serde_json::Value>,
     pub int: Option<String>,
 }
@@ -289,31 +283,7 @@ pub struct KeyType {
 #[serde(rename_all = "camelCase")]
 pub struct ValueType {
     pub prim: Option<String>,
-    pub args: Option<Vec<Arg2>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg2 {
-    pub prim: Option<String>,
-    #[serde(default)]
-    pub args: Vec<Arg3>,
-    pub annots: Option<Vec<String>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg3 {
-    pub prim: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BalanceUpdate3 {
-    pub kind: String,
-    pub contract: String,
-    pub change: String,
-    pub origin: String,
+    pub args: Option<Vec<Arg>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -330,7 +300,7 @@ pub struct Diff {
     pub action: String,
     pub updates: Vec<Update>,
     #[serde(rename = "key_type")]
-    pub key_type: Option<KeyType2>,
+    pub key_type: Option<KeyType>,
     #[serde(rename = "value_type")]
     pub value_type: Option<ValueType2>,
 }
@@ -346,56 +316,9 @@ pub struct Update {
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Key2 {
-    pub string: Option<String>,
-    pub prim: Option<String>,
-    pub args: Option<Vec<Arg4>>,
-    pub int: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg4 {
-    pub bytes: Option<String>,
-    pub int: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Value2 {
-    pub string: Option<String>,
-    pub prim: Option<String>,
-    #[serde(default)]
-    pub args: Vec<::serde_json::Value>,
-    pub int: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct KeyType2 {
-    pub prim: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ValueType2 {
     pub prim: Option<String>,
-    pub args: Option<Vec<Arg5>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg5 {
-    pub prim: Option<String>,
-    #[serde(default)]
-    pub args: Option<Vec<Arg6>>,
-    pub annots: Option<Vec<String>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg6 {
-    pub prim: Option<String>,
+    pub args: Option<Vec<Arg>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -419,34 +342,13 @@ pub struct Parameters {
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Value3 {
-    pub prim: Option<String>,
-    pub args: Option<Vec<Arg7>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg7 {
-    pub string: Option<String>,
-    pub prim: Option<String>,
-    pub args: Option<Vec<Arg8>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg8 {
-    pub bytes: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Result {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
     #[serde(rename = "big_map_diff")]
-    pub big_map_diff: Option<Vec<BigMapDiff2>>,
+    pub big_map_diff: Option<Vec<BigMapDiff>>,
     #[serde(rename = "balance_updates")]
-    pub balance_updates: Option<Vec<BalanceUpdate4>>,
+    pub balance_updates: Option<Vec<BalanceUpdate>>,
     #[serde(rename = "consumed_gas")]
     pub consumed_gas: Option<String>,
     #[serde(rename = "consumed_milligas")]
@@ -456,7 +358,7 @@ pub struct Result {
     #[serde(rename = "paid_storage_size_diff")]
     pub paid_storage_size_diff: Option<String>,
     #[serde(rename = "lazy_storage_diff")]
-    pub lazy_storage_diff: Option<Vec<LazyStorageDiff2>>,
+    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -464,97 +366,6 @@ pub struct Result {
 pub struct Storage {
     pub prim: Option<String>,
     pub args: Vec<Vec<::serde_json::Value>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BigMapDiff2 {
-    pub action: String,
-    #[serde(rename = "big_map")]
-    pub big_map: Option<String>,
-    #[serde(rename = "key_hash")]
-    pub key_hash: String,
-    pub key: serde_json::Value,
-    pub value: Option<serde_json::Value>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Key3 {
-    pub bytes: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Value4 {
-    pub int: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BalanceUpdate4 {
-    pub kind: String,
-    pub contract: String,
-    pub change: String,
-    pub origin: String,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LazyStorageDiff2 {
-    pub kind: String,
-    pub id: String,
-    pub diff: Diff2,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Diff2 {
-    pub action: String,
-    pub updates: Vec<Update2>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Update2 {
-    #[serde(rename = "key_hash")]
-    pub key_hash: String,
-    pub key: serde_json::Value,
-    pub value: Option<serde_json::Value>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Key4 {
-    pub bytes: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Value5 {
-    pub int: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Parameters2 {
-    pub entrypoint: String,
-    pub value: Option<serde_json::Value>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Value6 {
-    pub prim: Option<String>,
-    pub args: Option<Vec<Arg9>>,
-    pub bytes: Option<String>,
-    pub int: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg9 {
-    pub string: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
@@ -567,20 +378,6 @@ pub struct Script {
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Code {
-    pub prim: Option<String>,
-    pub args: Option<Vec<::serde_json::Value>>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Storage2 {
-    pub prim: Option<String>,
-    pub args: Option<serde_json::Value>,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Arg10 {
     pub prim: Option<String>,
     pub args: Option<Vec<::serde_json::Value>>,
 }

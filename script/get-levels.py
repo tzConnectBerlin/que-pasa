@@ -22,7 +22,9 @@ while True:
     #print(u)
     with urllib.request.urlopen(u) as url:
         data = json.loads(url.read().decode())
-        last_id = data["last_id"]
+        last_id = "0"
+        if "last_id" in data:
+            last_id = data["last_id"]
         if last_id == "0":
             break
         else:
@@ -34,5 +36,4 @@ while True:
 
 # remove duplicates
 levels = list(dict.fromkeys(levels))
-
-print(",".join(levels))
+levels.sort()
