@@ -214,18 +214,7 @@ fn main() {
     let is_tty = stdout_is_tty();
 
     let print_status = |level: u32, result: &crate::highlevel::SaveLevelResult| -> () {
-        if is_tty {
-            let mut stdout = std::io::stdout().into_raw_mode().unwrap();
-
-            let cursor_pos = stdout.cursor_pos().unwrap();
-            print!(
-                "{}{}",
-                cursor::Goto(3, cursor_pos.1),
-                level_text(level, result)
-            );
-        } else {
-            p!("{}", level_text(level, result));
-        }
+        p!("{}", level_text(level, result));
     };
 
     // At last, normal operation.
