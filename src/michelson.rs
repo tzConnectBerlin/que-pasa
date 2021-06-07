@@ -235,8 +235,14 @@ operation_result = {}",
                     if let JsonValue::Array(a) =
                         &content["metadata"]["operation_result"]["big_map_diff"]
                     {
-                        debug!("adding big_map_operations {:?}", a);
-                        result.extend(a.clone());
+                        if &content["metadata"]["operation_result"]["status"].to_string()
+                            == "applied"
+                        {
+                            {
+                                debug!("adding big_map_operations {:?}", a);
+                                result.extend(a.clone());
+                            }
+                        }
                     }
                 }
             }
