@@ -155,7 +155,7 @@ pub struct Content {
     pub kind: String,
     pub endorsement: Option<Endorsement>,
     pub slot: Option<i64>,
-    pub metadata: Metadata2,
+    pub metadata: OperationMetadata,
     pub source: Option<String>,
     pub fee: Option<String>,
     pub counter: Option<String>,
@@ -187,7 +187,7 @@ pub struct Operations {
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Metadata2 {
+pub struct OperationMetadata {
     #[serde(rename = "balance_updates")]
     pub balance_updates: Vec<BalanceUpdate>,
     pub delegate: Option<String>,
@@ -230,7 +230,7 @@ pub struct OperationResult {
 pub struct BigMapDiff {
     pub action: String,
     #[serde(rename = "big_map")]
-    pub big_map: Option<String>,
+    pub big_map: String,
     #[serde(rename = "key_hash")]
     pub key_hash: Option<String>,
     pub key: Option<Key>,

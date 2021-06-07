@@ -213,6 +213,24 @@ impl StorageParser {
             .any(|x| x == contract_id.to_string()))
     }
 
+    pub fn get_big_map_diffs_from_operations(
+        operation_groups: Vec<Vec<block::Operation>>,
+    ) -> Res<Vec<block::BigMapDiff>> {
+        let mut result: Vec<block::BigMapDiff> = vec![];
+        for operations in operation_groups {
+            for operation in operations {
+                for content in operation.contents {
+                    if let Some(operation_result) = content.metadata.operation_result {
+                        if let Some(big_map_diffs) = operation_result.big_map_diff {
+                            result.extend(big_map_diffs.clone());
+                        }
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+
     pub fn get_big_map_operations_from_operations(
         ops: &[JsonValue],
     ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
@@ -564,6 +582,50 @@ impl StorageParser {
             debug!("Someone else's big map! {}", big_map_id);
         };
         Ok(())
+    }
+
+    pub fn process_big_map_diff(&mut self, diff: &block::BigMapDiff) -> Res<()> {
+        let big_map_id: u32 = diff.big_map.into()?;
+        let (_fk, node) = match self.big_map_map.get(&big_map_id) {
+            Some((fk, n)) => (fk, n),
+            None => return Ok(()),
+        };
+        match diff.action.as_str() {
+            "update" => {
+                let id = self.id_generator.get_id();
+                self.read_storage_internal(
+                    &diff.key.ok_or("Missing key to big map in diff")?,
+                    &*node.left.ok_or("Missing key to big map")?,
+                    id,
+                    None,
+                    node.table_name.clone(),
+                );
+                match diff.value {
+                    None => {
+                        crate::table::insert::add_column(
+                            node.table_name.ok_or("Missing name for table")?,
+                            id,
+                            None,
+                            "deleted".to_string(),
+                            Value::Bool(true),
+                        );
+                    }
+                    Some(val) => {
+                        self.read_storage_internal(
+                            json::parse(val.to_string()),
+                            &*node.right.ok_or("Missing value to big map")?,
+                            id,
+                            None,
+                            node.table_name,
+                        );
+                    }
+                }
+            }
+            "alloc" => {
+                debug!("Alloc called like this: {}", diff.to_string());
+            }
+            _ => panic!("{}", json.to_string()),
+        }
     }
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
