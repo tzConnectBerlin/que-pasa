@@ -297,6 +297,5 @@ fn range(arg: &String) -> Vec<u32> {
         }
     }
     result.sort_unstable();
-    result.reverse();
     result
 }
