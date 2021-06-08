@@ -328,7 +328,7 @@ fn test_get_big_map_operations_from_operations() {
     let diff_ops: Vec<JsonValue> =
         StorageParser::get_big_map_operations_from_operations(&ops).unwrap();
 
-    assert_eq!(diff_ops.len(), 8);
+    assert_eq!(diff_ops.len(), 6);
 
     for op in diff_ops {
         println!("{}", op.to_string());
