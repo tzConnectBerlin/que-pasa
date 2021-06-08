@@ -37,3 +37,4 @@ while True:
 # remove duplicates
 levels = list(dict.fromkeys(levels))
 levels.sort()
+print(",".join(levels))

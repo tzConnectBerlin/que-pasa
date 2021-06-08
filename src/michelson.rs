@@ -146,6 +146,18 @@ impl StorageParser {
                     for sub_op in sub_ops {
                         debug!("destination: {}", sub_op["destination"].to_string());
                         if sub_op["destination"].to_string().as_str() == contract_id {
+                            let operation_result =
+                                sub_op["metadata"]["operation_result"]["status"].to_string();
+                            debug!(
+                                "sub_op = {}
+operation_result = {}",
+                                sub_op.to_string(),
+                                operation_result
+                            );
+                            if operation_result != "applied" {
+                                debug!("Operation was not successful: {:?}", sub_op);
+                                return Ok(false);
+                            }
                             return Ok(true);
                         }
                     }
@@ -242,8 +254,14 @@ impl StorageParser {
                     if let JsonValue::Array(a) =
                         &content["metadata"]["operation_result"]["big_map_diff"]
                     {
-                        debug!("adding big_map_operations {:?}", a);
-                        result.extend(a.clone());
+                        if &content["metadata"]["operation_result"]["status"].to_string()
+                            == "applied"
+                        {
+                            {
+                                debug!("adding big_map_operations {:?}", a);
+                                result.extend(a.clone());
+                            }
+                        }
                     }
                 }
             }
