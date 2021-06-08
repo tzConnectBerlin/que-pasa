@@ -230,7 +230,7 @@ pub struct OperationResult {
 pub struct BigMapDiff {
     pub action: String,
     #[serde(rename = "big_map")]
-    pub big_map: String,
+    pub big_map: Option<String>,
     #[serde(rename = "key_hash")]
     pub key_hash: Option<String>,
     pub key: Option<Key>,

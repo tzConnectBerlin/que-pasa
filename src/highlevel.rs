@@ -44,7 +44,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
     let (json, block) = StorageParser::level_json(level)?;
 
-    if StorageParser::block_has_contract_origination(&json, contract_id)? {
+    if StorageParser::block_has_contract_origination(&block, contract_id)? {
         debug!("Setting origination to true");
         postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
         postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
@@ -82,8 +82,8 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     assert_eq!(big_map_ops.len(), big_map_diffs.len());
     debug!("big_map operations count={}", big_map_ops.len());
 
-    for big_map_op in big_map_ops {
-        storage_parser.process_big_map(&big_map_op)?;
+    for big_map_diff in big_map_diffs {
+        storage_parser.process_big_map_diff(&big_map_diff)?;
     }
     let inserts = crate::table::insert::get_inserts();
     let mut keys = inserts
@@ -339,24 +339,27 @@ fn test_get_big_map_operations_from_operations() {
 
 #[test]
 fn test_get_origination_operations_from_block() {
-    let matching = json::parse(&load_test(
-        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json",
-    ))
-    .unwrap();
+    let test_file = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json";
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
-    assert!(StorageParser::block_has_contract_origination(&matching, &contract_id).unwrap());
+    let matching = json::parse(&load_test(test_file)).unwrap();
+    let block: crate::block::Block = serde_json::from_str(&load_test(test_file)).unwrap();
+    assert!(StorageParser::block_has_contract_origination(&block, &contract_id).unwrap());
 
     for level in vec![
         132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219, 132222, 132240, 132242,
         132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383, 132384,
         132388, 132390, 135501, 138208, 149127,
     ] {
-        let level_json = json::parse(&load_test(&format!(
+        let filename = format!(
             "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-{}.json",
             level
-        )))
-        .unwrap();
-        assert!(!StorageParser::block_has_contract_origination(&level_json, &contract_id).unwrap());
+        );
+        println!("testing {}", filename);
+        let level_block: crate::block::Block = serde_json::from_str(&load_test(&filename)).unwrap();
+
+        assert!(
+            !StorageParser::block_has_contract_origination(&level_block, &contract_id).unwrap()
+        );
     }
 }
 

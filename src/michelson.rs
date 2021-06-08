@@ -21,6 +21,12 @@ lazy_static! {
     };
 }
 
+macro_rules! serde2json {
+    ($serde:expr) => {
+        json::parse(&serde_json::to_string(&$serde)?)?
+    };
+}
+
 pub struct IdGenerator {
     id: AtomicU32,
 }
@@ -219,10 +225,21 @@ operation_result = {}",
         Ok(result)
     }
 
-    pub fn block_has_contract_origination(block: &JsonValue, contract_id: &str) -> Res<bool> {
-        Ok(Self::get_originations_from_block(block)?
-            .iter()
-            .any(|x| x == contract_id.to_string()))
+    pub fn block_has_contract_origination(block: &block::Block, contract_id: &str) -> Res<bool> {
+        for operations in &block.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    for operation_result in &content.metadata.operation_result {
+                        for originated_contract in &operation_result.originated_contracts {
+                            if originated_contract == contract_id {
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(false)
     }
 
     pub fn get_big_map_diffs_from_operations(
@@ -603,22 +620,30 @@ operation_result = {}",
     }
 
     pub fn process_big_map_diff(&mut self, diff: &block::BigMapDiff) -> Res<()> {
-        let big_map_id: u32 = diff.big_map.into()?;
-        let (_fk, node) = match self.big_map_map.get(&big_map_id) {
-            Some((fk, n)) => (fk, n),
-            None => return Ok(()),
-        };
         match diff.action.as_str() {
             "update" => {
+                let big_map_id: u32 = match &diff.big_map {
+                    Some(id) => id.parse()?,
+                    None => return Err(err!("No big map id found in diff {:?}", diff)),
+                };
+
+                let (_fk, node) = match self.big_map_map.get(&big_map_id) {
+                    Some((fk, n)) => (fk, n),
+                    None => return Ok(()),
+                };
+                let node = node.clone();
                 let id = self.id_generator.get_id();
                 self.read_storage_internal(
-                    &diff.key.ok_or("Missing key to big map in diff")?,
+                    &self.parse_storage(&serde2json!(&diff
+                        .key
+                        .clone()
+                        .ok_or("Missing key to big map in diff")?))?,
                     &*node.left.ok_or("Missing key to big map")?,
                     id,
                     None,
                     node.table_name.clone(),
                 );
-                match diff.value {
+                match &diff.value {
                     None => {
                         crate::table::insert::add_column(
                             node.table_name.ok_or("Missing name for table")?,
@@ -627,22 +652,27 @@ operation_result = {}",
                             "deleted".to_string(),
                             Value::Bool(true),
                         );
+                        Ok(())
                     }
                     Some(val) => {
                         self.read_storage_internal(
-                            json::parse(val.to_string()),
+                            &self.parse_storage(&serde2json!(&val))?,
                             &*node.right.ok_or("Missing value to big map")?,
                             id,
                             None,
                             node.table_name,
                         );
+                        Ok(())
                     }
                 }
             }
             "alloc" => {
-                debug!("Alloc called like this: {}", diff.to_string());
+                debug!("Alloc called like this: {}", serde_json::to_string(&diff)?);
+                Ok(())
             }
-            _ => panic!("{}", json.to_string()),
+            _ => {
+                panic!("{}", serde_json::to_string(&diff)?);
+            }
         }
     }
 
