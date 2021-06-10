@@ -145,6 +145,25 @@ impl StorageParser {
         Ok((res, block))
     }
 
+    pub fn block_has_tx_for_us(block: &block::Block, contract_id: &str) -> Res<bool> {
+        let destination = Some(contract_id.to_string());
+        for operations in &block.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if content.destination == destination {
+                        return Ok(true);
+                    }
+                    for result in &content.metadata.internal_operation_results {
+                        if result.destination == destination {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(false)
+    }
+
     pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {
         if let JsonValue::Array(array) = &json["operations"][3] {
             for op in array {
@@ -185,6 +204,34 @@ operation_result = {}",
             "{}/chains/main/blocks/{}/context/contracts/{}/storage",
             *NODE_URL, level, contract_id
         ))
+    }
+
+    pub fn get_contract_storage_from_block(
+        &self,
+        block: &block::Block,
+        contract_id: &String,
+    ) -> Res<Vec<serde_json::value::Value>> {
+        let mut results: Vec<serde_json::value::Value> = vec![];
+        let contract = Some(contract_id.clone());
+        for operations in &block.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if content.destination == contract {
+                        if let Some(operation_result) = &content.metadata.operation_result {
+                            if let Some(storage) = &operation_result.storage {
+                                results.push(storage.clone());
+                            }
+                        }
+                        for result in &content.metadata.internal_operation_results {
+                            if let Some(storage) = &result.result.storage {
+                                results.push(storage.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(results)
     }
 
     /// Get all of the data for the contract.
