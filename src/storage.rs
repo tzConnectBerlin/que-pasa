@@ -100,7 +100,7 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
             "bool" => Ok(simple_expr!(SimpleExpr::Bool, annot)),
             "bytes" => Ok(simple_expr!(SimpleExpr::Bytes, annot)),
             "int" => Ok(simple_expr!(SimpleExpr::Int, annot)),
-            "key_hash" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
+            "key_hash" | "key" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
             "map" => Ok(complex_expr!(ComplexExpr::Map, annot, args)),
             "mutez" => Ok(simple_expr!(SimpleExpr::Mutez, annot)),
             "nat" => Ok(simple_expr!(SimpleExpr::Nat, annot)),

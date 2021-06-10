@@ -702,7 +702,10 @@ value: {:?}",
                     id,
                     fk_id,
                     node.column_name.as_ref().unwrap().to_string(),
-                    Value::String(node.value.clone().unwrap()),
+                    match node.value.clone() {
+                        Some(x) => Value::String(x),
+                        None => Value::None,
+                    },
                 );
             }
             _ => {
