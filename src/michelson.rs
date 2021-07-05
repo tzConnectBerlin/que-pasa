@@ -717,6 +717,10 @@ operation_result = {}",
                 debug!("Alloc called like this: {}", serde_json::to_string(&diff)?);
                 Ok(())
             }
+            "copy" => {
+                debug!("Copy called like this: {}", serde_json::to_string(&diff)?);
+                Ok(())
+            }
             _ => {
                 panic!("{}", serde_json::to_string(&diff)?);
             }
@@ -842,7 +846,10 @@ value: {:?}",
                     id,
                     fk_id,
                     node.column_name.as_ref().unwrap().to_string(),
-                    Value::String(node.value.clone().unwrap()),
+                    match &node.value {
+                        Some(s) => Value::String(s.clone()),
+                        None => Value::None,
+                    },
                 );
             }
             _ => {

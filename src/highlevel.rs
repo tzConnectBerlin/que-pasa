@@ -79,7 +79,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     //storageParser.store_big_map_list();
     let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
     let big_map_diffs = StorageParser::get_big_map_diffs_from_operations(block.operations)?;
-    assert_eq!(big_map_ops.len(), big_map_diffs.len());
+    //    assert_eq!(big_map_ops.len(), big_map_diffs.len());
     debug!("big_map operations count={}", big_map_ops.len());
 
     for big_map_diff in big_map_diffs {
