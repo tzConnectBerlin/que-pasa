@@ -20,6 +20,7 @@ pub enum SimpleExpr {
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ComplexExpr {
     BigMap(Box<Ele>, Box<Ele>),
+    //    List(Vec<Ele>),
     Map(Box<Ele>, Box<Ele>),
     Pair(Box<Ele>, Box<Ele>),
     OrEnumeration(Box<Ele>, Box<Ele>),
@@ -101,6 +102,17 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
             "bytes" => Ok(simple_expr!(SimpleExpr::Bytes, annot)),
             "int" => Ok(simple_expr!(SimpleExpr::Int, annot)),
             "key_hash" | "key" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
+            /*
+                        "list" => Ok(Ele {
+                            name: annot,
+                            expr: Expr::ComplexExpr(ComplexExpr::List(
+                                args.unwrap()
+                                    .iter()
+                                    .map(|x| storage_from_json(x.clone()).unwrap())
+                                    .collect::<Vec<Ele>>(),
+                            )),
+                        }),
+            */
             "map" => Ok(complex_expr!(ComplexExpr::Map, annot, args)),
             "mutez" => Ok(simple_expr!(SimpleExpr::Mutez, annot)),
             "nat" => Ok(simple_expr!(SimpleExpr::Nat, annot)),
