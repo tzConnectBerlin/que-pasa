@@ -36,10 +36,19 @@ pub struct SaveLevelResult {
     pub tx_count: u32,
 }
 
-pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<SaveLevelResult> {
+pub fn get_storage_parser(contract_id: &str) -> Res<StorageParser> {
+    let id = crate::postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32;
+    Ok(StorageParser::new(id))
+}
+
+pub fn load_and_store_level(
+    node: &Node,
+    contract_id: &str,
+    level: u32,
+    storage_declaration: &crate::michelson::Value,
+    storage_parser: &mut crate::michelson::StorageParser,
+) -> Res<SaveLevelResult> {
     let mut generator = PostgresqlGenerator::new();
-    let id = postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32;
-    let mut storage_parser = StorageParser::new(id);
     let mut connection = postgresql_generator::connect()?;
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
     let (json, block) = StorageParser::level_json(level)?;
@@ -66,11 +75,7 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
         });
     }
 
-    let json = storage_parser.get_storage(&contract_id.to_string(), level)?;
-    let v = storage_parser.preparse_storage(&json);
-    let result = storage_parser.parse_storage(&v)?;
-    debug!("storage: {:#?}", result);
-    let result = storage_parser.read_storage(&result, &node)?;
+    let result = storage_parser.read_storage(&storage_declaration, &node)?;
     debug!("{:#?}", result);
 
     let operations = StorageParser::get_operations_from_node(contract_id, Some(level))?;
@@ -78,8 +83,8 @@ pub fn load_and_store_level(node: &Node, contract_id: &str, level: u32) -> Res<S
     debug!("tx_count = {}", tx_count);
     //storageParser.store_big_map_list();
     let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
-    let big_map_diffs = StorageParser::get_big_map_diffs_from_operations(block.operations)?;
-    //    assert_eq!(big_map_ops.len(), big_map_diffs.len());
+    let big_map_diffs = StorageParser::get_big_map_diffs_from_operations(&block.operations)?;
+    assert_eq!(big_map_ops.len(), big_map_diffs.len());
     debug!("big_map operations count={}", big_map_ops.len());
 
     for big_map_diff in big_map_diffs {
@@ -220,7 +225,7 @@ fn test_block() {
                 228490, 228505, 228506, 228507, 228508, 228509, 228510, 228511, 228512, 228516,
                 228521, 228522, 228523, 228524, 228525, 228526, 228527,
             ],
-            operation_count: 28,
+            operation_count: 27,
         },
         Contract {
             id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
@@ -232,80 +237,99 @@ fn test_block() {
         },
     ];
 
-    //     for contract in &contracts {
-    //         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
-    //         let node = get_node_from_script_json(&script_json).unwrap();
-    //         let mut inserts_tested = 0;
-    //         for level in &contract.levels {
-    //             let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
-    //                 "test/{}.level-{}.json",
-    //                 contract.id, level
-    //             )))
-    //             .unwrap();
+    for contract in &contracts {
+        let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
+        let node = get_node_from_script_json(&script_json).unwrap();
+        let mut inserts_tested = 0;
+        for level in &contract.levels {
+            let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
+                "test/{}.level-{}.json",
+                contract.id, level
+            )))
+            .unwrap();
 
-    //             let mut storage_parser = StorageParser::new(1);
+            let mut storage_parser = StorageParser::new(1);
 
-    //             for big_map_diff in StorageParser::get_big_map_diffs_from_operations(block.operations) {
-    //                 storage_parser.process_big_map_diff(&big_map_diff);
-    //             }
+            let operations: Vec<crate::block::Operation> =
+                block.operations.into_iter().flatten().collect();
 
-    //             let storage_json = StorageParser::get_storage_from_operation(&json::from(
-    //                     serde_json::to_string(&content).unwrap(),
-    //                 ))
-    //                 .unwrap();
+            for operation in operations {
+                for content in &operation.contents {
+                    if content.kind == "transaction" {
+                        println!();
+                        //println!("content={}", serde_json::to_string(&content).unwrap());
+                        if let Some(storage) =
+                            StorageParser::get_storage_from_content(&content, contract.id).unwrap()
+                        {
+                            println!("storage: {:?}", storage);
+                            let storage_json = serde_json::to_string(&storage).unwrap();
+                            let preparsed_storage = storage_parser
+                                .preparse_storage(&json::parse(&storage_json).unwrap());
+                            let parsed_storage =
+                                storage_parser.parse_storage(&preparsed_storage).unwrap();
+                            println!("parsed_storage: {:?}", parsed_storage);
+                            storage_parser.read_storage(&parsed_storage, &node).unwrap();
 
-    //                 let preparsed_storage = storage_parser.preparse_storage(&storage_json);
-    //                 let parsed_storage = storage_parser.parse_storage(&preparsed_storage).unwrap();
-    //                 storage_parser.read_storage(&parsed_storage, &node).unwrap();
+                            for big_map_diff in
+                                StorageParser::get_big_map_diffs_from_operation(&operation).unwrap()
+                            {
+                                println!(
+                                    "big_map_diff: {}",
+                                    serde_json::to_string(&big_map_diff).unwrap()
+                                );
 
-    //                 let big_map_diffs =
-    //                     StorageParser::get_big_map_diffs_from_operations(&operation).unwrap();
-    //                 for big_map_diff in big_map_diffs {
-    //                     storage_parser.process_big_map_diff(&big_map_diff).unwrap();
-    //                 }
+                                storage_parser.process_big_map_diff(&big_map_diff);
+                            }
+                        }
+                    }
+                }
+            }
 
-    //                 let inserts = crate::table::insert::get_inserts();
-    //                 let filename = format!("test/{}-{}-inserts.json", contract.id, level);
-    //                 //println!("{} {}", filename, i);
+            let inserts = crate::table::insert::get_inserts();
+            let filename = format!("test/{}-{}-inserts.json", contract.id, level);
+            //println!("{} {}", filename, i);
 
-    //                 println!("cat > {} <<ENDOFJSON", filename);
-    //                 println!(
-    //                     "{}",
-    //                     to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
-    //                 );
-    //                 println!(
-    //                     "ENDOFJSON
-    // "
-    //                 );
+            println!("cat > {} <<ENDOFJSON", filename);
+            println!(
+                "{}",
+                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+            );
+            println!(
+                "ENDOFJSON
+    "
+            );
 
-    //                 let p = Path::new(&filename);
+            let p = Path::new(&filename);
 
-    //                 if let Ok(file) = File::open(p) {
-    //                     let reader = BufReader::new(file);
-    //                     let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
-    //                     //                     println!(
-    //                     //                         "
-    //                     // file: {:#?}
+            if let Ok(file) = File::open(p) {
+                let reader = BufReader::new(file);
+                let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
+                //                     println!(
+                //                         "
+                // file: {:#?}
 
-    //                     // generated: {:#?}",
-    //                     //                         v, inserts
-    //                     //                     );
-    //                     assert_eq!(v.keys().len(), inserts.keys().len());
-    //                     for key in inserts.keys() {
-    //                         assert_eq!(v.get(key).unwrap(), inserts.get(key).unwrap());
-    //                     }
-    //                     inserts_tested += 1;
-    //                 }
+                // generated: {:#?}",
+                //                         v, inserts
+                //                     );
+                //                assert_eq!(v.keys().len(), inserts.keys().len());
+                for key in inserts.keys() {
+                    let file_version = v.get(key);
+                    println!("file_version: {:?}", file_version);
+                    let gen_version = inserts.get(key);
+                    println!("gen_version: {:?}", gen_version);
+                    assert_eq!(file_version.unwrap(), gen_version.unwrap());
+                }
+                inserts_tested += 1;
+            }
 
-    //                 // let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
-    //                 // for (_key, value) in &inserts {
-    //                 //     println!("{}", generator.build_insert(value, level));
-    //                 // }
-    //                 crate::table::insert::clear_inserts();
-    //             }
-    //         }
-    //         assert_eq!(inserts_tested, contract.operation_count);
-    //     }
+            // let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
+            // for (_key, value) in &inserts {
+            //     println!("{}", generator.build_insert(value, level));
+            // }
+            crate::table::insert::clear_inserts();
+        }
+        assert_eq!(inserts_tested, contract.operation_count);
+    }
 }
 
 #[test]

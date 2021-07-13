@@ -100,6 +100,12 @@ fn main() {
         .value_of("contract_id")
         .expect("contract_id is required");
 
+    let mut storage_parser = crate::highlevel::get_storage_parser(&contract_id).unwrap();
+
+    let storage_declaration = storage_parser
+        .get_storage_declaration(&contract_id)
+        .unwrap();
+
     // init by grabbing the contract data.
     let json = StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
@@ -148,8 +154,14 @@ fn main() {
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
         for level in &levels {
-            let result =
-                crate::highlevel::load_and_store_level(&node, contract_id, *level).unwrap();
+            let result = crate::highlevel::load_and_store_level(
+                &node,
+                contract_id,
+                *level,
+                &storage_declaration,
+                &mut storage_parser,
+            )
+            .unwrap();
             p!("{}", level_text(*level, &result));
         }
 
@@ -187,7 +199,13 @@ fn main() {
 
         while let Some(level) = missing_levels.pop() {
             let store_result = loop {
-                match crate::highlevel::load_and_store_level(&node, contract_id, level as u32) {
+                match crate::highlevel::load_and_store_level(
+                    &node,
+                    contract_id,
+                    level as u32,
+                    &storage_declaration,
+                    &mut storage_parser,
+                ) {
                     Ok(x) => break x,
                     Err(e) => {
                         warn!("Error contacting node: {:?}", e);
@@ -234,7 +252,14 @@ fn main() {
         debug!("db: {} chain: {}", db_head._level, chain_head._level);
         if chain_head._level > db_head._level {
             for level in (db_head._level + 1)..=chain_head._level {
-                let result = highlevel::load_and_store_level(&node, contract_id, level).unwrap();
+                let result = highlevel::load_and_store_level(
+                    &node,
+                    contract_id,
+                    level,
+                    &storage_declaration,
+                    &mut storage_parser,
+                )
+                .unwrap();
                 print_status(level, &result);
             }
             continue;

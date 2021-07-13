@@ -233,7 +233,7 @@ pub struct BigMapDiff {
     pub big_map: Option<String>,
     #[serde(rename = "key_hash")]
     pub key_hash: Option<String>,
-    pub key: Option<Key>,
+    pub key: Option<serde_json::Value>,
     pub value: Option<serde_json::Value>,
     #[serde(rename = "key_type")]
     pub key_type: Option<KeyType>,

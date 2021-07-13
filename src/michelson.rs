@@ -107,6 +107,14 @@ impl StorageParser {
         Ok(json)
     }
 
+    pub fn get_storage_declaration(&self, contract_id: &str) -> Res<Value> {
+        let json = self.get_storage(&contract_id.to_string())?;
+        let preparsed = self.preparse_storage(&json);
+        let storage_declaration = self.parse_storage(&preparsed)?;
+        debug!("storage_declaration: {:#?}", storage_declaration);
+        Ok(storage_declaration)
+    }
+
     fn parse_rfc3339(rfc3339: &str) -> Res<DateTime<Utc>> {
         let fixedoffset = chrono::DateTime::parse_from_rfc3339(rfc3339)?;
         Ok(fixedoffset.with_timezone(&Utc))
@@ -195,14 +203,10 @@ operation_result = {}",
     }
 
     /// Get the storage at a level
-    pub fn get_storage(
-        &self,
-        contract_id: &String,
-        level: u32,
-    ) -> Result<JsonValue, Box<dyn Error>> {
+    pub fn get_storage(&self, contract_id: &String) -> Result<JsonValue, Box<dyn Error>> {
         Self::load(&format!(
-            "{}/chains/main/blocks/{}/context/contracts/{}/storage",
-            *NODE_URL, level, contract_id
+            "{}/chains/main/blocks/head/context/contracts/{}/storage",
+            *NODE_URL, contract_id
         ))
     }
 
@@ -290,17 +294,31 @@ operation_result = {}",
     }
 
     pub fn get_big_map_diffs_from_operations(
-        operation_groups: Vec<Vec<block::Operation>>,
+        operation_groups: &Vec<Vec<block::Operation>>,
     ) -> Res<Vec<block::BigMapDiff>> {
         let mut result: Vec<block::BigMapDiff> = vec![];
         for operations in operation_groups {
             for operation in operations {
-                for content in operation.contents {
-                    if let Some(operation_result) = content.metadata.operation_result {
-                        if let Some(big_map_diffs) = operation_result.big_map_diff {
+                for content in &operation.contents {
+                    if let Some(operation_result) = &content.metadata.operation_result {
+                        if let Some(big_map_diffs) = &operation_result.big_map_diff {
                             result.extend(big_map_diffs.clone());
                         }
                     }
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    pub fn get_big_map_diffs_from_operation(
+        operation: &block::Operation,
+    ) -> Res<Vec<block::BigMapDiff>> {
+        let mut result: Vec<block::BigMapDiff> = vec![];
+        for content in &operation.contents {
+            if let Some(operation_result) = &content.metadata.operation_result {
+                if let Some(big_map_diffs) = &operation_result.big_map_diff {
+                    result.extend(big_map_diffs.clone());
                 }
             }
         }
@@ -362,6 +380,27 @@ operation_result = {}",
 
     pub fn get_storage_from_operation(json: &JsonValue) -> Result<JsonValue, Box<dyn Error>> {
         Ok(json["metadata"]["operation_result"]["storage"].clone())
+    }
+
+    pub fn get_storage_from_content(
+        content: &crate::block::Content,
+        contract_id: &str,
+    ) -> Res<Option<::serde_json::Value>> {
+        if let Some(destination) = &content.destination {
+            if destination != contract_id {
+                return Ok(None);
+            }
+        } else {
+            return Ok(None);
+        }
+
+        match &content.metadata.operation_result {
+            Some(x) => match &x.storage {
+                Some(x) => Ok(Some(x.clone())),
+                None => Ok(None),
+            },
+            None => Ok(None),
+        }
     }
 
     pub fn get_operations_from_node(
@@ -568,7 +607,7 @@ operation_result = {}",
                 "UNIT" => return Ok(Value::Unit(None)),
 
                 _ => {
-                    warn!("Unknown prim {}", json["prim"]);
+                    panic!("Unknown prim {}", json["prim"]);
                     return Ok(Value::None);
                 }
             }
