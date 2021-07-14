@@ -74,27 +74,38 @@ pub fn load_and_store_level(
     let result = storage_parser.read_storage(&storage_declaration, &node)?;
     debug!("{:#?}", result);
 
+    println!("operations count: {}", block.operations().len());
+
+    let mut storages: Vec<serde_json::Value> = vec![];
+    let mut big_map_diffs: Vec<crate::block::BigMapDiff> = vec![];
+
     for operation in block.operations() {
         for content in &operation.contents {
             if let Ok(Some(storage)) =
                 StorageParser::get_storage_from_content(&content, contract_id)
             {
-                debug!("storage: {:?}", storage);
+                storages.push(storage);
+            }
 
-                let storage_json = serde_json::to_string(&storage)?;
-                let preparsed_storage =
-                    storage_parser.preparse_storage(&json::parse(&storage_json)?);
-                let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
-                debug!("parsed_storage: {:?}", parsed_storage);
-                storage_parser.read_storage(&parsed_storage, &node)?;
+            //            for internal_op_result in content.metadata.internal_operation_results {
 
-                for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
-                    debug!("big_map_diff: {}", serde_json::to_string(&big_map_diff)?);
-
-                    storage_parser.process_big_map_diff(&big_map_diff)?;
-                }
+            for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
+                big_map_diffs.push(big_map_diff);
             }
         }
+    }
+
+    for storage in storages {
+        let storage_json = serde_json::to_string(&storage)?;
+        let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
+        let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
+        debug!("parsed_storage: {:?}", parsed_storage);
+        storage_parser.read_storage(&parsed_storage, &node)?;
+    }
+
+    for big_map_diff in big_map_diffs {
+        debug!("big_map_diff: {}", serde_json::to_string(&big_map_diff)?);
+        storage_parser.process_big_map_diff(&big_map_diff)?;
     }
 
     let inserts = crate::table::insert::get_inserts();

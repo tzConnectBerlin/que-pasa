@@ -291,58 +291,21 @@ operation_result = {}",
         Ok(false)
     }
 
-    pub fn get_big_map_diffs_from_operations(
-        operation_groups: &Vec<Vec<block::Operation>>,
-    ) -> Res<Vec<block::BigMapDiff>> {
-        let mut result: Vec<block::BigMapDiff> = vec![];
-        for operations in operation_groups {
-            for operation in operations {
-                for content in &operation.contents {
-                    if let Some(operation_result) = &content.metadata.operation_result {
-                        if let Some(big_map_diffs) = &operation_result.big_map_diff {
-                            result.extend(big_map_diffs.clone());
-                        }
-                    }
-                }
-            }
-        }
-        Ok(result)
-    }
-
     pub fn get_big_map_diffs_from_operation(
         operation: &block::Operation,
     ) -> Res<Vec<block::BigMapDiff>> {
         let mut result: Vec<block::BigMapDiff> = vec![];
+        debug!("operation: {}", serde_json::to_string(&operation).unwrap());
         for content in &operation.contents {
             if let Some(operation_result) = &content.metadata.operation_result {
                 if let Some(big_map_diffs) = &operation_result.big_map_diff {
+                    debug!("big_map_diffs: {:?}", big_map_diffs);
                     result.extend(big_map_diffs.clone());
                 }
             }
-        }
-        Ok(result)
-    }
-
-    pub fn get_big_map_operations_from_operations(
-        ops: &[JsonValue],
-    ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
-        debug!("get_big_map_operations_from_operations got {:#?}", ops);
-        let mut result = vec![];
-        for op in ops {
-            if let JsonValue::Array(contents) = &op["contents"] {
-                for content in contents {
-                    if let JsonValue::Array(a) =
-                        &content["metadata"]["operation_result"]["big_map_diff"]
-                    {
-                        if &content["metadata"]["operation_result"]["status"].to_string()
-                            == "applied"
-                        {
-                            {
-                                debug!("adding big_map_operations {:?}", a);
-                                result.extend(a.clone());
-                            }
-                        }
-                    }
+            for internal_operation_result in &content.metadata.internal_operation_results {
+                if let Some(big_map_diffs) = &internal_operation_result.result.big_map_diff {
+                    result.extend(big_map_diffs.clone());
                 }
             }
         }
@@ -652,57 +615,6 @@ operation_result = {}",
         }
     }
 
-    pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
-        debug!("process_big_map: {}", json.to_string());
-        let big_map_id: u32 = json["big_map"].to_string().parse()?;
-        let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
-        let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
-        if let Some((_fk, node)) = self.big_map_map.get(&big_map_id) {
-            debug!("big_map_update: {:#?}", json);
-            let node = node.clone();
-            match json["action"]
-                .as_str()
-                .ok_or("Couldn't find 'action' in JSON")?
-            {
-                "update" => {
-                    let id = self.id_generator.get_id();
-                    self.read_storage_internal(
-                        &key,
-                        &*node.left.ok_or("Missing key to big map")?,
-                        id,
-                        None,
-                        node.table_name.clone(),
-                    );
-                    match value {
-                        Value::None => {
-                            crate::table::insert::add_column(
-                                node.table_name.ok_or("Missing name for table")?,
-                                id,
-                                None,
-                                "deleted".to_string(),
-                                Value::Bool(true),
-                            );
-                        }
-                        _ => self.read_storage_internal(
-                            &value,
-                            &*node.right.ok_or("Missing value to big map")?,
-                            id,
-                            None,
-                            node.table_name,
-                        ),
-                    }
-                }
-                "alloc" => {
-                    debug!("Alloc called like this: {}", json.to_string());
-                }
-                _ => panic!("{}", json.to_string()),
-            }
-        } else {
-            debug!("Someone else's big map! {}", big_map_id);
-        };
-        Ok(())
-    }
-
     pub fn process_big_map_diff(&mut self, diff: &block::BigMapDiff) -> Res<()> {
         match diff.action.as_str() {
             "update" => {
@@ -710,11 +622,13 @@ operation_result = {}",
                     Some(id) => id.parse()?,
                     None => return Err(err!("No big map id found in diff {:?}", diff)),
                 };
-
+                debug!("Processing big map with id {}", big_map_id);
+                debug!("Big maps are {:?}", self.big_map_map);
                 let (_fk, node) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n),
                     None => return Ok(()),
                 };
+                println!("Found big map");
                 let node = node.clone();
                 let id = self.id_generator.get_id();
                 self.read_storage_internal(
