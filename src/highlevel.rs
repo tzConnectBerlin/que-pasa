@@ -6,11 +6,7 @@ use crate::postgresql_generator::PostgresqlGenerator;
 use crate::storage;
 use crate::table_builder;
 use json::JsonValue;
-use std::collections::HashMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
 
 pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
@@ -36,7 +32,7 @@ pub struct SaveLevelResult {
     pub tx_count: u32,
 }
 
-pub fn get_storage_parser(contract_id: &str) -> Res<StorageParser> {
+pub fn get_storage_parser(_contract_id: &str) -> Res<StorageParser> {
     let id = crate::postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32;
     Ok(StorageParser::new(id))
 }
@@ -51,7 +47,7 @@ pub fn load_and_store_level(
     let mut generator = PostgresqlGenerator::new();
     let mut connection = postgresql_generator::connect()?;
     let mut transaction = postgresql_generator::transaction(&mut connection)?;
-    let (json, block) = StorageParser::level_json(level)?;
+    let (_json, block) = StorageParser::level_json(level)?;
 
     if StorageParser::block_has_contract_origination(&block, contract_id)? {
         debug!("Setting origination to true");
@@ -78,18 +74,29 @@ pub fn load_and_store_level(
     let result = storage_parser.read_storage(&storage_declaration, &node)?;
     debug!("{:#?}", result);
 
-    let operations = StorageParser::get_operations_from_node(contract_id, Some(level))?;
-    let tx_count = operations.len() as u32;
-    debug!("tx_count = {}", tx_count);
-    //storageParser.store_big_map_list();
-    let big_map_ops = StorageParser::get_big_map_operations_from_operations(&operations)?;
-    let big_map_diffs = StorageParser::get_big_map_diffs_from_operations(&block.operations)?;
-    assert_eq!(big_map_ops.len(), big_map_diffs.len());
-    debug!("big_map operations count={}", big_map_ops.len());
+    for operation in block.operations() {
+        for content in &operation.contents {
+            if let Ok(Some(storage)) =
+                StorageParser::get_storage_from_content(&content, contract_id)
+            {
+                debug!("storage: {:?}", storage);
 
-    for big_map_diff in big_map_diffs {
-        storage_parser.process_big_map_diff(&big_map_diff)?;
+                let storage_json = serde_json::to_string(&storage)?;
+                let preparsed_storage =
+                    storage_parser.preparse_storage(&json::parse(&storage_json)?);
+                let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
+                debug!("parsed_storage: {:?}", parsed_storage);
+                storage_parser.read_storage(&parsed_storage, &node)?;
+
+                for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
+                    debug!("big_map_diff: {}", serde_json::to_string(&big_map_diff)?);
+
+                    storage_parser.process_big_map_diff(&big_map_diff)?;
+                }
+            }
+        }
     }
+
     let inserts = crate::table::insert::get_inserts();
     let mut keys = inserts
         .keys()
@@ -117,7 +124,7 @@ pub fn load_and_store_level(
     crate::table::insert::clear_inserts();
     Ok(SaveLevelResult {
         is_origination: false,
-        tx_count,
+        tx_count: keys.len() as u32,
     })
 }
 
@@ -250,8 +257,7 @@ fn test_block() {
 
             let mut storage_parser = StorageParser::new(1);
 
-            let operations: Vec<crate::block::Operation> =
-                block.operations.into_iter().flatten().collect();
+            let operations: Vec<crate::block::Operation> = block.operations();
 
             for operation in operations {
                 for content in &operation.contents {

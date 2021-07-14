@@ -4,10 +4,8 @@ use crate::error::Res;
 use crate::node::Node;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
-use itertools::Itertools;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
-use std::collections::HashMap;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
@@ -607,7 +605,7 @@ operation_result = {}",
                 "UNIT" => return Ok(Value::Unit(None)),
 
                 _ => {
-                    panic!("Unknown prim {}", json["prim"]);
+                    warn!("Unknown prim {}", json["prim"]);
                     return Ok(Value::None);
                 }
             }

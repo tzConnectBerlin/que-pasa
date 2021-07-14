@@ -10,6 +10,12 @@ pub struct Block {
     pub operations: Vec<Vec<Operation>>,
 }
 
+impl Block {
+    pub fn operations(&self) -> Vec<Operation> {
+        self.operations.clone().into_iter().flatten().collect()
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Header {

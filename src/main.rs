@@ -39,9 +39,6 @@ pub mod table;
 pub mod table_builder;
 
 use michelson::StorageParser;
-use termion::cursor;
-use termion::cursor::DetectCursorPos;
-use termion::raw::IntoRawMode;
 
 fn stdout_is_tty() -> bool {
     atty::is(atty::Stream::Stdout)
@@ -100,12 +97,6 @@ fn main() {
         .value_of("contract_id")
         .expect("contract_id is required");
 
-    let mut storage_parser = crate::highlevel::get_storage_parser(&contract_id).unwrap();
-
-    let storage_declaration = storage_parser
-        .get_storage_declaration(&contract_id)
-        .unwrap();
-
     // init by grabbing the contract data.
     let json = StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
@@ -150,6 +141,12 @@ fn main() {
         postgresql_generator::delete_everything(&mut postgresql_generator::connect().unwrap())
             .unwrap();
     }
+
+    let mut storage_parser = crate::highlevel::get_storage_parser(&contract_id).unwrap();
+
+    let storage_declaration = storage_parser
+        .get_storage_declaration(&contract_id)
+        .unwrap();
 
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
