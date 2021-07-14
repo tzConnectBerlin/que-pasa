@@ -106,7 +106,7 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
             "mutez" => Ok(simple_expr!(SimpleExpr::Mutez, annot)),
             "nat" => Ok(simple_expr!(SimpleExpr::Nat, annot)),
             "option" => {
-                let args = args.ok_or(err!("Args was none!"))?;
+                let args = args.ok_or_else(|| err!("Args was none!"))?;
                 Ok(Ele {
                     name: annot,
                     expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_from_json(
@@ -125,10 +125,10 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
                 }
             }
             "pair" => {
-                if args.clone().ok_or(err!("NoneError"))?.len() != 2 {
+                if args.clone().ok_or_else(|| err!("NoneError"))?.len() != 2 {
                     return Err(err!(
                         "Pair with {} args",
-                        args.clone().ok_or(err!("NoneError"))?.len()
+                        args.ok_or_else(|| err!("NoneError"))?.len()
                     ));
                 }
                 Ok(complex_expr!(ComplexExpr::Pair, annot, args))

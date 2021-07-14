@@ -19,7 +19,7 @@ pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
 
 pub fn get_tables_from_node(node: &Node) -> Result<table_builder::TableMap, Box<dyn Error>> {
     let mut builder = table_builder::TableBuilder::new();
-    builder.populate(&node)?;
+    builder.populate(node)?;
     Ok(builder.tables)
 }
 
@@ -71,23 +71,17 @@ pub fn load_and_store_level(
         });
     }
 
-    let result = storage_parser.read_storage(&storage_declaration, &node)?;
+    let result = storage_parser.read_storage(storage_declaration, node)?;
     debug!("{:#?}", result);
-
-    println!("operations count: {}", block.operations().len());
 
     let mut storages: Vec<serde_json::Value> = vec![];
     let mut big_map_diffs: Vec<crate::block::BigMapDiff> = vec![];
 
     for operation in block.operations() {
         for content in &operation.contents {
-            if let Ok(Some(storage)) =
-                StorageParser::get_storage_from_content(&content, contract_id)
-            {
+            if let Some(storage) = StorageParser::get_storage_from_content(content, contract_id)? {
                 storages.push(storage);
             }
-
-            //            for internal_op_result in content.metadata.internal_operation_results {
 
             for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
                 big_map_diffs.push(big_map_diff);
@@ -100,7 +94,7 @@ pub fn load_and_store_level(
         let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
         let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
         debug!("parsed_storage: {:?}", parsed_storage);
-        storage_parser.read_storage(&parsed_storage, &node)?;
+        storage_parser.read_storage(&parsed_storage, node)?;
     }
 
     for big_map_diff in big_map_diffs {
@@ -316,9 +310,12 @@ fn test_block() {
     "
             );
 
+            use std::path::Path;
             let p = Path::new(&filename);
 
+            use std::fs::File;
             if let Ok(file) = File::open(p) {
+                use std::io::BufReader;
                 let reader = BufReader::new(file);
                 let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
                 //                     println!(
@@ -346,28 +343,6 @@ fn test_block() {
             crate::table::insert::clear_inserts();
         }
         assert_eq!(inserts_tested, contract.operation_count);
-    }
-}
-
-#[test]
-fn test_get_big_map_operations_from_operations() {
-    let json = json::parse(&load_test(
-        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-149127.json",
-    ))
-    .unwrap();
-    let ops = StorageParser::get_operations_from_block_json(
-        &"KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-        &json,
-    )
-    .unwrap();
-
-    let diff_ops: Vec<JsonValue> =
-        StorageParser::get_big_map_operations_from_operations(&ops).unwrap();
-
-    assert_eq!(diff_ops.len(), 6);
-
-    for op in diff_ops {
-        println!("{}", op.to_string());
     }
 }
 

@@ -87,7 +87,7 @@ impl StorageParser {
     }
 
     /// Load a uri (of course)
-    fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
+    fn load(uri: &str) -> Result<JsonValue, Box<dyn Error>> {
         debug!("Loading: {}", uri,);
         let mut response = Vec::new();
         let mut handle = Easy::new();
@@ -101,7 +101,7 @@ impl StorageParser {
             })?;
             transfer.perform()?;
         }
-        let json = json::parse(&std::str::from_utf8(&response)?)?;
+        let json = json::parse(std::str::from_utf8(&response)?)?;
         Ok(json)
     }
 
@@ -119,10 +119,11 @@ impl StorageParser {
     }
 
     fn timestamp_from_block(json: &JsonValue) -> Res<DateTime<Utc>> {
-        Self::parse_rfc3339(json["header"]["timestamp"].as_str().ok_or(err!(
-            "Couldn't parse string {:?}",
+        Self::parse_rfc3339(
             json["header"]["timestamp"]
-        ))?)
+                .as_str()
+                .ok_or_else(|| err!("Couldn't parse string {:?}", json["header"]["timestamp"]))?,
+        )
     }
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
@@ -201,7 +202,7 @@ operation_result = {}",
     }
 
     /// Get the storage at a level
-    pub fn get_storage(&self, contract_id: &String) -> Result<JsonValue, Box<dyn Error>> {
+    pub fn get_storage(&self, contract_id: &str) -> Result<JsonValue, Box<dyn Error>> {
         Self::load(&format!(
             "{}/chains/main/blocks/head/context/contracts/{}/storage",
             *NODE_URL, contract_id
@@ -211,10 +212,10 @@ operation_result = {}",
     pub fn get_contract_storage_from_block(
         &self,
         block: &block::Block,
-        contract_id: &String,
+        contract_id: &str,
     ) -> Res<Vec<serde_json::value::Value>> {
         let mut results: Vec<serde_json::value::Value> = vec![];
-        let contract = Some(contract_id.clone());
+        let contract = Some(contract_id.to_string());
         for operations in &block.operations {
             for operation in operations {
                 for content in &operation.contents {
@@ -262,8 +263,8 @@ operation_result = {}",
                 if let JsonValue::Array(array) = ops {
                     for op in array {
                         result.extend(Self::get_matching_from_operations(
-                            &op,
-                            &"originated_contracts",
+                            op,
+                            "originated_contracts",
                         )?);
                     }
                 }
@@ -316,25 +317,23 @@ operation_result = {}",
     pub fn get_matching_from_operations(json: &JsonValue, what: &str) -> Res<Vec<JsonValue>> {
         // TODO: make more specific.
         let mut result: Vec<JsonValue> = vec![];
-        match json {
-            JsonValue::Object(attributes) => {
-                for (key, value) in attributes.iter() {
-                    if key.eq(&what.to_string()) {
-                        if let JsonValue::Array(a) = value {
-                            return Ok(a.clone());
-                        }
-                    };
-                    if let JsonValue::Object(_) = value {
-                        result.extend(Self::get_matching_from_operations(&value, what)?);
-                    }
+
+        if let JsonValue::Object(attributes) = json {
+            for (key, value) in attributes.iter() {
+                if key.eq(&what.to_string()) {
                     if let JsonValue::Array(a) = value {
-                        for i in a {
-                            result.extend(Self::get_matching_from_operations(&i, what)?);
-                        }
+                        return Ok(a.clone());
+                    }
+                };
+                if let JsonValue::Object(_) = value {
+                    result.extend(Self::get_matching_from_operations(value, what)?);
+                }
+                if let JsonValue::Array(a) = value {
+                    for i in a {
+                        result.extend(Self::get_matching_from_operations(i, what)?);
                     }
                 }
             }
-            _ => (),
         }
         Ok(result)
     }
@@ -377,7 +376,7 @@ operation_result = {}",
         Self::get_operations_from_block_json(contract_id, &json)
     }
 
-    fn ops_has_operation_for_contract_id(ops: &Vec<JsonValue>, contract_id: &str) -> bool {
+    fn ops_has_operation_for_contract_id(ops: &[JsonValue], contract_id: &str) -> bool {
         for op in ops {
             if let Some(dest) = &op["destination"].as_str() {
                 if dest == &contract_id {
@@ -388,7 +387,7 @@ operation_result = {}",
                 debug!("{:?} Didn't match!", &op["destination"]);
             }
         }
-        return false;
+        false
     }
 
     pub fn get_operations_from_block_json(
@@ -416,8 +415,8 @@ operation_result = {}",
         }
     }
 
-    fn bigint(source: &String) -> Result<BigInt, Box<dyn Error>> {
-        Ok(BigInt::from_str(&source)?)
+    fn bigint(source: &str) -> Result<BigInt, Box<dyn Error>> {
+        Ok(BigInt::from_str(source)?)
     }
 
     pub fn preparse_storage(&self, json: &JsonValue) -> JsonValue {
@@ -475,7 +474,7 @@ operation_result = {}",
         let _type = &hex[2..4];
         let rest = &hex[4..];
         let new_hex = if kt {
-            format!("025a79{}", &hex[2..42]).to_string()
+            format!("025a79{}", &hex[2..42])
         } else if implicit {
             match _type {
                 "00" => format!("06a19f{}", rest),
@@ -607,8 +606,8 @@ operation_result = {}",
         Ok(Value::None)
     }
 
-    pub fn prim(s: &String) -> Value {
-        match s.as_str() {
+    pub fn prim(s: &str) -> Value {
+        match s {
             "False" => Value::Bool(true),
             "None" => Value::None,
             _ => panic!("Don't know what to do with prim {}", s),
@@ -628,7 +627,6 @@ operation_result = {}",
                     Some((fk, n)) => (fk, n),
                     None => return Ok(()),
                 };
-                println!("Found big map");
                 let node = node.clone();
                 let id = self.id_generator.get_id();
                 self.read_storage_internal(
@@ -714,8 +712,8 @@ node: {:?}",
                         value, node
                     );
                     match value {
-                        Value::Left(left) => resolve_or(left, &node.left.as_ref().unwrap()),
-                        Value::Right(right) => resolve_or(right, &node.right.as_ref().unwrap()),
+                        Value::Left(left) => resolve_or(left, node.left.as_ref().unwrap()),
+                        Value::Right(right) => resolve_or(right, node.right.as_ref().unwrap()),
                         Value::Pair(_, _) => node.table_name.clone(),
                         Value::Unit(val) => val.clone(),
                         _ => node.name.clone(),
@@ -845,7 +843,7 @@ value: {:?}",
                             column_name,
                             if let Value::Bytes(a) = value {
                                 // sometimes we get bytes where we expected an address.
-                                Value::Address(Self::decode_address(&a).unwrap())
+                                Value::Address(Self::decode_address(a).unwrap())
                             } else {
                                 value.clone()
                             },

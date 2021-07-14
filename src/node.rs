@@ -9,7 +9,7 @@ thread_local! {
     static INDEXES: RefCell<Indexes> = RefCell::new(HashMap::new());
 } // thread_local so unit tests can run in ||el
 
-fn get_index(_table_name: &String) -> u32 {
+fn get_index(_table_name: &str) -> u32 {
     let table_name = &String::from("foo"); // all tables have the same number space
     INDEXES.with(|indexes| {
         let x: u32 = match indexes.borrow_mut().get(table_name) {
@@ -85,18 +85,17 @@ impl Context {
         let initial = format!(
             "{}{}{}",
             self.prefix,
-            if self.prefix.len() == 0 { "" } else { "_" },
+            if self.prefix.is_empty() { "" } else { "_" },
             name,
         );
         match self._type {
             Type::TableIndex => format!("idx_{}", initial),
-            _ => format!("{}", initial),
+            _ => initial,
         }
     }
 
     pub fn next(&self) -> Self {
-        let ctx = self.clone();
-        ctx
+        self.clone()
     }
 
     pub fn next_with_state(&self, new_state: Type) -> Self {
@@ -172,7 +171,7 @@ impl Node {
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
-                    let context = context.start_table(get_table_name(Some(name.clone())));
+                    let context = context.start_table(get_table_name(Some(name)));
                     let mut n = Self::new(&context, &ele);
                     n.left = Some(Box::new(Self::build_index(
                         context.next_with_state(Type::TableIndex),
@@ -186,11 +185,8 @@ impl Node {
                     let table_name = n.table_name.clone();
                     //if big_map push it in array
                     //Write better??
-                    match e {
-                        ComplexExpr::BigMap(_, _) => {
-                            big_map_names.push(table_name.unwrap());
-                        }
-                        _ => {}
+                    if let ComplexExpr::BigMap(_, _) = e {
+                        big_map_names.push(table_name.unwrap());
                     }
                     n
                 }
@@ -231,12 +227,12 @@ impl Node {
     pub fn build_enumeration_or(
         context: &mut Context,
         ele: &Ele,
-        column_name: &String,
+        column_name: &str,
         big_map_names: &mut Vec<String>,
     ) -> Node {
         let mut node = Self::new(context, ele);
-        node.name = Some(column_name.clone());
-        node.column_name = Some(column_name.clone());
+        node.name = Some(column_name.to_string());
+        node.column_name = Some(column_name.to_string());
         match ele.expr {
             Expr::SimpleExpr(SimpleExpr::Unit) => {
                 context._type = Type::Column;

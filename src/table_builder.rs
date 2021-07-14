@@ -47,8 +47,8 @@ impl TableBuilder {
         match &node._type {
             Type::Pair => {
                 let left = node.left.clone();
-                self.populate(&*left.ok_or(err!("Left is None, node is {:?}", &node))?)?;
-                self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
+                self.populate(&*left.ok_or_else(|| err!("Left is None, node is {:?}", &node))?)?;
+                self.populate(&*node.right.ok_or_else(|| err!("Right is None"))?)?;
             }
             Type::Table => {
                 //if the table is a bigmap the name is used to be inserted in the database
@@ -74,8 +74,8 @@ impl TableBuilder {
                 Expr::SimpleExpr(_) => self.add_index(&node),
                 Expr::ComplexExpr(ref expr) => match expr {
                     ComplexExpr::Pair(_, _) => {
-                        self.populate(&*node.left.ok_or(err!("Left is None"))?)?;
-                        self.populate(&*node.right.ok_or(err!("Right is None"))?)?;
+                        self.populate(&*node.left.ok_or_else(|| err!("Left is None"))?)?;
+                        self.populate(&*node.right.ok_or_else(|| err!("Right is None"))?)?;
                     }
                     _ => panic!("Found unexpected structure in index: {:#?}", expr),
                 },

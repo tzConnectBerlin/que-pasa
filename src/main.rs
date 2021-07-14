@@ -105,10 +105,8 @@ fn main() {
 
     // Build the internal representation from the node storage defition
     let context = node::Context::init();
-    let mut big_map_table_names = Vec::new();
-    //initialize the big_map_table_names with the starting table_name "storage"
-    big_map_table_names.push(context.table_name.clone());
-    let node = node::Node::build(context.clone(), ast, &mut big_map_table_names);
+    let mut big_map_table_names = vec![context.table_name.clone()];
+    let node = node::Node::build(context, ast, &mut big_map_table_names);
     //debug!("{:#?}", node);
 
     // Make a SQL-compatible representation
@@ -142,11 +140,9 @@ fn main() {
             .unwrap();
     }
 
-    let mut storage_parser = crate::highlevel::get_storage_parser(&contract_id).unwrap();
+    let mut storage_parser = crate::highlevel::get_storage_parser(contract_id).unwrap();
 
-    let storage_declaration = storage_parser
-        .get_storage_declaration(&contract_id)
-        .unwrap();
+    let storage_declaration = storage_parser.get_storage_declaration(contract_id).unwrap();
 
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
@@ -179,7 +175,7 @@ fn main() {
     // No args so we will first load missing levels
 
     loop {
-        let origination_level = highlevel::get_origination(&contract_id).unwrap();
+        let origination_level = highlevel::get_origination(contract_id).unwrap();
 
         let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
             &mut postgresql_generator::connect().unwrap(),
@@ -214,7 +210,7 @@ fn main() {
             if store_result.is_origination {
                 p!(
                     "Found new origination level {}",
-                    highlevel::get_origination(&contract_id).unwrap().unwrap()
+                    highlevel::get_origination(contract_id).unwrap().unwrap()
                 );
                 break;
             }
@@ -229,7 +225,7 @@ fn main() {
 
     let is_tty = stdout_is_tty();
 
-    let print_status = |level: u32, result: &crate::highlevel::SaveLevelResult| -> () {
+    let print_status = |level: u32, result: &crate::highlevel::SaveLevelResult| {
         p!("{}", level_text(level, result));
     };
 
@@ -292,7 +288,7 @@ fn level_text(level: u32, result: &crate::highlevel::SaveLevelResult) -> String 
 }
 
 // get range of args in the form 1,2,3 or 1-3. All ranges inclusive.
-fn range(arg: &String) -> Vec<u32> {
+fn range(arg: &str) -> Vec<u32> {
     let mut result = vec![];
     for h in arg.split(',') {
         let s = String::from(h);

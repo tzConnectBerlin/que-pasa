@@ -18,25 +18,21 @@ pub struct Table {
 
 impl Table {
     pub fn new(name: String) -> Self {
-        let new_table = Self {
+        Self {
             name,
             indices: vec!["_level".to_string()],
             columns: vec![],
-        };
-        new_table
+        }
     }
 
     pub fn add_index(&mut self, node: &Node) {
         let node = node.clone();
         let name = node.name.unwrap();
-        let e = node.expr.clone();
+        let e = node.expr;
         match e {
             Expr::SimpleExpr(e) => {
                 self.indices.push(name.clone());
-                self.columns.push(Column {
-                    name,
-                    expr: e.clone(),
-                });
+                self.columns.push(Column { name, expr: e });
             }
             Expr::ComplexExpr(e) => panic!("add_index called with ComplexExpr {:#?}", e),
         }
@@ -52,10 +48,7 @@ impl Table {
         }
         match &node.expr {
             Expr::SimpleExpr(e) => {
-                self.columns.push(Column {
-                    name,
-                    expr: e.clone(),
-                });
+                self.columns.push(Column { name, expr: *e });
             }
             Expr::ComplexExpr(ce) => match ce {
                 ComplexExpr::OrEnumeration(_, _) => {
@@ -165,7 +158,7 @@ pub mod insert {
             name: column_name,
             value,
         });
-        add_insert(table_name, id, fk_id, insert.columns.clone());
+        add_insert(table_name, id, fk_id, insert.columns);
     }
 
     pub fn get_insert(table_name: String, id: u32, fk_id: Option<u32>) -> Option<Insert> {
