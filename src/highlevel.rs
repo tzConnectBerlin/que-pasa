@@ -76,17 +76,20 @@ pub fn load_and_store_level(
 
     let mut storages: Vec<serde_json::Value> = vec![];
     let mut big_map_diffs: Vec<crate::block::BigMapDiff> = vec![];
+    let operations = block.operations();
+    debug!("operations: {} {:#?}", operations.len(), operations);
 
-    for operation in block.operations() {
+    for operation in operations {
         for content in &operation.contents {
             if let Some(storage) = StorageParser::get_storage_from_content(content, contract_id)? {
                 storages.push(storage);
             }
-
-            for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
-                big_map_diffs.push(big_map_diff);
-            }
         }
+        for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
+            println!("big_map_diff: {:#?}", big_map_diff);
+            big_map_diffs.push(big_map_diff);
+        }
+        println!("Final big_map_diffs {:?}", big_map_diffs);
     }
 
     for storage in storages {

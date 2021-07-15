@@ -298,15 +298,21 @@ operation_result = {}",
         let mut result: Vec<block::BigMapDiff> = vec![];
         debug!("operation: {}", serde_json::to_string(&operation).unwrap());
         for content in &operation.contents {
+            debug!("content: {:#?}", content);
             if let Some(operation_result) = &content.metadata.operation_result {
                 if let Some(big_map_diffs) = &operation_result.big_map_diff {
-                    debug!("big_map_diffs: {:?}", big_map_diffs);
-                    result.extend(big_map_diffs.clone());
+                    debug!(
+                        "big_map_diffs: {} {:#?}",
+                        big_map_diffs.len(),
+                        big_map_diffs
+                    );
+                    result.extend(big_map_diffs.iter().cloned());
                 }
             }
             for internal_operation_result in &content.metadata.internal_operation_results {
                 if let Some(big_map_diffs) = &internal_operation_result.result.big_map_diff {
-                    result.extend(big_map_diffs.clone());
+                    debug!("Internal big_map_diffs {:?}", big_map_diffs);
+                    result.extend(big_map_diffs.iter().cloned());
                 }
             }
         }
