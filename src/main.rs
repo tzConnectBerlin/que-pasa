@@ -220,7 +220,6 @@ fn main() {
                 store_result.tx_count,
                 missing_levels.len()
             );
-            debug!("Inserts now {:?}", crate::table::insert::get_inserts());
         }
     }
 

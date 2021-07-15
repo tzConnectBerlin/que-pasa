@@ -105,7 +105,7 @@ pub fn load_and_store_level(
         storage_parser.process_big_map_diff(&big_map_diff)?;
     }
 
-    let inserts = crate::table::insert::get_inserts();
+    let inserts = storage_parser.get_inserts();
     let mut keys = inserts
         .keys()
         .collect::<Vec<&crate::table::insert::InsertKey>>();
@@ -129,7 +129,6 @@ pub fn load_and_store_level(
         storage_parser.id_generator.get_id() as i32,
     )?;
     transaction.commit()?;
-    crate::table::insert::clear_inserts();
     Ok(SaveLevelResult {
         is_origination: false,
         tx_count: keys.len() as u32,
@@ -299,7 +298,7 @@ fn test_block() {
                 }
             }
 
-            let inserts = crate::table::insert::get_inserts();
+            let inserts = storage_parser.get_inserts();
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             //println!("{} {}", filename, i);
 
@@ -338,12 +337,6 @@ fn test_block() {
                 }
                 inserts_tested += 1;
             }
-
-            // let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
-            // for (_key, value) in &inserts {
-            //     println!("{}", generator.build_insert(value, level));
-            // }
-            crate::table::insert::clear_inserts();
         }
         assert_eq!(inserts_tested, contract.operation_count);
     }

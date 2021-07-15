@@ -2,6 +2,7 @@ use crate::block;
 use crate::err;
 use crate::error::Res;
 use crate::node::Node;
+use crate::table::insert::*;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
@@ -76,6 +77,7 @@ type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
 pub struct StorageParser {
     big_map_map: BigMapMap,
     pub id_generator: IdGenerator,
+    inserts: crate::table::insert::Inserts,
 }
 
 impl StorageParser {
@@ -83,6 +85,7 @@ impl StorageParser {
         Self {
             big_map_map: BigMapMap::new(),
             id_generator: IdGenerator::new(initial_id),
+            inserts: crate::table::insert::Inserts::new(),
         }
     }
 
@@ -647,7 +650,7 @@ operation_result = {}",
                 );
                 match &diff.value {
                     None => {
-                        crate::table::insert::add_column(
+                        self.add_column(
                             node.table_name.ok_or("Missing name for table")?,
                             id,
                             None,
@@ -686,7 +689,7 @@ operation_result = {}",
     /// to match them. Panics if it cannot do this (i.e. they do not match).
     pub fn read_storage(&mut self, value: &Value, node: &Node) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
-        crate::table::insert::add_column(
+        self.add_column(
             "storage".to_string(),
             id,
             None,
@@ -726,7 +729,7 @@ node: {:?}",
                     }
                 }
                 if let Some(val) = resolve_or(value, node) {
-                    crate::table::insert::add_column(
+                    self.add_column(
                         node.table_name.as_ref().unwrap().to_string(),
                         id,
                         fk_id,
@@ -796,7 +799,7 @@ value: {:?}",
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
-                crate::table::insert::add_column(
+                self.add_column(
                     node.table_name.as_ref().unwrap().to_string(),
                     id,
                     fk_id,
@@ -832,7 +835,7 @@ value: {:?}",
                         }
                     }
                     crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Timestamp) => {
-                        crate::table::insert::add_column(
+                        self.add_column(
                             table_name,
                             id,
                             fk_id,
@@ -841,7 +844,7 @@ value: {:?}",
                         );
                     }
                     crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
-                        crate::table::insert::add_column(
+                        self.add_column(
                             table_name,
                             id,
                             fk_id,
@@ -854,13 +857,7 @@ value: {:?}",
                             },
                         );
                     }
-                    _ => crate::table::insert::add_column(
-                        table_name,
-                        id,
-                        fk_id,
-                        column_name,
-                        value.clone(),
-                    ),
+                    _ => self.add_column(table_name, id, fk_id, column_name, value.clone()),
                 }
             }
         }
@@ -869,6 +866,76 @@ value: {:?}",
     fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, node: Node) {
         debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, node);
         self.big_map_map.insert(bigmap_id, (fk, node));
+    }
+
+    fn add_insert(
+        &mut self,
+        table_name: String,
+        id: u32,
+        fk_id: Option<u32>,
+        columns: Vec<Column>,
+    ) {
+        debug!(
+            "table::add_insert {}, {}, {:?}, {:?}",
+            table_name, id, fk_id, columns
+        );
+        self.inserts.insert(
+            InsertKey {
+                table_name: table_name.clone(),
+                id,
+            },
+            Insert {
+                table_name,
+                id,
+                fk_id,
+                columns,
+            },
+        );
+    }
+
+    fn add_column(
+        &mut self,
+        table_name: String,
+        id: u32,
+        fk_id: Option<u32>,
+        column_name: String,
+        value: Value,
+    ) {
+        debug!(
+            "add_column {}, {}, {:?}, {}, {:?}",
+            table_name, id, fk_id, column_name, value
+        );
+
+        let mut insert = match self.get_insert(table_name.clone(), id, fk_id) {
+            Some(x) => x,
+            None => Insert {
+                table_name: table_name.clone(),
+                id,
+                fk_id,
+                columns: vec![],
+            },
+        };
+        insert.columns.push(Column {
+            name: column_name,
+            value,
+        });
+        self.add_insert(table_name, id, fk_id, insert.columns);
+    }
+
+    pub fn get_insert(
+        &mut self,
+        table_name: String,
+        id: u32,
+        fk_id: Option<u32>,
+    ) -> Option<Insert> {
+        self.inserts.get(&InsertKey { table_name, id }).map(|e| {
+            assert!(e.fk_id == fk_id);
+            (*e).clone()
+        })
+    }
+
+    pub fn get_inserts(&self) -> Inserts {
+        self.inserts.clone()
     }
 }
 
