@@ -292,7 +292,7 @@ fn test_block() {
                                     serde_json::to_string(&big_map_diff).unwrap()
                                 );
 
-                                storage_parser.process_big_map_diff(&big_map_diff);
+                                storage_parser.process_big_map_diff(&big_map_diff).unwrap();
                             }
                         }
                     }
@@ -353,7 +353,6 @@ fn test_block() {
 fn test_get_origination_operations_from_block() {
     let test_file = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json";
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
-    let matching = json::parse(&load_test(test_file)).unwrap();
     let block: crate::block::Block = serde_json::from_str(&load_test(test_file)).unwrap();
     assert!(StorageParser::block_has_contract_origination(&block, &contract_id).unwrap());
 
