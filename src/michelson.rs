@@ -819,8 +819,8 @@ value: {:?}",
                 // If this is a big map, save the id and the fk_id currently
                 // being used, for later processing
                 match &node.expr {
-                    crate::storage::Expr::ComplexExpr(ce) => match ce {
-                        crate::storage::ComplexExpr::BigMap(_, _) => {
+                    crate::storage::Expr::ComplexExpr(ce) => {
+                        if let crate::storage::ComplexExpr::BigMap(_, _) = ce {
                             debug!("{:?}", value);
                             if let Value::Int(i) = value {
                                 debug!("{}", i);
@@ -830,8 +830,7 @@ value: {:?}",
                                 panic!("Found big map with non-int id: {:?}", node);
                             }
                         }
-                        _ => (),
-                    },
+                    }
                     crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Timestamp) => {
                         crate::table::insert::add_column(
                             table_name,

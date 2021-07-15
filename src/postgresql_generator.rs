@@ -250,33 +250,20 @@ impl PostgresqlGenerator {
     }
 
     fn parent_name(name: &str) -> Option<String> {
-        // if name.len() < 64 {
-        //     return Some(name.clone());
-        // }
-        if let Some(pos) = name.rfind('.') {
-            Some(name[0..pos].to_string())
-        } else {
-            None
-        }
+        name.rfind('.').map(|pos| name[0..pos].to_string())
     }
 
     fn parent_key(&self, table: &Table) -> Option<String> {
-        if let Some(parent) = Self::parent_name(&table.name) {
-            Some(format!(r#""{}_id""#, parent))
-        } else {
-            None
-        }
+        Self::parent_name(&table.name).map(|parent| format!(r#""{}_id""#, parent))
     }
 
     fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
-        if let Some(parent) = Self::parent_name(&table.name) {
-            Some(format!(
+        Self::parent_name(&table.name).map(|parent| {
+            format!(
                 r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
                 parent, parent
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 
     pub fn create_common_tables(&mut self) -> String {
