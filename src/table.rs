@@ -66,7 +66,6 @@ impl Table {
 pub mod insert {
     use crate::table::Value;
     use std::collections::BTreeMap;
-    use std::sync::Mutex;
 
     #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
     pub struct InsertKey {
