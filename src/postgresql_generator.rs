@@ -11,6 +11,12 @@ use std::vec::Vec;
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {}
 
+impl Default for PostgresqlGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn connect() -> Res<Client> {
     let url = std::env::var(&"DATABASE_URL").unwrap();
     debug!("DATABASE_URL={}", url);

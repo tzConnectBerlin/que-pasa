@@ -27,6 +27,7 @@ extern crate spinners;
 extern crate termion;
 
 use clap::{App, Arg, SubCommand};
+use std::cmp::Ordering;
 
 pub mod block;
 pub mod error;
@@ -243,39 +244,43 @@ fn main() {
             .unwrap()
             .unwrap();
         debug!("db: {} chain: {}", db_head._level, chain_head._level);
-        if chain_head._level > db_head._level {
-            for level in (db_head._level + 1)..=chain_head._level {
-                let result = highlevel::load_and_store_level(
-                    &node,
-                    contract_id,
-                    level,
-                    &storage_declaration,
-                    &mut storage_parser,
-                )
-                .unwrap();
-                print_status(level, &result);
+        match chain_head._level.cmp(&db_head._level) {
+            Ordering::Greater => {
+                for level in (db_head._level + 1)..=chain_head._level {
+                    let result = highlevel::load_and_store_level(
+                        &node,
+                        contract_id,
+                        level,
+                        &storage_declaration,
+                        &mut storage_parser,
+                    )
+                    .unwrap();
+                    print_status(level, &result);
+                }
+                continue;
             }
-            continue;
-        } else if db_head._level > chain_head._level {
-            p!("More levels in DB than chain, bailing!");
-            return;
-        } else {
-            // they are equal, so we will just check that the hashes match.
-            if db_head.hash == chain_head.hash {
-                // if they match, nothing to do.
-            } else {
-                p!("");
-                p!(
-                    "Hashes don't match: {:?} (db) <> {:?} (chain)",
-                    db_head.hash,
-                    chain_head.hash
-                );
-                let mut connection = postgresql_generator::connect().unwrap();
-                let mut transaction = connection.transaction().unwrap();
-                postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
-                transaction.commit().unwrap();
+            Ordering::Less => {
+                p!("More levels in DB than chain, bailing!");
+                return;
             }
-            std::thread::sleep(std::time::Duration::from_millis(1500));
+            Ordering::Equal => {
+                // they are equal, so we will just check that the hashes match.
+                if db_head.hash == chain_head.hash {
+                    // if they match, nothing to do.
+                } else {
+                    p!("");
+                    p!(
+                        "Hashes don't match: {:?} (db) <> {:?} (chain)",
+                        db_head.hash,
+                        chain_head.hash
+                    );
+                    let mut connection = postgresql_generator::connect().unwrap();
+                    let mut transaction = connection.transaction().unwrap();
+                    postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
+                    transaction.commit().unwrap();
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+            }
         }
     }
 }
