@@ -11,6 +11,12 @@ use std::vec::Vec;
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {}
 
+impl Default for PostgresqlGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn connect() -> Res<Client> {
     let url = std::env::var(&"DATABASE_URL").unwrap();
     debug!("DATABASE_URL={}", url);
@@ -25,9 +31,9 @@ pub fn commit(transaction: Transaction) -> Result<(), Box<dyn Error>> {
     Ok(transaction.commit()?)
 }
 
-pub fn exec(transaction: &mut Transaction, sql: &String) -> Result<u64, Box<dyn Error>> {
+pub fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<dyn Error>> {
     debug!("postgresql_generator::exec {}:", sql);
-    match transaction.execute(sql.as_str(), &[]) {
+    match transaction.execute(sql, &[]) {
         Ok(x) => Ok(x),
         Err(e) => Err(Box::new(crate::error::Error::new(&e.to_string()))),
     }
@@ -47,7 +53,7 @@ pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
         "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
         &[],
     )?;
-    if result.len() == 0 {
+    if result.is_empty() {
         Ok(None)
     } else if result.len() == 1 {
         let _level: i32 = result[0].get(0);
@@ -89,7 +95,7 @@ pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
         Ok(())
     } else {
         Err(crate::error::Error::boxed(
-            &"Wrong number of rows in max_id table. Please fix manually. Sorry",
+            "Wrong number of rows in max_id table. Please fix manually. Sorry",
         ))
     }
 }
@@ -176,43 +182,43 @@ impl PostgresqlGenerator {
         format!("\"{}\"", s)
     }
 
-    pub fn address(&mut self, name: &String) -> String {
+    pub fn address(&mut self, name: &str) -> String {
         format!("{} VARCHAR(127) NULL", name)
     }
 
-    pub fn bool(&mut self, name: &String) -> String {
+    pub fn bool(&mut self, name: &str) -> String {
         format!("{} BOOLEAN NULL", name)
     }
 
-    pub fn bytes(&mut self, name: &String) -> String {
+    pub fn bytes(&mut self, name: &str) -> String {
         format!("{} TEXT NULL", name)
     }
 
-    pub fn int(&mut self, name: &String) -> String {
+    pub fn int(&mut self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub fn nat(&mut self, name: &String) -> String {
+    pub fn nat(&mut self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub fn numeric(&mut self, name: &String) -> String {
+    pub fn numeric(&mut self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub fn string(&mut self, name: &String) -> String {
+    pub fn string(&mut self, name: &str) -> String {
         format!("{} TEXT NULL", name)
     }
 
-    pub fn timestamp(&mut self, name: &String) -> String {
+    pub fn timestamp(&mut self, name: &str) -> String {
         format!("{} TIMESTAMP NULL", name)
     }
 
-    pub fn unit(&mut self, name: &String) -> String {
+    pub fn unit(&mut self, name: &str) -> String {
         format!("{} VARCHAR(128) NULL", name)
     }
 
-    pub fn start_table(&mut self, name: &String) -> String {
+    pub fn start_table(&mut self, name: &str) -> String {
         format!(include_str!("../sql/postgresql-table-header.sql"), name)
     }
 
@@ -226,9 +232,8 @@ impl PostgresqlGenerator {
             None => vec![],
         };
         for column in &table.columns {
-            match self.create_sql(column.clone()) {
-                Some(val) => cols.push(val),
-                None => (),
+            if let Some(val) = self.create_sql(column.clone()) {
+                cols.push(val);
             }
         }
         Ok(cols)
@@ -250,34 +255,21 @@ impl PostgresqlGenerator {
         )
     }
 
-    fn parent_name(name: &String) -> Option<String> {
-        // if name.len() < 64 {
-        //     return Some(name.clone());
-        // }
-        if let Some(pos) = name.rfind(".") {
-            Some(name.as_str()[0..pos].to_string())
-        } else {
-            None
-        }
+    fn parent_name(name: &str) -> Option<String> {
+        name.rfind('.').map(|pos| name[0..pos].to_string())
     }
 
     fn parent_key(&self, table: &Table) -> Option<String> {
-        if let Some(parent) = Self::parent_name(&table.name) {
-            Some(format!(r#""{}_id""#, parent))
-        } else {
-            None
-        }
+        Self::parent_name(&table.name).map(|parent| format!(r#""{}_id""#, parent))
     }
 
     fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
-        if let Some(parent) = Self::parent_name(&table.name) {
-            Some(format!(
+        Self::parent_name(&table.name).map(|parent| {
+            format!(
                 r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
                 parent, parent
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 
     pub fn create_common_tables(&mut self) -> String {
@@ -316,7 +308,7 @@ impl PostgresqlGenerator {
         let table = Table {
             name: context.start_table("big_map".to_string()).table_name,
             indices: vec![],
-            columns: columns,
+            columns,
         };
 
         let big_map = self.fill_big_map_table(&table, tables_names);
@@ -346,15 +338,14 @@ impl PostgresqlGenerator {
             ].concat()
         ).collect::<Vec<String>>().join("\n"));
         query.push_str("\nORDER BY _level DESC;\n");
-        return query;
+        query
     }
 
     pub fn create_table_definition(&mut self, table: &Table) -> Res<String> {
-        let mut v: Vec<String> = vec![];
-        v.push(self.start_table(&table.name));
+        let mut v: Vec<String> = vec![self.start_table(&table.name)];
         let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
-        if let Some(fk) = self.create_foreign_key_constraint(&table) {
+        if let Some(fk) = self.create_foreign_key_constraint(table) {
             columns.push(fk);
         }
         let mut s = columns.join(",\n\t");
@@ -392,8 +383,8 @@ CREATE VIEW "{}_live" AS (
         )
     }
 
-    fn escape(s: &String) -> String {
-        s.clone()
+    fn escape(s: &str) -> String {
+        s.to_string()
     }
 
     fn quote(value: &crate::michelson::Value) -> String {
@@ -401,7 +392,7 @@ CREATE VIEW "{}_live" AS (
             crate::michelson::Value::Address(s)
             | crate::michelson::Value::KeyHash(s)
             | crate::michelson::Value::String(s)
-            | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(&s)),
+            | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(s)),
             crate::michelson::Value::Bool(val) => {
                 if *val {
                     "true".to_string()
@@ -412,7 +403,7 @@ CREATE VIEW "{}_live" AS (
             crate::michelson::Value::Bytes(s) => {
                 format!(
                     "'{}'",
-                    match crate::michelson::StorageParser::decode_address(&s) {
+                    match crate::michelson::StorageParser::decode_address(s) {
                         Ok(a) => a,
                         Err(_) => s.to_string(),
                     }
@@ -420,11 +411,10 @@ CREATE VIEW "{}_live" AS (
             }
             crate::michelson::Value::Int(b)
             | crate::michelson::Value::Mutez(b)
-            | crate::michelson::Value::Nat(b) => b.to_str_radix(10).to_string(),
+            | crate::michelson::Value::Nat(b) => b.to_str_radix(10),
             crate::michelson::Value::None => "NULL".to_string(),
             crate::michelson::Value::Timestamp(t) => {
-                let date_time: chrono::DateTime<Utc> = chrono::DateTime::from(*t);
-                format!("'{}'", date_time.to_rfc2822())
+                format!("'{}'", t.to_rfc2822())
             }
             crate::michelson::Value::Elt(_, _)
             | crate::michelson::Value::Left(_)

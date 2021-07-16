@@ -1,12 +1,12 @@
+use crate::block;
 use crate::err;
 use crate::error::Res;
 use crate::node::Node;
+use crate::table::insert::*;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
-use itertools::Itertools;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
-use std::collections::HashMap;
 use std::error::Error;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
@@ -17,6 +17,12 @@ lazy_static! {
     static ref NODE_URL: String = match std::env::var("NODE_URL") {
         Ok(s) => s,
         Err(_) => "http://edo2full.newby.org:8732".to_string(),
+    };
+}
+
+macro_rules! serde2json {
+    ($serde:expr) => {
+        json::parse(&serde_json::to_string(&$serde)?)?
     };
 }
 
@@ -35,6 +41,7 @@ impl IdGenerator {
         let id = self.id.get_mut();
         let old_id: u32 = *id;
         *id += 1;
+        debug!("get_id(): {}", old_id);
         old_id
     }
 }
@@ -71,6 +78,7 @@ type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
 pub struct StorageParser {
     big_map_map: BigMapMap,
     pub id_generator: IdGenerator,
+    inserts: crate::table::insert::Inserts,
 }
 
 impl StorageParser {
@@ -78,11 +86,12 @@ impl StorageParser {
         Self {
             big_map_map: BigMapMap::new(),
             id_generator: IdGenerator::new(initial_id),
+            inserts: crate::table::insert::Inserts::new(),
         }
     }
 
     /// Load a uri (of course)
-    fn load(uri: &String) -> Result<JsonValue, Box<dyn Error>> {
+    fn load(uri: &str) -> Result<JsonValue, Box<dyn Error>> {
         debug!("Loading: {}", uri,);
         let mut response = Vec::new();
         let mut handle = Easy::new();
@@ -96,8 +105,16 @@ impl StorageParser {
             })?;
             transfer.perform()?;
         }
-        let json = json::parse(&std::str::from_utf8(&response)?)?;
+        let json = json::parse(std::str::from_utf8(&response)?)?;
         Ok(json)
+    }
+
+    pub fn get_storage_declaration(&self, contract_id: &str) -> Res<Value> {
+        let json = self.get_storage(&contract_id.to_string())?;
+        let preparsed = self.preparse_storage(&json);
+        let storage_declaration = self.parse_storage(&preparsed)?;
+        debug!("storage_declaration: {:#?}", storage_declaration);
+        Ok(storage_declaration)
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Res<DateTime<Utc>> {
@@ -106,10 +123,11 @@ impl StorageParser {
     }
 
     fn timestamp_from_block(json: &JsonValue) -> Res<DateTime<Utc>> {
-        Self::parse_rfc3339(json["header"]["timestamp"].as_str().ok_or(err!(
-            "Couldn't parse string {:?}",
+        Self::parse_rfc3339(
             json["header"]["timestamp"]
-        ))?)
+                .as_str()
+                .ok_or_else(|| err!("Couldn't parse string {:?}", json["header"]["timestamp"]))?,
+        )
     }
     /// Return the highest level on the chain
     pub fn head() -> Res<Level> {
@@ -124,18 +142,37 @@ impl StorageParser {
     }
 
     pub fn level(level: u32) -> Res<Level> {
-        let json = Self::level_json(level)?;
+        let (json, block) = Self::level_json(level)?;
         Ok(Level {
-            _level: json["header"]["level"]
-                .as_u32()
-                .ok_or(err!("Couldn't get level from node"))?,
-            hash: Some(json["hash"].to_string()),
+            _level: block.header.level as u32,
+            hash: Some(block.hash),
             baked_at: Some(Self::timestamp_from_block(&json)?),
         })
     }
 
-    pub fn level_json(level: u32) -> Res<JsonValue> {
-        Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))
+    pub fn level_json(level: u32) -> Res<(JsonValue, block::Block)> {
+        let res = Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))?;
+        let block: crate::block::Block = serde_json::from_str(&res.to_string())?;
+        Ok((res, block))
+    }
+
+    pub fn block_has_tx_for_us(block: &block::Block, contract_id: &str) -> Res<bool> {
+        let destination = Some(contract_id.to_string());
+        for operations in &block.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if content.destination == destination {
+                        return Ok(true);
+                    }
+                    for result in &content.metadata.internal_operation_results {
+                        if result.destination == destination {
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(false)
     }
 
     pub fn level_has_tx_for_us(json: &JsonValue, contract_id: &str) -> Res<bool> {
@@ -169,15 +206,39 @@ operation_result = {}",
     }
 
     /// Get the storage at a level
-    pub fn get_storage(
-        &self,
-        contract_id: &String,
-        level: u32,
-    ) -> Result<JsonValue, Box<dyn Error>> {
+    pub fn get_storage(&self, contract_id: &str) -> Result<JsonValue, Box<dyn Error>> {
         Self::load(&format!(
-            "{}/chains/main/blocks/{}/context/contracts/{}/storage",
-            *NODE_URL, level, contract_id
+            "{}/chains/main/blocks/head/context/contracts/{}/storage",
+            *NODE_URL, contract_id
         ))
+    }
+
+    pub fn get_contract_storage_from_block(
+        &self,
+        block: &block::Block,
+        contract_id: &str,
+    ) -> Res<Vec<serde_json::value::Value>> {
+        let mut results: Vec<serde_json::value::Value> = vec![];
+        let contract = Some(contract_id.to_string());
+        for operations in &block.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if content.destination == contract {
+                        if let Some(operation_result) = &content.metadata.operation_result {
+                            if let Some(storage) = &operation_result.storage {
+                                results.push(storage.clone());
+                            }
+                        }
+                        for result in &content.metadata.internal_operation_results {
+                            if let Some(storage) = &result.result.storage {
+                                results.push(storage.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(results)
     }
 
     /// Get all of the data for the contract.
@@ -206,8 +267,8 @@ operation_result = {}",
                 if let JsonValue::Array(array) = ops {
                     for op in array {
                         result.extend(Self::get_matching_from_operations(
-                            &op,
-                            &"originated_contracts",
+                            op,
+                            "originated_contracts",
                         )?);
                     }
                 }
@@ -218,32 +279,44 @@ operation_result = {}",
         Ok(result)
     }
 
-    pub fn block_has_contract_origination(block: &JsonValue, contract_id: &str) -> Res<bool> {
-        Ok(Self::get_originations_from_block(block)?
-            .iter()
-            .any(|x| x == contract_id.to_string()))
-    }
-
-    pub fn get_big_map_operations_from_operations(
-        ops: &[JsonValue],
-    ) -> Result<Vec<JsonValue>, Box<dyn Error>> {
-        debug!("get_big_map_operations_from_operations got {:#?}", ops);
-        let mut result = vec![];
-        for op in ops {
-            if let JsonValue::Array(contents) = &op["contents"] {
-                for content in contents {
-                    if let JsonValue::Array(a) =
-                        &content["metadata"]["operation_result"]["big_map_diff"]
-                    {
-                        if &content["metadata"]["operation_result"]["status"].to_string()
-                            == "applied"
-                        {
-                            {
-                                debug!("adding big_map_operations {:?}", a);
-                                result.extend(a.clone());
+    pub fn block_has_contract_origination(block: &block::Block, contract_id: &str) -> Res<bool> {
+        for operations in &block.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    for operation_result in &content.metadata.operation_result {
+                        for originated_contract in &operation_result.originated_contracts {
+                            if originated_contract == contract_id {
+                                return Ok(true);
                             }
                         }
                     }
+                }
+            }
+        }
+        Ok(false)
+    }
+
+    pub fn get_big_map_diffs_from_operation(
+        operation: &block::Operation,
+    ) -> Res<Vec<block::BigMapDiff>> {
+        let mut result: Vec<block::BigMapDiff> = vec![];
+        debug!("operation: {}", serde_json::to_string(&operation).unwrap());
+        for content in &operation.contents {
+            debug!("content: {:#?}", content);
+            if let Some(operation_result) = &content.metadata.operation_result {
+                if let Some(big_map_diffs) = &operation_result.big_map_diff {
+                    debug!(
+                        "big_map_diffs: {} {:#?}",
+                        big_map_diffs.len(),
+                        big_map_diffs
+                    );
+                    result.extend(big_map_diffs.iter().cloned());
+                }
+            }
+            for internal_operation_result in &content.metadata.internal_operation_results {
+                if let Some(big_map_diffs) = &internal_operation_result.result.big_map_diff {
+                    debug!("Internal big_map_diffs {:?}", big_map_diffs);
+                    result.extend(big_map_diffs.iter().cloned());
                 }
             }
         }
@@ -254,31 +327,50 @@ operation_result = {}",
     pub fn get_matching_from_operations(json: &JsonValue, what: &str) -> Res<Vec<JsonValue>> {
         // TODO: make more specific.
         let mut result: Vec<JsonValue> = vec![];
-        match json {
-            JsonValue::Object(attributes) => {
-                for (key, value) in attributes.iter() {
-                    if key.eq(&what.to_string()) {
-                        if let JsonValue::Array(a) = value {
-                            return Ok(a.clone());
-                        }
-                    };
-                    if let JsonValue::Object(_) = value {
-                        result.extend(Self::get_matching_from_operations(&value, what)?);
-                    }
+
+        if let JsonValue::Object(attributes) = json {
+            for (key, value) in attributes.iter() {
+                if key.eq(&what.to_string()) {
                     if let JsonValue::Array(a) = value {
-                        for i in a {
-                            result.extend(Self::get_matching_from_operations(&i, what)?);
-                        }
+                        return Ok(a.clone());
+                    }
+                };
+                if let JsonValue::Object(_) = value {
+                    result.extend(Self::get_matching_from_operations(value, what)?);
+                }
+                if let JsonValue::Array(a) = value {
+                    for i in a {
+                        result.extend(Self::get_matching_from_operations(i, what)?);
                     }
                 }
             }
-            _ => (),
         }
         Ok(result)
     }
 
     pub fn get_storage_from_operation(json: &JsonValue) -> Result<JsonValue, Box<dyn Error>> {
         Ok(json["metadata"]["operation_result"]["storage"].clone())
+    }
+
+    pub fn get_storage_from_content(
+        content: &crate::block::Content,
+        contract_id: &str,
+    ) -> Res<Option<::serde_json::Value>> {
+        if let Some(destination) = &content.destination {
+            if destination != contract_id {
+                return Ok(None);
+            }
+        } else {
+            return Ok(None);
+        }
+
+        match &content.metadata.operation_result {
+            Some(x) => match &x.storage {
+                Some(x) => Ok(Some(x.clone())),
+                None => Ok(None),
+            },
+            None => Ok(None),
+        }
     }
 
     pub fn get_operations_from_node(
@@ -294,7 +386,7 @@ operation_result = {}",
         Self::get_operations_from_block_json(contract_id, &json)
     }
 
-    fn ops_has_operation_for_contract_id(ops: &Vec<JsonValue>, contract_id: &str) -> bool {
+    fn ops_has_operation_for_contract_id(ops: &[JsonValue], contract_id: &str) -> bool {
         for op in ops {
             if let Some(dest) = &op["destination"].as_str() {
                 if dest == &contract_id {
@@ -305,7 +397,7 @@ operation_result = {}",
                 debug!("{:?} Didn't match!", &op["destination"]);
             }
         }
-        return false;
+        false
     }
 
     pub fn get_operations_from_block_json(
@@ -333,8 +425,8 @@ operation_result = {}",
         }
     }
 
-    fn bigint(source: &String) -> Result<BigInt, Box<dyn Error>> {
-        Ok(BigInt::from_str(&source)?)
+    fn bigint(source: &str) -> Result<BigInt, Box<dyn Error>> {
+        Ok(BigInt::from_str(source)?)
     }
 
     pub fn preparse_storage(&self, json: &JsonValue) -> JsonValue {
@@ -392,7 +484,7 @@ operation_result = {}",
         let _type = &hex[2..4];
         let rest = &hex[4..];
         let new_hex = if kt {
-            format!("025a79{}", &hex[2..42]).to_string()
+            format!("025a79{}", &hex[2..42])
         } else if implicit {
             match _type {
                 "00" => format!("06a19f{}", rest),
@@ -524,70 +616,81 @@ operation_result = {}",
         Ok(Value::None)
     }
 
-    pub fn prim(s: &String) -> Value {
-        match s.as_str() {
+    pub fn prim(s: &str) -> Value {
+        match s {
             "False" => Value::Bool(true),
             "None" => Value::None,
             _ => panic!("Don't know what to do with prim {}", s),
         }
     }
 
-    pub fn process_big_map(&mut self, json: &JsonValue) -> Result<(), Box<dyn Error>> {
-        debug!("process_big_map: {}", json.to_string());
-        let big_map_id: u32 = json["big_map"].to_string().parse()?;
-        let key: Value = self.parse_storage(&self.preparse_storage(&json["key"]))?;
-        let value: Value = self.parse_storage(&self.preparse_storage(&json["value"]))?;
-        if let Some((_fk, node)) = self.big_map_map.get(&big_map_id) {
-            debug!("big_map_update: {:#?}", json);
-            let node = node.clone();
-            match json["action"]
-                .as_str()
-                .ok_or("Couldn't find 'action' in JSON")?
-            {
-                "update" => {
-                    let id = self.id_generator.get_id();
-                    self.read_storage_internal(
-                        &key,
-                        &*node.left.ok_or("Missing key to big map")?,
-                        id,
-                        None,
-                        node.table_name.clone(),
-                    );
-                    match value {
-                        Value::None => {
-                            crate::table::insert::add_column(
-                                node.table_name.ok_or("Missing name for table")?,
-                                id,
-                                None,
-                                "deleted".to_string(),
-                                Value::Bool(true),
-                            );
-                        }
-                        _ => self.read_storage_internal(
-                            &value,
+    pub fn process_big_map_diff(&mut self, diff: &block::BigMapDiff) -> Res<()> {
+        match diff.action.as_str() {
+            "update" => {
+                let big_map_id: u32 = match &diff.big_map {
+                    Some(id) => id.parse()?,
+                    None => return Err(err!("No big map id found in diff {:?}", diff)),
+                };
+                debug!("Processing big map with id {}", big_map_id);
+                debug!("Big maps are {:?}", self.big_map_map);
+                let (_fk, node) = match self.big_map_map.get(&big_map_id) {
+                    Some((fk, n)) => (fk, n),
+                    None => return Ok(()),
+                };
+                let node = node.clone();
+                let id = self.id_generator.get_id();
+                self.read_storage_internal(
+                    &self.parse_storage(&serde2json!(&diff
+                        .key
+                        .clone()
+                        .ok_or("Missing key to big map in diff")?))?,
+                    &*node.left.ok_or("Missing key to big map")?,
+                    id,
+                    None,
+                    node.table_name.clone(),
+                );
+                match &diff.value {
+                    None => {
+                        self.add_column(
+                            node.table_name.ok_or("Missing name for table")?,
+                            id,
+                            None,
+                            "deleted".to_string(),
+                            Value::Bool(true),
+                        );
+                        Ok(())
+                    }
+                    Some(val) => {
+                        self.read_storage_internal(
+                            &self.parse_storage(&serde2json!(&val))?,
                             &*node.right.ok_or("Missing value to big map")?,
                             id,
                             None,
                             node.table_name,
-                        ),
+                        );
+                        Ok(())
                     }
                 }
-                "alloc" => {
-                    debug!("Alloc called like this: {}", json.to_string());
-                }
-                _ => panic!("{}", json.to_string()),
             }
-        } else {
-            debug!("Someone else's big map! {}", big_map_id);
-        };
-        Ok(())
+            "alloc" => {
+                debug!("Alloc called like this: {}", serde_json::to_string(&diff)?);
+                Ok(())
+            }
+            "copy" => {
+                debug!("Copy called like this: {}", serde_json::to_string(&diff)?);
+                Ok(())
+            }
+            _ => {
+                panic!("{}", serde_json::to_string(&diff)?);
+            }
+        }
     }
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. Panics if it cannot do this (i.e. they do not match).
     pub fn read_storage(&mut self, value: &Value, node: &Node) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
-        crate::table::insert::add_column(
+        self.add_column(
             "storage".to_string(),
             id,
             None,
@@ -619,15 +722,15 @@ node: {:?}",
                         value, node
                     );
                     match value {
-                        Value::Left(left) => resolve_or(left, &node.left.as_ref().unwrap()),
-                        Value::Right(right) => resolve_or(right, &node.right.as_ref().unwrap()),
+                        Value::Left(left) => resolve_or(left, node.left.as_ref().unwrap()),
+                        Value::Right(right) => resolve_or(right, node.right.as_ref().unwrap()),
                         Value::Pair(_, _) => node.table_name.clone(),
                         Value::Unit(val) => val.clone(),
                         _ => node.name.clone(),
                     }
                 }
                 if let Some(val) = resolve_or(value, node) {
-                    crate::table::insert::add_column(
+                    self.add_column(
                         node.table_name.as_ref().unwrap().to_string(),
                         id,
                         fk_id,
@@ -697,13 +800,13 @@ value: {:?}",
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
-                crate::table::insert::add_column(
+                self.add_column(
                     node.table_name.as_ref().unwrap().to_string(),
                     id,
                     fk_id,
                     node.column_name.as_ref().unwrap().to_string(),
-                    match node.value.clone() {
-                        Some(x) => Value::String(x),
+                    match &node.value {
+                        Some(s) => Value::String(s.clone()),
                         None => Value::None,
                     },
                 );
@@ -720,8 +823,8 @@ value: {:?}",
                 // If this is a big map, save the id and the fk_id currently
                 // being used, for later processing
                 match &node.expr {
-                    crate::storage::Expr::ComplexExpr(ce) => match ce {
-                        crate::storage::ComplexExpr::BigMap(_, _) => {
+                    crate::storage::Expr::ComplexExpr(ce) => {
+                        if let crate::storage::ComplexExpr::BigMap(_, _) = ce {
                             debug!("{:?}", value);
                             if let Value::Int(i) = value {
                                 debug!("{}", i);
@@ -731,10 +834,9 @@ value: {:?}",
                                 panic!("Found big map with non-int id: {:?}", node);
                             }
                         }
-                        _ => (),
-                    },
+                    }
                     crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Timestamp) => {
-                        crate::table::insert::add_column(
+                        self.add_column(
                             table_name,
                             id,
                             fk_id,
@@ -743,26 +845,20 @@ value: {:?}",
                         );
                     }
                     crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
-                        crate::table::insert::add_column(
+                        self.add_column(
                             table_name,
                             id,
                             fk_id,
                             column_name,
                             if let Value::Bytes(a) = value {
                                 // sometimes we get bytes where we expected an address.
-                                Value::Address(Self::decode_address(&a).unwrap())
+                                Value::Address(Self::decode_address(a).unwrap())
                             } else {
                                 value.clone()
                             },
                         );
                     }
-                    _ => crate::table::insert::add_column(
-                        table_name,
-                        id,
-                        fk_id,
-                        column_name,
-                        value.clone(),
-                    ),
+                    _ => self.add_column(table_name, id, fk_id, column_name, value.clone()),
                 }
             }
         }
@@ -771,6 +867,80 @@ value: {:?}",
     fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, node: Node) {
         debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, node);
         self.big_map_map.insert(bigmap_id, (fk, node));
+    }
+
+    fn add_insert(
+        &mut self,
+        table_name: String,
+        id: u32,
+        fk_id: Option<u32>,
+        columns: Vec<Column>,
+    ) {
+        debug!(
+            "table::add_insert {}, {}, {:?}, {:?}",
+            table_name, id, fk_id, columns
+        );
+        self.inserts.insert(
+            InsertKey {
+                table_name: table_name.clone(),
+                id,
+            },
+            Insert {
+                table_name,
+                id,
+                fk_id,
+                columns,
+            },
+        );
+    }
+
+    fn add_column(
+        &mut self,
+        table_name: String,
+        id: u32,
+        fk_id: Option<u32>,
+        column_name: String,
+        value: Value,
+    ) {
+        debug!(
+            "add_column {}, {}, {:?}, {}, {:?}",
+            table_name, id, fk_id, column_name, value
+        );
+
+        let mut insert = match self.get_insert(table_name.clone(), id, fk_id) {
+            Some(x) => x,
+            None => Insert {
+                table_name: table_name.clone(),
+                id,
+                fk_id,
+                columns: vec![],
+            },
+        };
+        insert.columns.push(Column {
+            name: column_name,
+            value,
+        });
+        self.add_insert(table_name, id, fk_id, insert.columns);
+    }
+
+    pub fn get_insert(
+        &mut self,
+        table_name: String,
+        id: u32,
+        fk_id: Option<u32>,
+    ) -> Option<Insert> {
+        self.inserts.get(&InsertKey { table_name, id }).map(|e| {
+            assert!(e.fk_id == fk_id);
+            (*e).clone()
+        })
+    }
+
+    pub fn get_inserts(&self) -> Inserts {
+        self.inserts.clone()
+    }
+
+    pub fn clear_inserts(&mut self) {
+        self.inserts.clear();
     }
 }
 

@@ -18,25 +18,21 @@ pub struct Table {
 
 impl Table {
     pub fn new(name: String) -> Self {
-        let new_table = Self {
+        Self {
             name,
             indices: vec!["_level".to_string()],
             columns: vec![],
-        };
-        new_table
+        }
     }
 
     pub fn add_index(&mut self, node: &Node) {
         let node = node.clone();
         let name = node.name.unwrap();
-        let e = node.expr.clone();
+        let e = node.expr;
         match e {
             Expr::SimpleExpr(e) => {
                 self.indices.push(name.clone());
-                self.columns.push(Column {
-                    name,
-                    expr: e.clone(),
-                });
+                self.columns.push(Column { name, expr: e });
             }
             Expr::ComplexExpr(e) => panic!("add_index called with ComplexExpr {:#?}", e),
         }
@@ -52,10 +48,7 @@ impl Table {
         }
         match &node.expr {
             Expr::SimpleExpr(e) => {
-                self.columns.push(Column {
-                    name,
-                    expr: e.clone(),
-                });
+                self.columns.push(Column { name, expr: *e });
             }
             Expr::ComplexExpr(ce) => match ce {
                 ComplexExpr::OrEnumeration(_, _) => {
@@ -73,7 +66,6 @@ impl Table {
 pub mod insert {
     use crate::table::Value;
     use std::collections::BTreeMap;
-    use std::sync::Mutex;
 
     #[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
     pub struct InsertKey {
@@ -110,75 +102,4 @@ pub mod insert {
     }
 
     pub type Inserts = BTreeMap<InsertKey, Insert>;
-
-    lazy_static! { // TODO: clean this up.
-        static ref INSERTS: Mutex<Inserts> = Mutex::new(BTreeMap::new());
-    }
-
-    pub fn add_insert(table_name: String, id: u32, fk_id: Option<u32>, columns: Vec<Column>) {
-        debug!(
-            "table::add_insert {}, {}, {:?}, {:?}",
-            table_name, id, fk_id, columns
-        );
-        let inserts: &mut Inserts = &mut *INSERTS.lock().unwrap();
-        inserts.insert(
-            InsertKey {
-                table_name: table_name.clone(),
-                id,
-            },
-            Insert {
-                table_name,
-                id,
-                fk_id,
-                columns,
-            },
-        );
-    }
-
-    pub fn clear_inserts() {
-        let inserts: &mut Inserts = &mut *INSERTS.lock().unwrap();
-        inserts.clear();
-    }
-
-    pub fn add_column(
-        table_name: String,
-        id: u32,
-        fk_id: Option<u32>,
-        column_name: String,
-        value: Value,
-    ) {
-        debug!(
-            "add_column {}, {}, {:?}, {}, {:?}",
-            table_name, id, fk_id, column_name, value
-        );
-
-        let mut insert = match get_insert(table_name.clone(), id, fk_id) {
-            Some(x) => x,
-            None => Insert {
-                table_name: table_name.clone(),
-                id,
-                fk_id,
-                columns: vec![],
-            },
-        };
-        insert.columns.push(Column {
-            name: column_name,
-            value,
-        });
-        add_insert(table_name, id, fk_id, insert.columns.clone());
-    }
-
-    pub fn get_insert(table_name: String, id: u32, fk_id: Option<u32>) -> Option<Insert> {
-        match (*INSERTS.lock().unwrap()).get(&InsertKey { table_name, id }) {
-            Some(e) => {
-                assert!(e.fk_id == fk_id);
-                Some((*e).clone())
-            }
-            None => None,
-        }
-    }
-
-    pub fn get_inserts() -> Inserts {
-        (*INSERTS.lock().unwrap()).clone()
-    }
 }

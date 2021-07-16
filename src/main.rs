@@ -27,7 +27,9 @@ extern crate spinners;
 extern crate termion;
 
 use clap::{App, Arg, SubCommand};
+use std::cmp::Ordering;
 
+pub mod block;
 pub mod error;
 pub mod highlevel;
 pub mod michelson;
@@ -38,9 +40,6 @@ pub mod table;
 pub mod table_builder;
 
 use michelson::StorageParser;
-use termion::cursor;
-use termion::cursor::DetectCursorPos;
-use termion::raw::IntoRawMode;
 
 fn stdout_is_tty() -> bool {
     atty::is(atty::Stream::Stdout)
@@ -107,10 +106,10 @@ fn main() {
 
     // Build the internal representation from the node storage defition
     let context = node::Context::init();
-    let mut big_map_table_names = Vec::new();
-    //initialize the big_map_table_names with the starting table_name "storage"
-    big_map_table_names.push(context.table_name.clone());
-    let node = node::Node::build(context.clone(), ast, &mut big_map_table_names);
+    let mut big_map_table_names = vec![context.table_name.clone()];
+    let mut indexes = node::Indexes::new();
+
+    let node = node::Node::build(context, ast, &mut big_map_table_names, &mut indexes);
     //debug!("{:#?}", node);
 
     // Make a SQL-compatible representation
@@ -144,11 +143,21 @@ fn main() {
             .unwrap();
     }
 
+    let mut storage_parser = crate::highlevel::get_storage_parser(contract_id).unwrap();
+
+    let storage_declaration = storage_parser.get_storage_declaration(contract_id).unwrap();
+
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
         for level in &levels {
-            let result =
-                crate::highlevel::load_and_store_level(&node, contract_id, *level).unwrap();
+            let result = crate::highlevel::load_and_store_level(
+                &node,
+                contract_id,
+                *level,
+                &storage_declaration,
+                &mut storage_parser,
+            )
+            .unwrap();
             p!("{}", level_text(*level, &result));
         }
 
@@ -169,7 +178,7 @@ fn main() {
     // No args so we will first load missing levels
 
     loop {
-        let origination_level = highlevel::get_origination(&contract_id).unwrap();
+        let origination_level = highlevel::get_origination(contract_id).unwrap();
 
         let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
             &mut postgresql_generator::connect().unwrap(),
@@ -186,7 +195,13 @@ fn main() {
 
         while let Some(level) = missing_levels.pop() {
             let store_result = loop {
-                match crate::highlevel::load_and_store_level(&node, contract_id, level as u32) {
+                match crate::highlevel::load_and_store_level(
+                    &node,
+                    contract_id,
+                    level as u32,
+                    &storage_declaration,
+                    &mut storage_parser,
+                ) {
                     Ok(x) => break x,
                     Err(e) => {
                         warn!("Error contacting node: {:?}", e);
@@ -198,7 +213,7 @@ fn main() {
             if store_result.is_origination {
                 p!(
                     "Found new origination level {}",
-                    highlevel::get_origination(&contract_id).unwrap().unwrap()
+                    highlevel::get_origination(contract_id).unwrap().unwrap()
                 );
                 break;
             }
@@ -207,13 +222,12 @@ fn main() {
                 store_result.tx_count,
                 missing_levels.len()
             );
-            debug!("Inserts now {:?}", crate::table::insert::get_inserts());
         }
     }
 
     let is_tty = stdout_is_tty();
 
-    let print_status = |level: u32, result: &crate::highlevel::SaveLevelResult| -> () {
+    let print_status = |level: u32, result: &crate::highlevel::SaveLevelResult| {
         p!("{}", level_text(level, result));
     };
 
@@ -231,32 +245,43 @@ fn main() {
             .unwrap()
             .unwrap();
         debug!("db: {} chain: {}", db_head._level, chain_head._level);
-        if chain_head._level > db_head._level {
-            for level in (db_head._level + 1)..=chain_head._level {
-                let result = highlevel::load_and_store_level(&node, contract_id, level).unwrap();
-                print_status(level, &result);
+        match chain_head._level.cmp(&db_head._level) {
+            Ordering::Greater => {
+                for level in (db_head._level + 1)..=chain_head._level {
+                    let result = highlevel::load_and_store_level(
+                        &node,
+                        contract_id,
+                        level,
+                        &storage_declaration,
+                        &mut storage_parser,
+                    )
+                    .unwrap();
+                    print_status(level, &result);
+                }
+                continue;
             }
-            continue;
-        } else if db_head._level > chain_head._level {
-            p!("More levels in DB than chain, bailing!");
-            return;
-        } else {
-            // they are equal, so we will just check that the hashes match.
-            if db_head.hash == chain_head.hash {
-                // if they match, nothing to do.
-            } else {
-                p!("");
-                p!(
-                    "Hashes don't match: {:?} (db) <> {:?} (chain)",
-                    db_head.hash,
-                    chain_head.hash
-                );
-                let mut connection = postgresql_generator::connect().unwrap();
-                let mut transaction = connection.transaction().unwrap();
-                postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
-                transaction.commit().unwrap();
+            Ordering::Less => {
+                p!("More levels in DB than chain, bailing!");
+                return;
             }
-            std::thread::sleep(std::time::Duration::from_millis(1500));
+            Ordering::Equal => {
+                // they are equal, so we will just check that the hashes match.
+                if db_head.hash == chain_head.hash {
+                    // if they match, nothing to do.
+                } else {
+                    p!("");
+                    p!(
+                        "Hashes don't match: {:?} (db) <> {:?} (chain)",
+                        db_head.hash,
+                        chain_head.hash
+                    );
+                    let mut connection = postgresql_generator::connect().unwrap();
+                    let mut transaction = connection.transaction().unwrap();
+                    postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
+                    transaction.commit().unwrap();
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+            }
         }
     }
 }
@@ -269,7 +294,7 @@ fn level_text(level: u32, result: &crate::highlevel::SaveLevelResult) -> String 
 }
 
 // get range of args in the form 1,2,3 or 1-3. All ranges inclusive.
-fn range(arg: &String) -> Vec<u32> {
+fn range(arg: &str) -> Vec<u32> {
     let mut result = vec![];
     for h in arg.split(',') {
         let s = String::from(h);

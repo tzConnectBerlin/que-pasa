@@ -101,23 +101,13 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
             "bool" => Ok(simple_expr!(SimpleExpr::Bool, annot)),
             "bytes" => Ok(simple_expr!(SimpleExpr::Bytes, annot)),
             "int" => Ok(simple_expr!(SimpleExpr::Int, annot)),
-            "key_hash" | "key" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
-            /*
-                        "list" => Ok(Ele {
-                            name: annot,
-                            expr: Expr::ComplexExpr(ComplexExpr::List(
-                                args.unwrap()
-                                    .iter()
-                                    .map(|x| storage_from_json(x.clone()).unwrap())
-                                    .collect::<Vec<Ele>>(),
-                            )),
-                        }),
-            */
+            "key" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)), // TODO: check this is correct
+            "key_hash" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
             "map" => Ok(complex_expr!(ComplexExpr::Map, annot, args)),
             "mutez" => Ok(simple_expr!(SimpleExpr::Mutez, annot)),
             "nat" => Ok(simple_expr!(SimpleExpr::Nat, annot)),
             "option" => {
-                let args = args.ok_or(err!("Args was none!"))?;
+                let args = args.ok_or_else(|| err!("Args was none!"))?;
                 Ok(Ele {
                     name: annot,
                     expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_from_json(
@@ -136,10 +126,10 @@ pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
                 }
             }
             "pair" => {
-                if args.clone().ok_or(err!("NoneError"))?.len() != 2 {
+                if args.clone().ok_or_else(|| err!("NoneError"))?.len() != 2 {
                     return Err(err!(
                         "Pair with {} args",
-                        args.clone().ok_or(err!("NoneError"))?.len()
+                        args.ok_or_else(|| err!("NoneError"))?.len()
                     ));
                 }
                 Ok(complex_expr!(ComplexExpr::Pair, annot, args))
