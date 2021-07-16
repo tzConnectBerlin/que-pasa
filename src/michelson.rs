@@ -41,6 +41,7 @@ impl IdGenerator {
         let id = self.id.get_mut();
         let old_id: u32 = *id;
         *id += 1;
+        debug!("get_id(): {}", old_id);
         old_id
     }
 }
@@ -936,6 +937,10 @@ value: {:?}",
 
     pub fn get_inserts(&self) -> Inserts {
         self.inserts.clone()
+    }
+
+    pub fn clear_inserts(&mut self) {
+        self.inserts.clear();
     }
 }
 

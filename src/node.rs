@@ -1,30 +1,24 @@
 use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 
-type Indexes = HashMap<String, u32>;
+pub type Indexes = HashMap<String, u32>;
 
-thread_local! {
-    static INDEXES: RefCell<Indexes> = RefCell::new(HashMap::new());
-} // thread_local so unit tests can run in ||el
-
-fn get_index(_table_name: &str) -> u32 {
+fn get_index(indexes: &mut Indexes, _table_name: &str) -> u32 {
     let table_name = &String::from("foo"); // all tables have the same number space
-    INDEXES.with(|indexes| {
-        let x: u32 = match indexes.borrow_mut().get(table_name) {
-            Some(x) => *x,
-            None => 0,
-        };
-        indexes.borrow_mut().insert(table_name.clone(), x + 1);
-        x
-    })
+    let x: u32 = match indexes.get(table_name) {
+        Some(x) => *x,
+        None => 0,
+    };
+    indexes.insert(table_name.clone(), x + 1);
+    debug!("x={}", x);
+    x
 }
 
-fn get_table_name(name: Option<String>) -> String {
+fn get_table_name(indexes: &mut Indexes, name: Option<String>) -> String {
     match name {
         Some(s) => s,
-        None => format!("table{}", get_index(&"table_names".to_string())),
+        None => format!("table{}", get_index(indexes, &"table_names".to_string())),
     }
 }
 
@@ -73,13 +67,13 @@ impl Context {
         }
     }
 
-    pub fn name(&self, ele: &Ele) -> String {
+    pub fn name(&self, ele: &Ele, indexes: &mut Indexes) -> String {
         let name = match &ele.name {
             Some(x) => x.to_string(),
             None => format!(
                 "{}_{}",
                 get_column_name(&ele.expr),
-                get_index(&self.table_name),
+                get_index(indexes, &self.table_name),
             ),
         };
         let initial = format!(
@@ -149,8 +143,8 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    pub fn new(ctx: &Context, ele: &Ele) -> Self {
-        let name = ctx.name(ele);
+    pub fn new(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> Self {
+        let name = ctx.name(ele, indexes);
         Self {
             name: Some(name.clone()),
             _type: ctx._type,
@@ -163,7 +157,12 @@ impl Node {
         }
     }
 
-    pub fn build(mut context: Context, ele: Ele, big_map_names: &mut Vec<String>) -> Node {
+    pub fn build(
+        mut context: Context,
+        ele: Ele,
+        big_map_names: &mut Vec<String>,
+        indexes: &mut Indexes,
+    ) -> Node {
         let name = match &ele.name {
             Some(x) => x.clone(),
             None => "noname".to_string(),
@@ -171,16 +170,18 @@ impl Node {
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
-                    let context = context.start_table(get_table_name(Some(name)));
-                    let mut n = Self::new(&context, &ele);
+                    let context = context.start_table(get_table_name(indexes, Some(name)));
+                    let mut n = Self::new(&context, &ele, indexes);
                     n.left = Some(Box::new(Self::build_index(
                         context.next_with_state(Type::TableIndex),
                         (**key).clone(),
+                        indexes,
                     )));
                     n.right = Some(Box::new(Self::build(
                         context,
                         (**value).clone(),
                         big_map_names,
+                        indexes,
                     )));
                     let table_name = n.table_name.clone();
                     //if big_map push it in array
@@ -191,18 +192,20 @@ impl Node {
                     n
                 }
                 ComplexExpr::Pair(left, right) => {
-                    let mut n = Self::new(&context, &ele);
+                    let mut n = Self::new(&context, &ele, indexes);
                     let mut context = context.next_with_prefix(ele.name);
                     context._type = Type::Pair;
                     n.left = Some(Box::new(Self::build(
                         context.clone(),
                         (**left).clone(),
                         big_map_names,
+                        indexes,
                     )));
                     n.right = Some(Box::new(Self::build(
                         context,
                         (**right).clone(),
                         big_map_names,
+                        indexes,
                     )));
                     n
                 }
@@ -210,15 +213,16 @@ impl Node {
                     context,
                     Self::ele_with_annot(_inner_expr, ele.name),
                     big_map_names,
+                    indexes,
                 ),
                 ComplexExpr::OrEnumeration(_this, _that) => {
                     context._type = Type::OrEnumeration;
-                    Self::build_enumeration_or(&mut context, &ele, &name, big_map_names)
+                    Self::build_enumeration_or(&mut context, &ele, &name, big_map_names, indexes)
                 }
             },
             Expr::SimpleExpr(_) => {
                 context._type = Type::Column;
-                Self::new(&context, &ele)
+                Self::new(&context, &ele, indexes)
             }
         };
         node
@@ -229,8 +233,9 @@ impl Node {
         ele: &Ele,
         column_name: &str,
         big_map_names: &mut Vec<String>,
+        indexes: &mut Indexes,
     ) -> Node {
-        let mut node = Self::new(context, ele);
+        let mut node = Self::new(context, ele, indexes);
         node.name = Some(column_name.to_string());
         node.column_name = Some(column_name.to_string());
         match ele.expr {
@@ -243,6 +248,7 @@ impl Node {
                     context.start_table(ele.name.clone().unwrap()),
                     ele.clone(),
                     big_map_names,
+                    indexes,
                 );
             }
             Expr::ComplexExpr(ref e) => match e {
@@ -253,12 +259,14 @@ impl Node {
                         this,
                         column_name,
                         big_map_names,
+                        indexes,
                     )));
                     node.right = Some(Box::new(Self::build_enumeration_or(
                         context,
                         that,
                         column_name,
                         big_map_names,
+                        indexes,
                     )));
                 }
                 _ => {
@@ -267,6 +275,7 @@ impl Node {
                         context.start_table(ele.name.clone().unwrap()),
                         ele.clone(),
                         big_map_names,
+                        indexes,
                     );
                 }
             },
@@ -285,7 +294,7 @@ impl Node {
         }
     }
 
-    pub fn build_index(mut context: Context, ele: Ele) -> Node {
+    pub fn build_index(mut context: Context, ele: Ele, indexes: &mut Indexes) -> Node {
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(_, _) | ComplexExpr::Map(_, _) => {
@@ -293,16 +302,20 @@ impl Node {
                 }
                 ComplexExpr::Pair(left, right) => {
                     let ctx = context.next_with_prefix(ele.name.clone());
-                    let mut n = Self::new(&context, &ele);
-                    n.left = Some(Box::new(Self::build_index(ctx.next(), (**left).clone())));
-                    n.right = Some(Box::new(Self::build_index(ctx, (**right).clone())));
+                    let mut n = Self::new(&context, &ele, indexes);
+                    n.left = Some(Box::new(Self::build_index(
+                        ctx.next(),
+                        (**left).clone(),
+                        indexes,
+                    )));
+                    n.right = Some(Box::new(Self::build_index(ctx, (**right).clone(), indexes)));
                     n
                 }
                 _ => panic!("Unexpected input to index"),
             },
             Expr::SimpleExpr(_) => {
                 context._type = Type::TableIndex;
-                Self::new(&context, &ele)
+                Self::new(&context, &ele, indexes)
             }
         };
         node

@@ -1,6 +1,6 @@
 use crate::error::Res;
 use crate::michelson::StorageParser;
-use crate::node::{Context, Node};
+use crate::node::{Context, Indexes, Node};
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
 use crate::storage;
@@ -8,12 +8,12 @@ use crate::table_builder;
 use json::JsonValue;
 use std::error::Error;
 
-pub fn get_node_from_script_json(json: &JsonValue) -> Res<Node> {
+pub fn get_node_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<Node> {
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
     let ast = storage::storage_from_json(storage_definition)?;
     let mut big_map_tables_names = Vec::new();
-    let node = Node::build(Context::init(), ast, &mut big_map_tables_names);
+    let node = Node::build(Context::init(), ast, &mut big_map_tables_names, indexes);
     Ok(node)
 }
 
@@ -86,10 +86,11 @@ pub fn load_and_store_level(
             }
         }
         for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
-            println!("big_map_diff: {:#?}", big_map_diff);
+            //println!("big_map_diff: {:#?}", big_map_diff);
             big_map_diffs.push(big_map_diff);
         }
-        println!("Final big_map_diffs {:?}", big_map_diffs);
+        //println!("Final big_map_diffs {:?}", big_map_diffs);
+        storage_parser.clear_inserts();
     }
 
     for storage in storages {
@@ -159,7 +160,12 @@ fn test_generate() {
     let mut big_map_tables_names = Vec::new();
     //initialize the big_map_tables_names with the starting table_name "storage"
     big_map_tables_names.push(context.table_name.clone());
-    let node = Node::build(context.clone(), ast, &mut big_map_tables_names);
+    let node = Node::build(
+        context.clone(),
+        ast,
+        &mut big_map_tables_names,
+        &mut Indexes::new(),
+    );
     println!("{:#?}", node);
     let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = table_builder::TableBuilder::new();
@@ -253,7 +259,7 @@ fn test_block() {
 
     for contract in &contracts {
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
-        let node = get_node_from_script_json(&script_json).unwrap();
+        let node = get_node_from_script_json(&script_json, &mut Indexes::new()).unwrap();
         let mut inserts_tested = 0;
         for level in &contract.levels {
             let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
@@ -286,11 +292,6 @@ fn test_block() {
                             for big_map_diff in
                                 StorageParser::get_big_map_diffs_from_operation(&operation).unwrap()
                             {
-                                println!(
-                                    "big_map_diff: {}",
-                                    serde_json::to_string(&big_map_diff).unwrap()
-                                );
-
                                 storage_parser.process_big_map_diff(&big_map_diff).unwrap();
                             }
                         }

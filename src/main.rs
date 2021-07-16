@@ -107,7 +107,9 @@ fn main() {
     // Build the internal representation from the node storage defition
     let context = node::Context::init();
     let mut big_map_table_names = vec![context.table_name.clone()];
-    let node = node::Node::build(context, ast, &mut big_map_table_names);
+    let mut indexes = node::Indexes::new();
+
+    let node = node::Node::build(context, ast, &mut big_map_table_names, &mut indexes);
     //debug!("{:#?}", node);
 
     // Make a SQL-compatible representation

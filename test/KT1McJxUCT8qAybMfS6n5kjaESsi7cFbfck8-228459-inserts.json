@@ -26,7 +26,7 @@
         fk_id: None,
         columns: [
             (
-                name: "idx_lambda_repository_string_43",
+                name: "idx_lambda_repository_string_1",
                 value: String("market_enter_exit_endpoint"),
             ),
         ],

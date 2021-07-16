@@ -44,7 +44,7 @@
         fk_id: None,
         columns: [
             (
-                name: "idx_markets_nat_49",
+                name: "idx_markets_nat_7",
                 value: Int((1, [
                     82195281,
                 ])),
@@ -80,7 +80,7 @@
         fk_id: None,
         columns: [
             (
-                name: "idx_markets_nat_49",
+                name: "idx_markets_nat_7",
                 value: Int((1, [
                     82195281,
                 ])),
