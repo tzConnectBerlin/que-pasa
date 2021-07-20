@@ -17,7 +17,9 @@ extern crate json;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate native_tls;
 extern crate postgres;
+extern crate postgres_native_tls;
 extern crate regex;
 extern crate ron;
 #[macro_use]
@@ -87,6 +89,19 @@ fn main() {
                 .help("If present, clear the DB out, load the levels, and set the in-between levels as already loaded")
                 .takes_value(false),
         )
+        .arg(
+            Arg::with_name("ssl")
+                .short("S")
+                .long("ssl")
+                .help("Use SSL for postgres connection")
+                .takes_value(false)
+        )
+        .arg(
+            Arg::with_name("ca-cert")
+                .short("C")
+                .long("ca-cert")
+                .help("CA Cert for SSL postgres connection")
+                .takes_value(true))
         .subcommand(
             SubCommand::with_name("generate-sql")
                 .about("Generated table definitions")
@@ -133,17 +148,22 @@ fn main() {
         return;
     }
 
+    let ssl = matches.is_present("ssl");
+    let ca_cert = matches.value_of("ca-cert");
+
+    let mut connection = postgresql_generator::connect(ssl, ca_cert).unwrap();
+
     let init = matches.is_present("init");
     if init {
         println!(
             "Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort"
         );
         std::thread::sleep(std::time::Duration::from_millis(5000));
-        postgresql_generator::delete_everything(&mut postgresql_generator::connect().unwrap())
-            .unwrap();
+        postgresql_generator::delete_everything(&mut connection).unwrap();
     }
 
-    let mut storage_parser = crate::highlevel::get_storage_parser(contract_id).unwrap();
+    let mut storage_parser =
+        crate::highlevel::get_storage_parser(contract_id, &mut connection).unwrap();
 
     let storage_declaration = storage_parser.get_storage_declaration(contract_id).unwrap();
 
@@ -156,6 +176,7 @@ fn main() {
                 *level,
                 &storage_declaration,
                 &mut storage_parser,
+                &mut connection,
             )
             .unwrap();
             p!("{}", level_text(*level, &result));
@@ -164,12 +185,7 @@ fn main() {
         if init {
             let first: u32 = *levels.iter().min().unwrap();
             let head = michelson::StorageParser::head().unwrap();
-            postgresql_generator::fill_in_levels(
-                &mut postgresql_generator::connect().unwrap(),
-                first,
-                head._level,
-            )
-            .unwrap();
+            postgresql_generator::fill_in_levels(&mut connection, first, head._level).unwrap();
         }
 
         return;
@@ -178,10 +194,10 @@ fn main() {
     // No args so we will first load missing levels
 
     loop {
-        let origination_level = highlevel::get_origination(contract_id).unwrap();
+        let origination_level = highlevel::get_origination(contract_id, &mut connection).unwrap();
 
         let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
-            &mut postgresql_generator::connect().unwrap(),
+            &mut connection,
             origination_level,
             michelson::StorageParser::head().unwrap()._level,
         )
@@ -201,6 +217,7 @@ fn main() {
                     level as u32,
                     &storage_declaration,
                     &mut storage_parser,
+                    &mut connection,
                 ) {
                     Ok(x) => break x,
                     Err(e) => {
@@ -213,7 +230,9 @@ fn main() {
             if store_result.is_origination {
                 p!(
                     "Found new origination level {}",
-                    highlevel::get_origination(contract_id).unwrap().unwrap()
+                    highlevel::get_origination(contract_id, &mut connection)
+                        .unwrap()
+                        .unwrap()
                 );
                 break;
             }
@@ -241,7 +260,7 @@ fn main() {
         }
 
         let chain_head = michelson::StorageParser::head().unwrap();
-        let db_head = postgresql_generator::get_head(&mut postgresql_generator::connect().unwrap())
+        let db_head = postgresql_generator::get_head(&mut connection)
             .unwrap()
             .unwrap();
         debug!("db: {} chain: {}", db_head._level, chain_head._level);
@@ -254,6 +273,7 @@ fn main() {
                         level,
                         &storage_declaration,
                         &mut storage_parser,
+                        &mut connection,
                     )
                     .unwrap();
                     print_status(level, &result);
@@ -275,7 +295,6 @@ fn main() {
                         db_head.hash,
                         chain_head.hash
                     );
-                    let mut connection = postgresql_generator::connect().unwrap();
                     let mut transaction = connection.transaction().unwrap();
                     postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
                     transaction.commit().unwrap();

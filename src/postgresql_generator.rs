@@ -4,8 +4,12 @@ use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
 use chrono::{DateTime, Utc};
+use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
+use postgres_native_tls::MakeTlsConnector;
 use std::error::Error;
+use std::fs;
+
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
@@ -17,10 +21,22 @@ impl Default for PostgresqlGenerator {
     }
 }
 
-pub fn connect() -> Res<Client> {
+pub fn connect(ssl: bool, ca_cert: Option<&str>) -> Res<Client> {
     let url = std::env::var(&"DATABASE_URL").unwrap();
     debug!("DATABASE_URL={}", url);
-    Ok(Client::connect(&url, NoTls)?)
+
+    if ssl {
+        let mut builder = TlsConnector::builder();
+        if let Some(ca_cert) = ca_cert {
+            builder.add_root_certificate(Certificate::from_pem(&fs::read(ca_cert)?)?);
+        }
+        let connector = builder.build()?;
+        let connector = MakeTlsConnector::new(connector);
+
+        Ok(postgres::Client::connect(&url, connector)?)
+    } else {
+        Ok(Client::connect(&url, NoTls)?)
+    }
 }
 
 pub fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {

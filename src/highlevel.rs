@@ -23,8 +23,8 @@ pub fn get_tables_from_node(node: &Node) -> Result<table_builder::TableMap, Box<
     Ok(builder.tables)
 }
 
-pub fn get_origination(_contract_id: &str) -> Res<Option<u32>> {
-    postgresql_generator::get_origination(&mut postgresql_generator::connect()?)
+pub fn get_origination(_contract_id: &str, connection: &mut postgres::Client) -> Res<Option<u32>> {
+    postgresql_generator::get_origination(connection)
 }
 
 pub struct SaveLevelResult {
@@ -32,8 +32,11 @@ pub struct SaveLevelResult {
     pub tx_count: u32,
 }
 
-pub fn get_storage_parser(_contract_id: &str) -> Res<StorageParser> {
-    let id = crate::postgresql_generator::get_max_id(&mut postgresql_generator::connect()?)? as u32;
+pub fn get_storage_parser(
+    _contract_id: &str,
+    connection: &mut postgres::Client,
+) -> Res<StorageParser> {
+    let id = crate::postgresql_generator::get_max_id(connection)? as u32;
     Ok(StorageParser::new(id))
 }
 
@@ -43,10 +46,10 @@ pub fn load_and_store_level(
     level: u32,
     storage_declaration: &crate::michelson::Value,
     storage_parser: &mut crate::michelson::StorageParser,
+    connection: &mut postgres::Client,
 ) -> Res<SaveLevelResult> {
     let mut generator = PostgresqlGenerator::new();
-    let mut connection = postgresql_generator::connect()?;
-    let mut transaction = postgresql_generator::transaction(&mut connection)?;
+    let mut transaction = postgresql_generator::transaction(connection)?;
     let (_json, block) = StorageParser::level_json(level)?;
 
     if StorageParser::block_has_contract_origination(&block, contract_id)? {
