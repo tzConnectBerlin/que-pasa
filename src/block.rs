@@ -225,7 +225,8 @@ pub struct OperationResult {
     #[serde(rename = "paid_storage_size_diff")]
     pub paid_storage_size_diff: Option<String>,
     #[serde(rename = "lazy_storage_diff")]
-    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
+    pub lazy_storage_diff: Option<Vec<serde_json::Value>>,
+    //    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
     #[serde(rename = "originated_contracts")]
     #[serde(default)]
     pub originated_contracts: Vec<String>,
@@ -358,13 +359,13 @@ pub struct Result {
     #[serde(rename = "consumed_gas")]
     pub consumed_gas: Option<String>,
     #[serde(rename = "consumed_milligas")]
-    pub consumed_milligas: String,
+    pub consumed_milligas: Option<String>,
     #[serde(rename = "storage_size")]
     pub storage_size: Option<String>,
     #[serde(rename = "paid_storage_size_diff")]
     pub paid_storage_size_diff: Option<String>,
     #[serde(rename = "lazy_storage_diff")]
-    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
+    pub lazy_storage_diff: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
