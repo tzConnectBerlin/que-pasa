@@ -4,7 +4,7 @@
   "description": "node project to start postgraphile with plugin",
   "main": "index.js",
   "scripts": {
-    "start": "postgraphile -c 'postgres://quepasa:quepasa@localhost/tezos' -w -j -S -L --append-plugins @graphile-contrib/pg-simplify-inflector,postgraphile-plugin-connection-filter --disable-default-mutations --enhance-graphiql --extended-errors hint,detail,errcode --enable-query-batching --legacy-relations omit"
+    "start": "postgraphile -c 'postgres://newby:foobar@localhost:5432/pm_new' -w -j -S -L --append-plugins @graphile-contrib/pg-simplify-inflector,postgraphile-plugin-connection-filter --disable-default-mutations --enhance-graphiql --extended-errors hint,detail,errcode --enable-query-batching --legacy-relations omit --port 5001"
   },
   "author": "",
   "license": "ISC",
