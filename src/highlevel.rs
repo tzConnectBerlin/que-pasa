@@ -143,10 +143,12 @@ fn test_generate() {
     let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
     println!("{:#?}", ast);
     //let node = Node::build(Context::init(), ast);
+    use crate::node::Context;
     let context = Context::init();
     let mut big_map_tables_names = Vec::new();
     //initialize the big_map_tables_names with the starting table_name "storage"
     big_map_tables_names.push(context.table_name.clone());
+    use crate::node::Indexes;
     let node = Node::build(
         context.clone(),
         ast,
@@ -155,7 +157,7 @@ fn test_generate() {
     );
     println!("{:#?}", node);
     let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
-    let mut builder = table_builder::TableBuilder::new();
+    let mut builder = crate::table_builder::TableBuilder::new();
     builder.populate(&node).unwrap();
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
     sorted_tables.sort_by_key(|a| a.0);
@@ -179,33 +181,27 @@ fn test_generate() {
 }
 
 #[test]
-fn test_has_tx_for_us() {
-    let pass_json = json::parse(&load_test(
-        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132240.json",
-    ))
-    .unwrap();
-    assert_eq!(
-        true,
-        StorageParser::level_has_tx_for_us(&pass_json, "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq")
-            .unwrap()
-    );
-    let fail_json = json::parse(&load_test(
-        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-123327.json",
-    ))
-    .unwrap();
-    assert_eq!(
-        false,
-        StorageParser::level_has_tx_for_us(&fail_json, "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq")
-            .unwrap()
-    );
-}
-
-#[test]
 fn test_block() {
     // this tests the generated table structures against known good ones.
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this:
     // `cargo test -- --test test_block | bash`
+    use crate::node::Indexes;
+    use json::JsonValue;
+    fn get_node_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<Node> {
+        let storage_definition = json["code"][1]["args"][0].clone();
+        debug!("{}", storage_definition.to_string());
+        let ast = crate::storage::storage_from_json(storage_definition)?;
+        let mut big_map_tables_names = Vec::new();
+        let node = Node::build(
+            crate::node::Context::init(),
+            ast,
+            &mut big_map_tables_names,
+            indexes,
+        );
+        Ok(node)
+    }
+
     use ron::ser::{to_string_pretty, PrettyConfig};
 
     #[derive(Debug)]
