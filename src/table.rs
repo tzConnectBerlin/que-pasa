@@ -17,7 +17,7 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn new(name: String) -> Self {
+    pub(crate) fn new(name: String) -> Self {
         Self {
             name,
             indices: vec!["_level".to_string()],
@@ -25,7 +25,7 @@ impl Table {
         }
     }
 
-    pub fn add_index(&mut self, node: &Node) {
+    pub(crate) fn add_index(&mut self, node: &Node) {
         let node = node.clone();
         let name = node.name.unwrap();
         let e = node.expr;
@@ -38,7 +38,7 @@ impl Table {
         }
     }
 
-    pub fn add_column(&mut self, node: &Node) {
+    pub(crate) fn add_column(&mut self, node: &Node) {
         let node: Node = node.clone();
         let name = node.name.unwrap();
         for column in self.columns.iter() {

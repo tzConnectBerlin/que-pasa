@@ -1,29 +1,13 @@
 use crate::error::Res;
 use crate::michelson::StorageParser;
-use crate::node::{Context, Indexes, Node};
+use crate::node::Node;
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
-use crate::storage;
-use crate::table_builder;
-use json::JsonValue;
-use std::error::Error;
 
-pub fn get_node_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<Node> {
-    let storage_definition = json["code"][1]["args"][0].clone();
-    debug!("{}", storage_definition.to_string());
-    let ast = storage::storage_from_json(storage_definition)?;
-    let mut big_map_tables_names = Vec::new();
-    let node = Node::build(Context::init(), ast, &mut big_map_tables_names, indexes);
-    Ok(node)
-}
-
-pub fn get_tables_from_node(node: &Node) -> Result<table_builder::TableMap, Box<dyn Error>> {
-    let mut builder = table_builder::TableBuilder::new();
-    builder.populate(node)?;
-    Ok(builder.tables)
-}
-
-pub fn get_origination(_contract_id: &str, connection: &mut postgres::Client) -> Res<Option<u32>> {
+pub(crate) fn get_origination(
+    _contract_id: &str,
+    connection: &mut postgres::Client,
+) -> Res<Option<u32>> {
     postgresql_generator::get_origination(connection)
 }
 
@@ -32,7 +16,7 @@ pub struct SaveLevelResult {
     pub tx_count: u32,
 }
 
-pub fn get_storage_parser(
+pub(crate) fn get_storage_parser(
     _contract_id: &str,
     connection: &mut postgres::Client,
 ) -> Res<StorageParser> {
@@ -40,7 +24,7 @@ pub fn get_storage_parser(
     Ok(StorageParser::new(id))
 }
 
-pub fn load_and_store_level(
+pub(crate) fn load_and_store_level(
     node: &Node,
     contract_id: &str,
     level: u32,

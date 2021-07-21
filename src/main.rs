@@ -63,7 +63,7 @@ fn main() {
     env_logger::init();
     let matches = App::new("Tezos Contract Baby Indexer")
         .version("0.0")
-        .author("john newby <john.newby@tzconect.com>")
+        .author("john newby <john.newby@tzconnect.com>")
         .about("Indexes a single contract")
         .arg(
             Arg::with_name("contract_id")

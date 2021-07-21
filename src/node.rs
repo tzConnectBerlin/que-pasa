@@ -59,7 +59,7 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn init() -> Self {
+    pub(crate) fn init() -> Self {
         Context {
             table_name: "storage".to_string(),
             prefix: "".to_string(),
@@ -67,7 +67,7 @@ impl Context {
         }
     }
 
-    pub fn name(&self, ele: &Ele, indexes: &mut Indexes) -> String {
+    pub(crate) fn name(&self, ele: &Ele, indexes: &mut Indexes) -> String {
         let name = match &ele.name {
             Some(x) => x.to_string(),
             None => format!(
@@ -88,17 +88,17 @@ impl Context {
         }
     }
 
-    pub fn next(&self) -> Self {
+    pub(crate) fn next(&self) -> Self {
         self.clone()
     }
 
-    pub fn next_with_state(&self, new_state: Type) -> Self {
+    pub(crate) fn next_with_state(&self, new_state: Type) -> Self {
         let mut c = self.next();
         c._type = new_state;
         c
     }
 
-    pub fn next_with_prefix(&self, prefix: Option<String>) -> Self {
+    pub(crate) fn next_with_prefix(&self, prefix: Option<String>) -> Self {
         let mut c = self.next();
         if let Some(prefix) = prefix {
             c.prefix = prefix;
@@ -108,7 +108,7 @@ impl Context {
         c
     }
 
-    pub fn start_table(&self, name: String) -> Self {
+    pub(crate) fn start_table(&self, name: String) -> Self {
         let mut c = self.next_with_state(Type::Table);
         c.table_name = format!("{}.{}", self.table_name, name);
         c
@@ -143,7 +143,7 @@ impl fmt::Debug for Node {
 }
 
 impl Node {
-    pub fn new(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> Self {
+    pub(crate) fn new(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> Self {
         let name = ctx.name(ele, indexes);
         Self {
             name: Some(name.clone()),
@@ -157,7 +157,7 @@ impl Node {
         }
     }
 
-    pub fn build(
+    pub(crate) fn build(
         mut context: Context,
         ele: Ele,
         big_map_names: &mut Vec<String>,
@@ -228,7 +228,7 @@ impl Node {
         node
     }
 
-    pub fn build_enumeration_or(
+    pub(crate) fn build_enumeration_or(
         context: &mut Context,
         ele: &Ele,
         column_name: &str,
@@ -294,7 +294,7 @@ impl Node {
         }
     }
 
-    pub fn build_index(mut context: Context, ele: Ele, indexes: &mut Indexes) -> Node {
+    pub(crate) fn build_index(mut context: Context, ele: Ele, indexes: &mut Indexes) -> Node {
         let node: Node = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(_, _) | ComplexExpr::Map(_, _) => {
