@@ -11,8 +11,8 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn operations(&self) -> Vec<Operation> {
-        self.operations.clone().into_iter().flatten().collect()
+    pub fn operations(&self) -> Vec<Vec<Operation>> {
+        self.operations.clone()
     }
 }
 

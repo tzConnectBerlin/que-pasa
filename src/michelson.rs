@@ -27,6 +27,7 @@ macro_rules! serde2json {
 }
 
 pub struct TxContext {
+    pub level: u32,
     pub operation_group_number: u32,
     pub operation_number: u32,
     pub operation_hash: String,
@@ -229,26 +230,48 @@ impl StorageParser {
     }
 
     pub(crate) fn get_big_map_diffs_from_operation(
+        level: u32,
+        operation_group_number: u32,
+        operation_number: u32,
         operation: &block::Operation,
-    ) -> Res<Vec<block::BigMapDiff>> {
-        let mut result: Vec<block::BigMapDiff> = vec![];
+    ) -> Res<Vec<(TxContext, block::BigMapDiff)>> {
+        let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
         debug!("operation: {}", serde_json::to_string(&operation).unwrap());
         for content in &operation.contents {
             debug!("content: {:#?}", content);
             if let Some(operation_result) = &content.metadata.operation_result {
                 if let Some(big_map_diffs) = &operation_result.big_map_diff {
-                    debug!(
-                        "big_map_diffs: {} {:#?}",
-                        big_map_diffs.len(),
-                        big_map_diffs
-                    );
-                    result.extend(big_map_diffs.iter().cloned());
+                    result.extend(big_map_diffs.iter().map(|big_map_diff| {
+                        (
+                            TxContext {
+                                level,
+                                operation_number,
+                                operation_group_number,
+                                operation_hash: operation.hash.clone(),
+                                source: content.source.clone(),
+                                destination: content.destination.clone(),
+                            },
+                            big_map_diff.clone(),
+                        )
+                    }));
                 }
             }
             for internal_operation_result in &content.metadata.internal_operation_results {
                 if let Some(big_map_diffs) = &internal_operation_result.result.big_map_diff {
                     debug!("Internal big_map_diffs {:?}", big_map_diffs);
-                    result.extend(big_map_diffs.iter().cloned());
+                    result.extend(big_map_diffs.iter().map(|big_map_diff| {
+                        (
+                            TxContext {
+                                level,
+                                operation_group_number,
+                                operation_number,
+                                operation_hash: operation.hash.clone(),
+                                source: content.source.clone(),
+                                destination: content.destination.clone(),
+                            },
+                            big_map_diff.clone(),
+                        )
+                    }));
                 }
             }
         }

@@ -1,5 +1,6 @@
 use crate::error::Res;
 use crate::michelson::StorageParser;
+use crate::michelson::TxContext;
 use crate::node::Node;
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
@@ -61,27 +62,48 @@ pub(crate) fn load_and_store_level(
     let result = storage_parser.read_storage(storage_declaration, node)?;
     debug!("{:#?}", result);
 
-    let mut storages: Vec<serde_json::Value> = vec![];
-    let mut big_map_diffs: Vec<crate::block::BigMapDiff> = vec![];
+    let mut storages: Vec<(crate::michelson::TxContext, serde_json::Value)> = vec![];
+    let mut big_map_diffs: Vec<(crate::michelson::TxContext, crate::block::BigMapDiff)> = vec![];
     let operations = block.operations();
     debug!("operations: {} {:#?}", operations.len(), operations);
+    storage_parser.clear_inserts();
 
-    for operation in operations {
-        for content in &operation.contents {
-            if let Some(storage) = StorageParser::get_storage_from_content(content, contract_id)? {
-                storages.push(storage);
+    let mut operation_group_number = 0u32;
+    for operation_group in operations {
+        operation_group_number += 1;
+        let mut operation_number = 0u32;
+        for operation in operation_group {
+            operation_number += 1;
+            for content in &operation.contents {
+                if let Some(storage) =
+                    StorageParser::get_storage_from_content(content, contract_id)?
+                {
+                    storages.push((
+                        TxContext {
+                            level,
+                            operation_group_number,
+                            operation_number,
+                            operation_hash: operation.hash.clone(),
+                            source: content.source.clone(),
+                            destination: content.destination.clone(),
+                        },
+                        storage,
+                    ));
+                }
             }
+            big_map_diffs.extend(StorageParser::get_big_map_diffs_from_operation(
+                level,
+                operation_group_number,
+                operation_number,
+                &operation,
+            )?);
         }
-        for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
-            //println!("big_map_diff: {:#?}", big_map_diff);
-            big_map_diffs.push(big_map_diff);
-        }
-        //println!("Final big_map_diffs {:?}", big_map_diffs);
-        storage_parser.clear_inserts();
     }
 
     for storage in storages {
-        let storage_json = serde_json::to_string(&storage)?;
+        let tx_content = storage.0;
+        let store = storage.1;
+        let storage_json = serde_json::to_string(&store)?;
         let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
         let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
         debug!("parsed_storage: {:?}", parsed_storage);
@@ -89,8 +111,10 @@ pub(crate) fn load_and_store_level(
     }
 
     for big_map_diff in big_map_diffs {
-        debug!("big_map_diff: {}", serde_json::to_string(&big_map_diff)?);
-        storage_parser.process_big_map_diff(&big_map_diff)?;
+        let tx_content = big_map_diff.0;
+        let diff = big_map_diff.1;
+        debug!("big_map_diff: {}", serde_json::to_string(&diff)?);
+        storage_parser.process_big_map_diff(&diff)?;
     }
 
     let inserts = storage_parser.get_inserts();
@@ -207,7 +231,7 @@ fn test_block() {
     #[derive(Debug)]
     struct Contract<'a> {
         id: &'a str,
-        levels: Vec<i32>,
+        levels: Vec<u32>,
         operation_count: usize,
     }
 
@@ -253,29 +277,43 @@ fn test_block() {
 
             let mut storage_parser = StorageParser::new(1);
 
-            let operations: Vec<crate::block::Operation> = block.operations();
+            let operations: Vec<Vec<crate::block::Operation>> = block.operations();
 
-            for operation in operations {
-                for content in &operation.contents {
-                    if content.kind == "transaction" {
-                        println!();
-                        //println!("content={}", serde_json::to_string(&content).unwrap());
-                        if let Some(storage) =
-                            StorageParser::get_storage_from_content(&content, contract.id).unwrap()
-                        {
-                            println!("storage: {:?}", storage);
-                            let storage_json = serde_json::to_string(&storage).unwrap();
-                            let preparsed_storage = storage_parser
-                                .preparse_storage(&json::parse(&storage_json).unwrap());
-                            let parsed_storage =
-                                storage_parser.parse_storage(&preparsed_storage).unwrap();
-                            println!("parsed_storage: {:?}", parsed_storage);
-                            storage_parser.read_storage(&parsed_storage, &node).unwrap();
-
-                            for big_map_diff in
-                                StorageParser::get_big_map_diffs_from_operation(&operation).unwrap()
+            let mut operation_group_number = 0u32;
+            for operation_group in operations {
+                operation_group_number += 1;
+                let mut operation_number = 0u32;
+                for operation in operation_group {
+                    operation_number += 1;
+                    for content in &operation.contents {
+                        if content.kind == "transaction" {
+                            println!();
+                            //println!("content={}", serde_json::to_string(&content).unwrap());
+                            if let Some(storage) =
+                                StorageParser::get_storage_from_content(&content, contract.id)
+                                    .unwrap()
                             {
-                                storage_parser.process_big_map_diff(&big_map_diff).unwrap();
+                                println!("storage: {:?}", storage);
+                                let storage_json = serde_json::to_string(&storage).unwrap();
+                                let preparsed_storage = storage_parser
+                                    .preparse_storage(&json::parse(&storage_json).unwrap());
+                                let parsed_storage =
+                                    storage_parser.parse_storage(&preparsed_storage).unwrap();
+                                println!("parsed_storage: {:?}", parsed_storage);
+                                storage_parser.read_storage(&parsed_storage, &node).unwrap();
+
+                                for big_map_diff in StorageParser::get_big_map_diffs_from_operation(
+                                    *level,
+                                    operation_group_number,
+                                    operation_number,
+                                    &operation,
+                                )
+                                .unwrap()
+                                {
+                                    storage_parser
+                                        .process_big_map_diff(&big_map_diff.1)
+                                        .unwrap();
+                                }
                             }
                         }
                     }
