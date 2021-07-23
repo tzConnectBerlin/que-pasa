@@ -2,14 +2,16 @@ use crate::error::Res;
 use crate::michelson::Level;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
+use crate::tx_context::{TxContext, TxContextMap};
 use chrono::{DateTime, Utc};
 use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
 use postgres_native_tls::MakeTlsConnector;
 use std::error::Error;
 use std::fs;
-
 use std::vec::Vec;
+
+use crate::err;
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {}
@@ -165,6 +167,33 @@ pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<
         transaction,
         &format!("DELETE FROM levels where _level = {}", level._level),
     )
+}
+
+pub(crate) fn save_tx_contexts(
+    transaction: &mut Transaction,
+    tx_context_map: &TxContextMap,
+) -> Res<()> {
+    debug!("tx_context_map: {:#?}", tx_context_map);
+    let stmt = transaction.prepare("
+INSERT INTO
+tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination) VALUES
+($1, $2, $3, $4, $5, $6, $7)")?;
+    for (_, tx_context) in tx_context_map {
+        debug!("tx_context: {:#?}", tx_context);
+        transaction.execute(
+            &stmt,
+            &[
+                &(tx_context.id.ok_or(err!("Missing ID on TxContext"))? as i32),
+                &(tx_context.level as i32),
+                &(tx_context.operation_group_number as i32),
+                &(tx_context.operation_number as i32),
+                &tx_context.operation_hash,
+                &tx_context.source,
+                &tx_context.destination,
+            ],
+        )?;
+    }
+    Ok(())
 }
 
 impl PostgresqlGenerator {

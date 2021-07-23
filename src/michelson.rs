@@ -3,6 +3,7 @@ use crate::err;
 use crate::error::Res;
 use crate::node::Node;
 use crate::table::insert::*;
+use crate::tx_context::{TxContext, TxContextMap};
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
@@ -24,14 +25,6 @@ macro_rules! serde2json {
     ($serde:expr) => {
         json::parse(&serde_json::to_string(&$serde)?)?
     };
-}
-
-pub struct TxContext {
-    pub operation_group_number: u32,
-    pub operation_number: u32,
-    pub operation_hash: String,
-    pub source: Option<String>,
-    pub destination: Option<String>,
 }
 
 pub struct IdGenerator {
@@ -87,6 +80,7 @@ pub struct StorageParser {
     big_map_map: BigMapMap,
     pub id_generator: IdGenerator,
     inserts: crate::table::insert::Inserts,
+    pub tx_contexts: TxContextMap,
 }
 
 impl StorageParser {
@@ -95,6 +89,7 @@ impl StorageParser {
             big_map_map: BigMapMap::new(),
             id_generator: IdGenerator::new(initial_id),
             inserts: crate::table::insert::Inserts::new(),
+            tx_contexts: TxContextMap::new(),
         }
     }
 
@@ -115,6 +110,17 @@ impl StorageParser {
         }
         let json = json::parse(std::str::from_utf8(&response)?)?;
         Ok(json)
+    }
+
+    fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {
+        if let Some(result) = self.tx_contexts.get(&tx_context) {
+            result.clone()
+        } else {
+            tx_context.id = Some(self.id_generator.get_id());
+            self.tx_contexts
+                .insert(tx_context.clone(), tx_context.clone());
+            tx_context
+        }
     }
 
     pub(crate) fn get_storage_declaration(&self, contract_id: &str) -> Res<Value> {
@@ -260,25 +266,23 @@ impl StorageParser {
         Ok(result)
     }
 
-    pub(crate) fn get_storage_from_content(
-        content: &crate::block::Content,
+    pub(crate) fn get_storage_from_operation(
+        operation: &crate::block::Operation,
         contract_id: &str,
-    ) -> Res<Option<::serde_json::Value>> {
-        if let Some(destination) = &content.destination {
-            if destination != contract_id {
-                return Ok(None);
+    ) -> Res<Vec<::serde_json::Value>> {
+        let mut result: Vec<serde_json::Value> = vec![];
+        for content in &operation.contents {
+            if let Some(destination) = &content.destination {
+                if destination == contract_id {
+                    if let Some(operation_result) = &content.metadata.operation_result {
+                        if let Some(storage) = &operation_result.storage {
+                            result.push(storage.clone());
+                        }
+                    }
+                }
             }
-        } else {
-            return Ok(None);
         }
-
-        match &content.metadata.operation_result {
-            Some(x) => match &x.storage {
-                Some(x) => Ok(Some(x.clone())),
-                None => Ok(None),
-            },
-            None => Ok(None),
-        }
+        Ok(result)
     }
 
     fn bigint(source: &str) -> Result<BigInt, Box<dyn Error>> {

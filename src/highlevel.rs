@@ -106,38 +106,24 @@ fn inserts_from_block(
     let result = storage_parser.read_storage(storage_declaration, node)?;
     debug!("{:#?}", result);
 
-    let mut storages: Vec<serde_json::Value> = vec![];
-    let mut big_map_diffs: Vec<crate::block::BigMapDiff> = vec![];
     let operations = block.operations();
     debug!("operations: {} {:#?}", operations.len(), operations);
 
+    storage_parser.clear_inserts();
     for operation in operations {
-        for content in &operation.contents {
-            if let Some(storage) = StorageParser::get_storage_from_content(content, contract_id)? {
-                storages.push(storage);
-            }
+        for storage in StorageParser::get_storage_from_operation(&operation, contract_id)? {
+            let storage_json = serde_json::to_string(&storage)?;
+            let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
+            let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
+            debug!("parsed_storage: {:?}", parsed_storage);
+            storage_parser.read_storage(&parsed_storage, node)?;
         }
+
         for big_map_diff in StorageParser::get_big_map_diffs_from_operation(&operation)? {
-            //println!("big_map_diff: {:#?}", big_map_diff);
-            big_map_diffs.push(big_map_diff);
+            debug!("big_map_diff: {}", serde_json::to_string(&big_map_diff)?);
+            storage_parser.process_big_map_diff(&big_map_diff)?;
         }
-        //println!("Final big_map_diffs {:?}", big_map_diffs);
-        storage_parser.clear_inserts();
     }
-
-    for storage in storages {
-        let storage_json = serde_json::to_string(&storage)?;
-        let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
-        let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
-        debug!("parsed_storage: {:?}", parsed_storage);
-        storage_parser.read_storage(&parsed_storage, node)?;
-    }
-
-    for big_map_diff in big_map_diffs {
-        debug!("big_map_diff: {}", serde_json::to_string(&big_map_diff)?);
-        storage_parser.process_big_map_diff(&big_map_diff)?;
-    }
-
     let inserts = storage_parser.get_inserts();
     Ok(inserts)
 }
@@ -235,10 +221,10 @@ fn test_block() {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
                 132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222,
-                132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
-                132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
+                132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132367,
+                132383, 132384, 132388, 132390, 135501, 138208, 149127,
             ],
-            operation_count: 28,
+            operation_count: 27,
         },
         Contract {
             id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
@@ -263,6 +249,10 @@ fn test_block() {
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let node = get_node_from_script_json(&script_json, &mut Indexes::new()).unwrap();
         let mut inserts_tested = 0;
+        let mut storage_parser2 = StorageParser::new(1);
+        let storage_declaration = storage_parser2
+            .get_storage_declaration_from_json(script_json["storage"].clone())
+            .unwrap();
         for level in &contract.levels {
             let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
                 "test/{}.level-{}.json",
@@ -270,45 +260,12 @@ fn test_block() {
             )))
             .unwrap();
 
-            let mut storage_parser = StorageParser::new(1);
-            let mut storage_parser2 = StorageParser::new(1);
-
-            let operations: Vec<crate::block::Operation> = block.operations();
-
-            for operation in operations {
-                for content in &operation.contents {
-                    if content.kind == "transaction" {
-                        //println!("content={}", serde_json::to_string(&content).unwrap());
-                        if let Some(storage) =
-                            StorageParser::get_storage_from_content(&content, contract.id).unwrap()
-                        {
-                            let storage_json = serde_json::to_string(&storage).unwrap();
-                            let preparsed_storage = storage_parser
-                                .preparse_storage(&json::parse(&storage_json).unwrap());
-                            let parsed_storage =
-                                storage_parser.parse_storage(&preparsed_storage).unwrap();
-                            storage_parser.read_storage(&parsed_storage, &node).unwrap();
-
-                            for big_map_diff in
-                                StorageParser::get_big_map_diffs_from_operation(&operation).unwrap()
-                            {
-                                storage_parser.process_big_map_diff(&big_map_diff).unwrap();
-                            }
-                        }
-                    }
-                }
-            }
-
-            let inserts = storage_parser.get_inserts();
-
             let inserts2 = inserts_from_block(
                 &node,
                 contract.id,
                 &block,
-                &storage_parser
-                    .get_storage_declaration_from_json(script_json["storage"].clone())
-                    .unwrap(),
-                &mut storage_parser,
+                &storage_declaration,
+                &mut storage_parser2,
             )
             .unwrap();
 

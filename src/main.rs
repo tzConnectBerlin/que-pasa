@@ -40,6 +40,7 @@ pub mod postgresql_generator;
 pub mod storage;
 pub mod table;
 pub mod table_builder;
+pub mod tx_context;
 
 use michelson::StorageParser;
 
