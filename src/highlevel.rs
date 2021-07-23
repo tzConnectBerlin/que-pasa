@@ -3,6 +3,7 @@ use crate::michelson::StorageParser;
 use crate::node::Node;
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
+use crate::table::insert::Inserts;
 
 pub(crate) fn get_origination(
     _contract_id: &str,
@@ -58,6 +59,50 @@ pub(crate) fn load_and_store_level(
         });
     }
 
+    let inserts = inserts_from_block(
+        node,
+        contract_id,
+        &block,
+        storage_declaration,
+        storage_parser,
+    )?;
+
+    let mut keys = inserts
+        .keys()
+        .collect::<Vec<&crate::table::insert::InsertKey>>();
+    keys.sort_by_key(|a| a.id);
+    debug!("keys: {:?}", keys);
+    postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
+    postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
+    for key in keys.iter() {
+        postgresql_generator::exec(
+            &mut transaction,
+            &generator.build_insert(
+                inserts
+                    .get(key)
+                    .ok_or_else(|| crate::error::Error::boxed("No insert for key"))?,
+                level,
+            ),
+        )?;
+    }
+    postgresql_generator::set_max_id(
+        &mut transaction,
+        storage_parser.id_generator.get_id() as i32,
+    )?;
+    transaction.commit()?;
+    Ok(SaveLevelResult {
+        is_origination: false,
+        tx_count: keys.len() as u32,
+    })
+}
+
+fn inserts_from_block(
+    node: &Node,
+    contract_id: &str,
+    block: &crate::block::Block,
+    storage_declaration: &crate::michelson::Value,
+    storage_parser: &mut StorageParser,
+) -> Res<Inserts> {
     let result = storage_parser.read_storage(storage_declaration, node)?;
     debug!("{:#?}", result);
 
@@ -94,33 +139,7 @@ pub(crate) fn load_and_store_level(
     }
 
     let inserts = storage_parser.get_inserts();
-    let mut keys = inserts
-        .keys()
-        .collect::<Vec<&crate::table::insert::InsertKey>>();
-    keys.sort_by_key(|a| a.id);
-    debug!("keys: {:?}", keys);
-    postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
-    postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
-    for key in keys.iter() {
-        postgresql_generator::exec(
-            &mut transaction,
-            &generator.build_insert(
-                inserts
-                    .get(key)
-                    .ok_or_else(|| crate::error::Error::boxed("No insert for key"))?,
-                level,
-            ),
-        )?;
-    }
-    postgresql_generator::set_max_id(
-        &mut transaction,
-        storage_parser.id_generator.get_id() as i32,
-    )?;
-    transaction.commit()?;
-    Ok(SaveLevelResult {
-        is_origination: false,
-        tx_count: keys.len() as u32,
-    })
+    Ok(inserts)
 }
 
 /// Load from the ../test directory, only for testing
@@ -219,7 +238,7 @@ fn test_block() {
                 132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
                 132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
             ],
-            operation_count: 16,
+            operation_count: 28,
         },
         Contract {
             id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
@@ -236,7 +255,7 @@ fn test_block() {
                 147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813, 147814, 147815,
                 147816,
             ],
-            operation_count: 10,
+            operation_count: 11,
         },
     ];
 
@@ -252,24 +271,22 @@ fn test_block() {
             .unwrap();
 
             let mut storage_parser = StorageParser::new(1);
+            let mut storage_parser2 = StorageParser::new(1);
 
             let operations: Vec<crate::block::Operation> = block.operations();
 
             for operation in operations {
                 for content in &operation.contents {
                     if content.kind == "transaction" {
-                        println!();
                         //println!("content={}", serde_json::to_string(&content).unwrap());
                         if let Some(storage) =
                             StorageParser::get_storage_from_content(&content, contract.id).unwrap()
                         {
-                            println!("storage: {:?}", storage);
                             let storage_json = serde_json::to_string(&storage).unwrap();
                             let preparsed_storage = storage_parser
                                 .preparse_storage(&json::parse(&storage_json).unwrap());
                             let parsed_storage =
                                 storage_parser.parse_storage(&preparsed_storage).unwrap();
-                            println!("parsed_storage: {:?}", parsed_storage);
                             storage_parser.read_storage(&parsed_storage, &node).unwrap();
 
                             for big_map_diff in
@@ -283,13 +300,25 @@ fn test_block() {
             }
 
             let inserts = storage_parser.get_inserts();
+
+            let inserts2 = inserts_from_block(
+                &node,
+                contract.id,
+                &block,
+                &storage_parser
+                    .get_storage_declaration_from_json(script_json["storage"].clone())
+                    .unwrap(),
+                &mut storage_parser,
+            )
+            .unwrap();
+
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             //println!("{} {}", filename, i);
 
             println!("cat > {} <<ENDOFJSON", filename);
             println!(
                 "{}",
-                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+                to_string_pretty(&inserts2, PrettyConfig::new()).unwrap()
             );
             println!(
                 "ENDOFJSON
@@ -312,12 +341,18 @@ fn test_block() {
                 //                         v, inserts
                 //                     );
                 //                assert_eq!(v.keys().len(), inserts.keys().len());
-                for key in inserts.keys() {
+                // for key in inserts.keys() {
+                //     let file_version = v.get(key);
+                //     println!("file_version: {:?}", file_version);
+                //     let gen_version = inserts.get(key);
+                //     println!("gen_version: {:?}", gen_version);
+                //     assert_eq!(file_version.unwrap(), gen_version.unwrap());
+                // }
+                for key in inserts2.keys() {
                     let file_version = v.get(key);
-                    println!("file_version: {:?}", file_version);
-                    let gen_version = inserts.get(key);
-                    println!("gen_version: {:?}", gen_version);
-                    assert_eq!(file_version.unwrap(), gen_version.unwrap());
+                    let gen_version = inserts2.get(key);
+                    let fv = file_version.unwrap();
+                    assert_eq!(fv, gen_version.unwrap());
                 }
                 inserts_tested += 1;
             }

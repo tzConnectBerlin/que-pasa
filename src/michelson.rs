@@ -119,6 +119,11 @@ impl StorageParser {
 
     pub(crate) fn get_storage_declaration(&self, contract_id: &str) -> Res<Value> {
         let json = self.get_storage(&contract_id.to_string())?;
+
+        self.get_storage_declaration_from_json(json)
+    }
+
+    pub(crate) fn get_storage_declaration_from_json(&self, json: JsonValue) -> Res<Value> {
         let preparsed = self.preparse_storage(&json);
         let storage_declaration = self.parse_storage(&preparsed)?;
         debug!("storage_declaration: {:#?}", storage_declaration);
