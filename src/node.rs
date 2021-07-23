@@ -183,12 +183,6 @@ impl Node {
                         big_map_names,
                         indexes,
                     )));
-                    let table_name = n.table_name.clone();
-                    //if big_map push it in array
-                    //Write better??
-                    if let ComplexExpr::BigMap(_, _) = e {
-                        big_map_names.push(table_name.unwrap());
-                    }
                     n
                 }
                 ComplexExpr::Pair(left, right) => {

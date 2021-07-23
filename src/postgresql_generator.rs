@@ -9,6 +9,7 @@ use postgres_native_tls::MakeTlsConnector;
 use std::error::Error;
 use std::fs;
 
+use crate::err;
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
@@ -165,6 +166,33 @@ pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<
         transaction,
         &format!("DELETE FROM levels where _level = {}", level._level),
     )
+}
+
+pub(crate) fn save_tx_contexts(
+    transaction: &mut Transaction,
+    tx_context_map: &crate::michelson::TxContextMap,
+) -> Res<()> {
+    debug!("tx_context_map: {:#?}", tx_context_map);
+    let stmt = transaction.prepare("
+INSERT INTO
+tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination) VALUES
+($1, $2, $3, $4, $5, $6, $7)")?;
+    for (_, tx_context) in tx_context_map {
+        debug!("tx_context: {:#?}", tx_context);
+        transaction.execute(
+            &stmt,
+            &[
+                &(tx_context.id.ok_or(err!("Missing ID on TxContext"))? as i32),
+                &(tx_context.level as i32),
+                &(tx_context.operation_group_number as i32),
+                &(tx_context.operation_number as i32),
+                &tx_context.operation_hash,
+                &tx_context.source,
+                &tx_context.destination,
+            ],
+        )?;
+    }
+    Ok(())
 }
 
 impl PostgresqlGenerator {
@@ -326,13 +354,13 @@ impl PostgresqlGenerator {
         Ok(v.join("\n"))
     }
 
-    pub(crate) fn create_view_definition(&mut self, table: &Table) -> String {
+    pub(crate) fn create_view_definition(&mut self, table: &Table) -> Res<String> {
         if table.name == "storage" {
-            return "".to_string();
+            return Ok("".to_string());
         }
         let mut indices = self.indices(table);
-        indices.remove(indices.iter().position(|x| *x == "_level").unwrap());
-        format!(
+        indices.remove(indices.iter().position(|x| *x == "tx_context_id").unwrap());
+        Ok(format!(
             r#"
 CREATE VIEW "{}_live" AS (
         SELECT t1.* FROM "{}" t1
@@ -350,7 +378,7 @@ CREATE VIEW "{}_live" AS (
             //     .iter()
             //     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
             //    .collect::<String>()
-        )
+        ))
     }
 
     fn escape(s: &str) -> String {
@@ -415,12 +443,12 @@ CREATE VIEW "{}_live" AS (
         if let Some(fk_id) = insert.fk_id {
             columns.push_str(&format!(
                 r#", "{}_id""#,
-                Self::parent_name(&insert.table_name).unwrap()
+                Self::parent_name(&insert.table_name).unwrap_or("NULL".to_string()),
             ));
             values.push_str(&format!(", {}", fk_id));
         }
-        columns.push_str(", _level");
-        values.push_str(&format!(", {}", level));
+        // columns.push_str(", _level");
+        // values.push_str(&format!(", {}", level));
         let sql = format!(
             r#"INSERT INTO "{}"
 (id, {})

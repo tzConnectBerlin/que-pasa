@@ -1,6 +1,5 @@
 use crate::error::Res;
 use crate::michelson::StorageParser;
-use crate::michelson::TxContext;
 use crate::node::Node;
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
@@ -59,9 +58,6 @@ pub(crate) fn load_and_store_level(
         });
     }
 
-    let result = storage_parser.read_storage(storage_declaration, node)?;
-    debug!("{:#?}", result);
-
     let mut storages: Vec<(crate::michelson::TxContext, serde_json::Value)> = vec![];
     let mut big_map_diffs: Vec<(crate::michelson::TxContext, crate::block::BigMapDiff)> = vec![];
     let operations = block.operations();
@@ -74,24 +70,14 @@ pub(crate) fn load_and_store_level(
         let mut operation_number = 0u32;
         for operation in operation_group {
             operation_number += 1;
-            for content in &operation.contents {
-                if let Some(storage) =
-                    StorageParser::get_storage_from_content(content, contract_id)?
-                {
-                    storages.push((
-                        TxContext {
-                            level,
-                            operation_group_number,
-                            operation_number,
-                            operation_hash: operation.hash.clone(),
-                            source: content.source.clone(),
-                            destination: content.destination.clone(),
-                        },
-                        storage,
-                    ));
-                }
-            }
-            big_map_diffs.extend(StorageParser::get_big_map_diffs_from_operation(
+            storages.extend(storage_parser.get_storage_from_operation(
+                level,
+                operation_group_number,
+                operation_number,
+                &operation,
+                contract_id,
+            )?);
+            big_map_diffs.extend(storage_parser.get_big_map_diffs_from_operation(
                 level,
                 operation_group_number,
                 operation_number,
@@ -101,21 +87,30 @@ pub(crate) fn load_and_store_level(
     }
 
     for storage in storages {
-        let tx_content = storage.0;
+        debug!(
+            "storage is
+
+{:?}",
+            storage
+        );
+        let tx_context = storage.0;
         let store = storage.1;
         let storage_json = serde_json::to_string(&store)?;
+        debug!("storage_json: {}", storage_json);
         let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
         let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
         debug!("parsed_storage: {:?}", parsed_storage);
-        storage_parser.read_storage(&parsed_storage, node)?;
+        storage_parser.read_storage(&parsed_storage, node, &tx_context)?;
     }
 
     for big_map_diff in big_map_diffs {
         let tx_content = big_map_diff.0;
         let diff = big_map_diff.1;
         debug!("big_map_diff: {}", serde_json::to_string(&diff)?);
-        storage_parser.process_big_map_diff(&diff)?;
+        storage_parser.process_big_map_diff(&diff, &tx_content)?;
     }
+
+    postgresql_generator::save_tx_contexts(&mut transaction, &storage_parser.tx_contexts)?;
 
     let inserts = storage_parser.get_inserts();
     let mut keys = inserts
@@ -311,7 +306,7 @@ fn test_block() {
                                 .unwrap()
                                 {
                                     storage_parser
-                                        .process_big_map_diff(&big_map_diff.1)
+                                        .process_big_map_diff(&big_map_diff.1, &big_map_diff.0)
                                         .unwrap();
                                 }
                             }

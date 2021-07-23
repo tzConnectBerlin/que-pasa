@@ -20,7 +20,7 @@ impl Table {
     pub(crate) fn new(name: String) -> Self {
         Self {
             name,
-            indices: vec!["_level".to_string()],
+            indices: vec!["tx_context_id".to_string()],
             columns: vec![],
         }
     }

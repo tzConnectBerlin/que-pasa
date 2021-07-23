@@ -14,3 +14,12 @@ CREATE TABLE max_id (
 );
 
 INSERT INTO max_id (max_id) VALUES (1);
+
+CREATE TABLE tx_contexts(
+       id INTEGER NOT NULL PRIMARY KEY,
+       level INTEGER,
+       operation_group_number INTEGER,
+       operation_number INTEGER,
+       operation_hash VARCHAR(100),
+       source VARCHAR(100),
+       destination VARCHAR(100));

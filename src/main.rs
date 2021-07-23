@@ -141,7 +141,7 @@ fn main() {
         for (_name, table) in sorted_tables {
             print!("{}", generator.create_table_definition(table).unwrap());
             println!();
-            print!("{}", generator.create_view_definition(table));
+            print!("{}", generator.create_view_definition(table).unwrap());
             println!();
         }
         println!("{}", generator.create_view_store_all(big_map_table_names));

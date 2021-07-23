@@ -7,7 +7,9 @@ use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
+use std::collections::HashMap;
 use std::error::Error;
+use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
 
@@ -26,7 +28,9 @@ macro_rules! serde2json {
     };
 }
 
+#[derive(Clone, Debug)]
 pub struct TxContext {
+    pub id: Option<u32>,
     pub level: u32,
     pub operation_group_number: u32,
     pub operation_number: u32,
@@ -34,6 +38,32 @@ pub struct TxContext {
     pub source: Option<String>,
     pub destination: Option<String>,
 }
+
+impl Hash for TxContext {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.level.hash(state);
+        self.operation_group_number.hash(state);
+        self.operation_number.hash(state);
+        self.operation_hash.hash(state);
+        self.source.hash(state);
+        self.destination.hash(state);
+    }
+}
+
+impl PartialEq for TxContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.level == other.level
+            && self.operation_group_number == other.operation_group_number
+            && self.operation_number == other.operation_number
+            && self.operation_hash == other.operation_hash
+            && self.source == other.source
+            && self.destination == other.destination
+    }
+}
+
+impl Eq for TxContext {}
+
+pub type TxContextMap = HashMap<TxContext, TxContext>;
 
 pub struct IdGenerator {
     id: AtomicU32,
@@ -88,6 +118,7 @@ pub struct StorageParser {
     big_map_map: BigMapMap,
     pub id_generator: IdGenerator,
     inserts: crate::table::insert::Inserts,
+    pub tx_contexts: TxContextMap,
 }
 
 impl StorageParser {
@@ -96,6 +127,7 @@ impl StorageParser {
             big_map_map: BigMapMap::new(),
             id_generator: IdGenerator::new(initial_id),
             inserts: crate::table::insert::Inserts::new(),
+            tx_contexts: HashMap::new(),
         }
     }
 
@@ -116,6 +148,17 @@ impl StorageParser {
         }
         let json = json::parse(std::str::from_utf8(&response)?)?;
         Ok(json)
+    }
+
+    fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {
+        if let Some(result) = self.tx_contexts.get(&tx_context) {
+            result.clone()
+        } else {
+            tx_context.id = Some(self.id_generator.get_id());
+            self.tx_contexts
+                .insert(tx_context.clone(), tx_context.clone());
+            tx_context
+        }
     }
 
     pub(crate) fn get_storage_declaration(&self, contract_id: &str) -> Res<Value> {
@@ -230,6 +273,7 @@ impl StorageParser {
     }
 
     pub(crate) fn get_big_map_diffs_from_operation(
+        &mut self,
         level: u32,
         operation_group_number: u32,
         operation_number: u32,
@@ -243,14 +287,15 @@ impl StorageParser {
                 if let Some(big_map_diffs) = &operation_result.big_map_diff {
                     result.extend(big_map_diffs.iter().map(|big_map_diff| {
                         (
-                            TxContext {
+                            self.tx_context(TxContext {
+                                id: None,
                                 level,
                                 operation_number,
                                 operation_group_number,
                                 operation_hash: operation.hash.clone(),
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
-                            },
+                            }),
                             big_map_diff.clone(),
                         )
                     }));
@@ -261,14 +306,15 @@ impl StorageParser {
                     debug!("Internal big_map_diffs {:?}", big_map_diffs);
                     result.extend(big_map_diffs.iter().map(|big_map_diff| {
                         (
-                            TxContext {
+                            self.tx_context(TxContext {
+                                id: None,
                                 level,
                                 operation_group_number,
                                 operation_number,
                                 operation_hash: operation.hash.clone(),
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
-                            },
+                            }),
                             big_map_diff.clone(),
                         )
                     }));
@@ -278,25 +324,58 @@ impl StorageParser {
         Ok(result)
     }
 
-    pub(crate) fn get_storage_from_content(
-        content: &crate::block::Content,
+    pub(crate) fn get_storage_from_operation(
+        &mut self,
+        level: u32,
+        operation_group_number: u32,
+        operation_number: u32,
+        operation: &crate::block::Operation,
         contract_id: &str,
-    ) -> Res<Option<::serde_json::Value>> {
-        if let Some(destination) = &content.destination {
-            if destination != contract_id {
-                return Ok(None);
-            }
-        } else {
-            return Ok(None);
-        }
+    ) -> Res<Vec<(TxContext, ::serde_json::Value)>> {
+        let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
 
-        match &content.metadata.operation_result {
-            Some(x) => match &x.storage {
-                Some(x) => Ok(Some(x.clone())),
-                None => Ok(None),
-            },
-            None => Ok(None),
+        for content in &operation.contents {
+            if let Some(destination) = &content.destination {
+                if destination == contract_id {
+                    if let Some(operation_result) = &content.metadata.operation_result {
+                        let storage = operation_result
+                            .storage
+                            .clone()
+                            .ok_or(err!("No storage found!"))?;
+                        results.push((
+                            self.tx_context(TxContext {
+                                id: None,
+                                level,
+                                operation_group_number,
+                                operation_number,
+                                operation_hash: operation.hash.clone(),
+                                source: content.source.clone(),
+                                destination: content.destination.clone(),
+                            }),
+                            storage,
+                        ));
+                    }
+
+                    if let Some(operation_result) = &content.metadata.operation_result {
+                        if let Some(storage) = &operation_result.storage {
+                            results.push((
+                                self.tx_context(TxContext {
+                                    id: None,
+                                    level,
+                                    operation_group_number,
+                                    operation_number,
+                                    operation_hash: operation.hash.clone(),
+                                    source: content.source.clone(),
+                                    destination: content.destination.clone(),
+                                }),
+                                storage.clone(),
+                            ));
+                        }
+                    }
+                }
+            }
         }
+        Ok(results)
     }
 
     fn bigint(source: &str) -> Result<BigInt, Box<dyn Error>> {
@@ -498,7 +577,12 @@ impl StorageParser {
         }
     }
 
-    pub(crate) fn process_big_map_diff(&mut self, diff: &block::BigMapDiff) -> Res<()> {
+    pub(crate) fn process_big_map_diff(
+        &mut self,
+        diff: &block::BigMapDiff,
+        tx_context: &TxContext,
+    ) -> Res<()> {
+        debug!("big_map_diff: {:?}", diff);
         match diff.action.as_str() {
             "update" => {
                 let big_map_id: u32 = match &diff.big_map {
@@ -522,6 +606,7 @@ impl StorageParser {
                     id,
                     None,
                     node.table_name.clone(),
+                    tx_context,
                 );
                 match &diff.value {
                     None => {
@@ -541,6 +626,7 @@ impl StorageParser {
                             id,
                             None,
                             node.table_name,
+                            tx_context,
                         );
                         Ok(())
                     }
@@ -566,6 +652,7 @@ impl StorageParser {
         &mut self,
         value: &Value,
         node: &Node,
+        tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
         self.add_column(
@@ -575,7 +662,7 @@ impl StorageParser {
             "deleted".to_string(),
             Value::Bool(false),
         );
-        self.read_storage_internal(value, node, id, None, Some("storage".to_string()));
+        self.read_storage_internal(value, node, id, None, None, tx_context);
         Ok(())
     }
 
@@ -586,6 +673,7 @@ impl StorageParser {
         mut id: u32,
         mut fk_id: Option<u32>,
         mut last_table: Option<String>,
+        tx_context: &TxContext,
     ) {
         match node.expr {
             // we don't even try to store lambdas.
@@ -622,14 +710,22 @@ node: {:?}",
 
         if last_table != node.table_name {
             debug!("{:?} <> {:?} new table", last_table, node.table_name);
-
             last_table = node.table_name.clone();
-            fk_id = Some(id);
-            id = self.id_generator.get_id();
-            debug!(
-                "Creating table from node {:?} with id {} and fk_id {:?}",
-                node, id, fk_id
+            self.add_column(
+                node.table_name.as_ref().unwrap().to_string(),
+                id,
+                fk_id,
+                "tx_context_id".to_string(),
+                Value::Int(tx_context.id.unwrap().into()),
             );
+            if (node.table_name != Some("storage".to_string())) {
+                fk_id = Some(id);
+                id = self.id_generator.get_id();
+                debug!(
+                    "Creating table from node {:?} with id {} and fk_id {:?}",
+                    node, id, fk_id
+                );
+            }
         }
 
         match value {
@@ -637,8 +733,8 @@ node: {:?}",
                 // entry in a map or a big map.
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
-                self.read_storage_internal(keys, l, id, fk_id, last_table.clone());
-                self.read_storage_internal(values, r, id, fk_id, last_table);
+                self.read_storage_internal(keys, l, id, fk_id, last_table.clone(), tx_context);
+                self.read_storage_internal(values, r, id, fk_id, last_table, tx_context);
             }
             Value::Left(left) => {
                 self.read_storage_internal(
@@ -647,6 +743,7 @@ node: {:?}",
                     id,
                     fk_id,
                     last_table,
+                    tx_context,
                 );
             }
             Value::Right(right) => {
@@ -656,13 +753,21 @@ node: {:?}",
                     id,
                     fk_id,
                     last_table,
+                    tx_context,
                 );
             }
             Value::List(l) => {
                 for element in l {
                     debug!("Elt: {:?}", element);
                     let id = self.id_generator.get_id();
-                    self.read_storage_internal(element, node, id, fk_id, last_table.clone());
+                    self.read_storage_internal(
+                        element,
+                        node,
+                        id,
+                        fk_id,
+                        last_table.clone(),
+                        tx_context,
+                    );
                 }
             }
             Value::Pair(left, right) => {
@@ -673,8 +778,8 @@ value: {:?}",
                 );
                 let l = node.left.as_ref().unwrap();
                 let r = node.right.as_ref().unwrap();
-                self.read_storage_internal(right, r, id, fk_id, last_table.clone());
-                self.read_storage_internal(left, l, id, fk_id, last_table);
+                self.read_storage_internal(right, r, id, fk_id, last_table.clone(), tx_context);
+                self.read_storage_internal(left, l, id, fk_id, last_table, tx_context);
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, node is {:#?}", value, node);
@@ -703,7 +808,7 @@ value: {:?}",
                 match &node.expr {
                     crate::storage::Expr::ComplexExpr(ce) => {
                         if let crate::storage::ComplexExpr::BigMap(_, _) = ce {
-                            debug!("{:?}", value);
+                            debug!("value: {:?}", value);
                             if let Value::Int(i) = value {
                                 debug!("{}", i);
                                 debug!("Saving bigmap {:} with parent {}", i, id);
