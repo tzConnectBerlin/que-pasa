@@ -1,10 +1,10 @@
 {
     (
         table_name: "storage",
-        id: 24,
+        id: 1,
     ): (
         table_name: "storage",
-        id: 24,
+        id: 1,
         fk_id: None,
         columns: [
             (
@@ -29,10 +29,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 32,
+        id: 9,
     ): (
         table_name: "storage.token_total_supply",
-        id: 32,
+        id: 9,
         fk_id: None,
         columns: [
             (
@@ -53,10 +53,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 31,
+        id: 8,
     ): (
         table_name: "storage.token_total_supply",
-        id: 31,
+        id: 8,
         fk_id: None,
         columns: [
             (
@@ -77,10 +77,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 30,
+        id: 7,
     ): (
         table_name: "storage.token_total_supply",
-        id: 30,
+        id: 7,
         fk_id: None,
         columns: [
             (
@@ -100,10 +100,10 @@
     ),
     (
         table_name: "storage.questions",
-        id: 39,
+        id: 16,
     ): (
         table_name: "storage.questions",
-        id: 39,
+        id: 16,
         fk_id: None,
         columns: [
             (
@@ -178,11 +178,11 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 40,
+        id: 17,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 40,
-        fk_id: Some(39),
+        id: 17,
+        fk_id: Some(16),
         columns: [
             (
                 name: "idx_address_11",
@@ -216,10 +216,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 37,
+        id: 14,
     ): (
         table_name: "storage.ledger",
-        id: 37,
+        id: 14,
         fk_id: None,
         columns: [
             (
@@ -244,10 +244,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 35,
+        id: 12,
     ): (
         table_name: "storage.ledger",
-        id: 35,
+        id: 12,
         fk_id: None,
         columns: [
             (
@@ -272,10 +272,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 33,
+        id: 10,
     ): (
         table_name: "storage.ledger",
-        id: 33,
+        id: 10,
         fk_id: None,
         columns: [
             (

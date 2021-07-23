@@ -1,10 +1,10 @@
 {
     (
         table_name: "storage",
-        id: 15,
+        id: 1,
     ): (
         table_name: "storage",
-        id: 15,
+        id: 1,
         fk_id: None,
         columns: [
             (
@@ -29,10 +29,10 @@
     ),
     (
         table_name: "storage.questions",
-        id: 21,
+        id: 7,
     ): (
         table_name: "storage.questions",
-        id: 21,
+        id: 7,
         fk_id: None,
         columns: [
             (
@@ -109,11 +109,11 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 22,
+        id: 8,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 22,
-        fk_id: Some(21),
+        id: 8,
+        fk_id: Some(7),
         columns: [
             (
                 name: "idx_address_11",
