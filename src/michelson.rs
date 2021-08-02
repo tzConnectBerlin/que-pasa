@@ -161,14 +161,6 @@ impl StorageParser {
         }
     }
 
-    pub(crate) fn get_storage_declaration(&self, contract_id: &str) -> Res<Value> {
-        let json = self.get_storage(&contract_id.to_string())?;
-        let preparsed = self.preparse_storage(&json);
-        let storage_declaration = self.parse_storage(&preparsed)?;
-        debug!("storage_declaration: {:#?}", storage_declaration);
-        Ok(storage_declaration)
-    }
-
     fn parse_rfc3339(rfc3339: &str) -> Res<DateTime<Utc>> {
         let fixedoffset = chrono::DateTime::parse_from_rfc3339(rfc3339)?;
         Ok(fixedoffset.with_timezone(&Utc))
@@ -382,23 +374,23 @@ impl StorageParser {
         Ok(BigInt::from_str(source)?)
     }
 
-    pub(crate) fn preparse_storage(&self, json: &JsonValue) -> JsonValue {
+    fn lex(&self, json: &JsonValue) -> JsonValue {
         if let JsonValue::Array(mut a) = json.clone() {
             a.reverse();
-            self.preparse_storage2(&mut a)
+            self.lexer_unfold_sequences(&mut a)
         } else {
             json.clone()
         }
     }
 
-    pub(crate) fn preparse_storage2(&self, v: &mut Vec<JsonValue>) -> JsonValue {
+    fn lexer_unfold_sequences(&self, v: &mut Vec<JsonValue>) -> JsonValue {
         match v.len() {
             0 => panic!("Called empty"),
             1 => v[0].clone(),
             _ => {
                 let ele = v.pop();
                 debug!("{:?}", v);
-                let rest = self.preparse_storage2(v);
+                let rest = self.lexer_unfold_sequences(v);
                 return object! {
                     "prim": "Pair",
                     "args": [
@@ -454,10 +446,16 @@ impl StorageParser {
         Ok(encoded)
     }
 
+    pub(crate) fn parse(&self, storage_json: String) -> Res<Value> {
+        let json_parsed = &json::parse(&storage_json)?;
+        let lexed = self.lex(json_parsed);
+        self.parse_lexed(&lexed)
+    }
+
     /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
     /// data to stash it in the database.
-    pub(crate) fn parse_storage(&self, json: &JsonValue) -> Res<Value> {
-        debug!("parse_storage: {:?}", json);
+    fn parse_lexed(&self, json: &JsonValue) -> Res<Value> {
+        debug!("parse_lexed: {:?}", json);
         if let JsonValue::Array(a) = json {
             match a.len() {
                 0 => {
@@ -465,13 +463,12 @@ impl StorageParser {
                     return Ok(Value::None);
                 }
                 1 => {
-                    return self.parse_storage(&a[0]);
+                    return self.parse_lexed(&a[0]);
                 }
                 _ => {
                     if a.len() < MAX_ARAY_LENGTH {
-                        let left = Box::new(self.parse_storage(&a[0].clone())?);
-                        let right =
-                            Box::new(self.parse_storage(&JsonValue::Array(a[1..].to_vec()))?);
+                        let left = Box::new(self.parse_lexed(&a[0].clone())?);
+                        let right = Box::new(self.parse_lexed(&JsonValue::Array(a[1..].to_vec()))?);
                         return Ok(Value::Pair(left, right));
                     } else {
                         return Ok(Value::None);
@@ -492,35 +489,35 @@ impl StorageParser {
                         panic!("Elt with array length of {}", args.len());
                     }
                     return Ok(Value::Elt(
-                        Box::new(self.parse_storage(&args[0])?),
-                        Box::new(self.parse_storage(&args[1])?),
+                        Box::new(self.parse_lexed(&args[0])?),
+                        Box::new(self.parse_lexed(&args[1])?),
                     ));
                 }
                 "FALSE" => return Ok(Value::Bool(false)),
-                "LEFT" => return Ok(Value::Left(Box::new(self.parse_storage(&args[0])?))),
+                "LEFT" => return Ok(Value::Left(Box::new(self.parse_lexed(&args[0])?))),
                 "NONE" => return Ok(Value::None),
-                "RIGHT" => return Ok(Value::Right(Box::new(self.parse_storage(&args[0])?))),
+                "RIGHT" => return Ok(Value::Right(Box::new(self.parse_lexed(&args[0])?))),
                 "PAIR" => {
                     match args.len() {
                         0 | 1 => return Ok(Value::None),
                         2 => {
                             return Ok(Value::Pair(
-                                Box::new(self.parse_storage(&args[0])?),
-                                Box::new(self.parse_storage(&args[1])?),
+                                Box::new(self.parse_lexed(&args[0])?),
+                                Box::new(self.parse_lexed(&args[1])?),
                             ));
                         }
                         _ => {
                             let mut args = args;
                             args.reverse(); // so we can pop() afterward. But TODO: fix
-                            let parsed = self.preparse_storage2(&mut args);
-                            return self.parse_storage(&parsed);
+                            let lexed = self.lexer_unfold_sequences(&mut args);
+                            return self.parse_lexed(&lexed);
                         }
                     }
                 }
                 "PUSH" => return Ok(Value::None),
                 "SOME" => {
                     if !args.is_empty() {
-                        return self.parse_storage(&args[0]);
+                        return self.parse_lexed(&args[0]);
                     } else {
                         warn!("Got SOME with no content");
                         return Ok(Value::None);
@@ -561,7 +558,7 @@ impl StorageParser {
             if a.len() < 400 {
                 let mut array = a.clone();
                 array.reverse();
-                return self.parse_storage(&self.preparse_storage2(&mut array));
+                return self.parse_lexed(&self.lexer_unfold_sequences(&mut array));
             }
         }
 
@@ -598,7 +595,7 @@ impl StorageParser {
                 let node = node.clone();
                 let id = self.id_generator.get_id();
                 self.read_storage_internal(
-                    &self.parse_storage(&serde2json!(&diff
+                    &self.parse_lexed(&serde2json!(&diff
                         .key
                         .clone()
                         .ok_or("Missing key to big map in diff")?))?,
@@ -621,7 +618,7 @@ impl StorageParser {
                     }
                     Some(val) => {
                         self.read_storage_internal(
-                            &self.parse_storage(&serde2json!(&val))?,
+                            &self.parse_lexed(&serde2json!(&val))?,
                             &*node.right.ok_or("Missing value to big map")?,
                             id,
                             None,

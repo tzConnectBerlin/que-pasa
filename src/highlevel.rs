@@ -70,8 +70,8 @@ fn load_from_block(
         let store = storage.1;
         let storage_json = serde_json::to_string(&store)?;
         debug!("storage_json: {}", storage_json);
-        let preparsed_storage = storage_parser.preparse_storage(&json::parse(&storage_json)?);
-        let parsed_storage = storage_parser.parse_storage(&preparsed_storage)?;
+        let parsed_storage = storage_parser.parse(storage_json)?;
+
         debug!("parsed_storage: {:?}", parsed_storage);
         storage_parser.read_storage(&parsed_storage, node, &tx_context)?;
     }
@@ -89,7 +89,6 @@ pub(crate) fn load_and_store_level(
     node: &Node,
     contract_id: &str,
     level: u32,
-    storage_declaration: &crate::michelson::Value,
     storage_parser: &mut crate::michelson::StorageParser,
     connection: &mut postgres::Client,
 ) -> Res<SaveLevelResult> {
@@ -119,7 +118,7 @@ pub(crate) fn load_and_store_level(
         });
     }
 
-    load_from_block(node, block, level, contract_id, storage_parser);
+    load_from_block(node, block, level, contract_id, storage_parser)?;
 
     postgresql_generator::save_tx_contexts(&mut transaction, &storage_parser.tx_contexts)?;
 
@@ -288,15 +287,15 @@ fn test_block() {
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             //println!("{} {}", filename, i);
 
-            println!("cat > {} <<ENDOFJSON", filename);
-            println!(
-                "{}",
-                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
-            );
-            println!(
-                "ENDOFJSON
-    "
-            );
+            //println!("cat > {} <<ENDOFJSON", filename);
+            //println!(
+            //    "{}",
+            //    to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+            //);
+            //println!(
+            //    "ENDOFJSON
+            //"
+            //);
 
             use std::path::Path;
             let p = Path::new(&filename);

@@ -41,10 +41,8 @@ impl Table {
     pub(crate) fn add_column(&mut self, node: &Node) {
         let node: Node = node.clone();
         let name = node.name.unwrap();
-        for column in self.columns.iter() {
-            if column.name == name {
-                return;
-            }
+        if self.columns.iter().any(|column| column.name == name) {
+            return;
         }
         match &node.expr {
             Expr::SimpleExpr(e) => {

@@ -51,17 +51,17 @@ pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<
     }
 }
 
-pub(crate) fn delete_everything(connection: &mut Client) -> Res<u64> {
-    Ok(connection.execute("DELETE FROM levels", &[])?)
+pub(crate) fn delete_everything(dbconn: &mut Client) -> Res<u64> {
+    Ok(dbconn.execute("DELETE FROM levels", &[])?)
 }
 
-pub(crate) fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
-    Ok(connection.execute(
+pub(crate) fn fill_in_levels(dbconn: &mut Client, from: u32, to: u32) -> Res<u64> {
+    Ok(dbconn.execute(
             format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
 }
 
-pub(crate) fn get_head(connection: &mut Client) -> Res<Option<Level>> {
-    let result = connection.query(
+pub(crate) fn get_head(dbconn: &mut Client) -> Res<Option<Level>> {
+    let result = dbconn.query(
         "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
         &[],
     )?;
@@ -82,13 +82,13 @@ pub(crate) fn get_head(connection: &mut Client) -> Res<Option<Level>> {
 }
 
 pub(crate) fn get_missing_levels(
-    connection: &mut Client,
+    dbconn: &mut Client,
     origination: Option<u32>,
     end: u32,
 ) -> Res<Vec<u32>> {
     let start = origination.unwrap_or(1);
     let mut rows: Vec<i32> = vec![];
-    for row in connection.query(
+    for row in dbconn.query(
         format!("SELECT * from generate_series({},{}) s(i) WHERE NOT EXISTS (SELECT _level FROM levels WHERE _level = s.i)", start, end).as_str(), &[])? {
         rows.push(row.get(0));
     }
@@ -96,13 +96,13 @@ pub(crate) fn get_missing_levels(
     Ok(rows.iter().map(|x| *x as u32).collect::<Vec<u32>>())
 }
 
-pub(crate) fn get_max_id(connection: &mut Client) -> Res<i32> {
-    let max_id: i32 = connection.query("SELECT max_id FROM max_id", &[])?[0].get(0);
+pub(crate) fn get_max_id(dbconn: &mut Client) -> Res<i32> {
+    let max_id: i32 = dbconn.query("SELECT max_id FROM max_id", &[])?[0].get(0);
     Ok(max_id + 1)
 }
 
-pub(crate) fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
-    let updated = connection.execute("UPDATE max_id SET max_id=$1", &[&max_id])?;
+pub(crate) fn set_max_id(dbconn: &mut Transaction, max_id: i32) -> Res<()> {
+    let updated = dbconn.execute("UPDATE max_id SET max_id=$1", &[&max_id])?;
     if updated == 1 {
         Ok(())
     } else {
@@ -128,8 +128,8 @@ pub(crate) fn set_origination(transaction: &mut Transaction, level: u32) -> Res<
     Ok(())
 }
 
-pub(crate) fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
-    let result = connection.query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
+pub(crate) fn get_origination(dbconn: &mut Client) -> Res<Option<u32>> {
+    let result = dbconn.query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
     if result.is_empty() {
         Ok(None)
     } else if result.len() == 1 {

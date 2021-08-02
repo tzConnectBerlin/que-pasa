@@ -166,8 +166,6 @@ fn main() {
     let mut storage_parser =
         crate::highlevel::get_storage_parser(contract_id, &mut dbconn).unwrap();
 
-    let storage_declaration = storage_parser.get_storage_declaration(contract_id).unwrap();
-
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
         for level in &levels {
@@ -175,7 +173,6 @@ fn main() {
                 &node,
                 contract_id,
                 *level,
-                &storage_declaration,
                 &mut storage_parser,
                 &mut dbconn,
             )
@@ -216,7 +213,6 @@ fn main() {
                     &node,
                     contract_id,
                     level as u32,
-                    &storage_declaration,
                     &mut storage_parser,
                     &mut dbconn,
                 ) {
@@ -272,7 +268,6 @@ fn main() {
                         &node,
                         contract_id,
                         level,
-                        &storage_declaration,
                         &mut storage_parser,
                         &mut dbconn,
                     )
