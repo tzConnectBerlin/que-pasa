@@ -3,3 +3,5 @@ contract.sql
 node_modules
 .env
 .githooks
+*.swp
+rusty-tags.vi

@@ -718,7 +718,7 @@ node: {:?}",
                 "tx_context_id".to_string(),
                 Value::Int(tx_context.id.unwrap().into()),
             );
-            if (node.table_name != Some("storage".to_string())) {
+            if node.table_name != Some("storage".to_string()) {
                 fk_id = Some(id);
                 id = self.id_generator.get_id();
                 debug!(
@@ -919,7 +919,11 @@ value: {:?}",
     }
 
     pub(crate) fn get_inserts(&self) -> Inserts {
-        self.inserts.clone()
+        //return self.inserts.clone();
+        self.inserts
+            .clone()
+            .drain_filter(|_, x| x.columns.len() != 1)
+            .collect()
     }
 
     pub(crate) fn clear_inserts(&mut self) {

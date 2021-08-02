@@ -1,4 +1,5 @@
 #![feature(format_args_capture)]
+#![feature(btree_drain_filter)]
 use postgresql_generator::PostgresqlGenerator;
 
 extern crate atty;
@@ -151,7 +152,7 @@ fn main() {
     let ssl = matches.is_present("ssl");
     let ca_cert = matches.value_of("ca-cert");
 
-    let mut connection = postgresql_generator::connect(ssl, ca_cert).unwrap();
+    let mut dbconn = postgresql_generator::connect(ssl, ca_cert).unwrap();
 
     let init = matches.is_present("init");
     if init {
@@ -159,11 +160,11 @@ fn main() {
             "Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort"
         );
         std::thread::sleep(std::time::Duration::from_millis(5000));
-        postgresql_generator::delete_everything(&mut connection).unwrap();
+        postgresql_generator::delete_everything(&mut dbconn).unwrap();
     }
 
     let mut storage_parser =
-        crate::highlevel::get_storage_parser(contract_id, &mut connection).unwrap();
+        crate::highlevel::get_storage_parser(contract_id, &mut dbconn).unwrap();
 
     let storage_declaration = storage_parser.get_storage_declaration(contract_id).unwrap();
 
@@ -176,7 +177,7 @@ fn main() {
                 *level,
                 &storage_declaration,
                 &mut storage_parser,
-                &mut connection,
+                &mut dbconn,
             )
             .unwrap();
             p!("{}", level_text(*level, &result));
@@ -185,7 +186,7 @@ fn main() {
         if init {
             let first: u32 = *levels.iter().min().unwrap();
             let head = michelson::StorageParser::head().unwrap();
-            postgresql_generator::fill_in_levels(&mut connection, first, head._level).unwrap();
+            postgresql_generator::fill_in_levels(&mut dbconn, first, head._level).unwrap();
         }
 
         return;
@@ -194,10 +195,10 @@ fn main() {
     // No args so we will first load missing levels
 
     loop {
-        let origination_level = highlevel::get_origination(contract_id, &mut connection).unwrap();
+        let origination_level = highlevel::get_origination(contract_id, &mut dbconn).unwrap();
 
         let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
-            &mut connection,
+            &mut dbconn,
             origination_level,
             michelson::StorageParser::head().unwrap()._level,
         )
@@ -217,7 +218,7 @@ fn main() {
                     level as u32,
                     &storage_declaration,
                     &mut storage_parser,
-                    &mut connection,
+                    &mut dbconn,
                 ) {
                     Ok(x) => break x,
                     Err(e) => {
@@ -230,7 +231,7 @@ fn main() {
             if store_result.is_origination {
                 p!(
                     "Found new origination level {}",
-                    highlevel::get_origination(contract_id, &mut connection)
+                    highlevel::get_origination(contract_id, &mut dbconn)
                         .unwrap()
                         .unwrap()
                 );
@@ -260,7 +261,7 @@ fn main() {
         }
 
         let chain_head = michelson::StorageParser::head().unwrap();
-        let db_head = postgresql_generator::get_head(&mut connection)
+        let db_head = postgresql_generator::get_head(&mut dbconn)
             .unwrap()
             .unwrap();
         debug!("db: {} chain: {}", db_head._level, chain_head._level);
@@ -273,7 +274,7 @@ fn main() {
                         level,
                         &storage_declaration,
                         &mut storage_parser,
-                        &mut connection,
+                        &mut dbconn,
                     )
                     .unwrap();
                     print_status(level, &result);
@@ -295,7 +296,7 @@ fn main() {
                         db_head.hash,
                         chain_head.hash
                     );
-                    let mut transaction = connection.transaction().unwrap();
+                    let mut transaction = dbconn.transaction().unwrap();
                     postgresql_generator::delete_level(&mut transaction, &db_head).unwrap();
                     transaction.commit().unwrap();
                 }
