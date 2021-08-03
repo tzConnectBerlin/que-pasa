@@ -322,25 +322,6 @@ impl StorageParser {
             if let Some(destination) = &content.destination {
                 if destination == contract_id {
                     if let Some(operation_result) = &content.metadata.operation_result {
-                        let storage = operation_result
-                            .storage
-                            .clone()
-                            .ok_or(err!("No storage found!"))?;
-                        results.push((
-                            self.tx_context(TxContext {
-                                id: None,
-                                level,
-                                operation_group_number,
-                                operation_number,
-                                operation_hash: operation.hash.clone(),
-                                source: content.source.clone(),
-                                destination: content.destination.clone(),
-                            }),
-                            storage,
-                        ));
-                    }
-
-                    if let Some(operation_result) = &content.metadata.operation_result {
                         if let Some(storage) = &operation_result.storage {
                             results.push((
                                 self.tx_context(TxContext {
@@ -354,6 +335,8 @@ impl StorageParser {
                                 }),
                                 storage.clone(),
                             ));
+                        } else {
+                            err!("No storage found!");
                         }
                     }
                 }
@@ -579,7 +562,7 @@ impl StorageParser {
                     None => return Err(err!("No big map id found in diff {:?}", diff)),
                 };
                 debug!("Processing big map with id {}", big_map_id);
-                debug!("Big maps are {:?}", self.big_map_map);
+                //debug!("Big maps are {:?}", self.big_map_map);
                 let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n),
                     None => return Ok(()),
@@ -605,6 +588,7 @@ impl StorageParser {
                             None,
                             "deleted".to_string(),
                             Value::Bool(true),
+                            tx_context,
                         );
                         Ok(())
                     }
@@ -644,6 +628,7 @@ impl StorageParser {
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
+        /*
         self.add_column(
             "storage".to_string(),
             id,
@@ -651,6 +636,7 @@ impl StorageParser {
             "deleted".to_string(),
             Value::Bool(false),
         );
+        */
         self.read_storage_internal(value, rel_ast, id, None, None, tx_context);
         Ok(())
     }
@@ -691,6 +677,7 @@ rel_ast: {:?}",
                         fk_id,
                         rel_ast.column_name.clone().unwrap(),
                         Value::Unit(Some(val)),
+                        tx_context,
                     );
                 };
             }
@@ -700,13 +687,6 @@ rel_ast: {:?}",
         if last_table != rel_ast.table_name {
             debug!("{:?} <> {:?} new table", last_table, rel_ast.table_name);
             last_table = rel_ast.table_name.clone();
-            self.add_column(
-                rel_ast.table_name.as_ref().unwrap().to_string(),
-                id,
-                fk_id,
-                "tx_context_id".to_string(),
-                Value::Int(tx_context.id.unwrap().into()),
-            );
             if rel_ast.table_name != Some("storage".to_string()) {
                 fk_id = Some(id);
                 id = self.id_generator.get_id();
@@ -760,11 +740,11 @@ rel_ast: {:?}",
                 }
             }
             Value::Pair(left, right) => {
-                debug!(
-                    "rel_ast: {:?}
-value: {:?}",
-                    rel_ast, value
-                );
+                //Debug!(
+                //    "rel_ast: {:?}
+                //value: {:?}",
+                //    rel_ast, value
+                //);
                 let l = rel_ast.left.as_ref().unwrap();
                 let r = rel_ast.right.as_ref().unwrap();
                 self.read_storage_internal(right, r, id, fk_id, last_table.clone(), tx_context);
@@ -781,6 +761,7 @@ value: {:?}",
                         Some(s) => Value::String(s.clone()),
                         None => Value::None,
                     },
+                    tx_context,
                 );
             }
             _ => {
@@ -814,6 +795,7 @@ value: {:?}",
                             fk_id,
                             column_name,
                             Value::Timestamp(Self::parse_date(&value.clone()).unwrap()),
+                            tx_context,
                         );
                     }
                     crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
@@ -828,9 +810,17 @@ value: {:?}",
                             } else {
                                 value.clone()
                             },
+                            tx_context,
                         );
                     }
-                    _ => self.add_column(table_name, id, fk_id, column_name, value.clone()),
+                    _ => self.add_column(
+                        table_name,
+                        id,
+                        fk_id,
+                        column_name,
+                        value.clone(),
+                        tx_context,
+                    ),
                 }
             }
         }
@@ -873,6 +863,7 @@ value: {:?}",
         fk_id: Option<u32>,
         column_name: String,
         value: Value,
+        tx_context: &TxContext,
     ) {
         debug!(
             "add_column {}, {}, {:?}, {}, {:?}",
@@ -885,7 +876,10 @@ value: {:?}",
                 table_name: table_name.clone(),
                 id,
                 fk_id,
-                columns: vec![],
+                columns: vec![Column {
+                    name: "tx_context_id".to_string(),
+                    value: Value::Int(tx_context.id.unwrap().into()),
+                }],
             },
         };
         insert.columns.push(Column {
@@ -908,11 +902,7 @@ value: {:?}",
     }
 
     pub(crate) fn get_inserts(&self) -> Inserts {
-        //return self.inserts.clone();
-        self.inserts
-            .clone()
-            .drain_filter(|_, x| x.columns.len() != 1)
-            .collect()
+        return self.inserts.clone();
     }
 
     pub(crate) fn clear_inserts(&mut self) {

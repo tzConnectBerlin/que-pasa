@@ -27,7 +27,6 @@ pub(crate) fn get_storage_parser(
 fn load_from_block(
     rel_ast: &RelationalAST,
     block: crate::block::Block,
-    level: u32,
     contract_id: &str,
     storage_parser: &mut crate::michelson::StorageParser,
 ) -> Res<()> {
@@ -44,14 +43,14 @@ fn load_from_block(
         for operation in operation_group {
             operation_number += 1;
             storages.extend(storage_parser.get_storage_from_operation(
-                level,
+                block.header.level,
                 operation_group_number,
                 operation_number,
                 &operation,
                 contract_id,
             )?);
             big_map_diffs.extend(storage_parser.get_big_map_diffs_from_operation(
-                level,
+                block.header.level,
                 operation_group_number,
                 operation_number,
                 &operation,
@@ -118,7 +117,7 @@ pub(crate) fn load_and_store_level(
         });
     }
 
-    load_from_block(rel_ast, block, level, contract_id, storage_parser)?;
+    load_from_block(rel_ast, block, contract_id, storage_parser)?;
 
     postgresql_generator::save_tx_contexts(&mut transaction, &storage_parser.tx_contexts)?;
 
@@ -216,6 +215,9 @@ fn test_block() {
     // `cargo test -- --test test_block | bash`
     use crate::relational::Indexes;
     use json::JsonValue;
+
+    env_logger::init();
+
     fn get_rel_ast_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<RelationalAST> {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
@@ -278,7 +280,7 @@ fn test_block() {
             .unwrap();
 
             let mut storage_parser = StorageParser::new(1);
-            load_from_block(&rel_ast, block, *level, contract.id, &mut storage_parser).unwrap();
+            load_from_block(&rel_ast, block, contract.id, &mut storage_parser).unwrap();
 
             let inserts = storage_parser.get_inserts();
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
