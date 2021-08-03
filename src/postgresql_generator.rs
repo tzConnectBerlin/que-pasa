@@ -154,7 +154,7 @@ pub(crate) fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u6
             },
             match &level.baked_at {
                 Some(baked_at) =>
-                    PostgresqlGenerator::quote(&crate::michelson::Value::Timestamp(*baked_at)),
+                    PostgresqlGenerator::sql_value(&crate::michelson::Value::Timestamp(*baked_at)),
                 None => "NULL".to_string(),
             }
         ),
@@ -385,7 +385,7 @@ CREATE VIEW "{}_live" AS (
         s.to_string()
     }
 
-    fn quote(value: &crate::michelson::Value) -> String {
+    fn sql_value(value: &crate::michelson::Value) -> String {
         match value {
             crate::michelson::Value::Address(s)
             | crate::michelson::Value::KeyHash(s)
@@ -419,7 +419,7 @@ CREATE VIEW "{}_live" AS (
             | crate::michelson::Value::List(_)
             | crate::michelson::Value::Pair(_, _)
             | crate::michelson::Value::Right(_)
-            | crate::michelson::Value::Unit(None) => panic!("quote called with {:?}", value),
+            | crate::michelson::Value::Unit(None) => panic!("sql_value called with {:?}", value),
         }
     }
 
@@ -433,7 +433,7 @@ CREATE VIEW "{}_live" AS (
         let mut values: String = insert
             .columns
             .iter()
-            .map(|x| Self::quote(&x.value))
+            .map(|x| Self::sql_value(&x.value))
             .collect::<Vec<String>>()
             .join(", ");
         if let Some(fk_id) = insert.fk_id {

@@ -8,6 +8,8 @@ edition = "2018"
 
 [build-dependencies] # <-- We added this and everything after!
 
+[dev-dependencies]
+pretty_assertions = "*"
 
 [dependencies]
 atty = "0.2.14"

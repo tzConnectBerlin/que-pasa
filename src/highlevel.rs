@@ -3,6 +3,8 @@ use crate::michelson::StorageParser;
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
 use crate::relational::RelationalAST;
+#[cfg(test)]
+use pretty_assertions::assert_eq;
 
 pub(crate) fn get_origination(
     _contract_id: &str,
@@ -305,22 +307,12 @@ fn test_block() {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
                 let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
-                println!(
-                    "
-                 file: {:#?}
-
-                 generated: {:#?}",
-                    v, inserts
+                assert_eq!(
+                    v.values().collect::<Vec<&crate::table::insert::Insert>>(),
+                    inserts
+                        .values()
+                        .collect::<Vec<&crate::table::insert::Insert>>()
                 );
-                assert_eq!(v.keys().len(), inserts.keys().len());
-                for key in inserts.keys() {
-                    println!("key: {}", key.table_name);
-                    let file_version = v.get(key);
-                    println!("file_version: {:?}", file_version);
-                    let gen_version = inserts.get(key);
-                    println!("gen_version: {:?}", gen_version);
-                    assert_eq!(file_version.unwrap(), gen_version.unwrap());
-                }
                 inserts_tested += 1;
             }
         }
