@@ -275,6 +275,8 @@ fn test_block() {
         let rel_ast = get_rel_ast_from_script_json(&script_json, &mut Indexes::new()).unwrap();
         let mut inserts_tested = 0;
         for level in &contract.levels {
+            println!("contract={}, level={}", contract.id, level);
+
             let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
                 "test/{}.level-{}.json",
                 contract.id, level
@@ -287,18 +289,6 @@ fn test_block() {
             let inserts = storage_parser.get_inserts();
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
 
-            //use ron::ser::{to_string_pretty, PrettyConfig};
-            //println!("{} {}", filename, i);
-            //println!("cat > {} <<ENDOFJSON", filename);
-            //println!(
-            //    "{}",
-            //    to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
-            //);
-            //println!(
-            //    "ENDOFJSON
-            //"
-            //);
-
             use std::path::Path;
             let p = Path::new(&filename);
 
@@ -307,12 +297,14 @@ fn test_block() {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
                 let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
+
                 assert_eq!(
                     v.values().collect::<Vec<&crate::table::insert::Insert>>(),
                     inserts
                         .values()
                         .collect::<Vec<&crate::table::insert::Insert>>()
                 );
+
                 inserts_tested += 1;
             }
         }
