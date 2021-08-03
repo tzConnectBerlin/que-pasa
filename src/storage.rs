@@ -69,8 +69,8 @@ macro_rules! complex_expr {
         Ele {
             name: $name,
             expr: Expr::ComplexExpr($typ(
-                Box::new(storage_from_json(args[0].clone())?),
-                Box::new(storage_from_json(args[1].clone())?),
+                Box::new(storage_ast_from_json(args[0].clone())?),
+                Box::new(storage_ast_from_json(args[1].clone())?),
             )),
         }
     }};
@@ -90,7 +90,7 @@ pub(crate) fn is_enumeration_or(json: &JsonValue) -> bool {
     }
 }
 
-pub(crate) fn storage_from_json(json: JsonValue) -> Res<Ele> {
+pub(crate) fn storage_ast_from_json(json: JsonValue) -> Res<Ele> {
     let annot = annotation(&json);
     let args = args(&json);
     debug!("prim is {:?}", json["prim"]);
@@ -110,7 +110,7 @@ pub(crate) fn storage_from_json(json: JsonValue) -> Res<Ele> {
                 let args = args.ok_or_else(|| err!("Args was none!"))?;
                 Ok(Ele {
                     name: annot,
-                    expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_from_json(
+                    expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_ast_from_json(
                         args[0].clone(),
                     )?))),
                 })

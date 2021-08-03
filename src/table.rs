@@ -1,5 +1,5 @@
 use crate::michelson::Value;
-use crate::node::Node;
+use crate::relational::RelationalAST;
 use crate::storage::{ComplexExpr, Expr, SimpleExpr};
 use serde::{Deserialize, Serialize};
 
@@ -25,10 +25,10 @@ impl Table {
         }
     }
 
-    pub(crate) fn add_index(&mut self, node: &Node) {
-        let node = node.clone();
-        let name = node.name.unwrap();
-        let e = node.expr;
+    pub(crate) fn add_index(&mut self, rel_ast: &RelationalAST) {
+        let rel_ast = rel_ast.clone();
+        let name = rel_ast.name.unwrap();
+        let e = rel_ast.expr;
         match e {
             Expr::SimpleExpr(e) => {
                 self.indices.push(name.clone());
@@ -38,13 +38,13 @@ impl Table {
         }
     }
 
-    pub(crate) fn add_column(&mut self, node: &Node) {
-        let node: Node = node.clone();
-        let name = node.name.unwrap();
+    pub(crate) fn add_column(&mut self, rel_ast: &RelationalAST) {
+        let rel_ast: RelationalAST = rel_ast.clone();
+        let name = rel_ast.name.unwrap();
         if self.columns.iter().any(|column| column.name == name) {
             return;
         }
-        match &node.expr {
+        match &rel_ast.expr {
             Expr::SimpleExpr(e) => {
                 self.columns.push(Column { name, expr: *e });
             }
@@ -55,7 +55,7 @@ impl Table {
                         expr: SimpleExpr::Unit, // What will ultimately go in is a Unit
                     })
                 }
-                _ => panic!("add_column called with ComplexExpr {:?}", &node.expr),
+                _ => panic!("add_column called with ComplexExpr {:?}", &rel_ast.expr),
             },
         }
     }

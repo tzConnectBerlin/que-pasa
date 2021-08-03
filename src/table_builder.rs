@@ -1,6 +1,6 @@
 use crate::err;
 use crate::error::Res;
-use crate::node::{Node, Type};
+use crate::relational::{RelationalAST, Type};
 use crate::storage::{ComplexExpr, Expr};
 use crate::table::Table;
 use std::collections::HashMap;
@@ -24,20 +24,20 @@ impl TableBuilder {
         }
     }
 
-    fn add_column(&mut self, node: &Node) {
-        let mut table = self.get_table(node);
-        table.add_column(node);
+    fn add_column(&mut self, rel_ast: &RelationalAST) {
+        let mut table = self.get_table(rel_ast);
+        table.add_column(rel_ast);
         self.store_table(table);
     }
 
-    fn add_index(&mut self, node: &Node) {
-        let mut table = self.get_table(node);
-        table.add_index(node);
+    fn add_index(&mut self, rel_ast: &RelationalAST) {
+        let mut table = self.get_table(rel_ast);
+        table.add_index(rel_ast);
         self.store_table(table);
     }
 
-    fn get_table(&self, node: &Node) -> Table {
-        let name = node.clone().table_name.unwrap();
+    fn get_table(&self, rel_ast: &RelationalAST) -> Table {
+        let name = rel_ast.clone().table_name.unwrap();
         match self.tables.get(&name) {
             Some(x) => x.clone(),
             None => Table::new(name),
@@ -48,40 +48,42 @@ impl TableBuilder {
         self.tables.insert(table.name.clone(), table);
     }
 
-    pub(crate) fn populate(&mut self, node: &Node) -> Res<()> {
-        let node = node.clone();
-        match &node._type {
+    pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) -> Res<()> {
+        let rel_ast = rel_ast.clone();
+        match &rel_ast._type {
             Type::Pair => {
-                let left = node.left.clone();
-                self.populate(&*left.ok_or_else(|| err!("Left is None, node is {:?}", &node))?)?;
-                self.populate(&*node.right.ok_or_else(|| err!("Right is None"))?)?;
+                let left = rel_ast.left.clone();
+                self.populate(
+                    &*left.ok_or_else(|| err!("Left is None, rel_ast is {:?}", &rel_ast))?,
+                )?;
+                self.populate(&*rel_ast.right.ok_or_else(|| err!("Right is None"))?)?;
             }
             Type::Table => {
                 //if the table is a bigmap the name is used to be inserted in the database
-                if let Some(left) = node.left {
+                if let Some(left) = rel_ast.left {
                     self.populate(&left)?;
                 }
-                if let Some(right) = node.right {
+                if let Some(right) = rel_ast.right {
                     self.populate(&right)?;
                 }
             }
-            Type::Column => self.add_column(&node),
+            Type::Column => self.add_column(&rel_ast),
             Type::OrEnumeration => {
-                self.add_column(&node);
-                if let Some(left) = node.left {
+                self.add_column(&rel_ast);
+                if let Some(left) = rel_ast.left {
                     self.populate(&*left)?;
                 }
-                if let Some(right) = node.right {
+                if let Some(right) = rel_ast.right {
                     self.populate(&*right)?;
                 }
             }
             Type::Unit => (),
-            Type::TableIndex => match node.expr {
-                Expr::SimpleExpr(_) => self.add_index(&node),
+            Type::TableIndex => match rel_ast.expr {
+                Expr::SimpleExpr(_) => self.add_index(&rel_ast),
                 Expr::ComplexExpr(ref expr) => match expr {
                     ComplexExpr::Pair(_, _) => {
-                        self.populate(&*node.left.ok_or_else(|| err!("Left is None"))?)?;
-                        self.populate(&*node.right.ok_or_else(|| err!("Right is None"))?)?;
+                        self.populate(&*rel_ast.left.ok_or_else(|| err!("Left is None"))?)?;
+                        self.populate(&*rel_ast.right.ok_or_else(|| err!("Right is None"))?)?;
                     }
                     _ => panic!("Found unexpected structure in index: {:#?}", expr),
                 },

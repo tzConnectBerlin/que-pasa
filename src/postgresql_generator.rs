@@ -423,11 +423,7 @@ CREATE VIEW "{}_live" AS (
         }
     }
 
-    pub(crate) fn build_insert(
-        &mut self,
-        insert: &crate::table::insert::Insert,
-        level: u32,
-    ) -> String {
+    pub(crate) fn build_insert(&mut self, insert: &crate::table::insert::Insert) -> String {
         let mut columns: String = insert
             .columns
             .iter()

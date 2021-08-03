@@ -36,8 +36,8 @@ pub mod block;
 pub mod error;
 pub mod highlevel;
 pub mod michelson;
-pub mod node;
 pub mod postgresql_generator;
+pub mod relational;
 pub mod storage;
 pub mod table;
 pub mod table_builder;
@@ -118,19 +118,20 @@ fn main() {
     let json = StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
-    let ast = storage::storage_from_json(storage_definition).unwrap();
+    let ast = storage::storage_ast_from_json(storage_definition).unwrap();
 
     // Build the internal representation from the node storage defition
-    let context = node::Context::init();
+    let context = relational::Context::init();
     let mut big_map_table_names = vec![context.table_name.clone()];
-    let mut indexes = node::Indexes::new();
+    let mut indexes = relational::Indexes::new();
 
-    let node = node::Node::build(context, ast, &mut big_map_table_names, &mut indexes);
-    //debug!("{:#?}", node);
+    let rel_ast =
+        relational::RelationalAST::build(context, ast, &mut big_map_table_names, &mut indexes);
+    //debug!("{:#?}", rel_ast);
 
     // Make a SQL-compatible representation
     let mut builder = table_builder::TableBuilder::new();
-    builder.populate(&node).unwrap();
+    builder.populate(&rel_ast).unwrap();
     //debug!("{:#?}", big_map_table_names);
 
     // If generate-sql command is given, just output SQL and quit.
@@ -170,7 +171,7 @@ fn main() {
         let levels = range(&levels.to_string());
         for level in &levels {
             let result = crate::highlevel::load_and_store_level(
-                &node,
+                &rel_ast,
                 contract_id,
                 *level,
                 &mut storage_parser,
@@ -210,7 +211,7 @@ fn main() {
         while let Some(level) = missing_levels.pop() {
             let store_result = loop {
                 match crate::highlevel::load_and_store_level(
-                    &node,
+                    &rel_ast,
                     contract_id,
                     level as u32,
                     &mut storage_parser,
@@ -265,7 +266,7 @@ fn main() {
             Ordering::Greater => {
                 for level in (db_head._level + 1)..=chain_head._level {
                     let result = highlevel::load_and_store_level(
-                        &node,
+                        &rel_ast,
                         contract_id,
                         level,
                         &mut storage_parser,

@@ -1,8 +1,8 @@
 use crate::error::Res;
 use crate::michelson::StorageParser;
-use crate::node::Node;
 use crate::postgresql_generator;
 use crate::postgresql_generator::PostgresqlGenerator;
+use crate::relational::RelationalAST;
 
 pub(crate) fn get_origination(
     _contract_id: &str,
@@ -25,7 +25,7 @@ pub(crate) fn get_storage_parser(
 }
 
 fn load_from_block(
-    node: &Node,
+    rel_ast: &RelationalAST,
     block: crate::block::Block,
     level: u32,
     contract_id: &str,
@@ -73,7 +73,7 @@ fn load_from_block(
         let parsed_storage = storage_parser.parse(storage_json)?;
 
         debug!("parsed_storage: {:?}", parsed_storage);
-        storage_parser.read_storage(&parsed_storage, node, &tx_context)?;
+        storage_parser.read_storage(&parsed_storage, rel_ast, &tx_context)?;
     }
 
     for big_map_diff in big_map_diffs {
@@ -86,7 +86,7 @@ fn load_from_block(
 }
 
 pub(crate) fn load_and_store_level(
-    node: &Node,
+    rel_ast: &RelationalAST,
     contract_id: &str,
     level: u32,
     storage_parser: &mut crate::michelson::StorageParser,
@@ -118,7 +118,7 @@ pub(crate) fn load_and_store_level(
         });
     }
 
-    load_from_block(node, block, level, contract_id, storage_parser)?;
+    load_from_block(rel_ast, block, level, contract_id, storage_parser)?;
 
     postgresql_generator::save_tx_contexts(&mut transaction, &storage_parser.tx_contexts)?;
 
@@ -137,7 +137,6 @@ pub(crate) fn load_and_store_level(
                 inserts
                     .get(key)
                     .ok_or_else(|| crate::error::Error::boxed("No insert for key"))?,
-                level,
             ),
         )?;
     }
@@ -169,25 +168,25 @@ fn test_generate() {
     ))
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
-    let ast = crate::storage::storage_from_json(storage_definition.clone()).unwrap();
+    let ast = crate::storage::storage_ast_from_json(storage_definition.clone()).unwrap();
     println!("{:#?}", ast);
-    //let node = Node::build(Context::init(), ast);
-    use crate::node::Context;
+    //let rel_ast = RelationalAST::build(Context::init(), ast);
+    use crate::relational::Context;
     let context = Context::init();
     let mut big_map_tables_names = Vec::new();
     //initialize the big_map_tables_names with the starting table_name "storage"
     big_map_tables_names.push(context.table_name.clone());
-    use crate::node::Indexes;
-    let node = Node::build(
+    use crate::relational::Indexes;
+    let rel_ast = RelationalAST::build(
         context.clone(),
         ast,
         &mut big_map_tables_names,
         &mut Indexes::new(),
     );
-    println!("{:#?}", node);
+    println!("{:#?}", rel_ast);
     let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = crate::table_builder::TableBuilder::new();
-    builder.populate(&node).unwrap();
+    builder.populate(&rel_ast).unwrap();
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
     sorted_tables.sort_by_key(|a| a.0);
     let mut tables: Vec<crate::table::Table> = vec![];
@@ -215,23 +214,21 @@ fn test_block() {
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this:
     // `cargo test -- --test test_block | bash`
-    use crate::node::Indexes;
+    use crate::relational::Indexes;
     use json::JsonValue;
-    fn get_node_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<Node> {
+    fn get_rel_ast_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<RelationalAST> {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
-        let ast = crate::storage::storage_from_json(storage_definition)?;
+        let ast = crate::storage::storage_ast_from_json(storage_definition)?;
         let mut big_map_tables_names = Vec::new();
-        let node = Node::build(
-            crate::node::Context::init(),
+        let rel_ast = RelationalAST::build(
+            crate::relational::Context::init(),
             ast,
             &mut big_map_tables_names,
             indexes,
         );
-        Ok(node)
+        Ok(rel_ast)
     }
-
-    use ron::ser::{to_string_pretty, PrettyConfig};
 
     #[derive(Debug)]
     struct Contract<'a> {
@@ -271,7 +268,7 @@ fn test_block() {
 
     for contract in &contracts {
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
-        let node = get_node_from_script_json(&script_json, &mut Indexes::new()).unwrap();
+        let rel_ast = get_rel_ast_from_script_json(&script_json, &mut Indexes::new()).unwrap();
         let mut inserts_tested = 0;
         for level in &contract.levels {
             let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
@@ -281,12 +278,13 @@ fn test_block() {
             .unwrap();
 
             let mut storage_parser = StorageParser::new(1);
-            load_from_block(&node, block, *level, contract.id, &mut storage_parser).unwrap();
+            load_from_block(&rel_ast, block, *level, contract.id, &mut storage_parser).unwrap();
 
             let inserts = storage_parser.get_inserts();
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
-            //println!("{} {}", filename, i);
 
+            //use ron::ser::{to_string_pretty, PrettyConfig};
+            //println!("{} {}", filename, i);
             //println!("cat > {} <<ENDOFJSON", filename);
             //println!(
             //    "{}",

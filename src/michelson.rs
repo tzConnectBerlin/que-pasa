@@ -1,7 +1,7 @@
 use crate::block;
 use crate::err;
 use crate::error::Res;
-use crate::node::Node;
+use crate::relational::RelationalAST;
 use crate::table::insert::*;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
@@ -112,7 +112,7 @@ pub struct Level {
     pub baked_at: Option<DateTime<Utc>>,
 }
 
-type BigMapMap = std::collections::HashMap<u32, (u32, Node)>;
+type BigMapMap = std::collections::HashMap<u32, (u32, RelationalAST)>;
 
 pub struct StorageParser {
     big_map_map: BigMapMap,
@@ -217,14 +217,6 @@ impl StorageParser {
             }
         }
         Ok(false)
-    }
-
-    /// Get the storage at a level
-    pub(crate) fn get_storage(&self, contract_id: &str) -> Result<JsonValue, Box<dyn Error>> {
-        Self::load(&format!(
-            "{}/chains/main/blocks/head/context/contracts/{}/storage",
-            *NODE_URL, contract_id
-        ))
     }
 
     /// Get all of the data for the contract.
@@ -588,27 +580,27 @@ impl StorageParser {
                 };
                 debug!("Processing big map with id {}", big_map_id);
                 debug!("Big maps are {:?}", self.big_map_map);
-                let (_fk, node) = match self.big_map_map.get(&big_map_id) {
+                let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n),
                     None => return Ok(()),
                 };
-                let node = node.clone();
+                let rel_ast = rel_ast.clone();
                 let id = self.id_generator.get_id();
                 self.read_storage_internal(
                     &self.parse_lexed(&serde2json!(&diff
                         .key
                         .clone()
                         .ok_or("Missing key to big map in diff")?))?,
-                    &*node.left.ok_or("Missing key to big map")?,
+                    &*rel_ast.left.ok_or("Missing key to big map")?,
                     id,
                     None,
-                    node.table_name.clone(),
+                    rel_ast.table_name.clone(),
                     tx_context,
                 );
                 match &diff.value {
                     None => {
                         self.add_column(
-                            node.table_name.ok_or("Missing name for table")?,
+                            rel_ast.table_name.ok_or("Missing name for table")?,
                             id,
                             None,
                             "deleted".to_string(),
@@ -619,10 +611,10 @@ impl StorageParser {
                     Some(val) => {
                         self.read_storage_internal(
                             &self.parse_lexed(&serde2json!(&val))?,
-                            &*node.right.ok_or("Missing value to big map")?,
+                            &*rel_ast.right.ok_or("Missing value to big map")?,
                             id,
                             None,
-                            node.table_name,
+                            rel_ast.table_name,
                             tx_context,
                         );
                         Ok(())
@@ -648,7 +640,7 @@ impl StorageParser {
     pub(crate) fn read_storage(
         &mut self,
         value: &Value,
-        node: &Node,
+        rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
@@ -659,45 +651,45 @@ impl StorageParser {
             "deleted".to_string(),
             Value::Bool(false),
         );
-        self.read_storage_internal(value, node, id, None, None, tx_context);
+        self.read_storage_internal(value, rel_ast, id, None, None, tx_context);
         Ok(())
     }
 
     pub(crate) fn read_storage_internal(
         &mut self,
         value: &Value,
-        node: &Node,
+        rel_ast: &RelationalAST,
         mut id: u32,
         mut fk_id: Option<u32>,
         mut last_table: Option<String>,
         tx_context: &TxContext,
     ) {
-        match node.expr {
+        match rel_ast.expr {
             // we don't even try to store lambdas.
             crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Stop) => return,
             // or enumerations need to be evaluated once to populate the enum field,
             // and once to fill in auxiliary tables.
             crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::OrEnumeration(_, _)) => {
-                fn resolve_or(value: &Value, node: &Node) -> Option<String> {
+                fn resolve_or(value: &Value, rel_ast: &RelationalAST) -> Option<String> {
                     debug!(
                         "resolve_or: value: {:?}
-node: {:?}",
-                        value, node
+rel_ast: {:?}",
+                        value, rel_ast
                     );
                     match value {
-                        Value::Left(left) => resolve_or(left, node.left.as_ref().unwrap()),
-                        Value::Right(right) => resolve_or(right, node.right.as_ref().unwrap()),
-                        Value::Pair(_, _) => node.table_name.clone(),
+                        Value::Left(left) => resolve_or(left, rel_ast.left.as_ref().unwrap()),
+                        Value::Right(right) => resolve_or(right, rel_ast.right.as_ref().unwrap()),
+                        Value::Pair(_, _) => rel_ast.table_name.clone(),
                         Value::Unit(val) => val.clone(),
-                        _ => node.name.clone(),
+                        _ => rel_ast.name.clone(),
                     }
                 }
-                if let Some(val) = resolve_or(value, node) {
+                if let Some(val) = resolve_or(value, rel_ast) {
                     self.add_column(
-                        node.table_name.as_ref().unwrap().to_string(),
+                        rel_ast.table_name.as_ref().unwrap().to_string(),
                         id,
                         fk_id,
-                        node.column_name.clone().unwrap(),
+                        rel_ast.column_name.clone().unwrap(),
                         Value::Unit(Some(val)),
                     );
                 };
@@ -705,22 +697,22 @@ node: {:?}",
             _ => (),
         }
 
-        if last_table != node.table_name {
-            debug!("{:?} <> {:?} new table", last_table, node.table_name);
-            last_table = node.table_name.clone();
+        if last_table != rel_ast.table_name {
+            debug!("{:?} <> {:?} new table", last_table, rel_ast.table_name);
+            last_table = rel_ast.table_name.clone();
             self.add_column(
-                node.table_name.as_ref().unwrap().to_string(),
+                rel_ast.table_name.as_ref().unwrap().to_string(),
                 id,
                 fk_id,
                 "tx_context_id".to_string(),
                 Value::Int(tx_context.id.unwrap().into()),
             );
-            if node.table_name != Some("storage".to_string()) {
+            if rel_ast.table_name != Some("storage".to_string()) {
                 fk_id = Some(id);
                 id = self.id_generator.get_id();
                 debug!(
-                    "Creating table from node {:?} with id {} and fk_id {:?}",
-                    node, id, fk_id
+                    "Creating table from rel_ast {:?} with id {} and fk_id {:?}",
+                    rel_ast, id, fk_id
                 );
             }
         }
@@ -728,15 +720,15 @@ node: {:?}",
         match value {
             Value::Elt(keys, values) => {
                 // entry in a map or a big map.
-                let l = node.left.as_ref().unwrap();
-                let r = node.right.as_ref().unwrap();
+                let l = rel_ast.left.as_ref().unwrap();
+                let r = rel_ast.right.as_ref().unwrap();
                 self.read_storage_internal(keys, l, id, fk_id, last_table.clone(), tx_context);
                 self.read_storage_internal(values, r, id, fk_id, last_table, tx_context);
             }
             Value::Left(left) => {
                 self.read_storage_internal(
                     left,
-                    node.left.as_ref().unwrap(),
+                    rel_ast.left.as_ref().unwrap(),
                     id,
                     fk_id,
                     last_table,
@@ -746,7 +738,7 @@ node: {:?}",
             Value::Right(right) => {
                 self.read_storage_internal(
                     right,
-                    node.right.as_ref().unwrap(),
+                    rel_ast.right.as_ref().unwrap(),
                     id,
                     fk_id,
                     last_table,
@@ -759,7 +751,7 @@ node: {:?}",
                     let id = self.id_generator.get_id();
                     self.read_storage_internal(
                         element,
-                        node,
+                        rel_ast,
                         id,
                         fk_id,
                         last_table.clone(),
@@ -769,23 +761,23 @@ node: {:?}",
             }
             Value::Pair(left, right) => {
                 debug!(
-                    "node: {:?}
+                    "rel_ast: {:?}
 value: {:?}",
-                    node, value
+                    rel_ast, value
                 );
-                let l = node.left.as_ref().unwrap();
-                let r = node.right.as_ref().unwrap();
+                let l = rel_ast.left.as_ref().unwrap();
+                let r = rel_ast.right.as_ref().unwrap();
                 self.read_storage_internal(right, r, id, fk_id, last_table.clone(), tx_context);
                 self.read_storage_internal(left, l, id, fk_id, last_table, tx_context);
             }
             Value::Unit(None) => {
-                debug!("Unit: value is {:#?}, node is {:#?}", value, node);
+                debug!("Unit: value is {:#?}, rel_ast is {:#?}", value, rel_ast);
                 self.add_column(
-                    node.table_name.as_ref().unwrap().to_string(),
+                    rel_ast.table_name.as_ref().unwrap().to_string(),
                     id,
                     fk_id,
-                    node.column_name.as_ref().unwrap().to_string(),
-                    match &node.value {
+                    rel_ast.column_name.as_ref().unwrap().to_string(),
+                    match &rel_ast.value {
                         Some(s) => Value::String(s.clone()),
                         None => Value::None,
                     },
@@ -793,25 +785,25 @@ value: {:?}",
             }
             _ => {
                 // this is a value, and should be saved.
-                let table_name = node.table_name.as_ref().unwrap().to_string();
-                let column_name = node.column_name.as_ref().unwrap().to_string();
+                let table_name = rel_ast.table_name.as_ref().unwrap().to_string();
+                let column_name = rel_ast.column_name.as_ref().unwrap().to_string();
                 debug!(
                     "{} {} = {:?} {:?}",
-                    table_name, column_name, value, node.expr
+                    table_name, column_name, value, rel_ast.expr
                 );
 
                 // If this is a big map, save the id and the fk_id currently
                 // being used, for later processing
-                match &node.expr {
+                match &rel_ast.expr {
                     crate::storage::Expr::ComplexExpr(ce) => {
                         if let crate::storage::ComplexExpr::BigMap(_, _) = ce {
                             debug!("value: {:?}", value);
                             if let Value::Int(i) = value {
                                 debug!("{}", i);
                                 debug!("Saving bigmap {:} with parent {}", i, id);
-                                self.save_bigmap_location(i.to_u32().unwrap(), id, node.clone());
+                                self.save_bigmap_location(i.to_u32().unwrap(), id, rel_ast.clone());
                             } else {
-                                panic!("Found big map with non-int id: {:?}", node);
+                                panic!("Found big map with non-int id: {:?}", rel_ast);
                             }
                         }
                     }
@@ -844,9 +836,9 @@ value: {:?}",
         }
     }
 
-    fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, node: Node) {
-        debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, node);
-        self.big_map_map.insert(bigmap_id, (fk, node));
+    fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, rel_ast: RelationalAST) {
+        debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, rel_ast);
+        self.big_map_map.insert(bigmap_id, (fk, rel_ast));
     }
 
     fn add_insert(

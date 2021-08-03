@@ -116,21 +116,21 @@ impl Context {
 }
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Node {
+pub struct RelationalAST {
     pub name: Option<String>,
     pub _type: Type,
     pub table_name: Option<String>,
     pub column_name: Option<String>,
     pub value: Option<String>,
-    pub left: Option<Box<Node>>,
-    pub right: Option<Box<Node>>,
+    pub left: Option<Box<RelationalAST>>,
+    pub right: Option<Box<RelationalAST>>,
     pub expr: Expr,
 }
 
-impl fmt::Debug for Node {
+impl fmt::Debug for RelationalAST {
     // to stop it recursing into the Expr type
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Node")
+        f.debug_struct("RelationalAST")
             .field("name", &self.name)
             .field("_type", &self._type)
             .field("table_name", &self.table_name)
@@ -142,7 +142,7 @@ impl fmt::Debug for Node {
     }
 }
 
-impl Node {
+impl RelationalAST {
     pub(crate) fn new(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> Self {
         let name = ctx.name(ele, indexes);
         Self {
@@ -162,12 +162,12 @@ impl Node {
         ele: Ele,
         big_map_names: &mut Vec<String>,
         indexes: &mut Indexes,
-    ) -> Node {
+    ) -> RelationalAST {
         let name = match &ele.name {
             Some(x) => x.clone(),
             None => "noname".to_string(),
         };
-        let node: Node = match ele.expr {
+        let rel_ast: RelationalAST = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
                     let context = context.start_table(get_table_name(indexes, Some(name)));
@@ -219,7 +219,7 @@ impl Node {
                 Self::new(&context, &ele, indexes)
             }
         };
-        node
+        rel_ast
     }
 
     pub(crate) fn build_enumeration_or(
@@ -228,14 +228,14 @@ impl Node {
         column_name: &str,
         big_map_names: &mut Vec<String>,
         indexes: &mut Indexes,
-    ) -> Node {
-        let mut node = Self::new(context, ele, indexes);
-        node.name = Some(column_name.to_string());
-        node.column_name = Some(column_name.to_string());
+    ) -> RelationalAST {
+        let mut rel_ast = Self::new(context, ele, indexes);
+        rel_ast.name = Some(column_name.to_string());
+        rel_ast.column_name = Some(column_name.to_string());
         match ele.expr {
             Expr::SimpleExpr(SimpleExpr::Unit) => {
                 context._type = Type::Column;
-                node.value = ele.name.clone();
+                rel_ast.value = ele.name.clone();
             }
             Expr::SimpleExpr(_) => {
                 return Self::build(
@@ -247,15 +247,15 @@ impl Node {
             }
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::OrEnumeration(this, that) => {
-                    node._type = Type::OrEnumeration;
-                    node.left = Some(Box::new(Self::build_enumeration_or(
+                    rel_ast._type = Type::OrEnumeration;
+                    rel_ast.left = Some(Box::new(Self::build_enumeration_or(
                         context,
                         this,
                         column_name,
                         big_map_names,
                         indexes,
                     )));
-                    node.right = Some(Box::new(Self::build_enumeration_or(
+                    rel_ast.right = Some(Box::new(Self::build_enumeration_or(
                         context,
                         that,
                         column_name,
@@ -274,7 +274,7 @@ impl Node {
                 }
             },
         }
-        node
+        rel_ast
     }
 
     fn ele_with_annot(ele: &Ele, annot: Option<String>) -> Ele {
@@ -288,8 +288,12 @@ impl Node {
         }
     }
 
-    pub(crate) fn build_index(mut context: Context, ele: Ele, indexes: &mut Indexes) -> Node {
-        let node: Node = match ele.expr {
+    pub(crate) fn build_index(
+        mut context: Context,
+        ele: Ele,
+        indexes: &mut Indexes,
+    ) -> RelationalAST {
+        let rel_ast: RelationalAST = match ele.expr {
             Expr::ComplexExpr(ref e) => match e {
                 ComplexExpr::BigMap(_, _) | ComplexExpr::Map(_, _) => {
                     panic!("Got a map where I expected an index");
@@ -312,6 +316,6 @@ impl Node {
                 Self::new(&context, &ele, indexes)
             }
         };
-        node
+        rel_ast
     }
 }
