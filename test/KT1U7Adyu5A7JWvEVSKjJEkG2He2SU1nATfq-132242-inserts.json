@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 1,
+        id: 98,
     ): (
         table_name: "storage",
-        id: 1,
+        id: 98,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    95,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -29,12 +35,18 @@
     ),
     (
         table_name: "storage.questions",
-        id: 7,
+        id: 104,
     ): (
         table_name: "storage.questions",
-        id: 7,
+        id: 104,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    95,
+                ])),
+            ),
             (
                 name: "idx_string_4",
                 value: String("QmaQMoz6osCTtnFrgvgGuKJvMt9BP4HpBsScPaYJSrcRi1"),
@@ -109,12 +121,18 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 8,
+        id: 105,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 8,
-        fk_id: Some(7),
+        id: 105,
+        fk_id: Some(104),
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    95,
+                ])),
+            ),
             (
                 name: "idx_address_11",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),

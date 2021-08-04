@@ -247,8 +247,8 @@ fn test_block() {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
                 132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222,
-                132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
-                132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
+                132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132367,
+                132383, 132384, 132388, 132390, 135501, 138208, 149127,
             ],
         },
         Contract {
@@ -268,15 +268,12 @@ fn test_block() {
         },
     ];
 
-    let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
-    let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
-
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<crate::table::insert::Insert>) {
         inserts.sort_by_key(|x| {
             tables[&x.table_name]
                 .indices
                 .iter()
-                .filter(|index| **index != "tx_context_id".to_string())
+                //.filter(|index| **index != "tx_context_id".to_string())
                 .map(|index| {
                     PostgresqlGenerator::sql_value(
                         x.get_column(index)
@@ -288,7 +285,16 @@ fn test_block() {
     }
 
     for contract in &contracts {
+        let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
+        let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
+
         let mut storage_parser = StorageParser::new(1);
+
+        // verify that the test case is sane
+        let mut unique_levels = contract.levels.clone();
+        unique_levels.sort();
+        unique_levels.dedup();
+        assert_eq!(contract.levels.len(), unique_levels.len());
 
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json, &mut Indexes::new()).unwrap();
@@ -309,21 +315,22 @@ fn test_block() {
             .unwrap();
 
             load_from_block(&rel_ast, block, contract.id, &mut storage_parser).unwrap();
-            let mut result: Vec<crate::table::insert::Insert> =
-                storage_parser.get_inserts().values().cloned().collect();
+            let inserts = storage_parser.get_inserts();
 
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
-            println!("cat > {} <<ENDOFJSON\n", filename);
+            println!("cat > {} <<ENDOFJSON", filename);
             println!(
                 "{}",
-                to_string_pretty(&result, PrettyConfig::new()).unwrap()
+                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
             );
-            println!("ENDOFJSON\n");
+            println!(
+                "ENDOFJSON
+    "
+            );
 
-            if result.len() > 0 {
-                sort_inserts(tables, &mut result);
-                results.push((contract.id, *level, result));
-            }
+            let mut result: Vec<crate::table::insert::Insert> = inserts.values().cloned().collect();
+            sort_inserts(tables, &mut result);
+            results.push((contract.id, *level, result));
 
             use std::path::Path;
             let p = Path::new(&filename);
@@ -332,6 +339,7 @@ fn test_block() {
             if let Ok(file) = File::open(p) {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
+                println!("filename: {}", filename);
                 let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
 
                 let mut expected_result: Vec<crate::table::insert::Insert> =
@@ -340,9 +348,9 @@ fn test_block() {
 
                 expected.push((contract.id, *level, expected_result));
             }
+            assert_eq!(expected, results);
         }
     }
-    assert_eq!(expected, results);
 }
 
 #[test]

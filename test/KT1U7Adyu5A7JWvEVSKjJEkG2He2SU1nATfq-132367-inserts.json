@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 1,
+        id: 210,
     ): (
         table_name: "storage",
-        id: 1,
+        id: 210,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    207,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -29,12 +35,18 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 9,
+        id: 218,
     ): (
         table_name: "storage.token_total_supply",
-        id: 9,
+        id: 218,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    207,
+                ])),
+            ),
             (
                 name: "idx_tokens_nat_33",
                 value: Int((1, [
@@ -49,12 +61,18 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 8,
+        id: 217,
     ): (
         table_name: "storage.token_total_supply",
-        id: 8,
+        id: 217,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    207,
+                ])),
+            ),
             (
                 name: "idx_tokens_nat_33",
                 value: Int((1, [
@@ -69,12 +87,18 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 7,
+        id: 216,
     ): (
         table_name: "storage.token_total_supply",
-        id: 7,
+        id: 216,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    207,
+                ])),
+            ),
             (
                 name: "idx_tokens_nat_33",
                 value: Int((1, [
@@ -89,12 +113,18 @@
     ),
     (
         table_name: "storage.questions",
-        id: 10,
+        id: 219,
     ): (
         table_name: "storage.questions",
-        id: 10,
+        id: 219,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    207,
+                ])),
+            ),
             (
                 name: "idx_string_4",
                 value: String("QmUCGwUZZ9pRszpTv38jviF9QKPZR6KRofvZqxtokL2YYx"),
@@ -167,12 +197,18 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 11,
+        id: 220,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 11,
-        fk_id: Some(10),
+        id: 220,
+        fk_id: Some(219),
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    207,
+                ])),
+            ),
             (
                 name: "idx_address_11",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
