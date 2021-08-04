@@ -99,5 +99,12 @@ pub mod insert {
         pub columns: Vec<Column>,
     }
 
+    impl Insert {
+        #[cfg(test)]
+        pub fn get_column(&self, name: &str) -> Option<&Column> {
+            self.columns.iter().find(|column| column.name == name)
+        }
+    }
+
     pub type Inserts = BTreeMap<InsertKey, Insert>;
 }

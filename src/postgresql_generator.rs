@@ -385,7 +385,7 @@ CREATE VIEW "{}_live" AS (
         s.to_string()
     }
 
-    fn sql_value(value: &crate::michelson::Value) -> String {
+    pub fn sql_value(value: &crate::michelson::Value) -> String {
         match value {
             crate::michelson::Value::Address(s)
             | crate::michelson::Value::KeyHash(s)

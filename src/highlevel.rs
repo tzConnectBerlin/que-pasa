@@ -215,7 +215,9 @@ fn test_block() {
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this:
     // `cargo test -- --test test_block | bash`
+    use crate::postgresql_generator::PostgresqlGenerator;
     use crate::relational::Indexes;
+    use crate::table_builder::{TableBuilder, TableMap};
     use json::JsonValue;
 
     env_logger::init();
@@ -244,10 +246,17 @@ fn test_block() {
     let contracts: [Contract; 3] = [
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
+            /*
             levels: vec![
                 132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222,
                 132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
                 132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
+            ],
+            */
+            levels: vec![
+                132343, 123318, 123327, 123339, 128201, 132091, 132211, 132222, 132240, 132242,
+                132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383,
+                132384, 132388, 132390, 135501, 138208, 149127,
             ],
             operation_count: 16,
         },
@@ -270,10 +279,35 @@ fn test_block() {
         },
     ];
 
+    let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
+    let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
+
+    fn sort_inserts(tables: &TableMap, inserts: &mut Vec<crate::table::insert::Insert>) {
+        inserts.sort_by_key(|x| {
+            tables[&x.table_name]
+                .indices
+                .iter()
+                .map(|index| {
+                    PostgresqlGenerator::sql_value(
+                        x.get_column(index)
+                            .map_or(&crate::michelson::Value::None, |col| &col.value),
+                    )
+                })
+                .collect::<Vec<String>>()
+        });
+    }
+
     for contract in &contracts {
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json, &mut Indexes::new()).unwrap();
         let mut inserts_tested = 0;
+
+        // having the table layout is useful for sorting the results and
+        // expected results in deterministic order (we'll use the table's index)
+        let mut builder = TableBuilder::new();
+        builder.populate(&rel_ast).unwrap();
+        let tables = &builder.tables;
+
         for level in &contract.levels {
             println!("contract={}, level={}", contract.id, level);
 
@@ -285,11 +319,18 @@ fn test_block() {
 
             let mut storage_parser = StorageParser::new(1);
             load_from_block(&rel_ast, block, contract.id, &mut storage_parser).unwrap();
-
-            let inserts = storage_parser.get_inserts();
-            let filename = format!("test/{}-{}-inserts.json", contract.id, level);
+            let mut result = storage_parser
+                .get_inserts()
+                .values()
+                .cloned()
+                .collect::<Vec<crate::table::insert::Insert>>();
+            if result.len() > 0 {
+                sort_inserts(tables, &mut result);
+                results.push((contract.id, *level, result));
+            }
 
             use std::path::Path;
+            let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             let p = Path::new(&filename);
 
             use std::fs::File;
@@ -298,17 +339,19 @@ fn test_block() {
                 let reader = BufReader::new(file);
                 let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
 
-                assert_eq!(
-                    v.values().collect::<Vec<&crate::table::insert::Insert>>(),
-                    inserts
-                        .values()
-                        .collect::<Vec<&crate::table::insert::Insert>>()
-                );
+                let mut expected_result = v
+                    .values()
+                    .cloned()
+                    .collect::<Vec<crate::table::insert::Insert>>();
+                sort_inserts(tables, &mut expected_result);
+
+                expected.push((contract.id, *level, expected_result));
 
                 inserts_tested += 1;
             }
         }
-        assert_eq!(inserts_tested, contract.operation_count);
+        assert_eq!(expected, results);
+        assert_eq!(contract.operation_count, inserts_tested);
     }
 }
 

@@ -1,5 +1,6 @@
 #![feature(format_args_capture)]
 #![feature(btree_drain_filter)]
+#![feature(map_try_insert)]
 use postgresql_generator::PostgresqlGenerator;
 
 extern crate atty;

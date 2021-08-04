@@ -85,7 +85,7 @@ impl IdGenerator {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Value {
     Address(String),
     Bool(bool),
@@ -877,6 +877,7 @@ rel_ast: {:?}",
             name: column_name,
             value,
         });
+
         self.add_insert(table_name, id, fk_id, insert.columns);
     }
 
