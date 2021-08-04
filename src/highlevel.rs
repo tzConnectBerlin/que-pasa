@@ -213,8 +213,7 @@ fn test_generate() {
 fn test_block() {
     // this tests the generated table structures against known good ones.
     // if it fails for a good reason, the output can be used to repopulate the
-    // test files. To do this:
-    // `cargo test -- --test test_block | bash`
+    // test files. To do this, execute scripts/generate_test_output.bash
     use crate::postgresql_generator::PostgresqlGenerator;
     use crate::relational::Indexes;
     use crate::table_builder::{TableBuilder, TableMap};
