@@ -628,6 +628,14 @@ impl StorageParser {
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
         let id = self.id_generator.get_id();
+        self.add_column(
+            "storage".to_string(),
+            id,
+            None,
+            "deleted".to_string(),
+            Value::Bool(false),
+            tx_context,
+        );
         self.read_storage_internal(value, rel_ast, id, None, None, tx_context);
         Ok(())
     }

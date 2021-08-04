@@ -1,0 +1,206 @@
+{
+    (
+        table_name: "storage",
+        id: 1,
+    ): (
+        table_name: "storage",
+        id: 1,
+        fk_id: None,
+        columns: [
+            (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
+                name: "stablecoin",
+                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Int((1, [
+                    27,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 9,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 9,
+        fk_id: None,
+        columns: [
+            (
+                name: "idx_tokens_nat_33",
+                value: Int((1, [
+                    27,
+                ])),
+            ),
+            (
+                name: "tokens_nat_34",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 8,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 8,
+        fk_id: None,
+        columns: [
+            (
+                name: "idx_tokens_nat_33",
+                value: Int((1, [
+                    26,
+                ])),
+            ),
+            (
+                name: "tokens_nat_34",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 7,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 7,
+        fk_id: None,
+        columns: [
+            (
+                name: "idx_tokens_nat_33",
+                value: Int((1, [
+                    25,
+                ])),
+            ),
+            (
+                name: "tokens_nat_34",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions",
+        id: 10,
+    ): (
+        table_name: "storage.questions",
+        id: 10,
+        fk_id: None,
+        columns: [
+            (
+                name: "idx_string_4",
+                value: String("QmW4Fysqj4hWRfvhKUALiRVDRNjrqXTjGTi3oQTYo1jnmG"),
+            ),
+            (
+                name: "uniswap_contribution_factor",
+                value: Int((1, [
+                    0,
+                    80023840,
+                    759390781,
+                    631088724,
+                ])),
+            ),
+            (
+                name: "yes_preference",
+                value: Int((1, [
+                    0,
+                    80023840,
+                    759390781,
+                    631088724,
+                ])),
+            ),
+            (
+                name: "total_auction_quantity",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+            (
+                name: "winning_token",
+                value: None,
+            ),
+            (
+                name: "tokens_lqt_token_id",
+                value: Int((1, [
+                    27,
+                ])),
+            ),
+            (
+                name: "tokens_no_token_id",
+                value: Int((1, [
+                    26,
+                ])),
+            ),
+            (
+                name: "tokens_yes_token_id",
+                value: Int((1, [
+                    25,
+                ])),
+            ),
+            (
+                name: "market_close",
+                value: Timestamp("2021-04-06T07:32:00Z"),
+            ),
+            (
+                name: "auction_end",
+                value: Timestamp("2021-04-06T07:19:00Z"),
+            ),
+            (
+                name: "state",
+                value: String("questionAuctionOpen"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions.auction_bids",
+        id: 11,
+    ): (
+        table_name: "storage.questions.auction_bids",
+        id: 11,
+        fk_id: Some(10),
+        columns: [
+            (
+                name: "idx_address_11",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Int((1, [
+                    0,
+                    80023840,
+                    759390781,
+                    631088724,
+                ])),
+            ),
+            (
+                name: "quantity",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+            (
+                name: "rate",
+                value: Int((1, [
+                    3551657984,
+                    116415321,
+                ])),
+            ),
+        ],
+    ),
+}

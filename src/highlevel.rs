@@ -213,7 +213,7 @@ fn test_generate() {
 fn test_block() {
     // this tests the generated table structures against known good ones.
     // if it fails for a good reason, the output can be used to repopulate the
-    // test files. To do this, execute scripts/generate_test_output.bash
+    // test files. To do this, execute script/generate_test_output.bash
     use crate::postgresql_generator::PostgresqlGenerator;
     use crate::relational::Indexes;
     use crate::table_builder::{TableBuilder, TableMap};
@@ -239,7 +239,6 @@ fn test_block() {
     struct Contract<'a> {
         id: &'a str,
         levels: Vec<u32>,
-        operation_count: usize,
     }
 
     let contracts: [Contract; 3] = [
@@ -250,7 +249,6 @@ fn test_block() {
                 132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
                 132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
             ],
-            operation_count: 16,
         },
         Contract {
             id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
@@ -259,7 +257,6 @@ fn test_block() {
                 228490, 228505, 228506, 228507, 228508, 228509, 228510, 228511, 228512, 228516,
                 228521, 228522, 228523, 228524, 228525, 228526, 228527,
             ],
-            operation_count: 27,
         },
         Contract {
             id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
@@ -267,7 +264,6 @@ fn test_block() {
                 147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813, 147814, 147815,
                 147816,
             ],
-            operation_count: 10,
         },
     ];
 
@@ -279,6 +275,7 @@ fn test_block() {
             tables[&x.table_name]
                 .indices
                 .iter()
+                .filter(|index| **index != "tx_context_id".to_string())
                 .map(|index| {
                     PostgresqlGenerator::sql_value(
                         x.get_column(index)
@@ -294,9 +291,8 @@ fn test_block() {
 
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json, &mut Indexes::new()).unwrap();
-        let mut inserts_tested = 0;
 
-        // having the table layout is useful for sorting the results and
+        // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
         let mut builder = TableBuilder::new();
         builder.populate(&rel_ast).unwrap();
@@ -314,6 +310,14 @@ fn test_block() {
             load_from_block(&rel_ast, block, contract.id, &mut storage_parser).unwrap();
             let mut result: Vec<crate::table::insert::Insert> =
                 storage_parser.get_inserts().values().cloned().collect();
+
+            println!("cat > {} <<ENDOFJSON\n", filename);
+            println!(
+                "{}",
+                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+            );
+            println!("ENDOFJSON\n");
+
             if result.len() > 0 {
                 sort_inserts(tables, &mut result);
                 results.push((contract.id, *level, result));
@@ -334,13 +338,10 @@ fn test_block() {
                 sort_inserts(tables, &mut expected_result);
 
                 expected.push((contract.id, *level, expected_result));
-
-                inserts_tested += 1;
             }
         }
-        assert_eq!(expected, results);
-        assert_eq!(contract.operation_count, inserts_tested);
     }
+    assert_eq!(expected, results);
 }
 
 #[test]
