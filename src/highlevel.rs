@@ -218,6 +218,7 @@ fn test_block() {
     use crate::relational::Indexes;
     use crate::table_builder::{TableBuilder, TableMap};
     use json::JsonValue;
+    use ron::ser::{to_string_pretty, PrettyConfig};
 
     env_logger::init();
 
@@ -311,10 +312,11 @@ fn test_block() {
             let mut result: Vec<crate::table::insert::Insert> =
                 storage_parser.get_inserts().values().cloned().collect();
 
+            let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             println!("cat > {} <<ENDOFJSON\n", filename);
             println!(
                 "{}",
-                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+                to_string_pretty(&result, PrettyConfig::new()).unwrap()
             );
             println!("ENDOFJSON\n");
 
@@ -324,7 +326,6 @@ fn test_block() {
             }
 
             use std::path::Path;
-            let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             let p = Path::new(&filename);
 
             use std::fs::File;
