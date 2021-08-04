@@ -246,17 +246,10 @@ fn test_block() {
     let contracts: [Contract; 3] = [
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-            /*
             levels: vec![
                 132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211, 132219, 132222,
                 132240, 132242, 132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343,
                 132367, 132383, 132384, 132388, 132390, 135501, 138208, 149127,
-            ],
-            */
-            levels: vec![
-                132343, 123318, 123327, 123339, 128201, 132091, 132211, 132222, 132240, 132242,
-                132259, 132262, 132278, 132282, 132285, 132298, 132300, 132343, 132367, 132383,
-                132384, 132388, 132390, 135501, 138208, 149127,
             ],
             operation_count: 16,
         },
@@ -298,6 +291,8 @@ fn test_block() {
     }
 
     for contract in &contracts {
+        let mut storage_parser = StorageParser::new(1);
+
         let script_json = json::parse(&load_test(&format!("test/{}.script", contract.id))).unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json, &mut Indexes::new()).unwrap();
         let mut inserts_tested = 0;
@@ -317,13 +312,9 @@ fn test_block() {
             )))
             .unwrap();
 
-            let mut storage_parser = StorageParser::new(1);
             load_from_block(&rel_ast, block, contract.id, &mut storage_parser).unwrap();
-            let mut result = storage_parser
-                .get_inserts()
-                .values()
-                .cloned()
-                .collect::<Vec<crate::table::insert::Insert>>();
+            let mut result: Vec<crate::table::insert::Insert> =
+                storage_parser.get_inserts().values().cloned().collect();
             if result.len() > 0 {
                 sort_inserts(tables, &mut result);
                 results.push((contract.id, *level, result));
@@ -339,10 +330,8 @@ fn test_block() {
                 let reader = BufReader::new(file);
                 let v: crate::table::insert::Inserts = ron::de::from_reader(reader).unwrap();
 
-                let mut expected_result = v
-                    .values()
-                    .cloned()
-                    .collect::<Vec<crate::table::insert::Insert>>();
+                let mut expected_result: Vec<crate::table::insert::Insert> =
+                    v.values().cloned().collect();
                 sort_inserts(tables, &mut expected_result);
 
                 expected.push((contract.id, *level, expected_result));
