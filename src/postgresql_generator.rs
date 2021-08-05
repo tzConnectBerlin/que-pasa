@@ -1,6 +1,6 @@
 use crate::error::Res;
 use crate::michelson::Level;
-use crate::storage::SimpleExpr;
+use crate::storage::SimpleExprTy;
 use crate::table::{Column, Table};
 use chrono::{DateTime, Utc};
 use native_tls::{Certificate, TlsConnector};
@@ -200,20 +200,20 @@ impl PostgresqlGenerator {
         Self {}
     }
 
-    pub(crate) fn create_sql(&mut self, column: Column) -> Option<String> {
+    pub(crate) fn create_sql(&self, column: Column) -> Option<String> {
         let name = Self::quote_id(&column.name);
         match column.expr {
-            SimpleExpr::Address => Some(self.address(&name)),
-            SimpleExpr::Bool => Some(self.bool(&name)),
-            SimpleExpr::Bytes => Some(self.bytes(&name)),
-            SimpleExpr::Int => Some(self.int(&name)),
-            SimpleExpr::KeyHash => Some(self.string(&name)),
-            SimpleExpr::Mutez => Some(self.numeric(&name)),
-            SimpleExpr::Nat => Some(self.nat(&name)),
-            SimpleExpr::Stop => None,
-            SimpleExpr::String => Some(self.string(&name)),
-            SimpleExpr::Timestamp => Some(self.timestamp(&name)),
-            SimpleExpr::Unit => Some(self.unit(&name)),
+            SimpleExprTy::Address => Some(self.address(&name)),
+            SimpleExprTy::Bool => Some(self.bool(&name)),
+            SimpleExprTy::Bytes => Some(self.bytes(&name)),
+            SimpleExprTy::Int => Some(self.int(&name)),
+            SimpleExprTy::KeyHash => Some(self.string(&name)),
+            SimpleExprTy::Mutez => Some(self.numeric(&name)),
+            SimpleExprTy::Nat => Some(self.nat(&name)),
+            SimpleExprTy::Stop => None,
+            SimpleExprTy::String => Some(self.string(&name)),
+            SimpleExprTy::Timestamp => Some(self.timestamp(&name)),
+            SimpleExprTy::Unit => Some(self.unit(&name)),
         }
     }
 
@@ -221,51 +221,51 @@ impl PostgresqlGenerator {
         format!("\"{}\"", s)
     }
 
-    pub(crate) fn address(&mut self, name: &str) -> String {
+    pub(crate) fn address(&self, name: &str) -> String {
         format!("{} VARCHAR(127) NULL", name)
     }
 
-    pub(crate) fn bool(&mut self, name: &str) -> String {
+    pub(crate) fn bool(&self, name: &str) -> String {
         format!("{} BOOLEAN NULL", name)
     }
 
-    pub(crate) fn bytes(&mut self, name: &str) -> String {
+    pub(crate) fn bytes(&self, name: &str) -> String {
         format!("{} TEXT NULL", name)
     }
 
-    pub(crate) fn int(&mut self, name: &str) -> String {
+    pub(crate) fn int(&self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub(crate) fn nat(&mut self, name: &str) -> String {
+    pub(crate) fn nat(&self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub(crate) fn numeric(&mut self, name: &str) -> String {
+    pub(crate) fn numeric(&self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub(crate) fn string(&mut self, name: &str) -> String {
+    pub(crate) fn string(&self, name: &str) -> String {
         format!("{} TEXT NULL", name)
     }
 
-    pub(crate) fn timestamp(&mut self, name: &str) -> String {
+    pub(crate) fn timestamp(&self, name: &str) -> String {
         format!("{} TIMESTAMP NULL", name)
     }
 
-    pub(crate) fn unit(&mut self, name: &str) -> String {
+    pub(crate) fn unit(&self, name: &str) -> String {
         format!("{} VARCHAR(128) NULL", name)
     }
 
-    pub(crate) fn start_table(&mut self, name: &str) -> String {
+    pub(crate) fn start_table(&self, name: &str) -> String {
         format!(include_str!("../sql/postgresql-table-header.sql"), name)
     }
 
-    pub(crate) fn end_table(&mut self) -> String {
+    pub(crate) fn end_table(&self) -> String {
         include_str!("../sql/postgresql-table-footer.sql").to_string()
     }
 
-    pub(crate) fn create_columns(&mut self, table: &Table) -> Res<Vec<String>> {
+    pub(crate) fn create_columns(&self, table: &Table) -> Res<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
             Some(x) => vec![format!(r#""{}_id" BIGINT"#, x)],
             None => vec![],
@@ -286,7 +286,7 @@ impl PostgresqlGenerator {
         indices
     }
 
-    pub(crate) fn create_index(&mut self, table: &Table) -> String {
+    pub(crate) fn create_index(&self, table: &Table) -> String {
         format!(
             "CREATE UNIQUE INDEX ON \"{}\"({});\n",
             table.name,
@@ -302,7 +302,7 @@ impl PostgresqlGenerator {
         Self::parent_name(&table.name).map(|parent| format!(r#""{}_id""#, parent))
     }
 
-    fn create_foreign_key_constraint(&mut self, table: &Table) -> Option<String> {
+    fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
         Self::parent_name(&table.name).map(|parent| {
             format!(
                 r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
@@ -311,11 +311,11 @@ impl PostgresqlGenerator {
         })
     }
 
-    pub(crate) fn create_common_tables(&mut self) -> String {
+    pub(crate) fn create_common_tables(&self) -> String {
         include_str!("../sql/postgresql-common-tables.sql").to_string()
     }
 
-    pub(crate) fn create_view_store_all(&mut self, tables_names: Vec<String>) -> String {
+    pub(crate) fn create_view_store_all(&self, tables_names: Vec<String>) -> String {
         let mut query = String::new();
         query.push_str("CREATE VIEW storage_all AS SELECT DISTINCT ON (l._level) l._level, ");
         query.push_str(
@@ -339,7 +339,7 @@ impl PostgresqlGenerator {
         query
     }
 
-    pub(crate) fn create_table_definition(&mut self, table: &Table) -> Res<String> {
+    pub(crate) fn create_table_definition(&self, table: &Table) -> Res<String> {
         let mut v: Vec<String> = vec![self.start_table(&table.name)];
         let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
@@ -354,7 +354,7 @@ impl PostgresqlGenerator {
         Ok(v.join("\n"))
     }
 
-    pub(crate) fn create_view_definition(&mut self, table: &Table) -> Res<String> {
+    pub(crate) fn create_view_definition(&self, table: &Table) -> Res<String> {
         if table.name == "storage" {
             return Ok("".to_string());
         }
@@ -423,7 +423,7 @@ CREATE VIEW "{}_live" AS (
         }
     }
 
-    pub(crate) fn build_insert(&mut self, insert: &crate::table::insert::Insert) -> String {
+    pub(crate) fn build_insert(&self, insert: &crate::table::insert::Insert) -> String {
         let mut columns: String = insert
             .columns
             .iter()

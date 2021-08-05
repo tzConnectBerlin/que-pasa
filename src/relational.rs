@@ -1,4 +1,4 @@
-use crate::storage::{ComplexExpr, Ele, Expr, SimpleExpr};
+use crate::storage::{ComplexExprTy, Ele, ExprTy, SimpleExprTy};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -22,21 +22,21 @@ fn get_table_name(indexes: &mut Indexes, name: Option<String>) -> String {
     }
 }
 
-fn get_column_name(expr: &Expr) -> &str {
+fn get_column_name(expr: &ExprTy) -> &str {
     match expr {
-        Expr::ComplexExpr(_) => "",
-        Expr::SimpleExpr(e) => match e {
-            SimpleExpr::Address => "address",
-            SimpleExpr::Bool => "bool",
-            SimpleExpr::Bytes => "bytes",
-            SimpleExpr::Int => "int",
-            SimpleExpr::Mutez => "int",
-            SimpleExpr::Nat => "nat",
-            SimpleExpr::String => "string",
-            SimpleExpr::KeyHash => "string", // TODO: check this with the data
-            SimpleExpr::Timestamp => "timestamp",
-            SimpleExpr::Unit => "unit",
-            SimpleExpr::Stop => "stop",
+        ExprTy::ComplexExprTy(_) => "",
+        ExprTy::SimpleExprTy(e) => match e {
+            SimpleExprTy::Address => "address",
+            SimpleExprTy::Bool => "bool",
+            SimpleExprTy::Bytes => "bytes",
+            SimpleExprTy::Int => "int",
+            SimpleExprTy::Mutez => "int",
+            SimpleExprTy::Nat => "nat",
+            SimpleExprTy::String => "string",
+            SimpleExprTy::KeyHash => "string", // TODO: check this with the data
+            SimpleExprTy::Timestamp => "timestamp",
+            SimpleExprTy::Unit => "unit",
+            SimpleExprTy::Stop => "stop",
         },
     }
 }
@@ -47,6 +47,7 @@ pub enum Type {
     Table,
     TableIndex,
     Column,
+    List,
     Unit,
     OrEnumeration,
 }
@@ -124,11 +125,11 @@ pub struct RelationalAST {
     pub value: Option<String>,
     pub left: Option<Box<RelationalAST>>,
     pub right: Option<Box<RelationalAST>>,
-    pub expr: Expr,
+    pub expr: ExprTy,
 }
 
 impl fmt::Debug for RelationalAST {
-    // to stop it recursing into the Expr type
+    // to stop it recursing into the ExprTy type
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RelationalAST")
             .field("name", &self.name)
@@ -138,6 +139,7 @@ impl fmt::Debug for RelationalAST {
             .field("value", &self.value)
             .field("left", &self.left)
             .field("right", &self.right)
+            .field("expr", &self.expr)
             .finish()
     }
 }
@@ -168,8 +170,8 @@ impl RelationalAST {
             None => "noname".to_string(),
         };
         let rel_ast: RelationalAST = match ele.expr {
-            Expr::ComplexExpr(ref e) => match e {
-                ComplexExpr::BigMap(key, value) | ComplexExpr::Map(key, value) => {
+            ExprTy::ComplexExprTy(ref e) => match e {
+                ComplexExprTy::BigMap(key, value) | ComplexExprTy::Map(key, value) => {
                     let context = context.start_table(get_table_name(indexes, Some(name)));
                     let mut n = Self::new(&context, &ele, indexes);
                     n.left = Some(Box::new(Self::build_index(
@@ -185,7 +187,20 @@ impl RelationalAST {
                     )));
                     n
                 }
-                ComplexExpr::Pair(left, right) => {
+                ComplexExprTy::List(elems_expr) => {
+                    let mut context = context.start_table(get_table_name(indexes, Some(name)));
+                    context._type = Type::List;
+                    let mut n = Self::new(&context, &ele, indexes);
+                    println!("started table for list: {}", context.table_name);
+                    n.left = Some(Box::new(Self::build(
+                        context,
+                        (**elems_expr).clone(),
+                        big_map_names,
+                        indexes,
+                    )));
+                    n
+                }
+                ComplexExprTy::Pair(left, right) => {
                     let mut n = Self::new(&context, &ele, indexes);
                     let mut context = context.next_with_prefix(ele.name);
                     context._type = Type::Pair;
@@ -203,18 +218,18 @@ impl RelationalAST {
                     )));
                     n
                 }
-                ComplexExpr::Option(_inner_expr) => Self::build(
+                ComplexExprTy::Option(_inner_expr) => Self::build(
                     context,
                     Self::ele_with_annot(_inner_expr, ele.name),
                     big_map_names,
                     indexes,
                 ),
-                ComplexExpr::OrEnumeration(_this, _that) => {
+                ComplexExprTy::OrEnumeration(_this, _that) => {
                     context._type = Type::OrEnumeration;
                     Self::build_enumeration_or(&mut context, &ele, &name, big_map_names, indexes)
                 }
             },
-            Expr::SimpleExpr(_) => {
+            ExprTy::SimpleExprTy(_) => {
                 context._type = Type::Column;
                 Self::new(&context, &ele, indexes)
             }
@@ -233,11 +248,11 @@ impl RelationalAST {
         rel_ast.name = Some(column_name.to_string());
         rel_ast.column_name = Some(column_name.to_string());
         match ele.expr {
-            Expr::SimpleExpr(SimpleExpr::Unit) => {
+            ExprTy::SimpleExprTy(SimpleExprTy::Unit) => {
                 context._type = Type::Column;
                 rel_ast.value = ele.name.clone();
             }
-            Expr::SimpleExpr(_) => {
+            ExprTy::SimpleExprTy(_) => {
                 return Self::build(
                     context.start_table(ele.name.clone().unwrap()),
                     ele.clone(),
@@ -245,8 +260,8 @@ impl RelationalAST {
                     indexes,
                 );
             }
-            Expr::ComplexExpr(ref e) => match e {
-                ComplexExpr::OrEnumeration(this, that) => {
+            ExprTy::ComplexExprTy(ref e) => match e {
+                ComplexExprTy::OrEnumeration(this, that) => {
                     rel_ast._type = Type::OrEnumeration;
                     rel_ast.left = Some(Box::new(Self::build_enumeration_or(
                         context,
@@ -294,11 +309,11 @@ impl RelationalAST {
         indexes: &mut Indexes,
     ) -> RelationalAST {
         let rel_ast: RelationalAST = match ele.expr {
-            Expr::ComplexExpr(ref e) => match e {
-                ComplexExpr::BigMap(_, _) | ComplexExpr::Map(_, _) => {
+            ExprTy::ComplexExprTy(ref e) => match e {
+                ComplexExprTy::BigMap(_, _) | ComplexExprTy::Map(_, _) => {
                     panic!("Got a map where I expected an index");
                 }
-                ComplexExpr::Pair(left, right) => {
+                ComplexExprTy::Pair(left, right) => {
                     let ctx = context.next_with_prefix(ele.name.clone());
                     let mut n = Self::new(&context, &ele, indexes);
                     n.left = Some(Box::new(Self::build_index(
@@ -311,7 +326,7 @@ impl RelationalAST {
                 }
                 _ => panic!("Unexpected input to index"),
             },
-            Expr::SimpleExpr(_) => {
+            ExprTy::SimpleExprTy(_) => {
                 context._type = Type::TableIndex;
                 Self::new(&context, &ele, indexes)
             }

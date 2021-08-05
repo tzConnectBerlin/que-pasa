@@ -1,9 +1,12 @@
 use crate::err;
 use crate::error::Res;
+use crate::michelson::StorageParser;
+#[cfg(test)]
+use json::stringify_pretty;
 use json::JsonValue;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum SimpleExpr {
+pub enum SimpleExprTy {
     Address,
     Bool,
     Bytes,
@@ -18,24 +21,31 @@ pub enum SimpleExpr {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub enum ComplexExpr {
+pub enum ComplexExprTy {
     BigMap(Box<Ele>, Box<Ele>),
-    //    List(Vec<Ele>),
+    List(Box<Ele>),
     Map(Box<Ele>, Box<Ele>),
     Pair(Box<Ele>, Box<Ele>),
     OrEnumeration(Box<Ele>, Box<Ele>),
-    Option(Box<Ele>), // TODO: move this out into SimpleExpr??
+    Option(Box<Ele>), // TODO: move this out into SimpleExprTy??
 }
 
+//TODO
+// why not:
+// ExprTy {
+//  SimpleExprTy(Option<String>, SimpleExprTy
+//  ComplexExprTy(Option<String>, ComplexExprTy
+// }
+// ?
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Expr {
-    SimpleExpr(SimpleExpr),
-    ComplexExpr(ComplexExpr),
+pub enum ExprTy {
+    SimpleExprTy(SimpleExprTy),
+    ComplexExprTy(ComplexExprTy),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Ele {
-    pub expr: Expr,
+    pub expr: ExprTy,
     pub name: Option<String>,
 }
 
@@ -58,7 +68,7 @@ macro_rules! simple_expr {
     ($typ:expr, $name:expr) => {
         Ele {
             name: $name,
-            expr: Expr::SimpleExpr($typ),
+            expr: ExprTy::SimpleExprTy($typ),
         }
     };
 }
@@ -68,9 +78,9 @@ macro_rules! complex_expr {
         let args = $args.unwrap();
         Ele {
             name: $name,
-            expr: Expr::ComplexExpr($typ(
-                Box::new(storage_ast_from_json(args[0].clone())?),
-                Box::new(storage_ast_from_json(args[1].clone())?),
+            expr: ExprTy::ComplexExprTy($typ(
+                Box::new(storage_ast_from_json(&args[0].clone())?),
+                Box::new(storage_ast_from_json(&args[1].clone())?),
             )),
         }
     }};
@@ -90,34 +100,34 @@ pub(crate) fn is_enumeration_or(json: &JsonValue) -> bool {
     }
 }
 
-pub(crate) fn storage_ast_from_json(json: JsonValue) -> Res<Ele> {
-    let annot = annotation(&json);
-    let args = args(&json);
-    debug!("prim is {:?}", json["prim"]);
-    if let JsonValue::Short(prim) = &json["prim"] {
-        match prim.as_str() {
-            "address" => Ok(simple_expr!(SimpleExpr::Address, annot)),
-            "big_map" => Ok(complex_expr!(ComplexExpr::BigMap, annot, args)),
-            "bool" => Ok(simple_expr!(SimpleExpr::Bool, annot)),
-            "bytes" => Ok(simple_expr!(SimpleExpr::Bytes, annot)),
-            "int" => Ok(simple_expr!(SimpleExpr::Int, annot)),
-            "key" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)), // TODO: check this is correct
-            "key_hash" => Ok(simple_expr!(SimpleExpr::KeyHash, annot)),
-            "map" => Ok(complex_expr!(ComplexExpr::Map, annot, args)),
-            "mutez" => Ok(simple_expr!(SimpleExpr::Mutez, annot)),
-            "nat" => Ok(simple_expr!(SimpleExpr::Nat, annot)),
+pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Res<Ele> {
+    let annot = annotation(json);
+    let args = args(json);
+    println!("prim is {:?}", json["prim"]);
+    if let JsonValue::Short(prim) = json["prim"] {
+        match prim.to_ascii_lowercase().as_str() {
+            "address" => Ok(simple_expr!(SimpleExprTy::Address, annot)),
+            "big_map" => Ok(complex_expr!(ComplexExprTy::BigMap, annot, args)),
+            "bool" => Ok(simple_expr!(SimpleExprTy::Bool, annot)),
+            "bytes" => Ok(simple_expr!(SimpleExprTy::Bytes, annot)),
+            "int" => Ok(simple_expr!(SimpleExprTy::Int, annot)),
+            "key" => Ok(simple_expr!(SimpleExprTy::KeyHash, annot)), // TODO: check this is correct
+            "key_hash" => Ok(simple_expr!(SimpleExprTy::KeyHash, annot)),
+            "map" => Ok(complex_expr!(ComplexExprTy::Map, annot, args)),
+            "mutez" => Ok(simple_expr!(SimpleExprTy::Mutez, annot)),
+            "nat" => Ok(simple_expr!(SimpleExprTy::Nat, annot)),
             "option" => {
                 let args = args.ok_or_else(|| err!("Args was none!"))?;
                 Ok(Ele {
                     name: annot,
-                    expr: Expr::ComplexExpr(ComplexExpr::Option(Box::new(storage_ast_from_json(
-                        args[0].clone(),
-                    )?))),
+                    expr: ExprTy::ComplexExprTy(ComplexExprTy::Option(Box::new(
+                        storage_ast_from_json(&args[0].clone())?,
+                    ))),
                 })
             }
             "or" => {
-                if is_enumeration_or(&json) {
-                    Ok(complex_expr!(ComplexExpr::OrEnumeration, annot, args))
+                if is_enumeration_or(json) {
+                    Ok(complex_expr!(ComplexExprTy::OrEnumeration, annot, args))
                 } else {
                     unimplemented!(
                         "Or used as variant record found, don't know how to deal with it {}",
@@ -126,18 +136,34 @@ pub(crate) fn storage_ast_from_json(json: JsonValue) -> Res<Ele> {
                 }
             }
             "pair" => {
-                if args.clone().ok_or_else(|| err!("NoneError"))?.len() != 2 {
-                    return Err(err!(
-                        "Pair with {} args",
-                        args.ok_or_else(|| err!("NoneError"))?.len()
-                    ));
+                let args_count = args.clone().ok_or_else(|| err!("NoneError"))?.len();
+                match args_count {
+                    0 | 1 => return Err(err!("Pair with {} args", args_count)),
+                    2 => Ok(complex_expr!(ComplexExprTy::Pair, annot, args)),
+                    _ => {
+                        let mut args_cloned = args.ok_or_else(|| err!("Args was none!")).unwrap();
+                        args_cloned.reverse();
+                        let unfolded = StorageParser::lexer_unfold_many_pair(&mut args_cloned);
+                        //println!(
+                        //    "!! {} => {} !!",
+                        //    stringify_pretty(json.to_string(), 4),
+                        //    unfolded
+                        //);
+                        storage_ast_from_json(&unfolded)
+                    }
                 }
-                Ok(complex_expr!(ComplexExpr::Pair, annot, args))
             }
-            "string" => Ok(simple_expr!(SimpleExpr::String, annot)),
-            "timestamp" => Ok(simple_expr!(SimpleExpr::Timestamp, annot)),
-            "unit" => Ok(simple_expr!(SimpleExpr::Unit, annot)),
-            "lambda" => Ok(simple_expr!(SimpleExpr::Stop, annot)),
+            "set" => {
+                let inner_ast = storage_ast_from_json(&args.unwrap()[0]).unwrap();
+                Ok(Ele {
+                    name: annot,
+                    expr: ExprTy::ComplexExprTy(ComplexExprTy::List(Box::new(inner_ast))),
+                })
+            }
+            "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),
+            "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),
+            "unit" => Ok(simple_expr!(SimpleExprTy::Unit, annot)),
+            "lambda" => Ok(simple_expr!(SimpleExprTy::Stop, annot)),
             _ => Err(err!(
                 "Unexpected storage json: {} {:#?}",
                 prim.as_str(),

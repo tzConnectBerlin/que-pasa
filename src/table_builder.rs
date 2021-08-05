@@ -1,7 +1,7 @@
 use crate::err;
 use crate::error::Res;
 use crate::relational::{RelationalAST, Type};
-use crate::storage::{ComplexExpr, Expr};
+use crate::storage::{ComplexExprTy, ExprTy};
 use crate::table::Table;
 use std::collections::HashMap;
 
@@ -67,6 +67,7 @@ impl TableBuilder {
                     self.populate(&right)?;
                 }
             }
+            Type::List => self.populate(&rel_ast.left.unwrap())?,
             Type::Column => self.add_column(&rel_ast),
             Type::OrEnumeration => {
                 self.add_column(&rel_ast);
@@ -79,9 +80,9 @@ impl TableBuilder {
             }
             Type::Unit => (),
             Type::TableIndex => match rel_ast.expr {
-                Expr::SimpleExpr(_) => self.add_index(&rel_ast),
-                Expr::ComplexExpr(ref expr) => match expr {
-                    ComplexExpr::Pair(_, _) => {
+                ExprTy::SimpleExprTy(_) => self.add_index(&rel_ast),
+                ExprTy::ComplexExprTy(ref expr) => match expr {
+                    ComplexExprTy::Pair(_, _) => {
                         self.populate(&*rel_ast.left.ok_or_else(|| err!("Left is None"))?)?;
                         self.populate(&*rel_ast.right.ok_or_else(|| err!("Right is None"))?)?;
                     }

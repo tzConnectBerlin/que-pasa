@@ -119,7 +119,7 @@ fn main() {
     let json = StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
-    let ast = storage::storage_ast_from_json(storage_definition).unwrap();
+    let ast = storage::storage_ast_from_json(&storage_definition).unwrap();
 
     // Build the internal representation from the node storage defition
     let context = relational::Context::init();
@@ -137,7 +137,7 @@ fn main() {
 
     // If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
-        let mut generator = PostgresqlGenerator::new();
+        let generator = PostgresqlGenerator::new();
         println!("{}", generator.create_common_tables());
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);

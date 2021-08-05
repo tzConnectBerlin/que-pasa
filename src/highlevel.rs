@@ -80,7 +80,6 @@ fn load_from_block(
     for big_map_diff in big_map_diffs {
         let tx_content = big_map_diff.0;
         let diff = big_map_diff.1;
-        debug!("big_map_diff: {}", serde_json::to_string(&diff)?);
         storage_parser.process_big_map_diff(&diff, &tx_content)?;
     }
     Ok(())
@@ -93,7 +92,7 @@ pub(crate) fn load_and_store_level(
     storage_parser: &mut crate::michelson::StorageParser,
     connection: &mut postgres::Client,
 ) -> Res<SaveLevelResult> {
-    let mut generator = PostgresqlGenerator::new();
+    let generator = PostgresqlGenerator::new();
     let mut transaction = postgresql_generator::transaction(connection)?;
     let (_json, block) = StorageParser::level_json(level)?;
 
@@ -169,7 +168,7 @@ fn test_generate() {
     ))
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
-    let ast = crate::storage::storage_ast_from_json(storage_definition.clone()).unwrap();
+    let ast = crate::storage::storage_ast_from_json(&storage_definition.clone()).unwrap();
     println!("{:#?}", ast);
     //let rel_ast = RelationalAST::build(Context::init(), ast);
     use crate::relational::Context;
@@ -225,7 +224,7 @@ fn test_block() {
     fn get_rel_ast_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<RelationalAST> {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
-        let ast = crate::storage::storage_ast_from_json(storage_definition)?;
+        let ast = crate::storage::storage_ast_from_json(&storage_definition)?;
         let mut big_map_tables_names = Vec::new();
         let rel_ast = RelationalAST::build(
             crate::relational::Context::init(),
@@ -242,7 +241,12 @@ fn test_block() {
         levels: Vec<u32>,
     }
 
-    let contracts: [Contract; 3] = [
+    let contracts: [Contract; 1] = [
+        Contract {
+            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
+            levels: vec![1443112],
+        },
+        /*
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
@@ -266,6 +270,7 @@ fn test_block() {
                 147816,
             ],
         },
+        */
     ];
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<crate::table::insert::Insert>) {
@@ -304,6 +309,15 @@ fn test_block() {
         let mut builder = TableBuilder::new();
         builder.populate(&rel_ast).unwrap();
         let tables = &builder.tables;
+
+        let generator = PostgresqlGenerator::new();
+        for (tablename, table) in tables {
+            println!(
+                "table definition for table={}:\n{}\n\n",
+                tablename,
+                generator.create_table_definition(table).unwrap()
+            );
+        }
 
         for level in &contract.levels {
             println!("contract={}, level={}", contract.id, level);

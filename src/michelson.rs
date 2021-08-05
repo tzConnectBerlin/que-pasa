@@ -13,8 +13,6 @@ use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
 
-const MAX_ARAY_LENGTH: usize = 20; // Max length of array that we'll convert to PAIRs.
-
 lazy_static! {
     static ref NODE_URL: String = match std::env::var("NODE_URL") {
         Ok(s) => s,
@@ -352,20 +350,19 @@ impl StorageParser {
     fn lex(&self, json: &JsonValue) -> JsonValue {
         if let JsonValue::Array(mut a) = json.clone() {
             a.reverse();
-            self.lexer_unfold_sequences(&mut a)
+            StorageParser::lexer_unfold_many_pair(&mut a)
         } else {
             json.clone()
         }
     }
 
-    fn lexer_unfold_sequences(&self, v: &mut Vec<JsonValue>) -> JsonValue {
+    pub fn lexer_unfold_many_pair(v: &mut Vec<JsonValue>) -> JsonValue {
         match v.len() {
             0 => panic!("Called empty"),
             1 => v[0].clone(),
             _ => {
                 let ele = v.pop();
-                debug!("{:?}", v);
-                let rest = self.lexer_unfold_sequences(v);
+                let rest = StorageParser::lexer_unfold_many_pair(v);
                 return object! {
                     "prim": "Pair",
                     "args": [
@@ -427,29 +424,44 @@ impl StorageParser {
         self.parse_lexed(&lexed)
     }
 
+    fn unfold_value(&self, v: &Value, rel_ast: &RelationalAST) -> Value {
+        match &rel_ast.expr {
+            crate::storage::ExprTy::ComplexExprTy(ce) => {
+                if let crate::storage::ComplexExprTy::List(_) = ce {
+                    // do not unfold list
+                    debug!("not unfolding list: {:?}", v);
+                    return v.clone();
+                }
+            }
+            _ => (),
+        }
+        return self.unfold_list(v);
+    }
+
+    fn unfold_list(&self, v: &Value) -> Value {
+        match v {
+            Value::List(xs) => match xs.len() {
+                0 => return Value::None,
+                1 => return xs[0].clone(),
+                _ => {
+                    let left = Box::new(xs[0].clone());
+                    let rest: Vec<Value> = xs.iter().skip(1).map(|x| x.clone()).collect();
+                    let right = Box::new(self.unfold_list(&Value::List(rest)));
+                    return Value::Pair(left, right);
+                }
+            },
+            _ => return v.clone(),
+        }
+    }
+
     /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
     /// data to stash it in the database.
     fn parse_lexed(&self, json: &JsonValue) -> Res<Value> {
         debug!("parse_lexed: {:?}", json);
         if let JsonValue::Array(a) = json {
-            match a.len() {
-                0 => {
-                    // TODO: must understand why this happens
-                    return Ok(Value::None);
-                }
-                1 => {
-                    return self.parse_lexed(&a[0]);
-                }
-                _ => {
-                    if a.len() < MAX_ARAY_LENGTH {
-                        let left = Box::new(self.parse_lexed(&a[0].clone())?);
-                        let right = Box::new(self.parse_lexed(&JsonValue::Array(a[1..].to_vec()))?);
-                        return Ok(Value::Pair(left, right));
-                    } else {
-                        return Ok(Value::None);
-                    }
-                }
-            }
+            return Ok(Value::List(
+                a.iter().map(|x| self.parse_lexed(x).unwrap()).collect(),
+            ));
         }
         let args: Vec<JsonValue> = match &json["args"] {
             JsonValue::Array(a) => a.clone(),
@@ -484,7 +496,7 @@ impl StorageParser {
                         _ => {
                             let mut args = args;
                             args.reverse(); // so we can pop() afterward. But TODO: fix
-                            let lexed = self.lexer_unfold_sequences(&mut args);
+                            let lexed = StorageParser::lexer_unfold_many_pair(&mut args);
                             return self.parse_lexed(&lexed);
                         }
                     }
@@ -533,7 +545,7 @@ impl StorageParser {
             if a.len() < 400 {
                 let mut array = a.clone();
                 array.reverse();
-                return self.parse_lexed(&self.lexer_unfold_sequences(&mut array));
+                return self.parse_lexed(&StorageParser::lexer_unfold_many_pair(&mut array));
             }
         }
 
@@ -561,13 +573,18 @@ impl StorageParser {
                     Some(id) => id.parse()?,
                     None => return Err(err!("No big map id found in diff {:?}", diff)),
                 };
-                debug!("Processing big map with id {}", big_map_id);
+
+                debug!("Will process big map with id {}", big_map_id);
                 //debug!("Big maps are {:?}", self.big_map_map);
                 let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n),
-                    None => return Ok(()),
+                    None => {
+                        println!("big_map_id not known: {}", big_map_id);
+                        return Ok(());
+                    }
                 };
                 let rel_ast = rel_ast.clone();
+                debug!("Processing big map with id {}: {:?}", big_map_id, rel_ast);
                 let id = self.id_generator.get_id();
                 self.read_storage_internal(
                     &self.parse_lexed(&serde2json!(&diff
@@ -636,7 +653,14 @@ impl StorageParser {
             Value::Bool(false),
             tx_context,
         );
-        self.read_storage_internal(value, rel_ast, id, None, None, tx_context);
+        self.read_storage_internal(
+            &self.unfold_list(value),
+            rel_ast,
+            id,
+            None,
+            None,
+            tx_context,
+        );
         Ok(())
     }
 
@@ -649,12 +673,15 @@ impl StorageParser {
         mut last_table: Option<String>,
         tx_context: &TxContext,
     ) {
+        debug!("-> [\n\tast={:?},\n\tv={:?}\n]", rel_ast, value);
         match rel_ast.expr {
             // we don't even try to store lambdas.
-            crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Stop) => return,
+            crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => return,
             // or enumerations need to be evaluated once to populate the enum field,
             // and once to fill in auxiliary tables.
-            crate::storage::Expr::ComplexExpr(crate::storage::ComplexExpr::OrEnumeration(_, _)) => {
+            crate::storage::ExprTy::ComplexExprTy(
+                crate::storage::ComplexExprTy::OrEnumeration(_, _),
+            ) => {
                 fn resolve_or(value: &Value, rel_ast: &RelationalAST) -> Option<String> {
                     debug!(
                         "resolve_or: value: {:?}
@@ -696,17 +723,17 @@ rel_ast: {:?}",
             }
         }
 
-        match value {
+        match self.unfold_value(value, rel_ast) {
             Value::Elt(keys, values) => {
                 // entry in a map or a big map.
                 let l = rel_ast.left.as_ref().unwrap();
                 let r = rel_ast.right.as_ref().unwrap();
-                self.read_storage_internal(keys, l, id, fk_id, last_table.clone(), tx_context);
-                self.read_storage_internal(values, r, id, fk_id, last_table, tx_context);
+                self.read_storage_internal(&keys, l, id, fk_id, last_table.clone(), tx_context);
+                self.read_storage_internal(&values, r, id, fk_id, last_table, tx_context);
             }
             Value::Left(left) => {
                 self.read_storage_internal(
-                    left,
+                    &left,
                     rel_ast.left.as_ref().unwrap(),
                     id,
                     fk_id,
@@ -716,7 +743,7 @@ rel_ast: {:?}",
             }
             Value::Right(right) => {
                 self.read_storage_internal(
-                    right,
+                    &right,
                     rel_ast.right.as_ref().unwrap(),
                     id,
                     fk_id,
@@ -726,11 +753,11 @@ rel_ast: {:?}",
             }
             Value::List(l) => {
                 for element in l {
-                    debug!("Elt: {:?}", element);
+                    debug!("List Elt: {:?}", element);
                     let id = self.id_generator.get_id();
                     self.read_storage_internal(
-                        element,
-                        rel_ast,
+                        &element,
+                        rel_ast.left.as_ref().unwrap(),
                         id,
                         fk_id,
                         last_table.clone(),
@@ -739,15 +766,15 @@ rel_ast: {:?}",
                 }
             }
             Value::Pair(left, right) => {
-                //Debug!(
+                //println!(
                 //    "rel_ast: {:?}
-                //value: {:?}",
+                //     value: {:?}",
                 //    rel_ast, value
                 //);
                 let l = rel_ast.left.as_ref().unwrap();
                 let r = rel_ast.right.as_ref().unwrap();
-                self.read_storage_internal(right, r, id, fk_id, last_table.clone(), tx_context);
-                self.read_storage_internal(left, l, id, fk_id, last_table, tx_context);
+                self.read_storage_internal(&right, r, id, fk_id, last_table.clone(), tx_context);
+                self.read_storage_internal(&left, l, id, fk_id, last_table, tx_context);
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, rel_ast is {:#?}", value, rel_ast);
@@ -767,16 +794,16 @@ rel_ast: {:?}",
                 // this is a value, and should be saved.
                 let table_name = rel_ast.table_name.as_ref().unwrap().to_string();
                 let column_name = rel_ast.column_name.as_ref().unwrap().to_string();
-                debug!(
-                    "{} {} = {:?} {:?}",
+                println!(
+                    "{} {}={:?} : {:?}",
                     table_name, column_name, value, rel_ast.expr
                 );
 
                 // If this is a big map, save the id and the fk_id currently
                 // being used, for later processing
                 match &rel_ast.expr {
-                    crate::storage::Expr::ComplexExpr(ce) => {
-                        if let crate::storage::ComplexExpr::BigMap(_, _) = ce {
+                    crate::storage::ExprTy::ComplexExprTy(ce) => {
+                        if let crate::storage::ComplexExprTy::BigMap(_, _) = ce {
                             debug!("value: {:?}", value);
                             if let Value::Int(i) = value {
                                 debug!("{}", i);
@@ -787,7 +814,9 @@ rel_ast: {:?}",
                             }
                         }
                     }
-                    crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Timestamp) => {
+                    crate::storage::ExprTy::SimpleExprTy(
+                        crate::storage::SimpleExprTy::Timestamp,
+                    ) => {
                         self.add_column(
                             table_name,
                             id,
@@ -797,7 +826,7 @@ rel_ast: {:?}",
                             tx_context,
                         );
                     }
-                    crate::storage::Expr::SimpleExpr(crate::storage::SimpleExpr::Address) => {
+                    crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Address) => {
                         self.add_column(
                             table_name,
                             id,
@@ -823,10 +852,11 @@ rel_ast: {:?}",
                 }
             }
         }
+        debug!("<- {:?}", rel_ast.expr);
     }
 
     fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, rel_ast: RelationalAST) {
-        debug!("Saving {} -> ({:?}, {:?})", bigmap_id, fk, rel_ast);
+        println!("Saving {} ---> ({:?}, {:?})", bigmap_id, fk, rel_ast);
         self.big_map_map.insert(bigmap_id, (fk, rel_ast));
     }
 
@@ -864,10 +894,12 @@ rel_ast: {:?}",
         value: Value,
         tx_context: &TxContext,
     ) {
-        debug!(
-            "add_column {}, {}, {:?}, {}, {:?}",
-            table_name, id, fk_id, column_name, value
-        );
+        if table_name == "storage.ledger.allowances" {
+            println!(
+                "add_column {}, {}, {:?}, {}, {:?}",
+                table_name, id, fk_id, column_name, value
+            );
+        }
 
         let mut insert = match self.get_insert(table_name.clone(), id, fk_id) {
             Some(x) => x,

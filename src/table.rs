@@ -1,12 +1,12 @@
 use crate::michelson::Value;
 use crate::relational::RelationalAST;
-use crate::storage::{ComplexExpr, Expr, SimpleExpr};
+use crate::storage::{ComplexExprTy, ExprTy, SimpleExprTy};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
-    pub expr: SimpleExpr,
+    pub expr: SimpleExprTy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -30,11 +30,11 @@ impl Table {
         let name = rel_ast.name.unwrap();
         let e = rel_ast.expr;
         match e {
-            Expr::SimpleExpr(e) => {
+            ExprTy::SimpleExprTy(e) => {
                 self.indices.push(name.clone());
                 self.columns.push(Column { name, expr: e });
             }
-            Expr::ComplexExpr(e) => panic!("add_index called with ComplexExpr {:#?}", e),
+            ExprTy::ComplexExprTy(e) => panic!("add_index called with ComplexExprTy {:#?}", e),
         }
     }
 
@@ -45,17 +45,17 @@ impl Table {
             return;
         }
         match &rel_ast.expr {
-            Expr::SimpleExpr(e) => {
+            ExprTy::SimpleExprTy(e) => {
                 self.columns.push(Column { name, expr: *e });
             }
-            Expr::ComplexExpr(ce) => match ce {
-                ComplexExpr::OrEnumeration(_, _) => {
+            ExprTy::ComplexExprTy(ce) => match ce {
+                ComplexExprTy::OrEnumeration(_, _) => {
                     self.columns.push(Column {
                         name,
-                        expr: SimpleExpr::Unit, // What will ultimately go in is a Unit
+                        expr: SimpleExprTy::Unit, // What will ultimately go in is a Unit
                     })
                 }
-                _ => panic!("add_column called with ComplexExpr {:?}", &rel_ast.expr),
+                _ => panic!("add_column called with ComplexExprTy {:?}", &rel_ast.expr),
             },
         }
     }
