@@ -241,12 +241,13 @@ fn test_block() {
         levels: Vec<u32>,
     }
 
-    let contracts: [Contract; 1] = [
+    let contracts: [Contract; 3] = [
+        /*
         Contract {
             id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
             levels: vec![1443112],
         },
-        /*
+        */
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
@@ -270,7 +271,6 @@ fn test_block() {
                 147816,
             ],
         },
-        */
     ];
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<crate::table::insert::Insert>) {
@@ -362,8 +362,8 @@ fn test_block() {
 
                 expected.push((contract.id, *level, expected_result));
             }
-            assert_eq!(expected, results);
         }
+        assert_eq!(expected, results);
     }
 }
 

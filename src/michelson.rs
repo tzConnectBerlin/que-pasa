@@ -674,6 +674,7 @@ impl StorageParser {
         tx_context: &TxContext,
     ) {
         debug!("-> [\n\tast={:?},\n\tv={:?}\n]", rel_ast, value);
+        let v = &self.unfold_value(value, rel_ast);
         match rel_ast.expr {
             // we don't even try to store lambdas.
             crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => return,
@@ -696,7 +697,7 @@ rel_ast: {:?}",
                         _ => rel_ast.name.clone(),
                     }
                 }
-                if let Some(val) = resolve_or(value, rel_ast) {
+                if let Some(val) = resolve_or(v, rel_ast) {
                     self.add_column(
                         rel_ast.table_name.as_ref().unwrap().to_string(),
                         id,
@@ -723,7 +724,7 @@ rel_ast: {:?}",
             }
         }
 
-        match self.unfold_value(value, rel_ast) {
+        match v {
             Value::Elt(keys, values) => {
                 // entry in a map or a big map.
                 let l = rel_ast.left.as_ref().unwrap();
