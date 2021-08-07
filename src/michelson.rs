@@ -438,6 +438,24 @@ impl StorageParser {
         return self.unfold_list(v);
     }
 
+    fn resolve_or(&self, v: &Value, rel_ast: &RelationalAST) -> Option<String> {
+        debug!(
+            "resolve_or:
+[
+value: {:#?}
+rel_ast: {:#?}
+]",
+            v, rel_ast
+        );
+        match &self.unfold_value(v, rel_ast) {
+            Value::Left(left) => self.resolve_or(left, rel_ast.left.as_ref().unwrap()),
+            Value::Right(right) => self.resolve_or(right, rel_ast.right.as_ref().unwrap()),
+            Value::Pair(_, _) => rel_ast.table_name.clone(),
+            Value::Unit(val) => val.clone(),
+            _ => rel_ast.name.clone(),
+        }
+    }
+
     fn unfold_list(&self, v: &Value) -> Value {
         match v {
             Value::List(xs) => match xs.len() {
@@ -683,21 +701,7 @@ impl StorageParser {
             crate::storage::ExprTy::ComplexExprTy(
                 crate::storage::ComplexExprTy::OrEnumeration(_, _),
             ) => {
-                fn resolve_or(value: &Value, rel_ast: &RelationalAST) -> Option<String> {
-                    debug!(
-                        "resolve_or: value: {:?}
-rel_ast: {:?}",
-                        value, rel_ast
-                    );
-                    match value {
-                        Value::Left(left) => resolve_or(left, rel_ast.left.as_ref().unwrap()),
-                        Value::Right(right) => resolve_or(right, rel_ast.right.as_ref().unwrap()),
-                        Value::Pair(_, _) => rel_ast.table_name.clone(),
-                        Value::Unit(val) => val.clone(),
-                        _ => rel_ast.name.clone(),
-                    }
-                }
-                if let Some(val) = resolve_or(v, rel_ast) {
+                if let Some(val) = self.resolve_or(v, rel_ast) {
                     self.add_column(
                         rel_ast.table_name.as_ref().unwrap().to_string(),
                         id,

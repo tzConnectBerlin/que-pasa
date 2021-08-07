@@ -129,7 +129,7 @@ pub struct RelationalAST {
 }
 
 impl fmt::Debug for RelationalAST {
-    // to stop it recursing into the ExprTy type
+    // to stop it recursing into specific fields with simple commenting out
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RelationalAST")
             .field("name", &self.name)
