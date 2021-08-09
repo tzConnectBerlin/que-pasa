@@ -123,11 +123,9 @@ fn main() {
 
     // Build the internal representation from the node storage defition
     let ctx = relational::Context::init();
-    let mut big_map_table_names = vec![ctx.table_name.clone()];
     let mut indexes = relational::Indexes::new();
 
-    let rel_ast =
-        relational::build_relational_ast(&ctx, &type_ast, &mut big_map_table_names, &mut indexes);
+    let rel_ast = relational::build_relational_ast(&ctx, &type_ast, &mut indexes);
     //debug!("{:#?}", rel_ast);
 
     // Make a SQL-compatible representation
@@ -147,7 +145,6 @@ fn main() {
             print!("{}", generator.create_view_definition(table).unwrap());
             println!();
         }
-        println!("{}", generator.create_view_store_all(big_map_table_names));
         return;
     }
 

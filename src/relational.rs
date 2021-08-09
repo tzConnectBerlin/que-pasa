@@ -98,12 +98,30 @@ impl Context {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RelationalAST {
-    List(Box<RelationalAST>),
     Pair(Box<RelationalAST>, Box<RelationalAST>),
-    OrEnumeration(Box<RelationalAST>, Box<RelationalAST>),
-    Map(Box<RelationalAST>, Box<RelationalAST>),
+    OrEnumeration(
+        RelationalEntry,
+        String,
+        Box<RelationalAST>,
+        String,
+        Box<RelationalAST>,
+    ),
+    Map(String, Box<RelationalAST>, Box<RelationalAST>),
     BigMap(String, Box<RelationalAST>, Box<RelationalAST>),
+    List(String, Box<RelationalAST>),
     Leaf(RelationalEntry),
+}
+
+impl RelationalAST {
+    pub fn table_header(&self) -> Option<String> {
+        match self {
+            RelationalAST::BigMap(t, _, _) => Some(t.clone()),
+            RelationalAST::Map(t, _, _) => Some(t.clone()),
+            RelationalAST::List(t, _) => Some(t.clone()),
+            RelationalAST::OrEnumeration(rel_entry, ..) => Some(rel_entry.table_name.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -118,30 +136,31 @@ pub struct RelationalEntry {
 pub(crate) fn build_relational_ast(
     ctx: &Context,
     ele: &Ele,
-    big_map_names: &mut Vec<String>, // ? remove ?
     indexes: &mut Indexes,
 ) -> RelationalAST {
     let name = match &ele.name {
         Some(x) => x.clone(),
         None => "noname".to_string(),
     };
+    println!("=> {:#?}", ele.expr_type);
     match ele.expr_type {
         ExprTy::ComplexExprTy(ref expr_type) => match expr_type {
             ComplexExprTy::Pair(left_type, right_type) => {
                 let ctx = &ctx.next_with_prefix(ele.name.clone());
-                let left = build_relational_ast(ctx, &*left_type, big_map_names, indexes);
-                let right = build_relational_ast(ctx, &*right_type, big_map_names, indexes);
+                let left = build_relational_ast(ctx, left_type, indexes);
+                let right = build_relational_ast(ctx, right_type, indexes);
                 RelationalAST::Pair(Box::new(left), Box::new(right))
             }
             ComplexExprTy::List(elems_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let elems_ast = build_relational_ast(ctx, elems_type, big_map_names, indexes);
-                RelationalAST::List(Box::new(elems_ast))
+                let elems_ast = build_relational_ast(ctx, elems_type, indexes);
+                println!("creating list with type {:#?}", elems_ast);
+                RelationalAST::List(ctx.table_name.clone(), Box::new(elems_ast))
             }
             ComplexExprTy::BigMap(key_type, value_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let key_ast = build_index(ctx, &*key_type, indexes);
-                let value_ast = build_relational_ast(ctx, &*value_type, big_map_names, indexes);
+                let key_ast = build_index(ctx, key_type, indexes);
+                let value_ast = build_relational_ast(ctx, value_type, indexes);
                 RelationalAST::BigMap(
                     ctx.table_name.clone(),
                     Box::new(key_ast),
@@ -150,19 +169,18 @@ pub(crate) fn build_relational_ast(
             }
             ComplexExprTy::Map(key_type, value_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let key_ast = build_relational_ast(ctx, &*key_type, big_map_names, indexes);
-                let value_ast = build_relational_ast(ctx, &*value_type, big_map_names, indexes);
-                RelationalAST::Map(Box::new(key_ast), Box::new(value_ast))
+                let key_ast = build_index(ctx, key_type, indexes);
+                let value_ast = build_relational_ast(ctx, value_type, indexes);
+                RelationalAST::Map(
+                    ctx.table_name.clone(),
+                    Box::new(key_ast),
+                    Box::new(value_ast),
+                )
             }
-            ComplexExprTy::Option(expr_type) => build_relational_ast(
-                ctx,
-                &ele_with_annot(expr_type, ele.name.clone()),
-                big_map_names,
-                indexes,
-            ),
-            ComplexExprTy::OrEnumeration(_this, _that) => {
-                build_enumeration_or(ctx, ele, &name, big_map_names, indexes)
+            ComplexExprTy::Option(expr_type) => {
+                build_relational_ast(ctx, &ele_with_annot(expr_type, ele.name.clone()), indexes)
             }
+            ComplexExprTy::OrEnumeration(_, _) => build_enumeration_or(ctx, ele, &name, indexes).0,
         },
         ExprTy::SimpleExprTy(_) => RelationalAST::Leaf(RelationalEntry {
             table_name: ctx.table_name.clone(),
@@ -178,28 +196,50 @@ fn build_enumeration_or(
     ctx: &Context,
     ele: &Ele,
     column_name: &str,
-    big_map_names: &mut Vec<String>,
     indexes: &mut Indexes,
-) -> RelationalAST {
+) -> (RelationalAST, String) {
     match &ele.expr_type {
         ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(left_type, right_type)) => {
-            let left = build_enumeration_or(ctx, &left_type, column_name, big_map_names, indexes);
-            let right = build_enumeration_or(ctx, &right_type, column_name, big_map_names, indexes);
-            RelationalAST::OrEnumeration(Box::new(left), Box::new(right))
+            let (left_ast, left_table) =
+                build_enumeration_or(ctx, &left_type, column_name, indexes);
+            let (right_ast, right_table) =
+                build_enumeration_or(ctx, &right_type, column_name, indexes);
+            let rel_entry = RelationalEntry {
+                table_name: ctx.table_name.clone(),
+                column_name: column_name.to_string(),
+                column_type: ele.expr_type.clone(),
+                is_index: false,
+                value: None,
+            };
+            println!("or_enumeration_entry: {:#?}", rel_entry);
+            (
+                RelationalAST::OrEnumeration(
+                    rel_entry,
+                    left_table,
+                    Box::new(left_ast),
+                    right_table,
+                    Box::new(right_ast),
+                ),
+                ctx.table_name.clone(),
+            )
         }
-        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => RelationalAST::Leaf(RelationalEntry {
-            table_name: ctx.table_name.clone(),
-            column_name: column_name.to_string(),
-            column_type: ele.expr_type.clone(),
-            value: ele.name.clone(),
-            is_index: false,
-        }),
-        _ => build_relational_ast(
-            &ctx.start_table(ele.name.clone().unwrap()),
-            ele,
-            big_map_names,
-            indexes,
+        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => (
+            RelationalAST::Leaf(RelationalEntry {
+                table_name: ctx.table_name.clone(),
+                column_name: column_name.to_string(),
+                column_type: ele.expr_type.clone(),
+                value: ele.name.clone(),
+                is_index: false,
+            }),
+            ctx.table_name.clone(),
         ),
+        _ => {
+            let ctx = ctx.start_table(ele.name.clone().unwrap());
+            (
+                build_relational_ast(&ctx, ele, indexes),
+                ctx.table_name.clone(),
+            )
+        }
     }
 }
 
@@ -208,8 +248,8 @@ fn build_index(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> RelationalAST
         ExprTy::ComplexExprTy(ref ety) => match ety {
             ComplexExprTy::Pair(left_type, right_type) => {
                 let ctx = ctx.next_with_prefix(ele.name.clone());
-                let left = build_index(&ctx.next(), &*left_type, indexes);
-                let right = build_index(&ctx, &*right_type, indexes);
+                let left = build_index(&ctx.next(), left_type, indexes);
+                let right = build_index(&ctx, right_type, indexes);
                 RelationalAST::Pair(Box::new(left), Box::new(right))
             }
             _ => panic!("Unexpected input type to index"),

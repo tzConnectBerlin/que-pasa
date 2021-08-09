@@ -48,13 +48,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_33",
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     6,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((0, [])),
             ),
         ],
@@ -74,13 +74,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_33",
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     5,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((0, [])),
             ),
         ],
@@ -100,13 +100,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_33",
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     4,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((0, [])),
             ),
         ],
@@ -126,7 +126,7 @@
                 ])),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string_0",
                 value: String("QmaQMoz6osCTtnFrgvgGuKJvMt9BP4HpBsScPaYJSrcRi1"),
             ),
             (
@@ -210,7 +210,7 @@
                 ])),
             ),
             (
-                name: "idx_address_11",
+                name: "idx_address_1",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

@@ -1,1 +1,233 @@
-[{"name":"storage","indices":["tx_context_id"],"columns":[{"name":"last_token_created","expr":"Nat"},{"name":"owner","expr":"Address"},{"name":"stablecoin","expr":"Address"}]},{"name":"storage.ledger","indices":["tx_context_id","idx_tokens_address_20","idx_tokens_nat_21"],"columns":[{"name":"idx_tokens_address_20","expr":"Address"},{"name":"idx_tokens_nat_21","expr":"Nat"},{"name":"tokens_balance","expr":"Nat"}]},{"name":"storage.ledger.allowances","indices":["tx_context_id","idx_tokens_address_23"],"columns":[{"name":"idx_tokens_address_23","expr":"Address"},{"name":"tokens_nat_24","expr":"Nat"}]},{"name":"storage.operators","indices":["tx_context_id","idx_tokens_address_27","idx_tokens_address_29","idx_tokens_nat_30"],"columns":[{"name":"idx_tokens_address_27","expr":"Address"},{"name":"idx_tokens_address_29","expr":"Address"},{"name":"idx_tokens_nat_30","expr":"Nat"},{"name":"tokens_unit_31","expr":"Unit"}]},{"name":"storage.questions","indices":["tx_context_id","idx_string_4"],"columns":[{"name":"idx_string_4","expr":"String"},{"name":"owner","expr":"Address"},{"name":"state","expr":"Unit"},{"name":"auction_end","expr":"Timestamp"},{"name":"market_close","expr":"Timestamp"},{"name":"tokens_yes_token_id","expr":"Nat"},{"name":"tokens_no_token_id","expr":"Nat"},{"name":"tokens_lqt_token_id","expr":"Nat"},{"name":"winning_token","expr":"Nat"},{"name":"total_auction_quantity","expr":"Nat"},{"name":"yes_preference","expr":"Nat"},{"name":"uniswap_contribution_factor","expr":"Nat"}]},{"name":"storage.questions.auction_bids","indices":["tx_context_id","idx_address_11"],"columns":[{"name":"idx_address_11","expr":"Address"},{"name":"rate","expr":"Nat"},{"name":"quantity","expr":"Nat"},{"name":"total_token","expr":"Nat"}]},{"name":"storage.token_metadata","indices":["tx_context_id","idx_tokens_nat_35"],"columns":[{"name":"idx_tokens_nat_35","expr":"Nat"},{"name":"tokens_token_id","expr":"Nat"},{"name":"tokens_symbol","expr":"String"},{"name":"tokens_name","expr":"String"},{"name":"tokens_decimals","expr":"Nat"}]},{"name":"storage.token_metadata.extras","indices":["tx_context_id","idx_tokens_string_40"],"columns":[{"name":"idx_tokens_string_40","expr":"String"},{"name":"tokens_string_41","expr":"String"}]},{"name":"storage.token_total_supply","indices":["tx_context_id","idx_tokens_nat_33"],"columns":[{"name":"idx_tokens_nat_33","expr":"Nat"},{"name":"tokens_nat_34","expr":"Nat"}]}]
+[
+    (
+        name: "storage",
+        indices: [
+            "tx_context_id",
+        ],
+        columns: [
+            (
+                name: "last_token_created",
+                column_type: Nat,
+            ),
+            (
+                name: "owner",
+                column_type: Address,
+            ),
+            (
+                name: "stablecoin",
+                column_type: Address,
+            ),
+        ],
+    ),
+    (
+        name: "storage.ledger",
+        indices: [
+            "tx_context_id",
+            "idx_tokens_address_2",
+            "idx_tokens_nat_3",
+        ],
+        columns: [
+            (
+                name: "idx_tokens_address_2",
+                column_type: Address,
+            ),
+            (
+                name: "idx_tokens_nat_3",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_balance",
+                column_type: Nat,
+            ),
+        ],
+    ),
+    (
+        name: "storage.ledger.allowances",
+        indices: [
+            "tx_context_id",
+            "idx_tokens_address_4",
+        ],
+        columns: [
+            (
+                name: "idx_tokens_address_4",
+                column_type: Address,
+            ),
+            (
+                name: "tokens_nat_5",
+                column_type: Nat,
+            ),
+        ],
+    ),
+    (
+        name: "storage.operators",
+        indices: [
+            "tx_context_id",
+            "idx_tokens_address_6",
+            "idx_tokens_address_7",
+            "idx_tokens_nat_8",
+        ],
+        columns: [
+            (
+                name: "idx_tokens_address_6",
+                column_type: Address,
+            ),
+            (
+                name: "idx_tokens_address_7",
+                column_type: Address,
+            ),
+            (
+                name: "idx_tokens_nat_8",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_unit_9",
+                column_type: Unit,
+            ),
+        ],
+    ),
+    (
+        name: "storage.questions",
+        indices: [
+            "tx_context_id",
+            "idx_string_0",
+        ],
+        columns: [
+            (
+                name: "idx_string_0",
+                column_type: String,
+            ),
+            (
+                name: "owner",
+                column_type: Address,
+            ),
+            (
+                name: "state",
+                column_type: Unit,
+            ),
+            (
+                name: "auction_end",
+                column_type: Timestamp,
+            ),
+            (
+                name: "market_close",
+                column_type: Timestamp,
+            ),
+            (
+                name: "tokens_yes_token_id",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_no_token_id",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_lqt_token_id",
+                column_type: Nat,
+            ),
+            (
+                name: "winning_token",
+                column_type: Nat,
+            ),
+            (
+                name: "total_auction_quantity",
+                column_type: Nat,
+            ),
+            (
+                name: "yes_preference",
+                column_type: Nat,
+            ),
+            (
+                name: "uniswap_contribution_factor",
+                column_type: Nat,
+            ),
+        ],
+    ),
+    (
+        name: "storage.questions.auction_bids",
+        indices: [
+            "tx_context_id",
+            "idx_address_1",
+        ],
+        columns: [
+            (
+                name: "idx_address_1",
+                column_type: Address,
+            ),
+            (
+                name: "rate",
+                column_type: Nat,
+            ),
+            (
+                name: "quantity",
+                column_type: Nat,
+            ),
+            (
+                name: "total_token",
+                column_type: Nat,
+            ),
+        ],
+    ),
+    (
+        name: "storage.token_metadata",
+        indices: [
+            "tx_context_id",
+            "idx_tokens_nat_12",
+        ],
+        columns: [
+            (
+                name: "idx_tokens_nat_12",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_token_id",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_symbol",
+                column_type: String,
+            ),
+            (
+                name: "tokens_name",
+                column_type: String,
+            ),
+            (
+                name: "tokens_decimals",
+                column_type: Nat,
+            ),
+        ],
+    ),
+    (
+        name: "storage.token_metadata.extras",
+        indices: [
+            "tx_context_id",
+            "idx_tokens_string_13",
+        ],
+        columns: [
+            (
+                name: "idx_tokens_string_13",
+                column_type: String,
+            ),
+            (
+                name: "tokens_string_14",
+                column_type: String,
+            ),
+        ],
+    ),
+    (
+        name: "storage.token_total_supply",
+        indices: [
+            "tx_context_id",
+            "idx_tokens_nat_10",
+        ],
+        columns: [
+            (
+                name: "idx_tokens_nat_10",
+                column_type: Nat,
+            ),
+            (
+                name: "tokens_nat_11",
+                column_type: Nat,
+            ),
+        ],
+    ),
+]

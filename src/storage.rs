@@ -1,8 +1,6 @@
 use crate::err;
 use crate::error::Res;
 use crate::michelson::StorageParser;
-#[cfg(test)]
-use json::stringify_pretty;
 use json::JsonValue;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -144,11 +142,6 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Res<Ele> {
                         let mut args_cloned = args.ok_or_else(|| err!("Args was none!")).unwrap();
                         args_cloned.reverse();
                         let unfolded = StorageParser::lexer_unfold_many_pair(&mut args_cloned);
-                        //println!(
-                        //    "!! {} => {} !!",
-                        //    stringify_pretty(json.to_string(), 4),
-                        //    unfolded
-                        //);
                         storage_ast_from_json(&unfolded)
                     }
                 }

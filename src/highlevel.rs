@@ -161,6 +161,7 @@ fn load_test(name: &str) -> String {
 #[test]
 fn test_generate() {
     use crate::relational::build_relational_ast;
+    use ron::ser::{to_string_pretty, PrettyConfig};
 
     use std::fs::File;
     use std::io::BufReader;
@@ -172,19 +173,12 @@ fn test_generate() {
     let storage_definition = &json["code"][1]["args"][0];
     let type_ast = crate::storage::storage_ast_from_json(&storage_definition.clone()).unwrap();
     println!("{:#?}", type_ast);
+
     use crate::relational::Context;
     let context = Context::init();
-    let mut big_map_tables_names = Vec::new();
 
-    //initialize the big_map_tables_names with the starting table_name "storage"
-    big_map_tables_names.push(context.table_name.clone());
     use crate::relational::Indexes;
-    let rel_ast = build_relational_ast(
-        &context.clone(),
-        &type_ast,
-        &mut big_map_tables_names,
-        &mut Indexes::new(),
-    );
+    let rel_ast = build_relational_ast(&context.clone(), &type_ast, &mut Indexes::new());
     println!("{:#?}", rel_ast);
     let generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = crate::table_builder::TableBuilder::new();
@@ -199,7 +193,18 @@ fn test_generate() {
     }
     println!("{}", serde_json::to_string(&tables).unwrap());
 
-    let p = Path::new("test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json");
+    let filename = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json";
+    println!("cat > {} <<ENDOFJSON", filename);
+    println!(
+        "{}",
+        to_string_pretty(&tables, PrettyConfig::new()).unwrap()
+    );
+    println!(
+        "ENDOFJSON
+    "
+    );
+
+    let p = Path::new(filename);
     let file = File::open(p).unwrap();
     let reader = BufReader::new(file);
     let v: Vec<crate::table::Table> = serde_json::from_reader(reader).unwrap();
@@ -227,13 +232,9 @@ fn test_block() {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = crate::storage::storage_ast_from_json(&storage_definition)?;
-        let mut big_map_tables_names = Vec::new();
-        let rel_ast = build_relational_ast(
-            &crate::relational::Context::init(),
-            &type_ast,
-            &mut big_map_tables_names,
-            indexes,
-        );
+        // println!("{:#?}", type_ast);
+        // panic!("stop.");
+        let rel_ast = build_relational_ast(&crate::relational::Context::init(), &type_ast, indexes);
         Ok(rel_ast)
     }
 
@@ -279,7 +280,6 @@ fn test_block() {
             tables[&x.table_name]
                 .indices
                 .iter()
-                //.filter(|index| **index != "tx_context_id".to_string())
                 .map(|index| {
                     PostgresqlGenerator::sql_value(
                         x.get_column(index)
@@ -287,13 +287,13 @@ fn test_block() {
                     )
                 })
                 .collect::<Vec<String>>()
+                .insert(0, x.table_name.clone())
         });
     }
 
+    let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
+    let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
     for contract in &contracts {
-        let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
-        let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
-
         let mut storage_parser = StorageParser::new(1);
 
         // verify that the test case is sane
@@ -310,15 +310,6 @@ fn test_block() {
         let mut builder = TableBuilder::new();
         builder.populate(&rel_ast);
         let tables = &builder.tables;
-
-        let generator = PostgresqlGenerator::new();
-        for (tablename, table) in tables {
-            println!(
-                "table definition for table={}:\n{}\n\n",
-                tablename,
-                generator.create_table_definition(table).unwrap()
-            );
-        }
 
         for level in &contract.levels {
             println!("contract={}, level={}", contract.id, level);
@@ -364,8 +355,8 @@ fn test_block() {
                 expected.push((contract.id, *level, expected_result));
             }
         }
-        assert_eq!(expected, results);
     }
+    assert_eq!(expected, results);
 }
 
 #[test]

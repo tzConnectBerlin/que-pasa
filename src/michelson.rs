@@ -27,6 +27,37 @@ macro_rules! serde2json {
 }
 
 #[derive(Clone, Debug)]
+pub struct ReadStorageContext {
+    pub last_table: Option<String>,
+    pub id: u32,
+    pub fk_id: Option<u32>,
+}
+impl ReadStorageContext {
+    pub fn new(id: u32) -> ReadStorageContext {
+        ReadStorageContext {
+            id: id,
+            last_table: None,
+            fk_id: None,
+        }
+    }
+    pub fn with_id(&self, id: u32) -> Self {
+        let mut c = self.clone();
+        c.id = id;
+        c
+    }
+    pub fn with_fk_id(&self, fk_id: u32) -> Self {
+        let mut c = self.clone();
+        c.fk_id = Some(fk_id);
+        c
+    }
+    pub fn with_last_table(&self, last_table: String) -> Self {
+        let mut c = self.clone();
+        c.last_table = Some(last_table);
+        c
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct TxContext {
     pub id: Option<u32>,
     pub level: u32,
@@ -117,9 +148,6 @@ pub struct StorageParser {
     pub id_generator: IdGenerator,
     inserts: crate::table::insert::Inserts,
     pub tx_contexts: TxContextMap,
-    last_table: Option<String>,
-    id: u32,
-    fk_id: Option<u32>,
 }
 
 impl StorageParser {
@@ -128,15 +156,8 @@ impl StorageParser {
             big_map_map: BigMapMap::new(),
             inserts: crate::table::insert::Inserts::new(),
             tx_contexts: HashMap::new(),
-            last_table: None,
-            id: initial_id,
-            id_generator: IdGenerator::new(initial_id + 1),
-            fk_id: None,
+            id_generator: IdGenerator::new(initial_id),
         }
-    }
-
-    fn increment_id(&mut self) {
-        self.id = self.id_generator.get_id();
     }
 
     /// Load a uri (of course)
@@ -436,7 +457,7 @@ impl StorageParser {
 
     fn unfold_value(&self, v: &Value, rel_ast: &RelationalAST) -> Value {
         match rel_ast {
-            RelationalAST::List(_) => {
+            RelationalAST::List(_, _) => {
                 // do not unfold list
                 v.clone()
             }
@@ -444,23 +465,46 @@ impl StorageParser {
         }
     }
 
-    fn resolve_or(&self, v: &Value, rel_ast: &RelationalAST) -> RelationalEntry {
+    fn resolve_or(
+        &self,
+        ctx: &ReadStorageContext,
+        rel_entry: &RelationalEntry,
+        v: &Value,
+        rel_ast: &RelationalAST,
+    ) -> RelationalEntry {
+        println!("resolve_or: v={:#?} rel_ast={:#?}", v, rel_ast);
         match &self.unfold_value(v, rel_ast) {
             Value::Left(left) => {
-                if let RelationalAST::Pair(left_ast, _) = rel_ast {
-                    self.resolve_or(left, left_ast)
+                if let RelationalAST::OrEnumeration(rel_entry, left_table, left_ast, ..) = rel_ast {
+                    self.resolve_or(
+                        &ctx.with_last_table(left_table.clone()),
+                        &rel_entry,
+                        left,
+                        left_ast,
+                    )
                 } else {
                     panic!("resolve_or: value does not match rel_ast shape")
                 }
             }
             Value::Right(right) => {
-                if let RelationalAST::Pair(_, right_ast) = rel_ast {
-                    self.resolve_or(right, right_ast)
+                if let RelationalAST::OrEnumeration(rel_entry, _, _, right_table, right_ast) =
+                    rel_ast
+                {
+                    self.resolve_or(
+                        &ctx.with_last_table(right_table.clone()),
+                        &rel_entry,
+                        right,
+                        right_ast,
+                    )
                 } else {
                     panic!("resolve_or: value does not match rel_ast shape")
                 }
             }
-            Value::Pair(_, _) => panic!("dont understand this case yet"),
+            Value::Pair(_, _) => {
+                let mut res = rel_entry.clone();
+                res.value = ctx.last_table.clone();
+                res
+            }
             Value::Unit(val) => match rel_ast {
                 RelationalAST::Leaf(rel_entry) => {
                     let mut res = rel_entry.clone();
@@ -469,7 +513,18 @@ impl StorageParser {
                 }
                 _ => panic!("also dont understand this yet"),
             },
-            _ => panic!("don't understand this case yet either"), //rel_ast.name.clone(),
+            _ => match rel_ast {
+                RelationalAST::Leaf(child_entry) => {
+                    let mut res = rel_entry.clone();
+                    res.value = Some(child_entry.column_name.clone());
+                    res
+                }
+                _ =>
+                //rel_entry.clone()
+                {
+                    panic!("don't understand this case yet either")
+                } //rel_ast.name.clone(),
+            },
         }
     }
 
@@ -601,7 +656,7 @@ impl StorageParser {
         diff: &block::BigMapDiff,
         tx_context: &TxContext,
     ) -> Res<()> {
-        debug!("big_map_diff: {:?}", diff);
+        println!("process big_map_diff: {:?}", diff);
         match diff.action.as_str() {
             "update" => {
                 let big_map_id: u32 = match &diff.big_map {
@@ -617,11 +672,10 @@ impl StorageParser {
                     }
                 };
                 if let RelationalAST::BigMap(table_name, key_ast, value_ast) = rel_ast {
-                    let id = self.id_generator.get_id();
-                    self.id = id;
-                    self.fk_id = None;
-                    self.last_table = Some(table_name.to_string());
+                    let ctx = &ReadStorageContext::new(self.id_generator.get_id())
+                        .with_last_table(table_name.to_string());
                     self.read_storage_internal(
+                        ctx,
                         &self.parse_lexed(&serde2json!(&diff
                             .key
                             .clone()
@@ -632,6 +686,7 @@ impl StorageParser {
                     match &diff.value {
                         None => {
                             self.add_column(
+                                ctx,
                                 &table_name.to_string(),
                                 &"deleted".to_string(),
                                 Value::Bool(true),
@@ -640,10 +695,8 @@ impl StorageParser {
                             Ok(())
                         }
                         Some(val) => {
-                            self.id = id;
-                            self.fk_id = None;
-                            self.last_table = Some(table_name.to_string());
                             self.read_storage_internal(
+                                ctx,
                                 &self.parse_lexed(&serde2json!(&val))?,
                                 &value_ast,
                                 tx_context,
@@ -677,18 +730,42 @@ impl StorageParser {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
+        let ctx = &ReadStorageContext::new(self.id_generator.get_id());
         self.add_column(
+            ctx,
             &"storage".to_string(),
             &"deleted".to_string(),
             Value::Bool(false),
             tx_context,
         );
-        self.read_storage_internal(&self.unfold_list(value), rel_ast, tx_context);
+        self.read_storage_internal(
+            &ctx.with_last_table("storage".to_string()),
+            &self.unfold_list(value),
+            rel_ast,
+            tx_context,
+        );
         Ok(())
+    }
+
+    fn update_context(
+        &mut self,
+        ctx: &ReadStorageContext,
+        current_table: Option<String>,
+    ) -> ReadStorageContext {
+        if let Some(table_name) = current_table {
+            if ctx.last_table != Some(table_name.clone()) {
+                return ctx
+                    .with_last_table(table_name.clone())
+                    .with_fk_id(ctx.id)
+                    .with_id(self.id_generator.get_id());
+            }
+        }
+        ctx.clone()
     }
 
     pub(crate) fn read_storage_internal(
         &mut self,
+        ctx: &ReadStorageContext,
         value: &Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
@@ -700,64 +777,77 @@ impl StorageParser {
                 crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => return,
                 _ => {}
             },
-            RelationalAST::OrEnumeration(_, _) => {
-                let rel_entry = self.resolve_or(v, rel_ast);
-                self.add_column(
-                    &rel_entry.table_name,
-                    &rel_entry.column_name,
-                    Value::Unit(rel_entry.value),
-                    tx_context,
-                );
+            RelationalAST::OrEnumeration(rel_entry, ..) => {
+                let rel_entry = self.resolve_or(ctx, &rel_entry, v, rel_ast);
+                if rel_entry.value != None {
+                    self.add_column(
+                        ctx,
+                        &rel_entry.table_name,
+                        &rel_entry.column_name,
+                        Value::Unit(rel_entry.value),
+                        tx_context,
+                    );
+                }
             }
             _ => {}
         };
 
+        let ctx = &self.update_context(ctx, rel_ast.table_header());
+
         match v {
             Value::Elt(keys, values) => match rel_ast {
-                RelationalAST::Map(key_ast, value_ast)
+                RelationalAST::Map(_, key_ast, value_ast)
                 | RelationalAST::BigMap(_, key_ast, value_ast) => {
-                    self.read_storage_internal(&keys, key_ast, tx_context);
-                    self.read_storage_internal(&values, value_ast, tx_context);
+                    self.read_storage_internal(ctx, &keys, key_ast, tx_context);
+                    self.read_storage_internal(ctx, &values, value_ast, tx_context);
                 }
                 _ => panic!("storage value does not match rel_ast structure"),
             },
             Value::Left(left) => {
-                if let RelationalAST::Pair(left_ast, _) = rel_ast {
-                    self.read_storage_internal(&left, left_ast, tx_context);
+                if let RelationalAST::OrEnumeration(_, left_table, left_ast, ..) = rel_ast {
+                    let ctx = &self.update_context(ctx, Some(left_table.clone()));
+                    self.read_storage_internal(ctx, &left, left_ast, tx_context);
                 } else {
                     panic!("storage value does not match rel_ast structure")
                 }
             }
             Value::Right(right) => {
-                if let RelationalAST::Pair(_, right_ast) = rel_ast {
-                    self.read_storage_internal(&right, right_ast, tx_context);
+                if let RelationalAST::OrEnumeration(.., right_table, right_ast) = rel_ast {
+                    let ctx = &self.update_context(ctx, Some(right_table.clone()));
+                    self.read_storage_internal(ctx, &right, right_ast, tx_context);
                 } else {
                     panic!("storage value does not match rel_ast structure")
                 }
             }
             Value::List(l) => {
-                if let RelationalAST::List(elem_ast) = rel_ast {
+                if let RelationalAST::List(_, elem_ast) = rel_ast {
                     for element in l {
+                        let id = self.id_generator.get_id();
                         debug!("List Elt: {:?}", element);
-                        self.increment_id();
-                        self.read_storage_internal(&element, elem_ast, tx_context);
+                        self.read_storage_internal(
+                            &ctx.with_id(id),
+                            &element,
+                            elem_ast,
+                            tx_context,
+                        );
                     }
                 } else {
                     panic!("storage value does not match rel_ast structure")
                 }
             }
-            Value::Pair(left, right) => {
-                if let RelationalAST::Pair(left_ast, right_ast) = rel_ast {
-                    self.read_storage_internal(&right, right_ast, tx_context);
-                    self.read_storage_internal(&left, left_ast, tx_context);
-                } else {
-                    panic!("storage value does not match rel_ast structure")
+            Value::Pair(left, right) => match rel_ast {
+                RelationalAST::Pair(left_ast, right_ast)
+                | RelationalAST::BigMap(_, left_ast, right_ast) => {
+                    self.read_storage_internal(ctx, &right, right_ast, tx_context);
+                    self.read_storage_internal(ctx, &left, left_ast, tx_context);
                 }
-            }
+                _ => panic!("storage value does not match rel_ast structure"),
+            },
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, rel_ast is {:#?}", value, rel_ast);
                 if let RelationalAST::Leaf(rel_entry) = rel_ast {
                     self.add_column(
+                        ctx,
                         &rel_entry.table_name,
                         &rel_entry.column_name,
                         match &rel_entry.value {
@@ -776,11 +866,7 @@ impl StorageParser {
                 match rel_ast {
                     RelationalAST::BigMap(_, _, _) => {
                         if let Value::Int(i) = value {
-                            self.save_bigmap_location(
-                                i.to_u32().unwrap(),
-                                self.id,
-                                rel_ast.clone(),
-                            );
+                            self.save_bigmap_location(i.to_u32().unwrap(), ctx.id, rel_ast.clone());
                         } else {
                             panic!("Found big map with non-int id: {:?}", rel_ast);
                         }
@@ -804,6 +890,7 @@ impl StorageParser {
                                 _ => v.clone(),
                             };
                             self.add_column(
+                                ctx,
                                 &rel_entry.table_name,
                                 &rel_entry.column_name,
                                 v,
@@ -813,31 +900,30 @@ impl StorageParser {
                             panic!("RelationalAST::Leaf has complex expr type")
                         }
                     }
-                    _ => panic!("storage value does not match rel_ast structure"),
+                    _ => {} // panic!("storage value does not match rel_ast structure"),
                 }
             }
         }
     }
 
     fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, rel_ast: RelationalAST) {
-        println!("Saving {} ---> ({:?}, {:?})", bigmap_id, fk, rel_ast);
         self.big_map_map.insert(bigmap_id, (fk, rel_ast));
     }
 
-    fn add_insert(&mut self, table_name: &String, columns: Vec<Column>) {
+    fn add_insert(&mut self, ctx: &ReadStorageContext, table_name: &String, columns: Vec<Column>) {
         debug!(
             "table::add_insert {}, {}, {:?}, {:?}",
-            table_name, self.id, self.fk_id, columns
+            table_name, ctx.id, ctx.fk_id, columns
         );
         self.inserts.insert(
             InsertKey {
                 table_name: table_name.clone(),
-                id: self.id,
+                id: ctx.id,
             },
             Insert {
                 table_name: table_name.clone(),
-                id: self.id,
-                fk_id: self.fk_id,
+                id: ctx.id,
+                fk_id: ctx.fk_id,
                 columns,
             },
         );
@@ -845,6 +931,7 @@ impl StorageParser {
 
     fn add_column(
         &mut self,
+        ctx: &ReadStorageContext,
         table_name: &String,
         column_name: &String,
         value: Value,
@@ -853,25 +940,16 @@ impl StorageParser {
         if table_name == "storage.ledger.allowances" {
             println!(
                 "add_column {}, {}, {:?}, {}, {:?}",
-                table_name, self.id, self.fk_id, column_name, value
+                table_name, ctx.id, ctx.fk_id, column_name, value
             );
         }
 
-        if self.last_table != Some(table_name.clone()) {
-            debug!("{:?} <> {:?} new table", self.last_table, table_name);
-            self.last_table = Some(table_name.clone());
-            if *table_name != "storage".to_string() {
-                self.fk_id = Some(self.id);
-                self.id = self.id_generator.get_id();
-            }
-        }
-
-        let mut insert = match self.get_insert(table_name.clone(), self.id, self.fk_id) {
+        let mut insert = match self.get_insert(table_name.clone(), ctx.id, ctx.fk_id) {
             Some(x) => x,
             None => Insert {
                 table_name: table_name.clone(),
-                id: self.id,
-                fk_id: self.fk_id,
+                id: ctx.id,
+                fk_id: ctx.fk_id,
                 columns: vec![Column {
                     name: "tx_context_id".to_string(),
                     value: Value::Int(tx_context.id.unwrap().into()),
@@ -883,7 +961,7 @@ impl StorageParser {
             value,
         });
 
-        self.add_insert(table_name, insert.columns);
+        self.add_insert(ctx, table_name, insert.columns);
     }
 
     pub(crate) fn get_insert(

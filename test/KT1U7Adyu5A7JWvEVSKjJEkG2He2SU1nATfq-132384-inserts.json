@@ -48,13 +48,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_33",
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     13,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     3903053373,
                     4110948536,
@@ -78,13 +78,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_21",
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -111,13 +111,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_21",
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -145,13 +145,13 @@
                 ])),
             ),
             (
-                name: "idx_tokens_nat_21",
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     13,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

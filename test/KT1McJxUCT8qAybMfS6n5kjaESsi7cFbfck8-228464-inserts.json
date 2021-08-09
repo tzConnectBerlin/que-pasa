@@ -38,7 +38,7 @@
                 ])),
             ),
             (
-                name: "idx_lambda_repository_string_1",
+                name: "idx_lambda_repository_string_0",
                 value: String("auction_clear_endpoint"),
             ),
         ],

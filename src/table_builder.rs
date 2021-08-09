@@ -49,16 +49,15 @@ impl TableBuilder {
                 self.populate(left);
                 self.populate(right);
             }
-            RelationalAST::Map(key, value) | RelationalAST::BigMap(_, key, value) => {
+            RelationalAST::Map(_, key, value) | RelationalAST::BigMap(_, key, value) => {
                 self.populate(key);
                 self.populate(value);
             }
-            RelationalAST::List(elem) => self.populate(elem),
-            RelationalAST::OrEnumeration(left, right) => {
-                // TODO
-                //self.add_column(rel_ast)
-                self.populate(left);
-                self.populate(right);
+            RelationalAST::List(_, elem) => self.populate(elem),
+            RelationalAST::OrEnumeration(rel_entry, _, left_ast, _, right_ast) => {
+                self.add_column(rel_entry);
+                self.populate(left_ast);
+                self.populate(right_ast);
             }
             RelationalAST::Leaf(rel_entry) => self.add_column(rel_entry),
         }

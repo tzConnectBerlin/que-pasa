@@ -48,7 +48,7 @@
                 ])),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string_0",
                 value: String("QmeY3QU6Lhr4pS5ZGcp4AarYJwZkt5cAgx9RzRmQ4XiwVe"),
             ),
             (
@@ -134,7 +134,7 @@
                 ])),
             ),
             (
-                name: "idx_address_11",
+                name: "idx_address_1",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
