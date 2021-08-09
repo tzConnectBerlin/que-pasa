@@ -1,7 +1,7 @@
 use crate::block;
 use crate::err;
 use crate::error::Res;
-use crate::relational::RelationalAST;
+use crate::relational::{RelationalAST, RelationalEntry};
 use crate::table::insert::*;
 use chrono::{DateTime, TimeZone, Utc};
 use curl::easy::Easy;
@@ -117,16 +117,26 @@ pub struct StorageParser {
     pub id_generator: IdGenerator,
     inserts: crate::table::insert::Inserts,
     pub tx_contexts: TxContextMap,
+    last_table: Option<String>,
+    id: u32,
+    fk_id: Option<u32>,
 }
 
 impl StorageParser {
     pub(crate) fn new(initial_id: u32) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
-            id_generator: IdGenerator::new(initial_id),
             inserts: crate::table::insert::Inserts::new(),
             tx_contexts: HashMap::new(),
+            last_table: None,
+            id: initial_id,
+            id_generator: IdGenerator::new(initial_id + 1),
+            fk_id: None,
         }
+    }
+
+    fn increment_id(&mut self) {
+        self.id = self.id_generator.get_id();
     }
 
     /// Load a uri (of course)
@@ -425,34 +435,41 @@ impl StorageParser {
     }
 
     fn unfold_value(&self, v: &Value, rel_ast: &RelationalAST) -> Value {
-        match &rel_ast.expr {
-            crate::storage::ExprTy::ComplexExprTy(ce) => {
-                if let crate::storage::ComplexExprTy::List(_) = ce {
-                    // do not unfold list
-                    debug!("not unfolding list: {:?}", v);
-                    return v.clone();
-                }
+        match rel_ast {
+            RelationalAST::List(_) => {
+                // do not unfold list
+                v.clone()
             }
-            _ => (),
+            _ => self.unfold_list(v),
         }
-        return self.unfold_list(v);
     }
 
-    fn resolve_or(&self, v: &Value, rel_ast: &RelationalAST) -> Option<String> {
-        debug!(
-            "resolve_or:
-[
-value: {:#?}
-rel_ast: {:#?}
-]",
-            v, rel_ast
-        );
+    fn resolve_or(&self, v: &Value, rel_ast: &RelationalAST) -> RelationalEntry {
         match &self.unfold_value(v, rel_ast) {
-            Value::Left(left) => self.resolve_or(left, rel_ast.left.as_ref().unwrap()),
-            Value::Right(right) => self.resolve_or(right, rel_ast.right.as_ref().unwrap()),
-            Value::Pair(_, _) => rel_ast.table_name.clone(),
-            Value::Unit(val) => val.clone(),
-            _ => rel_ast.name.clone(),
+            Value::Left(left) => {
+                if let RelationalAST::Pair(left_ast, _) = rel_ast {
+                    self.resolve_or(left, left_ast)
+                } else {
+                    panic!("resolve_or: value does not match rel_ast shape")
+                }
+            }
+            Value::Right(right) => {
+                if let RelationalAST::Pair(_, right_ast) = rel_ast {
+                    self.resolve_or(right, right_ast)
+                } else {
+                    panic!("resolve_or: value does not match rel_ast shape")
+                }
+            }
+            Value::Pair(_, _) => panic!("dont understand this case yet"),
+            Value::Unit(val) => match rel_ast {
+                RelationalAST::Leaf(rel_entry) => {
+                    let mut res = rel_entry.clone();
+                    res.value = val.clone();
+                    res
+                }
+                _ => panic!("also dont understand this yet"),
+            },
+            _ => panic!("don't understand this case yet either"), //rel_ast.name.clone(),
         }
     }
 
@@ -592,52 +609,50 @@ rel_ast: {:#?}
                     None => return Err(err!("No big map id found in diff {:?}", diff)),
                 };
 
-                debug!("Will process big map with id {}", big_map_id);
-                //debug!("Big maps are {:?}", self.big_map_map);
                 let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
-                    Some((fk, n)) => (fk, n),
+                    Some((fk, n)) => (fk, n.clone()),
                     None => {
                         println!("big_map_id not known: {}", big_map_id);
                         return Ok(());
                     }
                 };
-                let rel_ast = rel_ast.clone();
-                debug!("Processing big map with id {}: {:?}", big_map_id, rel_ast);
-                let id = self.id_generator.get_id();
-                self.read_storage_internal(
-                    &self.parse_lexed(&serde2json!(&diff
-                        .key
-                        .clone()
-                        .ok_or("Missing key to big map in diff")?))?,
-                    &*rel_ast.left.ok_or("Missing key to big map")?,
-                    id,
-                    None,
-                    rel_ast.table_name.clone(),
-                    tx_context,
-                );
-                match &diff.value {
-                    None => {
-                        self.add_column(
-                            rel_ast.table_name.ok_or("Missing name for table")?,
-                            id,
-                            None,
-                            "deleted".to_string(),
-                            Value::Bool(true),
-                            tx_context,
-                        );
-                        Ok(())
+                if let RelationalAST::BigMap(table_name, key_ast, value_ast) = rel_ast {
+                    let id = self.id_generator.get_id();
+                    self.id = id;
+                    self.fk_id = None;
+                    self.last_table = Some(table_name.to_string());
+                    self.read_storage_internal(
+                        &self.parse_lexed(&serde2json!(&diff
+                            .key
+                            .clone()
+                            .ok_or("Missing key to big map in diff")?))?,
+                        &key_ast,
+                        tx_context,
+                    );
+                    match &diff.value {
+                        None => {
+                            self.add_column(
+                                &table_name.to_string(),
+                                &"deleted".to_string(),
+                                Value::Bool(true),
+                                tx_context,
+                            );
+                            Ok(())
+                        }
+                        Some(val) => {
+                            self.id = id;
+                            self.fk_id = None;
+                            self.last_table = Some(table_name.to_string());
+                            self.read_storage_internal(
+                                &self.parse_lexed(&serde2json!(&val))?,
+                                &value_ast,
+                                tx_context,
+                            );
+                            Ok(())
+                        }
                     }
-                    Some(val) => {
-                        self.read_storage_internal(
-                            &self.parse_lexed(&serde2json!(&val))?,
-                            &*rel_ast.right.ok_or("Missing value to big map")?,
-                            id,
-                            None,
-                            rel_ast.table_name,
-                            tx_context,
-                        );
-                        Ok(())
-                    }
+                } else {
+                    panic!("process big map: rel_ast is not a BigMap")
                 }
             }
             "alloc" => {
@@ -662,23 +677,13 @@ rel_ast: {:#?}
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
-        let id = self.id_generator.get_id();
         self.add_column(
-            "storage".to_string(),
-            id,
-            None,
-            "deleted".to_string(),
+            &"storage".to_string(),
+            &"deleted".to_string(),
             Value::Bool(false),
             tx_context,
         );
-        self.read_storage_internal(
-            &self.unfold_list(value),
-            rel_ast,
-            id,
-            None,
-            None,
-            tx_context,
-        );
+        self.read_storage_internal(&self.unfold_list(value), rel_ast, tx_context);
         Ok(())
     }
 
@@ -686,178 +691,132 @@ rel_ast: {:#?}
         &mut self,
         value: &Value,
         rel_ast: &RelationalAST,
-        mut id: u32,
-        mut fk_id: Option<u32>,
-        mut last_table: Option<String>,
         tx_context: &TxContext,
     ) {
-        debug!("-> [\n\tast={:?},\n\tv={:?}\n]", rel_ast, value);
         let v = &self.unfold_value(value, rel_ast);
-        match rel_ast.expr {
-            // we don't even try to store lambdas.
-            crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => return,
-            // or enumerations need to be evaluated once to populate the enum field,
-            // and once to fill in auxiliary tables.
-            crate::storage::ExprTy::ComplexExprTy(
-                crate::storage::ComplexExprTy::OrEnumeration(_, _),
-            ) => {
-                if let Some(val) = self.resolve_or(v, rel_ast) {
-                    self.add_column(
-                        rel_ast.table_name.as_ref().unwrap().to_string(),
-                        id,
-                        fk_id,
-                        rel_ast.column_name.clone().unwrap(),
-                        Value::Unit(Some(val)),
-                        tx_context,
-                    );
-                };
-            }
-            _ => (),
-        }
-
-        if last_table != rel_ast.table_name {
-            debug!("{:?} <> {:?} new table", last_table, rel_ast.table_name);
-            last_table = rel_ast.table_name.clone();
-            if rel_ast.table_name != Some("storage".to_string()) {
-                fk_id = Some(id);
-                id = self.id_generator.get_id();
-                debug!(
-                    "Creating table from rel_ast {:?} with id {} and fk_id {:?}",
-                    rel_ast, id, fk_id
+        match rel_ast {
+            RelationalAST::Leaf(rel_entry) => match rel_entry.column_type {
+                // we don't even try to store lambdas.
+                crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => return,
+                _ => {}
+            },
+            RelationalAST::OrEnumeration(_, _) => {
+                let rel_entry = self.resolve_or(v, rel_ast);
+                self.add_column(
+                    &rel_entry.table_name,
+                    &rel_entry.column_name,
+                    Value::Unit(rel_entry.value),
+                    tx_context,
                 );
             }
-        }
+            _ => {}
+        };
 
         match v {
-            Value::Elt(keys, values) => {
-                // entry in a map or a big map.
-                let l = rel_ast.left.as_ref().unwrap();
-                let r = rel_ast.right.as_ref().unwrap();
-                self.read_storage_internal(&keys, l, id, fk_id, last_table.clone(), tx_context);
-                self.read_storage_internal(&values, r, id, fk_id, last_table, tx_context);
-            }
+            Value::Elt(keys, values) => match rel_ast {
+                RelationalAST::Map(key_ast, value_ast)
+                | RelationalAST::BigMap(_, key_ast, value_ast) => {
+                    self.read_storage_internal(&keys, key_ast, tx_context);
+                    self.read_storage_internal(&values, value_ast, tx_context);
+                }
+                _ => panic!("storage value does not match rel_ast structure"),
+            },
             Value::Left(left) => {
-                self.read_storage_internal(
-                    &left,
-                    rel_ast.left.as_ref().unwrap(),
-                    id,
-                    fk_id,
-                    last_table,
-                    tx_context,
-                );
+                if let RelationalAST::Pair(left_ast, _) = rel_ast {
+                    self.read_storage_internal(&left, left_ast, tx_context);
+                } else {
+                    panic!("storage value does not match rel_ast structure")
+                }
             }
             Value::Right(right) => {
-                self.read_storage_internal(
-                    &right,
-                    rel_ast.right.as_ref().unwrap(),
-                    id,
-                    fk_id,
-                    last_table,
-                    tx_context,
-                );
+                if let RelationalAST::Pair(_, right_ast) = rel_ast {
+                    self.read_storage_internal(&right, right_ast, tx_context);
+                } else {
+                    panic!("storage value does not match rel_ast structure")
+                }
             }
             Value::List(l) => {
-                for element in l {
-                    debug!("List Elt: {:?}", element);
-                    let id = self.id_generator.get_id();
-                    self.read_storage_internal(
-                        &element,
-                        rel_ast.left.as_ref().unwrap(),
-                        id,
-                        fk_id,
-                        last_table.clone(),
-                        tx_context,
-                    );
+                if let RelationalAST::List(elem_ast) = rel_ast {
+                    for element in l {
+                        debug!("List Elt: {:?}", element);
+                        self.increment_id();
+                        self.read_storage_internal(&element, elem_ast, tx_context);
+                    }
+                } else {
+                    panic!("storage value does not match rel_ast structure")
                 }
             }
             Value::Pair(left, right) => {
-                //println!(
-                //    "rel_ast: {:?}
-                //     value: {:?}",
-                //    rel_ast, value
-                //);
-                let l = rel_ast.left.as_ref().unwrap();
-                let r = rel_ast.right.as_ref().unwrap();
-                self.read_storage_internal(&right, r, id, fk_id, last_table.clone(), tx_context);
-                self.read_storage_internal(&left, l, id, fk_id, last_table, tx_context);
+                if let RelationalAST::Pair(left_ast, right_ast) = rel_ast {
+                    self.read_storage_internal(&right, right_ast, tx_context);
+                    self.read_storage_internal(&left, left_ast, tx_context);
+                } else {
+                    panic!("storage value does not match rel_ast structure")
+                }
             }
             Value::Unit(None) => {
                 debug!("Unit: value is {:#?}, rel_ast is {:#?}", value, rel_ast);
-                self.add_column(
-                    rel_ast.table_name.as_ref().unwrap().to_string(),
-                    id,
-                    fk_id,
-                    rel_ast.column_name.as_ref().unwrap().to_string(),
-                    match &rel_ast.value {
-                        Some(s) => Value::String(s.clone()),
-                        None => Value::None,
-                    },
-                    tx_context,
-                );
+                if let RelationalAST::Leaf(rel_entry) = rel_ast {
+                    self.add_column(
+                        &rel_entry.table_name,
+                        &rel_entry.column_name,
+                        match &rel_entry.value {
+                            Some(s) => Value::String(s.clone()),
+                            None => Value::None,
+                        },
+                        tx_context,
+                    );
+                } else {
+                    panic!("storage value does not match rel_ast structure")
+                }
             }
             _ => {
-                // this is a value, and should be saved.
-                let table_name = rel_ast.table_name.as_ref().unwrap().to_string();
-                let column_name = rel_ast.column_name.as_ref().unwrap().to_string();
-                println!(
-                    "{} {}={:?} : {:?}",
-                    table_name, column_name, value, rel_ast.expr
-                );
-
                 // If this is a big map, save the id and the fk_id currently
                 // being used, for later processing
-                match &rel_ast.expr {
-                    crate::storage::ExprTy::ComplexExprTy(ce) => {
-                        if let crate::storage::ComplexExprTy::BigMap(_, _) = ce {
-                            debug!("value: {:?}", value);
-                            if let Value::Int(i) = value {
-                                debug!("{}", i);
-                                debug!("Saving bigmap {:} with parent {}", i, id);
-                                self.save_bigmap_location(i.to_u32().unwrap(), id, rel_ast.clone());
-                            } else {
-                                panic!("Found big map with non-int id: {:?}", rel_ast);
-                            }
+                match rel_ast {
+                    RelationalAST::BigMap(_, _, _) => {
+                        if let Value::Int(i) = value {
+                            self.save_bigmap_location(
+                                i.to_u32().unwrap(),
+                                self.id,
+                                rel_ast.clone(),
+                            );
+                        } else {
+                            panic!("Found big map with non-int id: {:?}", rel_ast);
                         }
                     }
-                    crate::storage::ExprTy::SimpleExprTy(
-                        crate::storage::SimpleExprTy::Timestamp,
-                    ) => {
-                        self.add_column(
-                            table_name,
-                            id,
-                            fk_id,
-                            column_name,
-                            Value::Timestamp(Self::parse_date(&value.clone()).unwrap()),
-                            tx_context,
-                        );
+                    RelationalAST::Leaf(rel_entry) => {
+                        if let crate::storage::ExprTy::SimpleExprTy(simple_type) =
+                            rel_entry.column_type
+                        {
+                            let v = match simple_type {
+                                crate::storage::SimpleExprTy::Timestamp => {
+                                    Value::Timestamp(Self::parse_date(&value.clone()).unwrap())
+                                }
+                                crate::storage::SimpleExprTy::Address => {
+                                    if let Value::Bytes(a) = v {
+                                        // sometimes we get bytes where we expected an address.
+                                        Value::Address(Self::decode_address(a).unwrap())
+                                    } else {
+                                        v.clone()
+                                    }
+                                }
+                                _ => v.clone(),
+                            };
+                            self.add_column(
+                                &rel_entry.table_name,
+                                &rel_entry.column_name,
+                                v,
+                                tx_context,
+                            );
+                        } else {
+                            panic!("RelationalAST::Leaf has complex expr type")
+                        }
                     }
-                    crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Address) => {
-                        self.add_column(
-                            table_name,
-                            id,
-                            fk_id,
-                            column_name,
-                            if let Value::Bytes(a) = value {
-                                // sometimes we get bytes where we expected an address.
-                                Value::Address(Self::decode_address(a).unwrap())
-                            } else {
-                                value.clone()
-                            },
-                            tx_context,
-                        );
-                    }
-                    _ => self.add_column(
-                        table_name,
-                        id,
-                        fk_id,
-                        column_name,
-                        value.clone(),
-                        tx_context,
-                    ),
+                    _ => panic!("storage value does not match rel_ast structure"),
                 }
             }
         }
-        debug!("<- {:?}", rel_ast.expr);
     }
 
     fn save_bigmap_location(&mut self, bigmap_id: u32, fk: u32, rel_ast: RelationalAST) {
@@ -865,26 +824,20 @@ rel_ast: {:#?}
         self.big_map_map.insert(bigmap_id, (fk, rel_ast));
     }
 
-    fn add_insert(
-        &mut self,
-        table_name: String,
-        id: u32,
-        fk_id: Option<u32>,
-        columns: Vec<Column>,
-    ) {
+    fn add_insert(&mut self, table_name: &String, columns: Vec<Column>) {
         debug!(
             "table::add_insert {}, {}, {:?}, {:?}",
-            table_name, id, fk_id, columns
+            table_name, self.id, self.fk_id, columns
         );
         self.inserts.insert(
             InsertKey {
                 table_name: table_name.clone(),
-                id,
+                id: self.id,
             },
             Insert {
-                table_name,
-                id,
-                fk_id,
+                table_name: table_name.clone(),
+                id: self.id,
+                fk_id: self.fk_id,
                 columns,
             },
         );
@@ -892,26 +845,33 @@ rel_ast: {:#?}
 
     fn add_column(
         &mut self,
-        table_name: String,
-        id: u32,
-        fk_id: Option<u32>,
-        column_name: String,
+        table_name: &String,
+        column_name: &String,
         value: Value,
         tx_context: &TxContext,
     ) {
         if table_name == "storage.ledger.allowances" {
             println!(
                 "add_column {}, {}, {:?}, {}, {:?}",
-                table_name, id, fk_id, column_name, value
+                table_name, self.id, self.fk_id, column_name, value
             );
         }
 
-        let mut insert = match self.get_insert(table_name.clone(), id, fk_id) {
+        if self.last_table != Some(table_name.clone()) {
+            debug!("{:?} <> {:?} new table", self.last_table, table_name);
+            self.last_table = Some(table_name.clone());
+            if *table_name != "storage".to_string() {
+                self.fk_id = Some(self.id);
+                self.id = self.id_generator.get_id();
+            }
+        }
+
+        let mut insert = match self.get_insert(table_name.clone(), self.id, self.fk_id) {
             Some(x) => x,
             None => Insert {
                 table_name: table_name.clone(),
-                id,
-                fk_id,
+                id: self.id,
+                fk_id: self.fk_id,
                 columns: vec![Column {
                     name: "tx_context_id".to_string(),
                     value: Value::Int(tx_context.id.unwrap().into()),
@@ -919,11 +879,11 @@ rel_ast: {:#?}
             },
         };
         insert.columns.push(Column {
-            name: column_name,
+            name: column_name.clone(),
             value,
         });
 
-        self.add_insert(table_name, id, fk_id, insert.columns);
+        self.add_insert(table_name, insert.columns);
     }
 
     pub(crate) fn get_insert(

@@ -1,7 +1,4 @@
-use crate::err;
-use crate::error::Res;
-use crate::relational::{RelationalAST, Type};
-use crate::storage::{ComplexExprTy, ExprTy};
+use crate::relational::{RelationalAST, RelationalEntry};
 use crate::table::Table;
 use std::collections::HashMap;
 
@@ -24,20 +21,18 @@ impl TableBuilder {
         }
     }
 
-    fn add_column(&mut self, rel_ast: &RelationalAST) {
-        let mut table = self.get_table(rel_ast);
-        table.add_column(rel_ast);
+    fn add_column(&mut self, rel_entry: &RelationalEntry) {
+        let mut table = self.get_table(rel_entry);
+        if rel_entry.is_index {
+            table.add_index(rel_entry);
+        } else {
+            table.add_column(rel_entry);
+        }
         self.store_table(table);
     }
 
-    fn add_index(&mut self, rel_ast: &RelationalAST) {
-        let mut table = self.get_table(rel_ast);
-        table.add_index(rel_ast);
-        self.store_table(table);
-    }
-
-    fn get_table(&self, rel_ast: &RelationalAST) -> Table {
-        let name = rel_ast.clone().table_name.unwrap();
+    fn get_table(&self, rel_entry: &RelationalEntry) -> Table {
+        let name = rel_entry.clone().table_name;
         match self.tables.get(&name) {
             Some(x) => x.clone(),
             None => Table::new(name),
@@ -48,48 +43,24 @@ impl TableBuilder {
         self.tables.insert(table.name.clone(), table);
     }
 
-    pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) -> Res<()> {
-        let rel_ast = rel_ast.clone();
-        match &rel_ast._type {
-            Type::Pair => {
-                let left = rel_ast.left.clone();
-                self.populate(
-                    &*left.ok_or_else(|| err!("Left is None, rel_ast is {:?}", &rel_ast))?,
-                )?;
-                self.populate(&*rel_ast.right.ok_or_else(|| err!("Right is None"))?)?;
+    pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
+        match rel_ast {
+            RelationalAST::Pair(left, right) => {
+                self.populate(left);
+                self.populate(right);
             }
-            Type::Table => {
-                //if the table is a bigmap the name is used to be inserted in the database
-                if let Some(left) = rel_ast.left {
-                    self.populate(&left)?;
-                }
-                if let Some(right) = rel_ast.right {
-                    self.populate(&right)?;
-                }
+            RelationalAST::Map(key, value) | RelationalAST::BigMap(_, key, value) => {
+                self.populate(key);
+                self.populate(value);
             }
-            Type::List => self.populate(&rel_ast.left.unwrap())?,
-            Type::Column => self.add_column(&rel_ast),
-            Type::OrEnumeration => {
-                self.add_column(&rel_ast);
-                if let Some(left) = rel_ast.left {
-                    self.populate(&*left)?;
-                }
-                if let Some(right) = rel_ast.right {
-                    self.populate(&*right)?;
-                }
+            RelationalAST::List(elem) => self.populate(elem),
+            RelationalAST::OrEnumeration(left, right) => {
+                // TODO
+                //self.add_column(rel_ast)
+                self.populate(left);
+                self.populate(right);
             }
-            Type::Unit => (),
-            Type::TableIndex => match rel_ast.expr {
-                ExprTy::SimpleExprTy(_) => self.add_index(&rel_ast),
-                ExprTy::ComplexExprTy(ref expr) => match expr {
-                    ComplexExprTy::Pair(_, _) => {
-                        self.populate(&*rel_ast.left.ok_or_else(|| err!("Left is None"))?)?;
-                        self.populate(&*rel_ast.right.ok_or_else(|| err!("Right is None"))?)?;
-                    }
-                    _ => panic!("Found unexpected structure in index: {:#?}", expr),
-                },
-            },
+            RelationalAST::Leaf(rel_entry) => self.add_column(rel_entry),
         }
-        Ok(())
     }
 }

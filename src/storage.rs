@@ -45,7 +45,7 @@ pub enum ExprTy {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Ele {
-    pub expr: ExprTy,
+    pub expr_type: ExprTy,
     pub name: Option<String>,
 }
 
@@ -68,7 +68,7 @@ macro_rules! simple_expr {
     ($typ:expr, $name:expr) => {
         Ele {
             name: $name,
-            expr: ExprTy::SimpleExprTy($typ),
+            expr_type: ExprTy::SimpleExprTy($typ),
         }
     };
 }
@@ -78,7 +78,7 @@ macro_rules! complex_expr {
         let args = $args.unwrap();
         Ele {
             name: $name,
-            expr: ExprTy::ComplexExprTy($typ(
+            expr_type: ExprTy::ComplexExprTy($typ(
                 Box::new(storage_ast_from_json(&args[0].clone())?),
                 Box::new(storage_ast_from_json(&args[1].clone())?),
             )),
@@ -120,7 +120,7 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Res<Ele> {
                 let args = args.ok_or_else(|| err!("Args was none!"))?;
                 Ok(Ele {
                     name: annot,
-                    expr: ExprTy::ComplexExprTy(ComplexExprTy::Option(Box::new(
+                    expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Option(Box::new(
                         storage_ast_from_json(&args[0].clone())?,
                     ))),
                 })
@@ -157,7 +157,7 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Res<Ele> {
                 let inner_ast = storage_ast_from_json(&args.unwrap()[0]).unwrap();
                 Ok(Ele {
                     name: annot,
-                    expr: ExprTy::ComplexExprTy(ComplexExprTy::List(Box::new(inner_ast))),
+                    expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(Box::new(inner_ast))),
                 })
             }
             "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),

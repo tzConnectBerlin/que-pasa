@@ -202,7 +202,7 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_sql(&self, column: Column) -> Option<String> {
         let name = Self::quote_id(&column.name);
-        match column.expr {
+        match column.column_type {
             SimpleExprTy::Address => Some(self.address(&name)),
             SimpleExprTy::Bool => Some(self.bool(&name)),
             SimpleExprTy::Bytes => Some(self.bytes(&name)),

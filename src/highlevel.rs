@@ -160,6 +160,8 @@ fn load_test(name: &str) -> String {
 
 #[test]
 fn test_generate() {
+    use crate::relational::build_relational_ast;
+
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
@@ -168,25 +170,25 @@ fn test_generate() {
     ))
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
-    let ast = crate::storage::storage_ast_from_json(&storage_definition.clone()).unwrap();
-    println!("{:#?}", ast);
-    //let rel_ast = RelationalAST::build(Context::init(), ast);
+    let type_ast = crate::storage::storage_ast_from_json(&storage_definition.clone()).unwrap();
+    println!("{:#?}", type_ast);
     use crate::relational::Context;
     let context = Context::init();
     let mut big_map_tables_names = Vec::new();
+
     //initialize the big_map_tables_names with the starting table_name "storage"
     big_map_tables_names.push(context.table_name.clone());
     use crate::relational::Indexes;
-    let rel_ast = RelationalAST::build(
-        context.clone(),
-        ast,
+    let rel_ast = build_relational_ast(
+        &context.clone(),
+        &type_ast,
         &mut big_map_tables_names,
         &mut Indexes::new(),
     );
     println!("{:#?}", rel_ast);
     let generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = crate::table_builder::TableBuilder::new();
-    builder.populate(&rel_ast).unwrap();
+    builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
     sorted_tables.sort_by_key(|a| a.0);
     let mut tables: Vec<crate::table::Table> = vec![];
@@ -214,7 +216,7 @@ fn test_block() {
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this, execute script/generate_test_output.bash
     use crate::postgresql_generator::PostgresqlGenerator;
-    use crate::relational::Indexes;
+    use crate::relational::{build_relational_ast, Indexes};
     use crate::table_builder::{TableBuilder, TableMap};
     use json::JsonValue;
     use ron::ser::{to_string_pretty, PrettyConfig};
@@ -224,11 +226,11 @@ fn test_block() {
     fn get_rel_ast_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<RelationalAST> {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
-        let ast = crate::storage::storage_ast_from_json(&storage_definition)?;
+        let type_ast = crate::storage::storage_ast_from_json(&storage_definition)?;
         let mut big_map_tables_names = Vec::new();
-        let rel_ast = RelationalAST::build(
-            crate::relational::Context::init(),
-            ast,
+        let rel_ast = build_relational_ast(
+            &crate::relational::Context::init(),
+            &type_ast,
             &mut big_map_tables_names,
             indexes,
         );
@@ -306,7 +308,7 @@ fn test_block() {
         // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
         let mut builder = TableBuilder::new();
-        builder.populate(&rel_ast).unwrap();
+        builder.populate(&rel_ast);
         let tables = &builder.tables;
 
         let generator = PostgresqlGenerator::new();

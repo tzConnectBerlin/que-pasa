@@ -119,20 +119,20 @@ fn main() {
     let json = StorageParser::get_everything(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
-    let ast = storage::storage_ast_from_json(&storage_definition).unwrap();
+    let type_ast = storage::storage_ast_from_json(&storage_definition).unwrap();
 
     // Build the internal representation from the node storage defition
-    let context = relational::Context::init();
-    let mut big_map_table_names = vec![context.table_name.clone()];
+    let ctx = relational::Context::init();
+    let mut big_map_table_names = vec![ctx.table_name.clone()];
     let mut indexes = relational::Indexes::new();
 
     let rel_ast =
-        relational::RelationalAST::build(context, ast, &mut big_map_table_names, &mut indexes);
+        relational::build_relational_ast(&ctx, &type_ast, &mut big_map_table_names, &mut indexes);
     //debug!("{:#?}", rel_ast);
 
     // Make a SQL-compatible representation
     let mut builder = table_builder::TableBuilder::new();
-    builder.populate(&rel_ast).unwrap();
+    builder.populate(&rel_ast);
     //debug!("{:#?}", big_map_table_names);
 
     // If generate-sql command is given, just output SQL and quit.

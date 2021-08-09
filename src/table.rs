@@ -1,12 +1,12 @@
 use crate::michelson::Value;
-use crate::relational::RelationalAST;
+use crate::relational::RelationalEntry;
 use crate::storage::{ComplexExprTy, ExprTy, SimpleExprTy};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
-    pub expr: SimpleExprTy,
+    pub column_type: SimpleExprTy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -25,37 +25,43 @@ impl Table {
         }
     }
 
-    pub(crate) fn add_index(&mut self, rel_ast: &RelationalAST) {
-        let rel_ast = rel_ast.clone();
-        let name = rel_ast.name.unwrap();
-        let e = rel_ast.expr;
-        match e {
+    pub(crate) fn add_index(&mut self, rel_entry: &RelationalEntry) {
+        let name = rel_entry.column_name.clone();
+        match &rel_entry.column_type {
             ExprTy::SimpleExprTy(e) => {
                 self.indices.push(name.clone());
-                self.columns.push(Column { name, expr: e });
+                self.columns.push(Column {
+                    name,
+                    column_type: e.clone(),
+                });
             }
             ExprTy::ComplexExprTy(e) => panic!("add_index called with ComplexExprTy {:#?}", e),
         }
     }
 
-    pub(crate) fn add_column(&mut self, rel_ast: &RelationalAST) {
-        let rel_ast: RelationalAST = rel_ast.clone();
-        let name = rel_ast.name.unwrap();
+    pub(crate) fn add_column(&mut self, rel_entry: &RelationalEntry) {
+        let name = rel_entry.column_name.clone();
         if self.columns.iter().any(|column| column.name == name) {
             return;
         }
-        match &rel_ast.expr {
+        match &rel_entry.column_type {
             ExprTy::SimpleExprTy(e) => {
-                self.columns.push(Column { name, expr: *e });
+                self.columns.push(Column {
+                    name,
+                    column_type: *e,
+                });
             }
             ExprTy::ComplexExprTy(ce) => match ce {
                 ComplexExprTy::OrEnumeration(_, _) => {
                     self.columns.push(Column {
                         name,
-                        expr: SimpleExprTy::Unit, // What will ultimately go in is a Unit
+                        column_type: SimpleExprTy::Unit, // What will ultimately go in is a Unit
                     })
                 }
-                _ => panic!("add_column called with ComplexExprTy {:?}", &rel_ast.expr),
+                _ => panic!(
+                    "add_column called with ComplexExprTy {:?}",
+                    &rel_entry.column_type
+                ),
             },
         }
     }

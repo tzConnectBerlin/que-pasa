@@ -1,6 +1,5 @@
 use crate::storage::{ComplexExprTy, Ele, ExprTy, SimpleExprTy};
 use std::collections::HashMap;
-use std::fmt;
 
 pub type Indexes = HashMap<String, u32>;
 
@@ -41,22 +40,10 @@ fn get_column_name(expr: &ExprTy) -> &str {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Type {
-    Pair,
-    Table,
-    TableIndex,
-    Column,
-    List,
-    Unit,
-    OrEnumeration,
-}
-
 #[derive(Clone, Debug)]
 pub struct Context {
     pub table_name: String,
     prefix: String,
-    _type: Type,
 }
 
 impl Context {
@@ -64,16 +51,15 @@ impl Context {
         Context {
             table_name: "storage".to_string(),
             prefix: "".to_string(),
-            _type: Type::Table,
         }
     }
 
-    pub(crate) fn name(&self, ele: &Ele, indexes: &mut Indexes) -> String {
+    pub(crate) fn name(&self, ele: &Ele, indexes: &mut Indexes, is_index: bool) -> String {
         let name = match &ele.name {
             Some(x) => x.to_string(),
             None => format!(
                 "{}_{}",
-                get_column_name(&ele.expr),
+                get_column_name(&ele.expr_type),
                 get_index(indexes, &self.table_name),
             ),
         };
@@ -83,20 +69,14 @@ impl Context {
             if self.prefix.is_empty() { "" } else { "_" },
             name,
         );
-        match self._type {
-            Type::TableIndex => format!("idx_{}", initial),
-            _ => initial,
+        if is_index {
+            return format!("idx_{}", initial);
         }
+        initial
     }
 
     pub(crate) fn next(&self) -> Self {
         self.clone()
-    }
-
-    pub(crate) fn next_with_state(&self, new_state: Type) -> Self {
-        let mut c = self.next();
-        c._type = new_state;
-        c
     }
 
     pub(crate) fn next_with_prefix(&self, prefix: Option<String>) -> Self {
@@ -110,227 +90,147 @@ impl Context {
     }
 
     pub(crate) fn start_table(&self, name: String) -> Self {
-        let mut c = self.next_with_state(Type::Table);
+        let mut c = self.next();
         c.table_name = format!("{}.{}", self.table_name, name);
         c
     }
 }
 
-#[derive(Clone, Eq, PartialEq)]
-pub struct RelationalAST {
-    pub name: Option<String>,
-    pub _type: Type,
-    pub table_name: Option<String>,
-    pub column_name: Option<String>,
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum RelationalAST {
+    List(Box<RelationalAST>),
+    Pair(Box<RelationalAST>, Box<RelationalAST>),
+    OrEnumeration(Box<RelationalAST>, Box<RelationalAST>),
+    Map(Box<RelationalAST>, Box<RelationalAST>),
+    BigMap(String, Box<RelationalAST>, Box<RelationalAST>),
+    Leaf(RelationalEntry),
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct RelationalEntry {
+    pub table_name: String,
+    pub column_name: String,
+    pub column_type: ExprTy,
     pub value: Option<String>,
-    pub left: Option<Box<RelationalAST>>,
-    pub right: Option<Box<RelationalAST>>,
-    pub expr: ExprTy,
+    pub is_index: bool,
 }
 
-impl fmt::Debug for RelationalAST {
-    // to stop it recursing into specific fields with simple commenting out
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RelationalAST")
-            .field("name", &self.name)
-            .field("_type", &self._type)
-            .field("table_name", &self.table_name)
-            .field("column_name", &self.column_name)
-            .field("value", &self.value)
-            .field("left", &self.left)
-            .field("right", &self.right)
-            .field("expr", &self.expr)
-            .finish()
-    }
-}
-
-impl RelationalAST {
-    pub(crate) fn new(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> Self {
-        let name = ctx.name(ele, indexes);
-        Self {
-            name: Some(name.clone()),
-            _type: ctx._type,
-            table_name: Some(ctx.table_name.clone()),
-            column_name: Some(name),
+pub(crate) fn build_relational_ast(
+    ctx: &Context,
+    ele: &Ele,
+    big_map_names: &mut Vec<String>, // ? remove ?
+    indexes: &mut Indexes,
+) -> RelationalAST {
+    let name = match &ele.name {
+        Some(x) => x.clone(),
+        None => "noname".to_string(),
+    };
+    match ele.expr_type {
+        ExprTy::ComplexExprTy(ref expr_type) => match expr_type {
+            ComplexExprTy::Pair(left_type, right_type) => {
+                let ctx = &ctx.next_with_prefix(ele.name.clone());
+                let left = build_relational_ast(ctx, &*left_type, big_map_names, indexes);
+                let right = build_relational_ast(ctx, &*right_type, big_map_names, indexes);
+                RelationalAST::Pair(Box::new(left), Box::new(right))
+            }
+            ComplexExprTy::List(elems_type) => {
+                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+                let elems_ast = build_relational_ast(ctx, elems_type, big_map_names, indexes);
+                RelationalAST::List(Box::new(elems_ast))
+            }
+            ComplexExprTy::BigMap(key_type, value_type) => {
+                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+                let key_ast = build_index(ctx, &*key_type, indexes);
+                let value_ast = build_relational_ast(ctx, &*value_type, big_map_names, indexes);
+                RelationalAST::BigMap(
+                    ctx.table_name.clone(),
+                    Box::new(key_ast),
+                    Box::new(value_ast),
+                )
+            }
+            ComplexExprTy::Map(key_type, value_type) => {
+                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+                let key_ast = build_relational_ast(ctx, &*key_type, big_map_names, indexes);
+                let value_ast = build_relational_ast(ctx, &*value_type, big_map_names, indexes);
+                RelationalAST::Map(Box::new(key_ast), Box::new(value_ast))
+            }
+            ComplexExprTy::Option(expr_type) => build_relational_ast(
+                ctx,
+                &ele_with_annot(expr_type, ele.name.clone()),
+                big_map_names,
+                indexes,
+            ),
+            ComplexExprTy::OrEnumeration(_this, _that) => {
+                build_enumeration_or(ctx, ele, &name, big_map_names, indexes)
+            }
+        },
+        ExprTy::SimpleExprTy(_) => RelationalAST::Leaf(RelationalEntry {
+            table_name: ctx.table_name.clone(),
+            column_name: ctx.name(ele, indexes, false),
+            column_type: ele.expr_type.clone(),
             value: None,
-            left: None,
-            right: None,
-            expr: ele.expr.clone(),
+            is_index: false,
+        }),
+    }
+}
+
+fn build_enumeration_or(
+    ctx: &Context,
+    ele: &Ele,
+    column_name: &str,
+    big_map_names: &mut Vec<String>,
+    indexes: &mut Indexes,
+) -> RelationalAST {
+    match &ele.expr_type {
+        ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(left_type, right_type)) => {
+            let left = build_enumeration_or(ctx, &left_type, column_name, big_map_names, indexes);
+            let right = build_enumeration_or(ctx, &right_type, column_name, big_map_names, indexes);
+            RelationalAST::OrEnumeration(Box::new(left), Box::new(right))
         }
+        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => RelationalAST::Leaf(RelationalEntry {
+            table_name: ctx.table_name.clone(),
+            column_name: column_name.to_string(),
+            column_type: ele.expr_type.clone(),
+            value: ele.name.clone(),
+            is_index: false,
+        }),
+        _ => build_relational_ast(
+            &ctx.start_table(ele.name.clone().unwrap()),
+            ele,
+            big_map_names,
+            indexes,
+        ),
     }
+}
 
-    pub(crate) fn build(
-        mut context: Context,
-        ele: Ele,
-        big_map_names: &mut Vec<String>,
-        indexes: &mut Indexes,
-    ) -> RelationalAST {
-        let name = match &ele.name {
-            Some(x) => x.clone(),
-            None => "noname".to_string(),
-        };
-        let rel_ast: RelationalAST = match ele.expr {
-            ExprTy::ComplexExprTy(ref e) => match e {
-                ComplexExprTy::BigMap(key, value) | ComplexExprTy::Map(key, value) => {
-                    let context = context.start_table(get_table_name(indexes, Some(name)));
-                    let mut n = Self::new(&context, &ele, indexes);
-                    n.left = Some(Box::new(Self::build_index(
-                        context.next_with_state(Type::TableIndex),
-                        (**key).clone(),
-                        indexes,
-                    )));
-                    n.right = Some(Box::new(Self::build(
-                        context,
-                        (**value).clone(),
-                        big_map_names,
-                        indexes,
-                    )));
-                    n
-                }
-                ComplexExprTy::List(elems_expr) => {
-                    let mut context = context.start_table(get_table_name(indexes, Some(name)));
-                    context._type = Type::List;
-                    let mut n = Self::new(&context, &ele, indexes);
-                    println!("started table for list: {}", context.table_name);
-                    n.left = Some(Box::new(Self::build(
-                        context,
-                        (**elems_expr).clone(),
-                        big_map_names,
-                        indexes,
-                    )));
-                    n
-                }
-                ComplexExprTy::Pair(left, right) => {
-                    let mut n = Self::new(&context, &ele, indexes);
-                    let mut context = context.next_with_prefix(ele.name);
-                    context._type = Type::Pair;
-                    n.left = Some(Box::new(Self::build(
-                        context.clone(),
-                        (**left).clone(),
-                        big_map_names,
-                        indexes,
-                    )));
-                    n.right = Some(Box::new(Self::build(
-                        context,
-                        (**right).clone(),
-                        big_map_names,
-                        indexes,
-                    )));
-                    n
-                }
-                ComplexExprTy::Option(_inner_expr) => Self::build(
-                    context,
-                    Self::ele_with_annot(_inner_expr, ele.name),
-                    big_map_names,
-                    indexes,
-                ),
-                ComplexExprTy::OrEnumeration(_this, _that) => {
-                    context._type = Type::OrEnumeration;
-                    Self::build_enumeration_or(&mut context, &ele, &name, big_map_names, indexes)
-                }
-            },
-            ExprTy::SimpleExprTy(_) => {
-                context._type = Type::Column;
-                Self::new(&context, &ele, indexes)
+fn build_index(ctx: &Context, ele: &Ele, indexes: &mut Indexes) -> RelationalAST {
+    match ele.expr_type {
+        ExprTy::ComplexExprTy(ref ety) => match ety {
+            ComplexExprTy::Pair(left_type, right_type) => {
+                let ctx = ctx.next_with_prefix(ele.name.clone());
+                let left = build_index(&ctx.next(), &*left_type, indexes);
+                let right = build_index(&ctx, &*right_type, indexes);
+                RelationalAST::Pair(Box::new(left), Box::new(right))
             }
-        };
-        rel_ast
+            _ => panic!("Unexpected input type to index"),
+        },
+        ExprTy::SimpleExprTy(_) => RelationalAST::Leaf(RelationalEntry {
+            table_name: ctx.table_name.clone(),
+            column_name: ctx.name(ele, indexes, true),
+            column_type: ele.expr_type.clone(),
+            value: None,
+            is_index: true,
+        }),
     }
+}
 
-    pub(crate) fn build_enumeration_or(
-        context: &mut Context,
-        ele: &Ele,
-        column_name: &str,
-        big_map_names: &mut Vec<String>,
-        indexes: &mut Indexes,
-    ) -> RelationalAST {
-        let mut rel_ast = Self::new(context, ele, indexes);
-        rel_ast.name = Some(column_name.to_string());
-        rel_ast.column_name = Some(column_name.to_string());
-        match ele.expr {
-            ExprTy::SimpleExprTy(SimpleExprTy::Unit) => {
-                context._type = Type::Column;
-                rel_ast.value = ele.name.clone();
-            }
-            ExprTy::SimpleExprTy(_) => {
-                return Self::build(
-                    context.start_table(ele.name.clone().unwrap()),
-                    ele.clone(),
-                    big_map_names,
-                    indexes,
-                );
-            }
-            ExprTy::ComplexExprTy(ref e) => match e {
-                ComplexExprTy::OrEnumeration(this, that) => {
-                    rel_ast._type = Type::OrEnumeration;
-                    rel_ast.left = Some(Box::new(Self::build_enumeration_or(
-                        context,
-                        this,
-                        column_name,
-                        big_map_names,
-                        indexes,
-                    )));
-                    rel_ast.right = Some(Box::new(Self::build_enumeration_or(
-                        context,
-                        that,
-                        column_name,
-                        big_map_names,
-                        indexes,
-                    )));
-                }
-                _ => {
-                    debug!("Starting table from OR with ele {:?}", ele);
-                    return Self::build(
-                        context.start_table(ele.name.clone().unwrap()),
-                        ele.clone(),
-                        big_map_names,
-                        indexes,
-                    );
-                }
-            },
+fn ele_with_annot(ele: &Ele, annot: Option<String>) -> Ele {
+    match &ele.name {
+        Some(_) => ele.clone(),
+        None => {
+            let mut e = ele.clone();
+            e.name = annot;
+            e
         }
-        rel_ast
-    }
-
-    fn ele_with_annot(ele: &Ele, annot: Option<String>) -> Ele {
-        match &ele.name {
-            Some(_) => ele.clone(),
-            None => {
-                let mut e = ele.clone();
-                e.name = annot;
-                e
-            }
-        }
-    }
-
-    pub(crate) fn build_index(
-        mut context: Context,
-        ele: Ele,
-        indexes: &mut Indexes,
-    ) -> RelationalAST {
-        let rel_ast: RelationalAST = match ele.expr {
-            ExprTy::ComplexExprTy(ref e) => match e {
-                ComplexExprTy::BigMap(_, _) | ComplexExprTy::Map(_, _) => {
-                    panic!("Got a map where I expected an index");
-                }
-                ComplexExprTy::Pair(left, right) => {
-                    let ctx = context.next_with_prefix(ele.name.clone());
-                    let mut n = Self::new(&context, &ele, indexes);
-                    n.left = Some(Box::new(Self::build_index(
-                        ctx.next(),
-                        (**left).clone(),
-                        indexes,
-                    )));
-                    n.right = Some(Box::new(Self::build_index(ctx, (**right).clone(), indexes)));
-                    n
-                }
-                _ => panic!("Unexpected input to index"),
-            },
-            ExprTy::SimpleExprTy(_) => {
-                context._type = Type::TableIndex;
-                Self::new(&context, &ele, indexes)
-            }
-        };
-        rel_ast
     }
 }
