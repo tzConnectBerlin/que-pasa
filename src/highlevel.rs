@@ -184,7 +184,7 @@ fn test_generate() {
         &mut Indexes::new(),
     );
     println!("{:#?}", rel_ast);
-    let mut generator = crate::postgresql_generator::PostgresqlGenerator::new();
+    let generator = crate::postgresql_generator::PostgresqlGenerator::new();
     let mut builder = crate::table_builder::TableBuilder::new();
     builder.populate(&rel_ast).unwrap();
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -241,13 +241,7 @@ fn test_block() {
         levels: Vec<u32>,
     }
 
-    let contracts: [Contract; 3] = [
-        /*
-        Contract {
-            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
-            levels: vec![1443112],
-        },
-        */
+    let contracts: [Contract; 4] = [
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
@@ -270,6 +264,11 @@ fn test_block() {
                 147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813, 147814, 147815,
                 147816,
             ],
+        },
+        Contract {
+            // Hic et Nunc hDAO contract (has "set" type in storage)
+            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
+            levels: vec![1443112],
         },
     ];
 
