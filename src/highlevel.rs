@@ -35,7 +35,6 @@ fn load_from_block(
     let mut storages: Vec<(crate::michelson::TxContext, serde_json::Value)> = vec![];
     let mut big_map_diffs: Vec<(crate::michelson::TxContext, crate::block::BigMapDiff)> = vec![];
     let operations = block.operations();
-    debug!("operations: {} {:#?}", operations.len(), operations);
     storage_parser.clear_inserts();
 
     let mut operation_group_number = 0u32;
@@ -60,27 +59,15 @@ fn load_from_block(
         }
     }
 
-    for storage in storages {
-        debug!(
-            "storage is
-
-{:?}",
-            storage
-        );
-        let tx_context = storage.0;
-        let store = storage.1;
-        let storage_json = serde_json::to_string(&store)?;
-        debug!("storage_json: {}", storage_json);
+    for (tx_context, store) in &storages {
+        let storage_json = serde_json::to_string(store)?;
         let parsed_storage = storage_parser.parse(storage_json)?;
 
-        debug!("parsed_storage: {:?}", parsed_storage);
-        storage_parser.read_storage(&parsed_storage, rel_ast, &tx_context)?;
+        storage_parser.process_storage_value(&parsed_storage, rel_ast, tx_context)?;
     }
 
-    for big_map_diff in big_map_diffs {
-        let tx_content = big_map_diff.0;
-        let diff = big_map_diff.1;
-        storage_parser.process_big_map_diff(&diff, &tx_content)?;
+    for (tx_content, diff) in &big_map_diffs {
+        storage_parser.process_big_map_diff(diff, tx_content)?;
     }
     Ok(())
 }
@@ -96,7 +83,7 @@ pub(crate) fn load_and_store_level(
     let mut transaction = postgresql_generator::transaction(connection)?;
     let (_json, block) = StorageParser::level_json(level)?;
 
-    if StorageParser::block_has_contract_origination(&block, contract_id)? {
+    if StorageParser::block_has_contract_origination(&block, contract_id) {
         debug!("Setting origination to true");
         postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
         postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
@@ -359,7 +346,10 @@ fn test_get_origination_operations_from_block() {
     let test_file = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json";
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
     let block: crate::block::Block = serde_json::from_str(&load_test(test_file)).unwrap();
-    assert!(StorageParser::block_has_contract_origination(&block, &contract_id).unwrap());
+    assert!(StorageParser::block_has_contract_origination(
+        &block,
+        &contract_id
+    ));
 
     for level in vec![
         132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219, 132222, 132240, 132242,
@@ -373,9 +363,10 @@ fn test_get_origination_operations_from_block() {
         println!("testing {}", filename);
         let level_block: crate::block::Block = serde_json::from_str(&load_test(&filename)).unwrap();
 
-        assert!(
-            !StorageParser::block_has_contract_origination(&level_block, &contract_id).unwrap()
-        );
+        assert!(!StorageParser::block_has_contract_origination(
+            &level_block,
+            &contract_id
+        ));
     }
 }
 
