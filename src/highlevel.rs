@@ -161,7 +161,6 @@ fn load_test(name: &str) -> String {
 #[test]
 fn test_generate() {
     use crate::relational::build_relational_ast;
-    use ron::ser::{to_string_pretty, PrettyConfig};
 
     use std::fs::File;
     use std::io::BufReader;
@@ -191,14 +190,10 @@ fn test_generate() {
         tables.push(table.clone());
         println!();
     }
-    println!("{}", serde_json::to_string(&tables).unwrap());
 
     let filename = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json";
     println!("cat > {} <<ENDOFJSON", filename);
-    println!(
-        "{}",
-        to_string_pretty(&tables, PrettyConfig::new()).unwrap()
-    );
+    println!("{}", serde_json::to_string(&tables).unwrap());
     println!(
         "ENDOFJSON
     "
