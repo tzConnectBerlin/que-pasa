@@ -1,5 +1,5 @@
-use crate::relational::{RelationalAST, RelationalEntry};
-use crate::table::Table;
+use crate::sql::table::Table;
+use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;

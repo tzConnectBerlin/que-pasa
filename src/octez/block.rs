@@ -11,8 +11,41 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn operations(&self) -> Vec<Vec<Operation>> {
+    pub(crate) fn operations(&self) -> Vec<Vec<Operation>> {
         self.operations.clone()
+    }
+
+    pub(crate) fn is_contract_active(&self, contract_id: &str) -> bool {
+        let destination = Some(contract_id.to_string());
+        for operations in &self.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if content.destination == destination {
+                        return true;
+                    }
+                    for result in &content.metadata.internal_operation_results {
+                        if result.destination == destination {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    pub(crate) fn has_contract_origination(&self, contract_id: &str) -> bool {
+        self.operations.iter().any(|ops| {
+            ops.iter().any(|op| {
+                op.contents.iter().any(|content| {
+                    content
+                        .metadata
+                        .operation_result
+                        .iter()
+                        .any(|op_res| op_res.originated_contracts.iter().any(|c| c == contract_id))
+                })
+            })
+        })
     }
 }
 

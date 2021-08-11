@@ -33,17 +33,19 @@ extern crate termion;
 use clap::{App, Arg, SubCommand};
 use std::cmp::Ordering;
 
-pub mod block;
 pub mod error;
 pub mod highlevel;
-pub mod michelson;
-pub mod postgresql_generator;
-pub mod relational;
-pub mod storage;
-pub mod table;
-pub mod table_builder;
+pub mod octez;
+pub mod sql;
+pub mod storage_structure;
+pub mod storage_value;
 
-use michelson::StorageParser;
+use octez::node::NodeClient;
+use sql::postgresql_generator;
+use sql::table;
+use sql::table_builder;
+use storage_structure::relational;
+use storage_structure::typing;
 
 fn stdout_is_tty() -> bool {
     atty::is(atty::Stream::Stdout)
@@ -115,23 +117,23 @@ fn main() {
         .value_of("contract_id")
         .expect("contract_id is required");
 
+    let node_cli = &NodeClient::new("TODO".to_string());
+
     // init by grabbing the contract data.
-    let json = StorageParser::get_everything(contract_id, None).unwrap();
+    let json = node_cli.get_contract_script(contract_id, None).unwrap();
     let storage_definition = json["code"][1]["args"][0].clone();
     debug!("{}", storage_definition.to_string());
-    let type_ast = storage::storage_ast_from_json(&storage_definition).unwrap();
+    let type_ast = typing::storage_ast_from_json(&storage_definition).unwrap();
 
     // Build the internal representation from the node storage defition
     let ctx = relational::Context::init();
     let mut indexes = relational::Indexes::new();
 
     let rel_ast = relational::build_relational_ast(&ctx, &type_ast, &mut indexes);
-    //debug!("{:#?}", rel_ast);
 
     // Make a SQL-compatible representation
     let mut builder = table_builder::TableBuilder::new();
     builder.populate(&rel_ast);
-    //debug!("{:#?}", big_map_table_names);
 
     // If generate-sql command is given, just output SQL and quit.
     if matches.is_present("generate-sql") {
@@ -162,17 +164,18 @@ fn main() {
         postgresql_generator::delete_everything(&mut dbconn).unwrap();
     }
 
-    let mut storage_parser =
-        crate::highlevel::get_storage_parser(contract_id, &mut dbconn).unwrap();
+    let mut storage_processor =
+        crate::highlevel::get_storage_processor(contract_id, &mut dbconn).unwrap();
 
     if let Some(levels) = matches.value_of("levels") {
         let levels = range(&levels.to_string());
         for level in &levels {
             let result = crate::highlevel::load_and_store_level(
+                node_cli,
                 &rel_ast,
                 contract_id,
                 *level,
-                &mut storage_parser,
+                &mut storage_processor,
                 &mut dbconn,
             )
             .unwrap();
@@ -181,7 +184,7 @@ fn main() {
 
         if init {
             let first: u32 = *levels.iter().min().unwrap();
-            let head = michelson::StorageParser::head().unwrap();
+            let head = node_cli.head().unwrap();
             postgresql_generator::fill_in_levels(&mut dbconn, first, head._level).unwrap();
         }
 
@@ -196,7 +199,7 @@ fn main() {
         let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
             &mut dbconn,
             origination_level,
-            michelson::StorageParser::head().unwrap()._level,
+            node_cli.head().unwrap()._level,
         )
         .unwrap();
         missing_levels.reverse();
@@ -209,10 +212,11 @@ fn main() {
         while let Some(level) = missing_levels.pop() {
             let store_result = loop {
                 match crate::highlevel::load_and_store_level(
+                    node_cli,
                     &rel_ast,
                     contract_id,
                     level as u32,
-                    &mut storage_parser,
+                    &mut storage_processor,
                     &mut dbconn,
                 ) {
                     Ok(x) => break x,
@@ -255,7 +259,7 @@ fn main() {
             //print!("Waiting for first block");
         }
 
-        let chain_head = michelson::StorageParser::head().unwrap();
+        let chain_head = node_cli.head().unwrap();
         let db_head = postgresql_generator::get_head(&mut dbconn)
             .unwrap()
             .unwrap();
@@ -264,10 +268,11 @@ fn main() {
             Ordering::Greater => {
                 for level in (db_head._level + 1)..=chain_head._level {
                     let result = highlevel::load_and_store_level(
+                        node_cli,
                         &rel_ast,
                         contract_id,
                         level,
-                        &mut storage_parser,
+                        &mut storage_processor,
                         &mut dbconn,
                     )
                     .unwrap();

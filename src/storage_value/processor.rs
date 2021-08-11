@@ -1,24 +1,15 @@
-use crate::block;
 use crate::err;
 use crate::error::Res;
-use crate::relational::{RelationalAST, RelationalEntry};
-use crate::table::insert::*;
-use chrono::{DateTime, TimeZone, Utc};
-use curl::easy::Easy;
-use json::JsonValue;
-use num::{BigInt, ToPrimitive};
+use crate::octez::block;
+use crate::sql::table::insert::*;
+use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+use crate::storage_value::parser;
+use num::ToPrimitive;
 use std::collections::HashMap;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
-use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
-
-lazy_static! {
-    static ref NODE_URL: String = match std::env::var("NODE_URL") {
-        Ok(s) => s,
-        Err(_) => "http://edo2full.newby.org:8732".to_string(),
-    };
-}
 
 macro_rules! serde2json {
     ($serde:expr) => {
@@ -70,7 +61,7 @@ impl ProcessStorageContext {
 }
 
 #[derive(Clone, Debug)]
-pub struct TxContext {
+pub(crate) struct TxContext {
     pub id: Option<u32>,
     pub level: u32,
     pub operation_group_number: u32,
@@ -91,6 +82,7 @@ impl Hash for TxContext {
     }
 }
 
+// Manual impl PartialEq in order to exclude the <id> field
 impl PartialEq for TxContext {
     fn eq(&self, other: &Self) -> bool {
         self.level == other.level
@@ -104,7 +96,7 @@ impl PartialEq for TxContext {
 
 impl Eq for TxContext {}
 
-pub type TxContextMap = HashMap<TxContext, TxContext>;
+pub(crate) type TxContextMap = HashMap<TxContext, TxContext>;
 
 pub struct IdGenerator {
     id: AtomicU32,
@@ -126,43 +118,16 @@ impl IdGenerator {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-pub enum Value {
-    Address(String),
-    Bool(bool),
-    Bytes(String),
-    Elt(Box<Value>, Box<Value>),
-    Int(BigInt),
-    KeyHash(String),
-    Left(Box<Value>),
-    List(Vec<Value>),
-    Mutez(BigInt),
-    Nat(BigInt),
-    None,
-    Pair(Box<Value>, Box<Value>),
-    Right(Box<Value>),
-    String(String),
-    Timestamp(DateTime<Utc>),
-    Unit(Option<String>),
-}
-
-#[derive(Clone, Debug)]
-pub struct Level {
-    pub _level: u32,
-    pub hash: Option<String>,
-    pub baked_at: Option<DateTime<Utc>>,
-}
-
 type BigMapMap = std::collections::HashMap<u32, (u32, RelationalAST)>;
 
-pub struct StorageParser {
+pub(crate) struct StorageProcessor {
     big_map_map: BigMapMap,
     pub id_generator: IdGenerator,
     inserts: crate::table::insert::Inserts,
     pub tx_contexts: TxContextMap,
 }
 
-impl StorageParser {
+impl StorageProcessor {
     pub(crate) fn new(initial_id: u32) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
@@ -170,25 +135,6 @@ impl StorageParser {
             tx_contexts: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
         }
-    }
-
-    /// Load a uri (of course)
-    fn load(uri: &str) -> Result<JsonValue, Box<dyn Error>> {
-        debug!("Loading: {}", uri,);
-        let mut response = Vec::new();
-        let mut handle = Easy::new();
-        handle.timeout(std::time::Duration::from_secs(20))?;
-        handle.url(uri)?;
-        {
-            let mut transfer = handle.transfer();
-            transfer.write_function(|new_data| {
-                response.extend_from_slice(new_data);
-                Ok(new_data.len())
-            })?;
-            transfer.perform()?;
-        }
-        let json = json::parse(std::str::from_utf8(&response)?)?;
-        Ok(json)
     }
 
     fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {
@@ -200,95 +146,6 @@ impl StorageParser {
                 .insert(tx_context.clone(), tx_context.clone());
             tx_context
         }
-    }
-
-    fn parse_rfc3339(rfc3339: &str) -> Res<DateTime<Utc>> {
-        let fixedoffset = chrono::DateTime::parse_from_rfc3339(rfc3339)?;
-        Ok(fixedoffset.with_timezone(&Utc))
-    }
-
-    fn timestamp_from_block(json: &JsonValue) -> Res<DateTime<Utc>> {
-        Self::parse_rfc3339(
-            json["header"]["timestamp"]
-                .as_str()
-                .ok_or_else(|| err!("Couldn't parse string {:?}", json["header"]["timestamp"]))?,
-        )
-    }
-    /// Return the highest level on the chain
-    pub(crate) fn head() -> Res<Level> {
-        let json = Self::load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
-        Ok(Level {
-            _level: json["header"]["level"]
-                .as_u32()
-                .ok_or_else(|| err!("Couldn't get level from node"))?,
-            hash: Some(json["hash"].to_string()),
-            baked_at: Some(Self::timestamp_from_block(&json)?),
-        })
-    }
-
-    pub(crate) fn level(level: u32) -> Res<Level> {
-        let (json, block) = Self::level_json(level)?;
-        Ok(Level {
-            _level: block.header.level as u32,
-            hash: Some(block.hash),
-            baked_at: Some(Self::timestamp_from_block(&json)?),
-        })
-    }
-
-    pub(crate) fn level_json(level: u32) -> Res<(JsonValue, block::Block)> {
-        let res = Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))?;
-        let block: crate::block::Block = serde_json::from_str(&res.to_string())?;
-        Ok((res, block))
-    }
-
-    pub(crate) fn block_has_tx_for_us(block: &block::Block, contract_id: &str) -> Res<bool> {
-        let destination = Some(contract_id.to_string());
-        for operations in &block.operations {
-            for operation in operations {
-                for content in &operation.contents {
-                    if content.destination == destination {
-                        return Ok(true);
-                    }
-                    for result in &content.metadata.internal_operation_results {
-                        if result.destination == destination {
-                            return Ok(true);
-                        }
-                    }
-                }
-            }
-        }
-        Ok(false)
-    }
-
-    /// Get all of the data for the contract.
-    pub(crate) fn get_everything(
-        contract_id: &str,
-        level: Option<u32>,
-    ) -> Result<JsonValue, Box<dyn Error>> {
-        let level = match level {
-            Some(x) => format!("{}", x),
-            None => "head".to_string(),
-        };
-        let url = format!(
-            "{}/chains/main/blocks/{}/context/contracts/{}/script",
-            *NODE_URL, level, contract_id
-        );
-        debug!("Loading contract data for {} url is {}", contract_id, url);
-        Self::load(&url)
-    }
-
-    pub(crate) fn block_has_contract_origination(block: &block::Block, contract_id: &str) -> bool {
-        block.operations.iter().any(|ops| {
-            ops.iter().any(|op| {
-                op.contents.iter().any(|content| {
-                    content
-                        .metadata
-                        .operation_result
-                        .iter()
-                        .any(|op_res| op_res.originated_contracts.iter().any(|c| c == contract_id))
-                })
-            })
-        })
     }
 
     pub(crate) fn get_big_map_diffs_from_operation(
@@ -345,7 +202,7 @@ impl StorageParser {
         level: u32,
         operation_group_number: u32,
         operation_number: u32,
-        operation: &crate::block::Operation,
+        operation: &block::Operation,
         contract_id: &str,
     ) -> Res<Vec<(TxContext, ::serde_json::Value)>> {
         let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
@@ -377,94 +234,13 @@ impl StorageParser {
         Ok(results)
     }
 
-    fn bigint(source: &str) -> Result<BigInt, Box<dyn Error>> {
-        Ok(BigInt::from_str(source)?)
-    }
-
-    fn lex(&self, json: &JsonValue) -> JsonValue {
-        if let JsonValue::Array(mut a) = json.clone() {
-            a.reverse();
-            StorageParser::lexer_unfold_many_pair(&mut a)
-        } else {
-            json.clone()
-        }
-    }
-
-    pub fn lexer_unfold_many_pair(v: &mut Vec<JsonValue>) -> JsonValue {
-        match v.len() {
-            0 => panic!("Called empty"),
-            1 => v[0].clone(),
-            _ => {
-                let ele = v.pop();
-                let rest = StorageParser::lexer_unfold_many_pair(v);
-                return object! {
-                    "prim": "Pair",
-                    "args": [
-                        ele,
-                        rest,
-                    ]
-                };
-            }
-        }
-    }
-
-    fn parse_date(value: &Value) -> Result<DateTime<Utc>, Box<dyn Error>> {
-        match value {
-            Value::Int(s) => {
-                let ts: i64 = s.to_i64().ok_or("Num conversion failed")?;
-                Ok(Utc.timestamp(ts, 0))
-            }
-            Value::String(s) => {
-                println!("{}", s);
-                let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
-                Ok(fixedoffset.with_timezone(&Utc))
-            }
-            _ => Err(err!("Can't parse {:?}", value)),
-        }
-    }
-
-    pub(crate) fn decode_address(hex: &str) -> Res<String> {
-        if hex.len() != 44 {
-            return Err(err!(
-                "44 length byte arrays only supported right now, got {}",
-                hex
-            ));
-        }
-        let implicit = &hex[0..2] == "00";
-        let kt = &hex[0..2] == "01";
-        let _type = &hex[2..4];
-        let rest = &hex[4..];
-        let new_hex = if kt {
-            format!("025a79{}", &hex[2..42])
-        } else if implicit {
-            match _type {
-                "00" => format!("06a19f{}", rest),
-                "01" => format!("06a1a1{}", rest),
-                "02" => format!("06a1a4{}", rest),
-                _ => return Err(err!("Did not recognise byte array {}", hex)),
-            }
-        } else {
-            return Err(err!("Unknown format {}", hex));
-        };
-        let encoded = bs58::encode(hex::decode(new_hex.as_str())?)
-            .with_check()
-            .into_string();
-        Ok(encoded)
-    }
-
-    pub(crate) fn parse(&self, storage_json: String) -> Res<Value> {
-        let json_parsed = &json::parse(&storage_json)?;
-        let lexed = self.lex(json_parsed);
-        self.parse_lexed(&lexed)
-    }
-
-    fn unfold_value(&self, v: &Value, rel_ast: &RelationalAST) -> Value {
+    fn unfold_value(&self, v: &parser::Value, rel_ast: &RelationalAST) -> parser::Value {
         match rel_ast {
             RelationalAST::List { .. } => {
                 // do not unfold list
                 v.clone()
             }
-            _ => self.unfold_list(v),
+            _ => v.unfold_list(),
         }
     }
 
@@ -472,12 +248,12 @@ impl StorageParser {
         &self,
         ctx: &ProcessStorageContext,
         parent_entry: &RelationalEntry,
-        v: &Value,
+        v: &parser::Value,
         rel_ast: &RelationalAST,
     ) -> Result<RelationalEntry, Box<dyn Error>> {
         println!("resolve_or: v={:#?} rel_ast={:#?}", v, rel_ast);
         match &self.unfold_value(v, rel_ast) {
-            Value::Left(left) => must_match_rel!(
+            parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
                 RelationalAST::OrEnumeration {
                     or_unfold,
@@ -494,7 +270,7 @@ impl StorageParser {
                     )
                 }
             ),
-            Value::Right(right) => must_match_rel!(
+            parser::Value::Right(right) => must_match_rel!(
                 rel_ast,
                 RelationalAST::OrEnumeration {
                     or_unfold,
@@ -511,144 +287,23 @@ impl StorageParser {
                     )
                 }
             ),
-            Value::Pair { .. } => {
+            parser::Value::Pair { .. } => {
                 let mut res = parent_entry.clone();
                 res.value = ctx.last_table.clone();
                 Ok(res)
             }
-            Value::Unit(val) => must_match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
-                let mut res = rel_entry.clone();
-                res.value = val.clone();
-                Ok(res)
-            }),
+            parser::Value::Unit(val) => {
+                must_match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
+                    let mut res = rel_entry.clone();
+                    res.value = val.clone();
+                    Ok(res)
+                })
+            }
             _ => must_match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
                 let mut res = parent_entry.clone();
                 res.value = Some(rel_entry.column_name.clone());
                 Ok(res)
             }),
-        }
-    }
-
-    fn unfold_list(&self, v: &Value) -> Value {
-        match v {
-            Value::List(xs) => match xs.len() {
-                0 => return Value::None,
-                1 => return xs[0].clone(),
-                _ => {
-                    let left = Box::new(xs[0].clone());
-                    let rest: Vec<Value> = xs.iter().skip(1).map(|x| x.clone()).collect();
-                    let right = Box::new(self.unfold_list(&Value::List(rest)));
-                    return Value::Pair(left, right);
-                }
-            },
-            _ => return v.clone(),
-        }
-    }
-
-    /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
-    /// data to stash it in the database.
-    fn parse_lexed(&self, json: &JsonValue) -> Res<Value> {
-        debug!("parse_lexed: {:?}", json);
-        if let JsonValue::Array(a) = json {
-            return Ok(Value::List(
-                a.iter().map(|x| self.parse_lexed(x).unwrap()).collect(),
-            ));
-        }
-        let args: Vec<JsonValue> = match &json["args"] {
-            JsonValue::Array(a) => a.clone(),
-            _ => vec![],
-        };
-        if let Some(s) = &json["prim"].as_str() {
-            let mut prim = s.to_string();
-            prim.make_ascii_uppercase();
-            match prim.as_str() {
-                "ELT" => {
-                    if args.len() != 2 {
-                        panic!("Elt with array length of {}", args.len());
-                    }
-                    return Ok(Value::Elt(
-                        Box::new(self.parse_lexed(&args[0])?),
-                        Box::new(self.parse_lexed(&args[1])?),
-                    ));
-                }
-                "FALSE" => return Ok(Value::Bool(false)),
-                "LEFT" => return Ok(Value::Left(Box::new(self.parse_lexed(&args[0])?))),
-                "NONE" => return Ok(Value::None),
-                "RIGHT" => return Ok(Value::Right(Box::new(self.parse_lexed(&args[0])?))),
-                "PAIR" => {
-                    match args.len() {
-                        0 | 1 => return Ok(Value::None),
-                        2 => {
-                            return Ok(Value::Pair(
-                                Box::new(self.parse_lexed(&args[0])?),
-                                Box::new(self.parse_lexed(&args[1])?),
-                            ));
-                        }
-                        _ => {
-                            let mut args = args;
-                            args.reverse(); // so we can pop() afterward. But TODO: fix
-                            let lexed = StorageParser::lexer_unfold_many_pair(&mut args);
-                            return self.parse_lexed(&lexed);
-                        }
-                    }
-                }
-                "PUSH" => return Ok(Value::None),
-                "SOME" => {
-                    if !args.is_empty() {
-                        return self.parse_lexed(&args[0]);
-                    } else {
-                        warn!("Got SOME with no content");
-                        return Ok(Value::None);
-                    }
-                }
-                "TRUE" => return Ok(Value::Bool(true)),
-                "UNIT" => return Ok(Value::Unit(None)),
-
-                _ => {
-                    warn!("Unknown prim {}", json["prim"]);
-                    return Ok(Value::None);
-                }
-            }
-        }
-
-        let keys: Vec<String> = json.entries().map(|(a, _)| String::from(a)).collect();
-        if keys.len() == 1 {
-            // it's a leaf node, hence a value.
-            let key = &keys[0];
-            let s = String::from(json[key].as_str().ok_or(format!("Key {} not found", key))?);
-            return match key.as_str() {
-                "address" => Ok(Value::Address(s)),
-                "bytes" => Ok(Value::Bytes(s)),
-                "int" => Ok(Value::Int(Self::bigint(&s)?)),
-                "mutez" => Ok(Value::Mutez(Self::bigint(&s)?)),
-                "nat" => Ok(Value::Nat(Self::bigint(&s)?)),
-                "string" => Ok(Value::String(s)),
-                //"timestamp" => Ok(Value::Timestamp(s)),
-                "unit" => Ok(Value::Unit(None)),
-                "prim" => Ok(Self::prim(&s)),
-                _ => {
-                    panic!("Couldn't match {} in {}", key.to_string(), json.to_string());
-                }
-            };
-        }
-
-        if let JsonValue::Array(a) = json {
-            if a.len() < 400 {
-                let mut array = a.clone();
-                array.reverse();
-                return self.parse_lexed(&StorageParser::lexer_unfold_many_pair(&mut array));
-            }
-        }
-
-        warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
-        Ok(Value::None)
-    }
-
-    pub(crate) fn prim(s: &str) -> Value {
-        match s {
-            "False" => Value::Bool(true),
-            "None" => Value::None,
-            _ => panic!("Don't know what to do with prim {}", s),
         }
     }
 
@@ -683,7 +338,7 @@ impl StorageParser {
                             .with_last_table(table.clone());
                         self.process_storage_value_internal(
                             ctx,
-                            &self.parse_lexed(&serde2json!(&diff
+                            &parser::parse_lexed(&serde2json!(&diff
                                 .key
                                 .clone()
                                 .ok_or("Missing key to big map in diff")?))?,
@@ -695,12 +350,12 @@ impl StorageParser {
                                 ctx,
                                 &table.clone(),
                                 &"deleted".to_string(),
-                                Value::Bool(true),
+                                parser::Value::Bool(true),
                                 tx_context,
                             ),
                             Some(val) => self.process_storage_value_internal(
                                 ctx,
-                                &self.parse_lexed(&serde2json!(&val))?,
+                                &parser::parse_lexed(&serde2json!(&val))?,
                                 &value_ast,
                                 tx_context,
                             )?,
@@ -716,10 +371,10 @@ impl StorageParser {
     }
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
-    /// to match them. Panics if it cannot do this (i.e. they do not match).
+    /// to match them. raises an error if it cannot do this (i.e. they do not match).
     pub(crate) fn process_storage_value(
         &mut self,
-        value: &Value,
+        value: &parser::Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
@@ -728,12 +383,12 @@ impl StorageParser {
             ctx,
             &"storage".to_string(),
             &"deleted".to_string(),
-            Value::Bool(false),
+            parser::Value::Bool(false),
             tx_context,
         );
         self.process_storage_value_internal(
             &ctx.with_last_table("storage".to_string()),
-            &self.unfold_list(value),
+            &value.unfold_list(),
             rel_ast,
             tx_context,
         )?;
@@ -759,7 +414,7 @@ impl StorageParser {
     pub(crate) fn process_storage_value_internal(
         &mut self,
         ctx: &ProcessStorageContext,
-        value: &Value,
+        value: &parser::Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<(), Box<dyn Error>> {
@@ -767,9 +422,7 @@ impl StorageParser {
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => match rel_entry.column_type {
                 // we don't even try to store lambdas.
-                crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => {
-                    return Ok(())
-                }
+                ExprTy::SimpleExprTy(SimpleExprTy::Stop) => return Ok(()),
                 _ => {}
             },
             RelationalAST::OrEnumeration { or_unfold, .. } => {
@@ -779,7 +432,7 @@ impl StorageParser {
                         ctx,
                         &rel_entry.table_name,
                         &rel_entry.column_name,
-                        Value::Unit(rel_entry.value),
+                        parser::Value::Unit(rel_entry.value),
                         tx_context,
                     );
                 }
@@ -790,7 +443,7 @@ impl StorageParser {
         let ctx = &self.update_context(ctx, rel_ast.table_header());
 
         match v {
-            Value::Elt(keys, values) => must_match_rel!(
+            parser::Value::Elt(keys, values) => must_match_rel!(
                 rel_ast,
                 RelationalAST::Map {
                     key_ast,
@@ -816,7 +469,7 @@ impl StorageParser {
                     Ok(())
                 }
             )),
-            Value::Left(left) => {
+            parser::Value::Left(left) => {
                 must_match_rel!(
                     rel_ast,
                     RelationalAST::OrEnumeration {
@@ -831,7 +484,7 @@ impl StorageParser {
                     }
                 )
             }
-            Value::Right(right) => {
+            parser::Value::Right(right) => {
                 must_match_rel!(
                     rel_ast,
                     RelationalAST::OrEnumeration {
@@ -846,20 +499,22 @@ impl StorageParser {
                     }
                 )
             }
-            Value::List(l) => must_match_rel!(rel_ast, RelationalAST::List { elems_ast, .. }, {
-                for element in l {
-                    let id = self.id_generator.get_id();
-                    debug!("List Elt: {:?}", element);
-                    self.process_storage_value_internal(
-                        &ctx.with_id(id),
-                        &element,
-                        elems_ast,
-                        tx_context,
-                    )?;
-                }
-                Ok(())
-            }),
-            Value::Pair(left, right) => must_match_rel!(
+            parser::Value::List(l) => {
+                must_match_rel!(rel_ast, RelationalAST::List { elems_ast, .. }, {
+                    for element in l {
+                        let id = self.id_generator.get_id();
+                        debug!("List Elt: {:?}", element);
+                        self.process_storage_value_internal(
+                            &ctx.with_id(id),
+                            &element,
+                            elems_ast,
+                            tx_context,
+                        )?;
+                    }
+                    Ok(())
+                })
+            }
+            parser::Value::Pair(left, right) => must_match_rel!(
                 rel_ast,
                 RelationalAST::Pair {
                     left_ast,
@@ -884,15 +539,15 @@ impl StorageParser {
                     Ok(())
                 }
             )),
-            Value::Unit(None) => {
+            parser::Value::Unit(None) => {
                 must_match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
                     self.sql_add_cell(
                         ctx,
                         &rel_entry.table_name,
                         &rel_entry.column_name,
                         match &rel_entry.value {
-                            Some(s) => Value::String(s.clone()),
-                            None => Value::None,
+                            Some(s) => parser::Value::String(s.clone()),
+                            None => parser::Value::None,
                         },
                         tx_context,
                     );
@@ -904,7 +559,7 @@ impl StorageParser {
                 // being used, for later processing
                 match rel_ast {
                     RelationalAST::BigMap { .. } => {
-                        if let Value::Int(i) = value {
+                        if let parser::Value::Int(i) = value {
                             self.save_bigmap_location(i.to_u32().unwrap(), ctx.id, rel_ast.clone());
                             Ok(())
                         } else {
@@ -912,17 +567,15 @@ impl StorageParser {
                         }
                     }
                     RelationalAST::Leaf { rel_entry } => {
-                        if let crate::storage::ExprTy::SimpleExprTy(simple_type) =
-                            rel_entry.column_type
-                        {
+                        if let ExprTy::SimpleExprTy(simple_type) = rel_entry.column_type {
                             let v = match simple_type {
-                                crate::storage::SimpleExprTy::Timestamp => {
-                                    Value::Timestamp(Self::parse_date(&value.clone()).unwrap())
-                                }
-                                crate::storage::SimpleExprTy::Address => {
-                                    if let Value::Bytes(a) = v {
+                                SimpleExprTy::Timestamp => parser::Value::Timestamp(
+                                    parser::parse_date(&value.clone()).unwrap(),
+                                ),
+                                SimpleExprTy::Address => {
+                                    if let parser::Value::Bytes(a) = v {
                                         // sometimes we get bytes where we expected an address.
-                                        Value::Address(Self::decode_address(a).unwrap())
+                                        parser::Value::Address(parser::decode_address(a).unwrap())
                                     } else {
                                         v.clone()
                                     }
@@ -956,7 +609,7 @@ impl StorageParser {
         ctx: &ProcessStorageContext,
         table_name: &String,
         column_name: &String,
-        value: Value,
+        value: parser::Value,
         tx_context: &TxContext,
     ) {
         let mut insert = match self.get_insert(table_name.clone(), ctx.id, ctx.fk_id) {
@@ -967,7 +620,7 @@ impl StorageParser {
                 fk_id: ctx.fk_id,
                 columns: vec![Column {
                     name: "tx_context_id".to_string(),
-                    value: Value::Int(tx_context.id.unwrap().into()),
+                    value: parser::Value::Int(tx_context.id.unwrap().into()),
                 }],
             },
         };
@@ -990,12 +643,7 @@ impl StorageParser {
         );
     }
 
-    pub(crate) fn get_insert(
-        &mut self,
-        table_name: String,
-        id: u32,
-        fk_id: Option<u32>,
-    ) -> Option<Insert> {
+    fn get_insert(&mut self, table_name: String, id: u32, fk_id: Option<u32>) -> Option<Insert> {
         self.inserts.get(&InsertKey { table_name, id }).map(|e| {
             assert!(e.fk_id == fk_id);
             (*e).clone()
@@ -1008,22 +656,5 @@ impl StorageParser {
 
     pub(crate) fn clear_inserts(&mut self) {
         self.inserts.clear();
-    }
-}
-
-#[test]
-fn test_decode() {
-    let test_data = vec![
-        (
-            "00006b82198cb179e8306c1bedd08f12dc863f328886",
-            "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-        ),
-        (
-            "01d62a20fd2574884476f3da2f1a41bb8cc289f8cc00",
-            "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-        ),
-    ];
-    for (from, to) in test_data {
-        assert_eq!(to, StorageParser::decode_address(from).unwrap().as_str());
     }
 }

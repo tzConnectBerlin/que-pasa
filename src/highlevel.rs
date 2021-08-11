@@ -1,8 +1,11 @@
 use crate::error::Res;
-use crate::michelson::StorageParser;
-use crate::postgresql_generator;
-use crate::postgresql_generator::PostgresqlGenerator;
+use crate::octez::block;
+use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
+use crate::sql::postgresql_generator;
+use crate::sql::postgresql_generator::PostgresqlGenerator;
+use crate::storage_value::parser;
+use crate::storage_value::processor::{StorageProcessor, TxContext};
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
@@ -18,24 +21,24 @@ pub struct SaveLevelResult {
     pub tx_count: u32,
 }
 
-pub(crate) fn get_storage_parser(
+pub(crate) fn get_storage_processor(
     _contract_id: &str,
     connection: &mut postgres::Client,
-) -> Res<StorageParser> {
+) -> Res<StorageProcessor> {
     let id = crate::postgresql_generator::get_max_id(connection)? as u32;
-    Ok(StorageParser::new(id))
+    Ok(StorageProcessor::new(id))
 }
 
 fn load_from_block(
     rel_ast: &RelationalAST,
-    block: crate::block::Block,
+    block: block::Block,
     contract_id: &str,
-    storage_parser: &mut crate::michelson::StorageParser,
+    storage_processor: &mut StorageProcessor,
 ) -> Res<()> {
-    let mut storages: Vec<(crate::michelson::TxContext, serde_json::Value)> = vec![];
-    let mut big_map_diffs: Vec<(crate::michelson::TxContext, crate::block::BigMapDiff)> = vec![];
+    let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
+    let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
     let operations = block.operations();
-    storage_parser.clear_inserts();
+    storage_processor.clear_inserts();
 
     let mut operation_group_number = 0u32;
     for operation_group in operations {
@@ -43,14 +46,14 @@ fn load_from_block(
         let mut operation_number = 0u32;
         for operation in operation_group {
             operation_number += 1;
-            storages.extend(storage_parser.get_storage_from_operation(
+            storages.extend(storage_processor.get_storage_from_operation(
                 block.header.level,
                 operation_group_number,
                 operation_number,
                 &operation,
                 contract_id,
             )?);
-            big_map_diffs.extend(storage_parser.get_big_map_diffs_from_operation(
+            big_map_diffs.extend(storage_processor.get_big_map_diffs_from_operation(
                 block.header.level,
                 operation_group_number,
                 operation_number,
@@ -61,32 +64,33 @@ fn load_from_block(
 
     for (tx_context, store) in &storages {
         let storage_json = serde_json::to_string(store)?;
-        let parsed_storage = storage_parser.parse(storage_json)?;
+        let parsed_storage = parser::parse(storage_json)?;
 
-        storage_parser.process_storage_value(&parsed_storage, rel_ast, tx_context)?;
+        storage_processor.process_storage_value(&parsed_storage, rel_ast, tx_context)?;
     }
 
     for (tx_content, diff) in &big_map_diffs {
-        storage_parser.process_big_map_diff(diff, tx_content)?;
+        storage_processor.process_big_map_diff(diff, tx_content)?;
     }
     Ok(())
 }
 
 pub(crate) fn load_and_store_level(
+    node_cli: &NodeClient,
     rel_ast: &RelationalAST,
     contract_id: &str,
     level: u32,
-    storage_parser: &mut crate::michelson::StorageParser,
+    storage_processor: &mut StorageProcessor,
     connection: &mut postgres::Client,
 ) -> Res<SaveLevelResult> {
     let generator = PostgresqlGenerator::new();
     let mut transaction = postgresql_generator::transaction(connection)?;
-    let (_json, block) = StorageParser::level_json(level)?;
+    let (_json, block) = node_cli.level_json(level)?;
 
-    if StorageParser::block_has_contract_origination(&block, contract_id) {
+    if block.has_contract_origination(contract_id) {
         debug!("Setting origination to true");
-        postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
-        postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
+        postgresql_generator::delete_level(&mut transaction, &node_cli.level(level)?)?;
+        postgresql_generator::save_level(&mut transaction, &node_cli.level(level)?)?;
         postgresql_generator::set_origination(&mut transaction, level)?;
         transaction.commit()?;
         return Ok(SaveLevelResult {
@@ -95,9 +99,9 @@ pub(crate) fn load_and_store_level(
         });
     }
 
-    if !StorageParser::block_has_tx_for_us(&block, contract_id)? {
-        postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
-        postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
+    if !block.is_contract_active(contract_id) {
+        postgresql_generator::delete_level(&mut transaction, &node_cli.level(level)?)?;
+        postgresql_generator::save_level(&mut transaction, &node_cli.level(level)?)?;
         transaction.commit()?; // TODO: think about this
         return Ok(SaveLevelResult {
             is_origination: false,
@@ -105,18 +109,18 @@ pub(crate) fn load_and_store_level(
         });
     }
 
-    load_from_block(rel_ast, block, contract_id, storage_parser)?;
+    load_from_block(rel_ast, block, contract_id, storage_processor)?;
 
-    postgresql_generator::save_tx_contexts(&mut transaction, &storage_parser.tx_contexts)?;
+    postgresql_generator::save_tx_contexts(&mut transaction, &storage_processor.tx_contexts)?;
 
-    let inserts = storage_parser.get_inserts();
+    let inserts = storage_processor.get_inserts();
     let mut keys = inserts
         .keys()
         .collect::<Vec<&crate::table::insert::InsertKey>>();
     keys.sort_by_key(|a| a.id);
     debug!("keys: {:?}", keys);
-    postgresql_generator::delete_level(&mut transaction, &StorageParser::level(level)?)?;
-    postgresql_generator::save_level(&mut transaction, &StorageParser::level(level)?)?;
+    postgresql_generator::delete_level(&mut transaction, &node_cli.level(level)?)?;
+    postgresql_generator::save_level(&mut transaction, &node_cli.level(level)?)?;
     for key in keys.iter() {
         postgresql_generator::exec(
             &mut transaction,
@@ -129,7 +133,7 @@ pub(crate) fn load_and_store_level(
     }
     postgresql_generator::set_max_id(
         &mut transaction,
-        storage_parser.id_generator.get_id() as i32,
+        storage_processor.id_generator.get_id() as i32,
     )?;
     transaction.commit()?;
     Ok(SaveLevelResult {
@@ -147,7 +151,8 @@ fn load_test(name: &str) -> String {
 
 #[test]
 fn test_generate() {
-    use crate::relational::build_relational_ast;
+    use crate::storage_structure::relational::build_relational_ast;
+    use crate::storage_structure::typing;
 
     use std::fs::File;
     use std::io::BufReader;
@@ -157,7 +162,7 @@ fn test_generate() {
     ))
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
-    let type_ast = crate::storage::storage_ast_from_json(&storage_definition.clone()).unwrap();
+    let type_ast = typing::storage_ast_from_json(&storage_definition.clone()).unwrap();
     println!("{:#?}", type_ast);
 
     use crate::relational::Context;
@@ -202,9 +207,10 @@ fn test_block() {
     // this tests the generated table structures against known good ones.
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this, execute script/generate_test_output.bash
-    use crate::postgresql_generator::PostgresqlGenerator;
-    use crate::relational::{build_relational_ast, Indexes};
-    use crate::table_builder::{TableBuilder, TableMap};
+    use crate::sql::postgresql_generator::PostgresqlGenerator;
+    use crate::sql::table_builder::{TableBuilder, TableMap};
+    use crate::storage_structure::relational::{build_relational_ast, Indexes};
+    use crate::storage_structure::typing;
     use json::JsonValue;
     use ron::ser::{to_string_pretty, PrettyConfig};
 
@@ -213,7 +219,7 @@ fn test_block() {
     fn get_rel_ast_from_script_json(json: &JsonValue, indexes: &mut Indexes) -> Res<RelationalAST> {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
-        let type_ast = crate::storage::storage_ast_from_json(&storage_definition)?;
+        let type_ast = typing::storage_ast_from_json(&storage_definition)?;
         // println!("{:#?}", type_ast);
         // panic!("stop.");
         let rel_ast = build_relational_ast(&crate::relational::Context::init(), &type_ast, indexes);
@@ -265,7 +271,7 @@ fn test_block() {
                 .map(|index| {
                     PostgresqlGenerator::sql_value(
                         x.get_column(index)
-                            .map_or(&crate::michelson::Value::None, |col| &col.value),
+                            .map_or(&crate::storage_value::parser::Value::None, |col| &col.value),
                     )
                 })
                 .collect::<Vec<String>>()
@@ -276,7 +282,7 @@ fn test_block() {
     let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> = vec![];
     for contract in &contracts {
-        let mut storage_parser = StorageParser::new(1);
+        let mut storage_processor = StorageProcessor::new(1);
 
         // verify that the test case is sane
         let mut unique_levels = contract.levels.clone();
@@ -296,14 +302,14 @@ fn test_block() {
         for level in &contract.levels {
             println!("contract={}, level={}", contract.id, level);
 
-            let block: crate::block::Block = serde_json::from_str(&load_test(&format!(
+            let block: block::Block = serde_json::from_str(&load_test(&format!(
                 "test/{}.level-{}.json",
                 contract.id, level
             )))
             .unwrap();
 
-            load_from_block(&rel_ast, block, contract.id, &mut storage_parser).unwrap();
-            let inserts = storage_parser.get_inserts();
+            load_from_block(&rel_ast, block, contract.id, &mut storage_processor).unwrap();
+            let inserts = storage_processor.get_inserts();
 
             let filename = format!("test/{}-{}-inserts.json", contract.id, level);
             println!("cat > {} <<ENDOFJSON", filename);
@@ -345,11 +351,8 @@ fn test_block() {
 fn test_get_origination_operations_from_block() {
     let test_file = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json";
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
-    let block: crate::block::Block = serde_json::from_str(&load_test(test_file)).unwrap();
-    assert!(StorageParser::block_has_contract_origination(
-        &block,
-        &contract_id
-    ));
+    let block: block::Block = serde_json::from_str(&load_test(test_file)).unwrap();
+    assert!(block.has_contract_origination(&contract_id));
 
     for level in vec![
         132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219, 132222, 132240, 132242,
@@ -361,12 +364,9 @@ fn test_get_origination_operations_from_block() {
             level
         );
         println!("testing {}", filename);
-        let level_block: crate::block::Block = serde_json::from_str(&load_test(&filename)).unwrap();
+        let level_block: block::Block = serde_json::from_str(&load_test(&filename)).unwrap();
 
-        assert!(!StorageParser::block_has_contract_origination(
-            &level_block,
-            &contract_id
-        ));
+        assert!(!level_block.has_contract_origination(&contract_id));
     }
 }
 

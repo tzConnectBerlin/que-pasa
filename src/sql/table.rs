@@ -1,6 +1,6 @@
-use crate::michelson::Value;
-use crate::relational::RelationalEntry;
-use crate::storage::{ComplexExprTy, ExprTy, SimpleExprTy};
+use crate::storage_structure::relational::RelationalEntry;
+use crate::storage_structure::typing::{ComplexExprTy, ExprTy, SimpleExprTy};
+use crate::storage_value::parser::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]

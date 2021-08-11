@@ -1,4 +1,4 @@
-use crate::storage::{ComplexExprTy, Ele, ExprTy, SimpleExprTy};
+use crate::storage_structure::typing::{ComplexExprTy, Ele, ExprTy, SimpleExprTy};
 use std::collections::HashMap;
 
 pub type Indexes = HashMap<String, u32>;

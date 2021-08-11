@@ -1,7 +1,9 @@
 use crate::error::Res;
-use crate::michelson::Level;
-use crate::storage::SimpleExprTy;
-use crate::table::{Column, Table};
+use crate::octez::node::Level;
+use crate::sql::table::{Column, Table};
+use crate::storage_structure::typing::SimpleExprTy;
+use crate::storage_value::parser;
+use crate::storage_value::processor::TxContextMap;
 use chrono::{DateTime, Utc};
 use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
@@ -154,7 +156,7 @@ pub(crate) fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u6
             },
             match &level.baked_at {
                 Some(baked_at) =>
-                    PostgresqlGenerator::sql_value(&crate::michelson::Value::Timestamp(*baked_at)),
+                    PostgresqlGenerator::sql_value(&parser::Value::Timestamp(*baked_at)),
                 None => "NULL".to_string(),
             }
         ),
@@ -170,7 +172,7 @@ pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<
 
 pub(crate) fn save_tx_contexts(
     transaction: &mut Transaction,
-    tx_context_map: &crate::michelson::TxContextMap,
+    tx_context_map: &TxContextMap,
 ) -> Res<()> {
     debug!("tx_context_map: {:#?}", tx_context_map);
     let stmt = transaction.prepare("
@@ -258,11 +260,11 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn start_table(&self, name: &str) -> String {
-        format!(include_str!("../sql/postgresql-table-header.sql"), name)
+        format!(include_str!("../../sql/postgresql-table-header.sql"), name)
     }
 
     pub(crate) fn end_table(&self) -> String {
-        include_str!("../sql/postgresql-table-footer.sql").to_string()
+        include_str!("../../sql/postgresql-table-footer.sql").to_string()
     }
 
     pub(crate) fn create_columns(&self, table: &Table) -> Res<Vec<String>> {
@@ -312,7 +314,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn create_common_tables(&self) -> String {
-        include_str!("../sql/postgresql-common-tables.sql").to_string()
+        include_str!("../../sql/postgresql-common-tables.sql").to_string()
     }
 
     pub(crate) fn create_table_definition(&self, table: &Table) -> Res<String> {
@@ -361,41 +363,41 @@ CREATE VIEW "{}_live" AS (
         s.to_string()
     }
 
-    pub fn sql_value(value: &crate::michelson::Value) -> String {
+    pub fn sql_value(value: &parser::Value) -> String {
         match value {
-            crate::michelson::Value::Address(s)
-            | crate::michelson::Value::KeyHash(s)
-            | crate::michelson::Value::String(s)
-            | crate::michelson::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(s)),
-            crate::michelson::Value::Bool(val) => {
+            parser::Value::Address(s)
+            | parser::Value::KeyHash(s)
+            | parser::Value::String(s)
+            | parser::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(s)),
+            parser::Value::Bool(val) => {
                 if *val {
                     "true".to_string()
                 } else {
                     "false".to_string()
                 }
             }
-            crate::michelson::Value::Bytes(s) => {
+            parser::Value::Bytes(s) => {
                 format!(
                     "'{}'",
-                    match crate::michelson::StorageParser::decode_address(s) {
+                    match parser::decode_address(s) {
                         Ok(a) => a,
                         Err(_) => s.to_string(),
                     }
                 )
             }
-            crate::michelson::Value::Int(b)
-            | crate::michelson::Value::Mutez(b)
-            | crate::michelson::Value::Nat(b) => b.to_str_radix(10),
-            crate::michelson::Value::None => "NULL".to_string(),
-            crate::michelson::Value::Timestamp(t) => {
+            parser::Value::Int(b) | parser::Value::Mutez(b) | parser::Value::Nat(b) => {
+                b.to_str_radix(10)
+            }
+            parser::Value::None => "NULL".to_string(),
+            parser::Value::Timestamp(t) => {
                 format!("'{}'", t.to_rfc2822())
             }
-            crate::michelson::Value::Elt(_, _)
-            | crate::michelson::Value::Left(_)
-            | crate::michelson::Value::List(_)
-            | crate::michelson::Value::Pair(_, _)
-            | crate::michelson::Value::Right(_)
-            | crate::michelson::Value::Unit(None) => panic!("sql_value called with {:?}", value),
+            parser::Value::Elt(_, _)
+            | parser::Value::Left(_)
+            | parser::Value::List(_)
+            | parser::Value::Pair(_, _)
+            | parser::Value::Right(_)
+            | parser::Value::Unit(None) => panic!("sql_value called with {:?}", value),
         }
     }
 

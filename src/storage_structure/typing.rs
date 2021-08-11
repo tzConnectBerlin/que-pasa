@@ -1,6 +1,6 @@
 use crate::err;
 use crate::error::Res;
-use crate::michelson::StorageParser;
+use crate::storage_value::parser;
 use json::JsonValue;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -28,13 +28,6 @@ pub enum ComplexExprTy {
     Option(Box<Ele>), // TODO: move this out into SimpleExprTy??
 }
 
-//TODO
-// why not:
-// ExprTy {
-//  SimpleExprTy(Option<String>, SimpleExprTy
-//  ComplexExprTy(Option<String>, ComplexExprTy
-// }
-// ?
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ExprTy {
     SimpleExprTy(SimpleExprTy),
@@ -141,7 +134,7 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Res<Ele> {
                     _ => {
                         let mut args_cloned = args.ok_or_else(|| err!("Args was none!")).unwrap();
                         args_cloned.reverse();
-                        let unfolded = StorageParser::lexer_unfold_many_pair(&mut args_cloned);
+                        let unfolded = parser::lexer_unfold_many_pair(&mut args_cloned);
                         storage_ast_from_json(&unfolded)
                     }
                 }
