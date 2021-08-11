@@ -26,6 +26,15 @@ macro_rules! serde2json {
     };
 }
 
+macro_rules! match_rel {
+    ($rel_ast:expr, $typ:path { $($fields:tt),+ }, $impl:block) => {
+        match $rel_ast {
+            $typ { $($fields),+ } => {$impl; Ok(())}
+            _ => Err(format!("failed to match storage value with storage type")),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ReadStorageContext {
     pub last_table: Option<String>,
@@ -697,7 +706,7 @@ impl StorageParser {
                             .ok_or("Missing key to big map in diff")?))?,
                         &key_ast,
                         tx_context,
-                    );
+                    )?;
                     match &diff.value {
                         None => {
                             self.add_column(
@@ -715,7 +724,7 @@ impl StorageParser {
                                 &self.parse_lexed(&serde2json!(&val))?,
                                 &value_ast,
                                 tx_context,
-                            );
+                            )?;
                             Ok(())
                         }
                     }
@@ -758,7 +767,7 @@ impl StorageParser {
             &self.unfold_list(value),
             rel_ast,
             tx_context,
-        );
+        )?;
         Ok(())
     }
 
@@ -784,12 +793,14 @@ impl StorageParser {
         value: &Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
-    ) {
+    ) -> Result<(), String> {
         let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => match rel_entry.column_type {
                 // we don't even try to store lambdas.
-                crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => return,
+                crate::storage::ExprTy::SimpleExprTy(crate::storage::SimpleExprTy::Stop) => {
+                    return Ok(())
+                }
                 _ => {}
             },
             RelationalAST::OrEnumeration { or_unfold, .. } => {
@@ -810,78 +821,90 @@ impl StorageParser {
         let ctx = &self.update_context(ctx, rel_ast.table_header());
 
         match v {
-            Value::Elt(keys, values) => match rel_ast {
+            Value::Elt(keys, values) => match_rel!(
+                rel_ast,
                 RelationalAST::Map {
-                    key_ast, value_ast, ..
-                }
-                | RelationalAST::BigMap {
-                    key_ast, value_ast, ..
-                } => {
-                    self.read_storage_internal(ctx, &keys, key_ast, tx_context);
-                    self.read_storage_internal(ctx, &values, value_ast, tx_context);
-                }
-                _ => panic!("storage value does not match rel_ast structure"),
-            },
-            Value::Left(left) => {
-                if let RelationalAST::OrEnumeration {
-                    left_table,
-                    left_ast,
+                    key_ast,
+                    value_ast,
                     ..
-                } = rel_ast
+                },
                 {
-                    let ctx = &self.update_context(ctx, Some(left_table.clone()));
-                    self.read_storage_internal(ctx, &left, left_ast, tx_context);
-                } else {
-                    panic!("storage value does not match rel_ast structure")
+                    self.read_storage_internal(ctx, &keys, key_ast, tx_context)?;
+                    self.read_storage_internal(ctx, &values, value_ast, tx_context)?;
                 }
+            )
+            .or(match_rel!(
+                rel_ast,
+                RelationalAST::BigMap {
+                    key_ast,
+                    value_ast,
+                    ..
+                },
+                {
+                    self.read_storage_internal(ctx, &keys, key_ast, tx_context)?;
+                    self.read_storage_internal(ctx, &values, value_ast, tx_context)?;
+                }
+            )),
+            Value::Left(left) => {
+                match_rel!(
+                    rel_ast,
+                    RelationalAST::OrEnumeration {
+                        left_table,
+                        left_ast,
+                        ..
+                    },
+                    {
+                        let ctx = &self.update_context(ctx, Some(left_table.clone()));
+                        self.read_storage_internal(ctx, &left, left_ast, tx_context)?;
+                    }
+                )
             }
             Value::Right(right) => {
-                if let RelationalAST::OrEnumeration {
-                    right_table,
-                    right_ast,
-                    ..
-                } = rel_ast
-                {
-                    let ctx = &self.update_context(ctx, Some(right_table.clone()));
-                    self.read_storage_internal(ctx, &right, right_ast, tx_context);
-                } else {
-                    panic!("storage value does not match rel_ast structure")
-                }
-            }
-            Value::List(l) => {
-                if let RelationalAST::List { elems_ast, .. } = rel_ast {
-                    for element in l {
-                        let id = self.id_generator.get_id();
-                        debug!("List Elt: {:?}", element);
-                        self.read_storage_internal(
-                            &ctx.with_id(id),
-                            &element,
-                            elems_ast,
-                            tx_context,
-                        );
+                match_rel!(
+                    rel_ast,
+                    RelationalAST::OrEnumeration {
+                        right_table,
+                        right_ast,
+                        ..
+                    },
+                    {
+                        let ctx = &self.update_context(ctx, Some(right_table.clone()));
+                        self.read_storage_internal(ctx, &right, right_ast, tx_context)?;
                     }
-                } else {
-                    panic!("storage value does not match rel_ast structure")
-                }
+                )
             }
-            Value::Pair(left, right) => match rel_ast {
+            Value::List(l) => match_rel!(rel_ast, RelationalAST::List { elems_ast, .. }, {
+                for element in l {
+                    let id = self.id_generator.get_id();
+                    debug!("List Elt: {:?}", element);
+                    self.read_storage_internal(&ctx.with_id(id), &element, elems_ast, tx_context)?;
+                }
+            }),
+            Value::Pair(left, right) => match_rel!(
+                rel_ast,
                 RelationalAST::Pair {
                     left_ast,
-                    right_ast,
+                    right_ast
+                },
+                {
+                    self.read_storage_internal(ctx, &right, right_ast, tx_context)?;
+                    self.read_storage_internal(ctx, &left, left_ast, tx_context)?;
                 }
-                | RelationalAST::BigMap {
-                    key_ast: left_ast,
-                    value_ast: right_ast,
+            )
+            .or(match_rel!(
+                rel_ast,
+                RelationalAST::BigMap {
+                    key_ast,
+                    value_ast,
                     ..
-                } => {
-                    self.read_storage_internal(ctx, &right, right_ast, tx_context);
-                    self.read_storage_internal(ctx, &left, left_ast, tx_context);
+                },
+                {
+                    self.read_storage_internal(ctx, &right, key_ast, tx_context)?;
+                    self.read_storage_internal(ctx, &left, value_ast, tx_context)?;
                 }
-                _ => panic!("storage value does not match rel_ast structure"),
-            },
+            )),
             Value::Unit(None) => {
-                debug!("Unit: value is {:#?}, rel_ast is {:#?}", value, rel_ast);
-                if let RelationalAST::Leaf { rel_entry } = rel_ast {
+                match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
                     self.add_column(
                         ctx,
                         &rel_entry.table_name,
@@ -892,9 +915,7 @@ impl StorageParser {
                         },
                         tx_context,
                     );
-                } else {
-                    panic!("storage value does not match rel_ast structure")
-                }
+                })
             }
             _ => {
                 // If this is a big map, save the id and the fk_id currently
@@ -903,8 +924,9 @@ impl StorageParser {
                     RelationalAST::BigMap { .. } => {
                         if let Value::Int(i) = value {
                             self.save_bigmap_location(i.to_u32().unwrap(), ctx.id, rel_ast.clone());
+                            Ok(())
                         } else {
-                            panic!("Found big map with non-int id: {:?}", rel_ast);
+                            Err(format!("Found big map with non-int id: {:?}", rel_ast))
                         }
                     }
                     RelationalAST::Leaf { rel_entry } => {
@@ -932,11 +954,12 @@ impl StorageParser {
                                 v,
                                 tx_context,
                             );
+                            Ok(())
                         } else {
-                            panic!("RelationalAST::Leaf has complex expr type")
+                            Err(format!("RelationalAST::Leaf has complex expr type"))
                         }
                     }
-                    _ => {} // panic!("storage value does not match rel_ast structure"),
+                    _ => Ok(()), // panic!("storage value does not match rel_ast structure"),
                 }
             }
         }
