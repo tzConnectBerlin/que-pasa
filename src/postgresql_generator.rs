@@ -18,9 +18,9 @@ impl Default for PostgresqlGenerator {
 }
 
 pub fn connect() -> Res<Client> {
-    let url = std::env::var(&"DATABASE_URL").unwrap();
+    let url = &crate::config::CONFIG.database_url;
     debug!("DATABASE_URL={}", url);
-    Ok(Client::connect(&url, NoTls)?)
+    Ok(Client::connect(url, NoTls)?)
 }
 
 pub fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {
