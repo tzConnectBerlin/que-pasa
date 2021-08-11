@@ -45,21 +45,34 @@ impl TableBuilder {
 
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
         match rel_ast {
-            RelationalAST::Pair(left, right) => {
-                self.populate(left);
-                self.populate(right);
-            }
-            RelationalAST::Map(_, key, value) | RelationalAST::BigMap(_, key, value) => {
-                self.populate(key);
-                self.populate(value);
-            }
-            RelationalAST::List(_, elem) => self.populate(elem),
-            RelationalAST::OrEnumeration(rel_entry, _, left_ast, _, right_ast) => {
-                self.add_column(rel_entry);
+            RelationalAST::Pair {
+                left_ast,
+                right_ast,
+            } => {
                 self.populate(left_ast);
                 self.populate(right_ast);
             }
-            RelationalAST::Leaf(rel_entry) => self.add_column(rel_entry),
+            RelationalAST::Map {
+                key_ast, value_ast, ..
+            }
+            | RelationalAST::BigMap {
+                key_ast, value_ast, ..
+            } => {
+                self.populate(key_ast);
+                self.populate(value_ast);
+            }
+            RelationalAST::List { elems_ast, .. } => self.populate(elems_ast),
+            RelationalAST::OrEnumeration {
+                or_unfold,
+                left_ast,
+                right_ast,
+                ..
+            } => {
+                self.add_column(or_unfold);
+                self.populate(left_ast);
+                self.populate(right_ast);
+            }
+            RelationalAST::Leaf { rel_entry } => self.add_column(rel_entry),
         }
     }
 }
