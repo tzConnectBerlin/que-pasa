@@ -18,7 +18,7 @@ impl Default for TableBuilder {
 }
 
 impl TableBuilder {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             tables: TableMap::new(),
         }
@@ -48,7 +48,7 @@ impl TableBuilder {
         self.tables.insert(table.name.clone(), table);
     }
 
-    pub fn populate(&mut self, node: &Node) -> Res<()> {
+    pub(crate) fn populate(&mut self, node: &Node) -> Res<()> {
         let node = node.clone();
         match &node._type {
             Type::Pair => {

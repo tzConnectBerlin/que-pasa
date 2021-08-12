@@ -7,6 +7,8 @@ use crate::error::Res;
 pub struct Config {
     pub contract_id: String,
     pub database_url: String,
+    pub ssl: bool,
+    pub ca_cert: Option<String>,
     pub generate_sql: bool,
     pub init: bool,
     pub levels: Vec<u32>,
@@ -38,6 +40,19 @@ pub fn init_config() -> Res<Config> {
                 .long("database-url")
                 .value_name("DATABASE_URL")
                 .help("The URL of the database")
+                .takes_value(true))
+        .arg(
+            Arg::with_name("ssl")
+                .short("S")
+                .long("ssl")
+                .help("Use SSL for postgres connection")
+                .takes_value(false)
+        )
+        .arg(
+            Arg::with_name("ca-cert")
+                .short("C")
+                .long("ca-cert")
+                .help("CA Cert for SSL postgres connection")
                 .takes_value(true))
         .arg(
             Arg::with_name("generate_sql")
@@ -91,6 +106,14 @@ pub fn init_config() -> Res<Config> {
             ))
         }
     };
+
+    if matches.is_present("ssl") {
+        config.ssl = true;
+        config.ca_cert = matches.value_of("ssl-cert").map(String::from);
+    } else {
+        config.ssl = false;
+        config.ca_cert = None;
+    }
 
     config.generate_sql = matches.is_present("generate_sql");
 

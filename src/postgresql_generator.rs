@@ -1,12 +1,18 @@
 use crate::error::Res;
 use crate::michelson::Level;
-use crate::node::Context;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
+use crate::tx_context::{TxContext, TxContextMap};
+use crate::CONFIG;
 use chrono::{DateTime, Utc};
+use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
+use postgres_native_tls::MakeTlsConnector;
 use std::error::Error;
+use std::fs;
 use std::vec::Vec;
+
+use crate::err;
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {}
@@ -17,21 +23,26 @@ impl Default for PostgresqlGenerator {
     }
 }
 
-pub fn connect() -> Res<Client> {
-    let url = &crate::config::CONFIG.database_url;
-    debug!("DATABASE_URL={}", url);
-    Ok(Client::connect(url, NoTls)?)
+pub(crate) fn connect() -> Res<Client> {
+    if CONFIG.ssl {
+        let mut builder = TlsConnector::builder();
+        if let Some(ca_cert) = &CONFIG.ca_cert {
+            builder.add_root_certificate(Certificate::from_pem(&fs::read(ca_cert)?)?);
+        }
+        let connector = builder.build()?;
+        let connector = MakeTlsConnector::new(connector);
+
+        Ok(postgres::Client::connect(&CONFIG.database_url, connector)?)
+    } else {
+        Ok(Client::connect(&CONFIG.database_url, NoTls)?)
+    }
 }
 
-pub fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {
+pub(crate) fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {
     Ok(client.transaction()?)
 }
 
-pub fn commit(transaction: Transaction) -> Result<(), Box<dyn Error>> {
-    Ok(transaction.commit()?)
-}
-
-pub fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<dyn Error>> {
+pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<dyn Error>> {
     debug!("postgresql_generator::exec {}:", sql);
     match transaction.execute(sql, &[]) {
         Ok(x) => Ok(x),
@@ -39,16 +50,16 @@ pub fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<dyn Err
     }
 }
 
-pub fn delete_everything(connection: &mut Client) -> Res<u64> {
+pub(crate) fn delete_everything(connection: &mut Client) -> Res<u64> {
     Ok(connection.execute("DELETE FROM levels", &[])?)
 }
 
-pub fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
+pub(crate) fn fill_in_levels(connection: &mut Client, from: u32, to: u32) -> Res<u64> {
     Ok(connection.execute(
             format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
 }
 
-pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
+pub(crate) fn get_head(connection: &mut Client) -> Res<Option<Level>> {
     let result = connection.query(
         "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
         &[],
@@ -69,7 +80,7 @@ pub fn get_head(connection: &mut Client) -> Res<Option<Level>> {
     }
 }
 
-pub fn get_missing_levels(
+pub(crate) fn get_missing_levels(
     connection: &mut Client,
     origination: Option<u32>,
     end: u32,
@@ -84,12 +95,12 @@ pub fn get_missing_levels(
     Ok(rows.iter().map(|x| *x as u32).collect::<Vec<u32>>())
 }
 
-pub fn get_max_id(connection: &mut Client) -> Res<i32> {
+pub(crate) fn get_max_id(connection: &mut Client) -> Res<i32> {
     let max_id: i32 = connection.query("SELECT max_id FROM max_id", &[])?[0].get(0);
     Ok(max_id + 1)
 }
 
-pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
+pub(crate) fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
     let updated = connection.execute("UPDATE max_id SET max_id=$1", &[&max_id])?;
     if updated == 1 {
         Ok(())
@@ -101,7 +112,7 @@ pub fn set_max_id(connection: &mut Transaction, max_id: i32) -> Res<()> {
 }
 
 /// get the origination of the contract, which is currently store in the levels (will change)
-pub fn set_origination(transaction: &mut Transaction, level: u32) -> Res<()> {
+pub(crate) fn set_origination(transaction: &mut Transaction, level: u32) -> Res<()> {
     exec(
         transaction,
         &"UPDATE levels SET is_origination = FALSE WHERE is_origination = TRUE".to_string(),
@@ -116,7 +127,7 @@ pub fn set_origination(transaction: &mut Transaction, level: u32) -> Res<()> {
     Ok(())
 }
 
-pub fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
+pub(crate) fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
     let result = connection.query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
     if result.is_empty() {
         Ok(None)
@@ -130,7 +141,7 @@ pub fn get_origination(connection: &mut Client) -> Res<Option<u32>> {
     }
 }
 
-pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
+pub(crate) fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     exec(
         transaction,
         &format!(
@@ -149,19 +160,46 @@ pub fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     )
 }
 
-pub fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
+pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
     exec(
         transaction,
         &format!("DELETE FROM levels where _level = {}", level._level),
     )
 }
 
+pub(crate) fn save_tx_contexts(
+    transaction: &mut Transaction,
+    tx_context_map: &TxContextMap,
+) -> Res<()> {
+    debug!("tx_context_map: {:#?}", tx_context_map);
+    let stmt = transaction.prepare("
+INSERT INTO
+tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination) VALUES
+($1, $2, $3, $4, $5, $6, $7)")?;
+    for (_, tx_context) in tx_context_map {
+        debug!("tx_context: {:#?}", tx_context);
+        transaction.execute(
+            &stmt,
+            &[
+                &(tx_context.id.ok_or(err!("Missing ID on TxContext"))? as i32),
+                &(tx_context.level as i32),
+                &(tx_context.operation_group_number as i32),
+                &(tx_context.operation_number as i32),
+                &tx_context.operation_hash,
+                &tx_context.source,
+                &tx_context.destination,
+            ],
+        )?;
+    }
+    Ok(())
+}
+
 impl PostgresqlGenerator {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {}
     }
 
-    pub fn create_sql(&mut self, column: Column) -> Option<String> {
+    pub(crate) fn create_sql(&mut self, column: Column) -> Option<String> {
         let name = Self::quote_id(&column.name);
         match column.expr {
             SimpleExpr::Address => Some(self.address(&name)),
@@ -182,51 +220,51 @@ impl PostgresqlGenerator {
         format!("\"{}\"", s)
     }
 
-    pub fn address(&mut self, name: &str) -> String {
+    pub(crate) fn address(&mut self, name: &str) -> String {
         format!("{} VARCHAR(127) NULL", name)
     }
 
-    pub fn bool(&mut self, name: &str) -> String {
+    pub(crate) fn bool(&mut self, name: &str) -> String {
         format!("{} BOOLEAN NULL", name)
     }
 
-    pub fn bytes(&mut self, name: &str) -> String {
+    pub(crate) fn bytes(&mut self, name: &str) -> String {
         format!("{} TEXT NULL", name)
     }
 
-    pub fn int(&mut self, name: &str) -> String {
+    pub(crate) fn int(&mut self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub fn nat(&mut self, name: &str) -> String {
+    pub(crate) fn nat(&mut self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub fn numeric(&mut self, name: &str) -> String {
+    pub(crate) fn numeric(&mut self, name: &str) -> String {
         format!("{} NUMERIC(64) NULL", name)
     }
 
-    pub fn string(&mut self, name: &str) -> String {
+    pub(crate) fn string(&mut self, name: &str) -> String {
         format!("{} TEXT NULL", name)
     }
 
-    pub fn timestamp(&mut self, name: &str) -> String {
+    pub(crate) fn timestamp(&mut self, name: &str) -> String {
         format!("{} TIMESTAMP NULL", name)
     }
 
-    pub fn unit(&mut self, name: &str) -> String {
+    pub(crate) fn unit(&mut self, name: &str) -> String {
         format!("{} VARCHAR(128) NULL", name)
     }
 
-    pub fn start_table(&mut self, name: &str) -> String {
+    pub(crate) fn start_table(&mut self, name: &str) -> String {
         format!(include_str!("../sql/postgresql-table-header.sql"), name)
     }
 
-    pub fn end_table(&mut self) -> String {
+    pub(crate) fn end_table(&mut self) -> String {
         include_str!("../sql/postgresql-table-footer.sql").to_string()
     }
 
-    pub fn create_columns(&mut self, table: &Table) -> Res<Vec<String>> {
+    pub(crate) fn create_columns(&mut self, table: &Table) -> Res<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
             Some(x) => vec![format!(r#""{}_id" BIGINT"#, x)],
             None => vec![],
@@ -247,7 +285,7 @@ impl PostgresqlGenerator {
         indices
     }
 
-    pub fn create_index(&mut self, table: &Table) -> String {
+    pub(crate) fn create_index(&mut self, table: &Table) -> String {
         format!(
             "CREATE INDEX ON \"{}\"({});\n",
             table.name,
@@ -272,52 +310,11 @@ impl PostgresqlGenerator {
         })
     }
 
-    pub fn create_common_tables(&mut self) -> String {
+    pub(crate) fn create_common_tables(&mut self) -> String {
         include_str!("../sql/postgresql-common-tables.sql").to_string()
     }
 
-    pub fn fill_big_map_table(&mut self, table: &Table, big_map_names: Vec<String>) -> String {
-        let columns = table
-            .columns
-            .iter()
-            .map(|x| x.name.clone())
-            .collect::<Vec<String>>()
-            .join(",");
-        let mut sql_commands = vec![];
-
-        for name in big_map_names {
-            let sql = format!(
-                r#"INSERT INTO "{}" ({}) VALUES ({})"#,
-                table.name, columns, name
-            );
-            sql_commands.push(sql);
-        }
-        sql_commands.join("\n")
-    }
-
-    pub fn create_big_map_table(&mut self, context: Context, tables_names: Vec<String>) -> String {
-        let mut columns = vec![];
-
-        let column = Column {
-            name: "big_map_table_name".to_string(),
-            expr: SimpleExpr::String,
-        };
-
-        columns.push(column);
-
-        let table = Table {
-            name: context.start_table("big_map".to_string()).table_name,
-            indices: vec![],
-            columns,
-        };
-
-        let big_map = self.fill_big_map_table(&table, tables_names);
-        let mut table_definition = self.create_table_definition(&table).unwrap();
-        table_definition.push_str(&big_map);
-        table_definition
-    }
-
-    pub fn create_view_store_all(&mut self, tables_names: Vec<String>) -> String {
+    pub(crate) fn create_view_store_all(&mut self, tables_names: Vec<String>) -> String {
         let mut query = String::new();
         query.push_str("CREATE VIEW storage_all AS SELECT DISTINCT ON (l._level) l._level, ");
         query.push_str(
@@ -341,7 +338,7 @@ impl PostgresqlGenerator {
         query
     }
 
-    pub fn create_table_definition(&mut self, table: &Table) -> Res<String> {
+    pub(crate) fn create_table_definition(&mut self, table: &Table) -> Res<String> {
         let mut v: Vec<String> = vec![self.start_table(&table.name)];
         let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
@@ -356,7 +353,7 @@ impl PostgresqlGenerator {
         Ok(v.join("\n"))
     }
 
-    pub fn create_view_definition(&mut self, table: &Table) -> String {
+    pub(crate) fn create_view_definition(&mut self, table: &Table) -> String {
         if table.name == "storage" {
             return "".to_string();
         }
@@ -425,7 +422,11 @@ CREATE VIEW "{}_live" AS (
         }
     }
 
-    pub fn build_insert(&mut self, insert: &crate::table::insert::Insert, level: u32) -> String {
+    pub(crate) fn build_insert(
+        &mut self,
+        insert: &crate::table::insert::Insert,
+        level: u32,
+    ) -> String {
         let mut columns: String = insert
             .columns
             .iter()

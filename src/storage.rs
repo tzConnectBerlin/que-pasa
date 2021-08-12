@@ -77,7 +77,7 @@ macro_rules! complex_expr {
 }
 
 /// An or can be a variant record, or a simple enumeration.
-pub fn is_enumeration_or(json: &JsonValue) -> bool {
+pub(crate) fn is_enumeration_or(json: &JsonValue) -> bool {
     let prim = match &json["prim"] {
         JsonValue::Short(s) => s.as_str(),
         JsonValue::String(s) => s.as_str(),
@@ -90,7 +90,7 @@ pub fn is_enumeration_or(json: &JsonValue) -> bool {
     }
 }
 
-pub fn storage_from_json(json: JsonValue) -> Res<Ele> {
+pub(crate) fn storage_from_json(json: JsonValue) -> Res<Ele> {
     let annot = annotation(&json);
     let args = args(&json);
     debug!("prim is {:?}", json["prim"]);

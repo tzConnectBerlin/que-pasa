@@ -24,8 +24,10 @@ itertools = "*"
 json = "0.12.4"
 lazy_static = "1.4.0"
 log = "0.4.0"
+native-tls = "0.2.7"
 num = { version = "0.4", features = [ "serde" ] }
 postgres = { version = "0.19.1", features = [ "with-chrono-0_4" ] }
+postgres-native-tls = "0.5.0"
 regex = "1.4.5"
 ron = "0.6.4"
 serde = { version = "1.0.125", features = [ "derive" ] }
