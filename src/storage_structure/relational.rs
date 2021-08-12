@@ -81,10 +81,8 @@ impl Context {
 
     pub(crate) fn next_with_prefix(&self, prefix: Option<String>) -> Self {
         let mut c = self.next();
-        if let Some(prefix) = prefix {
-            c.prefix = prefix;
-            // let sep = if self.prefix.len() == 0 { "" } else { "." };
-            // c.prefix = format!("{}{}{}", self.prefix, sep, prefix);
+        if let Some(pre) = prefix {
+            c.prefix = pre;
         }
         c
     }

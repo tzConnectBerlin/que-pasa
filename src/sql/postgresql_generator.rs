@@ -352,10 +352,6 @@ CREATE VIEW "{}_live" AS (
             indices.join(", "),
             table.name,
             indices.join(", "),
-            // indices
-            //     .iter()
-            //     .map(|x| format!(" AND t1.{} = t2.{}", x, x))
-            //    .collect::<String>()
         ))
     }
 
