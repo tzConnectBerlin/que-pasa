@@ -129,12 +129,11 @@ pub enum RelationalAST {
 }
 
 impl RelationalAST {
-    pub fn table_header(&self) -> Option<String> {
+    pub fn table_entry(&self) -> Option<String> {
         match self {
             RelationalAST::BigMap { table, .. }
             | RelationalAST::Map { table, .. }
             | RelationalAST::List { table, .. } => Some(table.clone()),
-            RelationalAST::OrEnumeration { or_unfold, .. } => Some(or_unfold.table_name.clone()),
             _ => None,
         }
     }
@@ -158,7 +157,6 @@ pub(crate) fn build_relational_ast(
         Some(x) => x.clone(),
         None => "noname".to_string(),
     };
-    println!("=> {:#?}", ele.expr_type);
     match ele.expr_type {
         ExprTy::ComplexExprTy(ref expr_type) => match expr_type {
             ComplexExprTy::Pair(left_type, right_type) => {
@@ -173,7 +171,6 @@ pub(crate) fn build_relational_ast(
             ComplexExprTy::List(elems_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
                 let elems_ast = build_relational_ast(ctx, elems_type, indexes);
-                println!("creating list with type {:#?}", elems_ast);
                 RelationalAST::List {
                     table: ctx.table_name.clone(),
                     elems_ast: Box::new(elems_ast),
@@ -224,10 +221,9 @@ fn build_enumeration_or(
 ) -> (RelationalAST, String) {
     match &ele.expr_type {
         ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(left_type, right_type)) => {
-            let (left_ast, left_table) =
-                build_enumeration_or(ctx, &left_type, column_name, indexes);
+            let (left_ast, left_table) = build_enumeration_or(ctx, left_type, column_name, indexes);
             let (right_ast, right_table) =
-                build_enumeration_or(ctx, &right_type, column_name, indexes);
+                build_enumeration_or(ctx, right_type, column_name, indexes);
             let rel_entry = RelationalEntry {
                 table_name: ctx.table_name.clone(),
                 column_name: column_name.to_string(),
@@ -235,7 +231,6 @@ fn build_enumeration_or(
                 is_index: false,
                 value: None,
             };
-            println!("or_enumeration_entry: {:#?}", rel_entry);
             (
                 RelationalAST::OrEnumeration {
                     or_unfold: rel_entry,

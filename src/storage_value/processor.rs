@@ -9,7 +9,6 @@ use num::ToPrimitive;
 use std::collections::HashMap;
 use std::error::Error;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::AtomicU32;
 
 macro_rules! serde2json {
     ($serde:expr) => {
@@ -38,7 +37,7 @@ pub struct ProcessStorageContext {
 impl ProcessStorageContext {
     pub fn new(id: u32) -> ProcessStorageContext {
         ProcessStorageContext {
-            id: id,
+            id,
             last_table: None,
             fk_id: None,
         }
@@ -99,21 +98,17 @@ impl Eq for TxContext {}
 pub(crate) type TxContextMap = HashMap<TxContext, TxContext>;
 
 pub struct IdGenerator {
-    id: AtomicU32,
+    id: u32,
 }
 
 impl IdGenerator {
     pub(crate) fn new(initial_value: u32) -> Self {
-        Self {
-            id: AtomicU32::new(initial_value),
-        }
+        Self { id: initial_value }
     }
 
     pub(crate) fn get_id(&mut self) -> u32 {
-        let id = self.id.get_mut();
-        let old_id: u32 = *id;
-        *id += 1;
-        debug!("get_id(): {}", old_id);
+        let old_id = self.id;
+        self.id += 1;
         old_id
     }
 }
@@ -251,7 +246,6 @@ impl StorageProcessor {
         v: &parser::Value,
         rel_ast: &RelationalAST,
     ) -> Result<RelationalEntry, Box<dyn Error>> {
-        println!("resolve_or: v={:#?} rel_ast={:#?}", v, rel_ast);
         match &self.unfold_value(v, rel_ast) {
             parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
@@ -264,7 +258,7 @@ impl StorageProcessor {
                 {
                     self.resolve_or(
                         &ctx.with_last_table(left_table.clone()),
-                        &or_unfold,
+                        or_unfold,
                         left,
                         left_ast,
                     )
@@ -281,7 +275,7 @@ impl StorageProcessor {
                 {
                     self.resolve_or(
                         &ctx.with_last_table(right_table.clone()),
-                        &or_unfold,
+                        or_unfold,
                         right,
                         right_ast,
                     )
@@ -322,7 +316,6 @@ impl StorageProcessor {
                 let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
-                        println!("big_map_id not known: {}", big_map_id);
                         return Ok(());
                     }
                 };
@@ -348,7 +341,7 @@ impl StorageProcessor {
                         match &diff.value {
                             None => self.sql_add_cell(
                                 ctx,
-                                &table.clone(),
+                                &table,
                                 &"deleted".to_string(),
                                 parser::Value::Bool(true),
                                 tx_context,
@@ -403,7 +396,7 @@ impl StorageProcessor {
         if let Some(table_name) = current_table {
             if ctx.last_table != Some(table_name.clone()) {
                 return ctx
-                    .with_last_table(table_name.clone())
+                    .with_last_table(table_name)
                     .with_fk_id(ctx.id)
                     .with_id(self.id_generator.get_id());
             }
@@ -420,13 +413,14 @@ impl StorageProcessor {
     ) -> Result<(), Box<dyn Error>> {
         let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
-            RelationalAST::Leaf { rel_entry } => match rel_entry.column_type {
-                // we don't even try to store lambdas.
-                ExprTy::SimpleExprTy(SimpleExprTy::Stop) => return Ok(()),
-                _ => {}
-            },
+            RelationalAST::Leaf { rel_entry } => {
+                if let ExprTy::SimpleExprTy(SimpleExprTy::Stop) = rel_entry.column_type {
+                    // we don't even try to store lambdas.
+                    return Ok(());
+                }
+            }
             RelationalAST::OrEnumeration { or_unfold, .. } => {
-                let rel_entry = self.resolve_or(ctx, &or_unfold, v, rel_ast)?;
+                let rel_entry = self.resolve_or(ctx, or_unfold, v, rel_ast)?;
                 if rel_entry.value != None {
                     self.sql_add_cell(
                         ctx,
@@ -440,7 +434,7 @@ impl StorageProcessor {
             _ => {}
         };
 
-        let ctx = &self.update_context(ctx, rel_ast.table_header());
+        let ctx = &self.update_context(ctx, rel_ast.table_entry());
 
         match v {
             parser::Value::Elt(keys, values) => must_match_rel!(
@@ -451,8 +445,8 @@ impl StorageProcessor {
                     ..
                 },
                 {
-                    self.process_storage_value_internal(ctx, &keys, key_ast, tx_context)?;
-                    self.process_storage_value_internal(ctx, &values, value_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, keys, key_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, values, value_ast, tx_context)?;
                     Ok(())
                 }
             )
@@ -464,8 +458,8 @@ impl StorageProcessor {
                     ..
                 },
                 {
-                    self.process_storage_value_internal(ctx, &keys, key_ast, tx_context)?;
-                    self.process_storage_value_internal(ctx, &values, value_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, keys, key_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, values, value_ast, tx_context)?;
                     Ok(())
                 }
             )),
@@ -479,7 +473,7 @@ impl StorageProcessor {
                     },
                     {
                         let ctx = &self.update_context(ctx, Some(left_table.clone()));
-                        self.process_storage_value_internal(ctx, &left, left_ast, tx_context)?;
+                        self.process_storage_value_internal(ctx, left, left_ast, tx_context)?;
                         Ok(())
                     }
                 )
@@ -494,7 +488,7 @@ impl StorageProcessor {
                     },
                     {
                         let ctx = &self.update_context(ctx, Some(right_table.clone()));
-                        self.process_storage_value_internal(ctx, &right, right_ast, tx_context)?;
+                        self.process_storage_value_internal(ctx, right, right_ast, tx_context)?;
                         Ok(())
                     }
                 )
@@ -503,10 +497,9 @@ impl StorageProcessor {
                 must_match_rel!(rel_ast, RelationalAST::List { elems_ast, .. }, {
                     for element in l {
                         let id = self.id_generator.get_id();
-                        debug!("List Elt: {:?}", element);
                         self.process_storage_value_internal(
                             &ctx.with_id(id),
-                            &element,
+                            element,
                             elems_ast,
                             tx_context,
                         )?;
@@ -521,8 +514,8 @@ impl StorageProcessor {
                     right_ast
                 },
                 {
-                    self.process_storage_value_internal(ctx, &right, right_ast, tx_context)?;
-                    self.process_storage_value_internal(ctx, &left, left_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, right, right_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, left, left_ast, tx_context)?;
                     Ok(())
                 }
             )
@@ -534,8 +527,8 @@ impl StorageProcessor {
                     ..
                 },
                 {
-                    self.process_storage_value_internal(ctx, &right, key_ast, tx_context)?;
-                    self.process_storage_value_internal(ctx, &left, value_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, right, key_ast, tx_context)?;
+                    self.process_storage_value_internal(ctx, left, value_ast, tx_context)?;
                     Ok(())
                 }
             )),
@@ -591,7 +584,7 @@ impl StorageProcessor {
                             );
                             Ok(())
                         } else {
-                            Err(format!("RelationalAST::Leaf has complex expr type").into())
+                            Err("RelationalAST::Leaf has complex expr type".into())
                         }
                     }
                     _ => Ok(()),
@@ -607,15 +600,15 @@ impl StorageProcessor {
     fn sql_add_cell(
         &mut self,
         ctx: &ProcessStorageContext,
-        table_name: &String,
-        column_name: &String,
+        table_name: &str,
+        column_name: &str,
         value: parser::Value,
         tx_context: &TxContext,
     ) {
-        let mut insert = match self.get_insert(table_name.clone(), ctx.id, ctx.fk_id) {
+        let mut insert = match self.get_insert(table_name, ctx.id, ctx.fk_id) {
             Some(x) => x,
             None => Insert {
-                table_name: table_name.clone(),
+                table_name: table_name.to_string(),
                 id: ctx.id,
                 fk_id: ctx.fk_id,
                 columns: vec![Column {
@@ -625,17 +618,17 @@ impl StorageProcessor {
             },
         };
         insert.columns.push(Column {
-            name: column_name.clone(),
+            name: column_name.to_string(),
             value,
         });
 
         self.inserts.insert(
             InsertKey {
-                table_name: table_name.clone(),
+                table_name: table_name.to_string(),
                 id: ctx.id,
             },
             Insert {
-                table_name: table_name.clone(),
+                table_name: table_name.to_string(),
                 id: ctx.id,
                 fk_id: ctx.fk_id,
                 columns: insert.columns,
@@ -643,15 +636,20 @@ impl StorageProcessor {
         );
     }
 
-    fn get_insert(&mut self, table_name: String, id: u32, fk_id: Option<u32>) -> Option<Insert> {
-        self.inserts.get(&InsertKey { table_name, id }).map(|e| {
-            assert!(e.fk_id == fk_id);
-            (*e).clone()
-        })
+    fn get_insert(&self, table_name: &str, id: u32, fk_id: Option<u32>) -> Option<Insert> {
+        self.inserts
+            .get(&InsertKey {
+                table_name: table_name.to_string(),
+                id,
+            })
+            .map(|e| {
+                assert!(e.fk_id == fk_id);
+                (*e).clone()
+            })
     }
 
     pub(crate) fn get_inserts(&self) -> Inserts {
-        return self.inserts.clone();
+        self.inserts.clone()
     }
 
     pub(crate) fn clear_inserts(&mut self) {

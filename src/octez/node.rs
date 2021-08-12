@@ -6,14 +6,6 @@ use curl::easy::Easy;
 use json::JsonValue;
 use std::error::Error;
 
-//TODO: remove, will be obsoleted by NodeClient
-lazy_static! {
-    static ref NODE_URL: String = match std::env::var("NODE_URL") {
-        Ok(s) => s,
-        Err(_) => "http://edo2full.newby.org:8732".to_string(),
-    };
-}
-
 pub struct NodeClient {
     node_url: String,
 }
@@ -32,7 +24,7 @@ impl NodeClient {
 
     /// Return the highest level on the chain
     pub(crate) fn head(&self) -> Res<Level> {
-        let json = self.load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
+        let json = self.load(&format!("{}/chains/main/blocks/head", self.node_url))?;
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()

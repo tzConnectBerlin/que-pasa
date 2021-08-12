@@ -6,6 +6,8 @@ use crate::sql::postgresql_generator;
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::storage_value::parser;
 use crate::storage_value::processor::{StorageProcessor, TxContext};
+#[cfg(test)]
+use pretty_assertions::assert_eq;
 
 pub(crate) fn get_origination(
     _contract_id: &str,
@@ -218,8 +220,6 @@ fn test_block() {
         let storage_definition = json["code"][1]["args"][0].clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
-        // println!("{:#?}", type_ast);
-        // panic!("stop.");
         let rel_ast = build_relational_ast(&crate::relational::Context::init(), &type_ast, indexes);
         Ok(rel_ast)
     }

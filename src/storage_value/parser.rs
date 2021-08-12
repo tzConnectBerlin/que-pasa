@@ -31,16 +31,16 @@ impl Value {
     pub fn unfold_list(&self) -> Value {
         match self {
             Value::List(xs) => match xs.len() {
-                0 => return Value::None,
-                1 => return xs[0].clone(),
+                0 => Value::None,
+                1 => xs[0].clone(),
                 _ => {
                     let left = Box::new(xs[0].clone());
-                    let rest: Vec<Value> = xs.iter().skip(1).map(|x| x.clone()).collect();
+                    let rest: Vec<Value> = xs.iter().skip(1).cloned().collect();
                     let right = Box::new(Value::List(rest).unfold_list());
-                    return Value::Pair(left, right);
+                    Value::Pair(left, right)
                 }
             },
-            _ => return self.clone(),
+            _ => self.clone(),
         }
     }
 }
@@ -177,12 +177,9 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
     }
 
     if let JsonValue::Array(a) = json {
-        // TODO: why this limitation?
-        if a.len() < 400 {
-            let mut array = a.clone();
-            array.reverse();
-            return parse_lexed(&lexer_unfold_many_pair(&mut array));
-        }
+        let mut array = a.clone();
+        array.reverse();
+        return parse_lexed(&lexer_unfold_many_pair(&mut array));
     }
 
     warn!("Couldn't get a value from {:#?} with keys {:?}", json, keys);
@@ -218,7 +215,6 @@ pub(crate) fn parse_date(value: &Value) -> Result<DateTime<Utc>, Box<dyn Error>>
             Ok(Utc.timestamp(ts, 0))
         }
         Value::String(s) => {
-            println!("{}", s);
             let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
             Ok(fixedoffset.with_timezone(&Utc))
         }

@@ -94,7 +94,6 @@ pub(crate) fn is_enumeration_or(json: &JsonValue) -> bool {
 pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Res<Ele> {
     let annot = annotation(json);
     let args = args(json);
-    println!("prim is {:?}", json["prim"]);
     if let JsonValue::Short(prim) = json["prim"] {
         match prim.to_ascii_lowercase().as_str() {
             "address" => Ok(simple_expr!(SimpleExprTy::Address, annot)),

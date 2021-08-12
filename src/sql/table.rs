@@ -32,7 +32,7 @@ impl Table {
                 self.indices.push(name.clone());
                 self.columns.push(Column {
                     name,
-                    column_type: e.clone(),
+                    column_type: *e,
                 });
             }
             ExprTy::ComplexExprTy(e) => panic!("add_index called with ComplexExprTy {:#?}", e),

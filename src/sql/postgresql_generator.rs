@@ -174,17 +174,17 @@ pub(crate) fn save_tx_contexts(
     transaction: &mut Transaction,
     tx_context_map: &TxContextMap,
 ) -> Res<()> {
-    debug!("tx_context_map: {:#?}", tx_context_map);
     let stmt = transaction.prepare("
 INSERT INTO
 tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination) VALUES
 ($1, $2, $3, $4, $5, $6, $7)")?;
-    for (_, tx_context) in tx_context_map {
-        debug!("tx_context: {:#?}", tx_context);
+    for tx_context in tx_context_map.values() {
         transaction.execute(
             &stmt,
             &[
-                &(tx_context.id.ok_or(err!("Missing ID on TxContext"))? as i32),
+                &(tx_context
+                    .id
+                    .ok_or_else(|| err!("Missing ID on TxContext"))? as i32),
                 &(tx_context.level as i32),
                 &(tx_context.operation_group_number as i32),
                 &(tx_context.operation_number as i32),
@@ -417,12 +417,10 @@ CREATE VIEW "{}_live" AS (
         if let Some(fk_id) = insert.fk_id {
             columns.push_str(&format!(
                 r#", "{}_id""#,
-                Self::parent_name(&insert.table_name).unwrap_or("NULL".to_string()),
+                Self::parent_name(&insert.table_name).unwrap(),
             ));
             values.push_str(&format!(", {}", fk_id));
         }
-        // columns.push_str(", _level");
-        // values.push_str(&format!(", {}", level));
         let sql = format!(
             r#"INSERT INTO "{}"
 (id, {})
