@@ -23,7 +23,7 @@ impl Default for PostgresqlGenerator {
     }
 }
 
-pub(crate) fn connect(ssl: bool, ca_cert: Option<&str>) -> Res<Client> {
+pub(crate) fn connect(ssl: bool, ca_cert: Option<String>) -> Res<Client> {
     let url = std::env::var(&"DATABASE_URL").unwrap();
     debug!("DATABASE_URL={}", url);
 

@@ -6,8 +6,6 @@ use crate::sql::postgresql_generator;
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::storage_value::parser;
 use crate::storage_value::processor::{StorageProcessor, TxContext};
-#[cfg(test)]
-use pretty_assertions::assert_eq;
 
 pub(crate) fn get_origination(
     _contract_id: &str,
