@@ -117,9 +117,9 @@ type BigMapMap = std::collections::HashMap<u32, (u32, RelationalAST)>;
 
 pub(crate) struct StorageProcessor {
     big_map_map: BigMapMap,
-    pub id_generator: IdGenerator,
-    inserts: crate::table::insert::Inserts,
-    pub tx_contexts: TxContextMap,
+    id_generator: IdGenerator,
+    inserts: Inserts,
+    tx_contexts: TxContextMap,
 }
 
 impl StorageProcessor {
@@ -130,6 +130,62 @@ impl StorageProcessor {
             tx_contexts: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
         }
+    }
+
+    pub(crate) fn process_block(
+        &mut self,
+        block: block::Block,
+        rel_ast: &RelationalAST,
+        contract_id: &str,
+    ) -> Res<(Inserts, Vec<TxContext>)> {
+        let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
+        let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
+        let operations = block.operations();
+
+        let mut operation_group_number = 0u32;
+        for operation_group in operations {
+            operation_group_number += 1;
+            let mut operation_number = 0u32;
+            for operation in operation_group {
+                operation_number += 1;
+                storages.extend(self.get_storage_from_operation(
+                    block.header.level,
+                    operation_group_number,
+                    operation_number,
+                    &operation,
+                    contract_id,
+                )?);
+                big_map_diffs.extend(self.get_big_map_diffs_from_operation(
+                    block.header.level,
+                    operation_group_number,
+                    operation_number,
+                    &operation,
+                )?);
+            }
+        }
+
+        self.inserts.clear();
+        self.tx_contexts.clear();
+
+        for (tx_context, store) in &storages {
+            let storage_json = serde_json::to_string(store)?;
+            let parsed_storage = parser::parse(storage_json)?;
+
+            self.process_storage_value(&parsed_storage, rel_ast, tx_context)?;
+        }
+
+        for (tx_content, diff) in &big_map_diffs {
+            self.process_big_map_diff(diff, tx_content)?;
+        }
+
+        Ok((
+            self.inserts.clone(),
+            self.tx_contexts.keys().cloned().collect(),
+        ))
+    }
+
+    pub(crate) fn get_id_value(&self) -> u32 {
+        self.id_generator.id
     }
 
     fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {
@@ -143,7 +199,7 @@ impl StorageProcessor {
         }
     }
 
-    pub(crate) fn get_big_map_diffs_from_operation(
+    fn get_big_map_diffs_from_operation(
         &mut self,
         level: u32,
         operation_group_number: u32,
@@ -192,7 +248,7 @@ impl StorageProcessor {
         Ok(result)
     }
 
-    pub(crate) fn get_storage_from_operation(
+    fn get_storage_from_operation(
         &mut self,
         level: u32,
         operation_group_number: u32,
@@ -301,7 +357,7 @@ impl StorageProcessor {
         }
     }
 
-    pub(crate) fn process_big_map_diff(
+    fn process_big_map_diff(
         &mut self,
         diff: &block::BigMapDiff,
         tx_context: &TxContext,
@@ -365,7 +421,7 @@ impl StorageProcessor {
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. raises an error if it cannot do this (i.e. they do not match).
-    pub(crate) fn process_storage_value(
+    fn process_storage_value(
         &mut self,
         value: &parser::Value,
         rel_ast: &RelationalAST,
@@ -404,7 +460,7 @@ impl StorageProcessor {
         ctx.clone()
     }
 
-    pub(crate) fn process_storage_value_internal(
+    fn process_storage_value_internal(
         &mut self,
         ctx: &ProcessStorageContext,
         value: &parser::Value,
@@ -646,13 +702,5 @@ impl StorageProcessor {
                 assert!(e.fk_id == fk_id);
                 (*e).clone()
             })
-    }
-
-    pub(crate) fn get_inserts(&self) -> Inserts {
-        self.inserts.clone()
-    }
-
-    pub(crate) fn clear_inserts(&mut self) {
-        self.inserts.clear();
     }
 }

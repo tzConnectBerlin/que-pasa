@@ -3,7 +3,7 @@ use crate::octez::node::Level;
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::SimpleExprTy;
 use crate::storage_value::parser;
-use crate::storage_value::processor::TxContextMap;
+use crate::storage_value::processor::TxContext;
 use chrono::{DateTime, Utc};
 use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
@@ -172,13 +172,13 @@ pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<
 
 pub(crate) fn save_tx_contexts(
     transaction: &mut Transaction,
-    tx_context_map: &TxContextMap,
+    tx_context_map: &[TxContext],
 ) -> Res<()> {
     let stmt = transaction.prepare("
 INSERT INTO
 tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination) VALUES
 ($1, $2, $3, $4, $5, $6, $7)")?;
-    for tx_context in tx_context_map.values() {
+    for tx_context in tx_context_map {
         transaction.execute(
             &stmt,
             &[
