@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 306,
+        id: 224,
     ): (
         table_name: "storage",
-        id: 306,
+        id: 224,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -29,20 +35,26 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 314,
+        id: 232,
     ): (
         table_name: "storage.token_total_supply",
-        id: 314,
+        id: 232,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_33",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     3903053373,
                     4110948536,
@@ -53,20 +65,26 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 313,
+        id: 231,
     ): (
         table_name: "storage.token_total_supply",
-        id: 313,
+        id: 231,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_33",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     14,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     1661992960,
                     1808227885,
@@ -77,20 +95,26 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 312,
+        id: 230,
     ): (
         table_name: "storage.token_total_supply",
-        id: 312,
+        id: 230,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_33",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     13,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     2241060413,
                     2302720651,
@@ -100,14 +124,20 @@
     ),
     (
         table_name: "storage.questions",
-        id: 321,
+        id: 239,
     ): (
         table_name: "storage.questions",
-        id: 321,
+        id: 239,
         fk_id: None,
         columns: [
             (
-                name: "idx_string_4",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_string_0",
                 value: String("QmUCGwUZZ9pRszpTv38jviF9QKPZR6KRofvZqxtokL2YYx"),
             ),
             (
@@ -178,14 +208,20 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 322,
+        id: 240,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 322,
-        fk_id: Some(321),
+        id: 240,
+        fk_id: Some(239),
         columns: [
             (
-                name: "idx_address_11",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_address_1",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -216,20 +252,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 319,
+        id: 237,
     ): (
         table_name: "storage.ledger",
-        id: 319,
+        id: 237,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     15,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -244,20 +286,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 317,
+        id: 235,
     ): (
         table_name: "storage.ledger",
-        id: 317,
+        id: 235,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     14,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -272,20 +320,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 315,
+        id: 233,
     ): (
         table_name: "storage.ledger",
-        id: 315,
+        id: 233,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    221,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     13,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (

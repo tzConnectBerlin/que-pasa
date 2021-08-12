@@ -1,12 +1,12 @@
-use crate::michelson::Value;
-use crate::node::Node;
-use crate::storage::{ComplexExpr, Expr, SimpleExpr};
+use crate::storage_structure::relational::RelationalEntry;
+use crate::storage_structure::typing::{ComplexExprTy, ExprTy, SimpleExprTy};
+use crate::storage_value::parser::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
-    pub expr: SimpleExpr,
+    pub column_type: SimpleExprTy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -20,44 +20,48 @@ impl Table {
     pub(crate) fn new(name: String) -> Self {
         Self {
             name,
-            indices: vec!["_level".to_string()],
+            indices: vec!["tx_context_id".to_string()],
             columns: vec![],
         }
     }
 
-    pub(crate) fn add_index(&mut self, node: &Node) {
-        let node = node.clone();
-        let name = node.name.unwrap();
-        let e = node.expr;
-        match e {
-            Expr::SimpleExpr(e) => {
+    pub(crate) fn add_index(&mut self, rel_entry: &RelationalEntry) {
+        let name = rel_entry.column_name.clone();
+        match &rel_entry.column_type {
+            ExprTy::SimpleExprTy(e) => {
                 self.indices.push(name.clone());
-                self.columns.push(Column { name, expr: e });
+                self.columns.push(Column {
+                    name,
+                    column_type: *e,
+                });
             }
-            Expr::ComplexExpr(e) => panic!("add_index called with ComplexExpr {:#?}", e),
+            ExprTy::ComplexExprTy(e) => panic!("add_index called with ComplexExprTy {:#?}", e),
         }
     }
 
-    pub(crate) fn add_column(&mut self, node: &Node) {
-        let node: Node = node.clone();
-        let name = node.name.unwrap();
-        for column in self.columns.iter() {
-            if column.name == name {
-                return;
-            }
+    pub(crate) fn add_column(&mut self, rel_entry: &RelationalEntry) {
+        let name = rel_entry.column_name.clone();
+        if self.columns.iter().any(|column| column.name == name) {
+            return;
         }
-        match &node.expr {
-            Expr::SimpleExpr(e) => {
-                self.columns.push(Column { name, expr: *e });
+        match &rel_entry.column_type {
+            ExprTy::SimpleExprTy(e) => {
+                self.columns.push(Column {
+                    name,
+                    column_type: *e,
+                });
             }
-            Expr::ComplexExpr(ce) => match ce {
-                ComplexExpr::OrEnumeration(_, _) => {
+            ExprTy::ComplexExprTy(ce) => match ce {
+                ComplexExprTy::OrEnumeration(_, _) => {
                     self.columns.push(Column {
                         name,
-                        expr: SimpleExpr::Unit, // What will ultimately go in is a Unit
+                        column_type: SimpleExprTy::Unit, // What will ultimately go in is a Unit
                     })
                 }
-                _ => panic!("add_column called with ComplexExpr {:?}", &node.expr),
+                _ => panic!(
+                    "add_column called with ComplexExprTy {:?}",
+                    &rel_entry.column_type
+                ),
             },
         }
     }
@@ -99,6 +103,13 @@ pub mod insert {
         pub id: u32,
         pub fk_id: Option<u32>,
         pub columns: Vec<Column>,
+    }
+
+    impl Insert {
+        #[cfg(test)]
+        pub fn get_column(&self, name: &str) -> Option<&Column> {
+            self.columns.iter().find(|column| column.name == name)
+        }
     }
 
     pub type Inserts = BTreeMap<InsertKey, Insert>;

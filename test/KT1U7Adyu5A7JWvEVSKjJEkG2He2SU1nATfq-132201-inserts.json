@@ -1,0 +1,242 @@
+{
+    (
+        table_name: "storage",
+        id: 19,
+    ): (
+        table_name: "storage",
+        id: 19,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    17,
+                ])),
+            ),
+            (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
+                name: "stablecoin",
+                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Int((1, [
+                    3,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 27,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 27,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    17,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
+                value: Int((1, [
+                    3,
+                ])),
+            ),
+            (
+                name: "tokens_nat_11",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 26,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 26,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    17,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
+                value: Int((1, [
+                    2,
+                ])),
+            ),
+            (
+                name: "tokens_nat_11",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 25,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 25,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    17,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
+                value: Int((1, [
+                    1,
+                ])),
+            ),
+            (
+                name: "tokens_nat_11",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions",
+        id: 28,
+    ): (
+        table_name: "storage.questions",
+        id: 28,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    17,
+                ])),
+            ),
+            (
+                name: "idx_string_0",
+                value: String("QmPS5KvoEjLq2nc2aNbgtdzMy9jREr53g1QGfEKe7f6hB5"),
+            ),
+            (
+                name: "uniswap_contribution_factor",
+                value: Int((1, [
+                    3735027712,
+                    484116277,
+                    1652502990,
+                    88352421,
+                ])),
+            ),
+            (
+                name: "yes_preference",
+                value: Int((1, [
+                    3735027712,
+                    484116277,
+                    1652502990,
+                    88352421,
+                ])),
+            ),
+            (
+                name: "total_auction_quantity",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+            (
+                name: "winning_token",
+                value: None,
+            ),
+            (
+                name: "tokens_lqt_token_id",
+                value: Int((1, [
+                    3,
+                ])),
+            ),
+            (
+                name: "tokens_no_token_id",
+                value: Int((1, [
+                    2,
+                ])),
+            ),
+            (
+                name: "tokens_yes_token_id",
+                value: Int((1, [
+                    1,
+                ])),
+            ),
+            (
+                name: "market_close",
+                value: Timestamp("2021-03-31T09:00:00Z"),
+            ),
+            (
+                name: "auction_end",
+                value: Timestamp("2021-03-31T08:25:00Z"),
+            ),
+            (
+                name: "state",
+                value: String("questionAuctionOpen"),
+            ),
+            (
+                name: "owner",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions.auction_bids",
+        id: 29,
+    ): (
+        table_name: "storage.questions.auction_bids",
+        id: 29,
+        fk_id: Some(28),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    17,
+                ])),
+            ),
+            (
+                name: "idx_address_1",
+                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Int((1, [
+                    3735027712,
+                    484116277,
+                    1652502990,
+                    88352421,
+                ])),
+            ),
+            (
+                name: "quantity",
+                value: Int((1, [
+                    1661992960,
+                    1808227885,
+                    5,
+                ])),
+            ),
+            (
+                name: "rate",
+                value: Int((1, [
+                    239534090,
+                    16298145,
+                ])),
+            ),
+        ],
+    ),
+}

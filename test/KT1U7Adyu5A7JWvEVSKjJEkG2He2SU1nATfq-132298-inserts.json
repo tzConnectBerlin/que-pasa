@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 258,
+        id: 184,
     ): (
         table_name: "storage",
-        id: 258,
+        id: 184,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    183,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -29,14 +35,20 @@
     ),
     (
         table_name: "storage.questions",
-        id: 264,
+        id: 190,
     ): (
         table_name: "storage.questions",
-        id: 264,
+        id: 190,
         fk_id: None,
         columns: [
             (
-                name: "idx_string_4",
+                name: "tx_context_id",
+                value: Int((1, [
+                    183,
+                ])),
+            ),
+            (
+                name: "idx_string_0",
                 value: String("QmeY3QU6Lhr4pS5ZGcp4AarYJwZkt5cAgx9RzRmQ4XiwVe"),
             ),
             (
@@ -109,14 +121,20 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 265,
+        id: 191,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 265,
-        fk_id: Some(264),
+        id: 191,
+        fk_id: Some(190),
         columns: [
             (
-                name: "idx_address_11",
+                name: "tx_context_id",
+                value: Int((1, [
+                    183,
+                ])),
+            ),
+            (
+                name: "idx_address_1",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

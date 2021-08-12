@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 43,
+        id: 24,
     ): (
         table_name: "storage",
-        id: 43,
+        id: 24,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    22,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),

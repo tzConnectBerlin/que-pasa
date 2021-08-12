@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 71,
+        id: 31,
     ): (
         table_name: "storage",
-        id: 71,
+        id: 31,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -29,20 +35,26 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 79,
+        id: 39,
     ): (
         table_name: "storage.token_total_supply",
-        id: 79,
+        id: 39,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_33",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     3,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     263069707,
                     3560716601,
@@ -53,20 +65,26 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 78,
+        id: 38,
     ): (
         table_name: "storage.token_total_supply",
-        id: 78,
+        id: 38,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_33",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     2,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     263069707,
                     3560716601,
@@ -77,20 +95,26 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 77,
+        id: 37,
     ): (
         table_name: "storage.token_total_supply",
-        id: 77,
+        id: 37,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_33",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_10",
                 value: Int((1, [
                     1,
                 ])),
             ),
             (
-                name: "tokens_nat_34",
+                name: "tokens_nat_11",
                 value: Int((1, [
                     1661992960,
                     1808227885,
@@ -101,14 +125,20 @@
     ),
     (
         table_name: "storage.questions",
-        id: 90,
+        id: 50,
     ): (
         table_name: "storage.questions",
-        id: 90,
+        id: 50,
         fk_id: None,
         columns: [
             (
-                name: "idx_string_4",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_string_0",
                 value: String("QmPS5KvoEjLq2nc2aNbgtdzMy9jREr53g1QGfEKe7f6hB5"),
             ),
             (
@@ -179,14 +209,20 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 91,
+        id: 51,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 91,
-        fk_id: Some(90),
+        id: 51,
+        fk_id: Some(50),
         columns: [
             (
-                name: "idx_address_11",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_address_1",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -217,20 +253,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 88,
+        id: 48,
     ): (
         table_name: "storage.ledger",
-        id: 88,
+        id: 48,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     3,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -244,20 +286,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 86,
+        id: 46,
     ): (
         table_name: "storage.ledger",
-        id: 86,
+        id: 46,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     2,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -271,20 +319,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 84,
+        id: 44,
     ): (
         table_name: "storage.ledger",
-        id: 84,
+        id: 44,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     1,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -299,20 +353,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 82,
+        id: 42,
     ): (
         table_name: "storage.ledger",
-        id: 82,
+        id: 42,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     3,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -327,20 +387,26 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 80,
+        id: 40,
     ): (
         table_name: "storage.ledger",
-        id: 80,
+        id: 40,
         fk_id: None,
         columns: [
             (
-                name: "idx_tokens_nat_21",
+                name: "tx_context_id",
+                value: Int((1, [
+                    30,
+                ])),
+            ),
+            (
+                name: "idx_tokens_nat_3",
                 value: Int((1, [
                     2,
                 ])),
             ),
             (
-                name: "idx_tokens_address_20",
+                name: "idx_tokens_address_2",
                 value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

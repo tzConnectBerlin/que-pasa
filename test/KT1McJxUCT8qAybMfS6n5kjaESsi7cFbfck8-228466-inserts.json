@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 98,
+        id: 66,
     ): (
         table_name: "storage",
-        id: 98,
+        id: 66,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    64,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -19,14 +25,20 @@
     ),
     (
         table_name: "storage.lambda_map",
-        id: 104,
+        id: 72,
     ): (
         table_name: "storage.lambda_map",
-        id: 104,
+        id: 72,
         fk_id: None,
         columns: [
             (
-                name: "idx_lambda_repository_string_1",
+                name: "tx_context_id",
+                value: Int((1, [
+                    64,
+                ])),
+            ),
+            (
+                name: "idx_lambda_repository_string_0",
                 value: String("market_create_endpoint"),
             ),
         ],

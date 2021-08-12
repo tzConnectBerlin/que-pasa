@@ -1,0 +1,1382 @@
+{
+    (
+        table_name: "storage",
+        id: 50,
+    ): (
+        table_name: "storage",
+        id: 50,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
+                name: "veto",
+                value: Int((0, [])),
+            ),
+            (
+                name: "total_votes",
+                value: Int((0, [])),
+            ),
+            (
+                name: "total_supply",
+                value: Int((1, [
+                    4180943778,
+                    9,
+                ])),
+            ),
+            (
+                name: "total_reward",
+                value: Int((0, [])),
+            ),
+            (
+                name: "token_pool",
+                value: Int((1, [
+                    1810447612,
+                    3,
+                ])),
+            ),
+            (
+                name: "token_id",
+                value: Int((0, [])),
+            ),
+            (
+                name: "token_address",
+                value: Address("KT1AFA2mwNUMNd4SsujE1YYp29vd8BZejyKW"),
+            ),
+            (
+                name: "tez_pool",
+                value: Int((1, [
+                    4180943778,
+                    9,
+                ])),
+            ),
+            (
+                name: "reward_per_share",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward_per_sec",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+            (
+                name: "period_finish",
+                value: Timestamp("2021-05-24T15:38:04Z"),
+            ),
+            (
+                name: "last_veto",
+                value: Timestamp("2021-04-24T15:38:04Z"),
+            ),
+            (
+                name: "last_update_time",
+                value: Timestamp("2021-04-24T17:15:44Z"),
+            ),
+            (
+                name: "current_delegated",
+                value: None,
+            ),
+            (
+                name: "current_candidate",
+                value: None,
+            ),
+            (
+                name: "baker_validator",
+                value: Address("KT1Rowg7xjbQzQh3VFb2E9r6PMxoAqyJnSZi"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 79,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 79,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz2L3KjqXf8ZtvFz6TY2qxUzBxrYyeGCbugM"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 78,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 78,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz2KGfnYWeBd7xQYDCo52x22JbgXkK41Caiw"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 77,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 77,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1ioU6W4otB7ebgRZTq1EVVra3vMyXqeqsm"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 76,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 76,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1gACjUSBkWjqWv5ZBMRk6G9Sp8xNAYgwYV"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 75,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 75,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1fCCyqjcmwNw5Vv1b7yVXPvJzL42KqxWxd"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 74,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 74,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1dAFwciSCkzzQL2goqZyqucFyqVPmXzCkJ"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 73,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 73,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1c2e1WMKKtf6oBZcZK3YFxrXgVbb2ggRr9"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 72,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 72,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1bRDYJHp3ACUojEeM6Ja442YEwNmcb7ph9"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 71,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 71,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1ZWbokP5pGwT3tTtLPP2KhXX5ssg1EtDPs"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 70,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 70,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1YqsEWdPxBmqVKsJircrwBmCmZDtHAgHzp"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 69,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 69,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1YQDCB6Hbn2ozMyS2kf6WPJDeRvJtmtNqQ"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 68,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 68,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1Xy5UM1tC3CFcbPBVq5PjufaxcLjMwfQkE"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 67,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 67,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1X4epy6wnxhrYPQRaBYbhejzXuD6A4D3RW"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 66,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 66,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1WZkXCNbYj4jQtPtxUP1bxtw91YSpn5Lzk"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 65,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 65,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1W53nWnqavj4BEbv53zwLMVVTKVTs4gfkP"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 64,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 64,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1VLGEhMhsb2HDhUaa2oeHQ8qM7Y7s72d3s"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 63,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 63,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1UFF5DSDDtk3fM1ewaLvVG6fhaAeCdgYEt"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 62,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 62,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1TreKYWjXdKDaKCga4b8zobDq2pdHdGZuA"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 61,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 61,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1RuvNyBmcB6shsv9WCruiifzFvnNHdvk1a"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 60,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 60,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1RrNFg8Pm4WXEpzsrb6YeGZeib6moPn849"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 59,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 59,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_6",
+                value: Address("tz1LHUdjqTGVigZoSSvq8CZpbeP1mTTYNmLk"),
+            ),
+            (
+                name: "reward_paid",
+                value: Int((0, [])),
+            ),
+            (
+                name: "reward",
+                value: Int((0, [])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 99,
+    ): (
+        table_name: "storage.ledger",
+        id: 99,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1X4epy6wnxhrYPQRaBYbhejzXuD6A4D3RW"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    172829188,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 97,
+    ): (
+        table_name: "storage.ledger",
+        id: 97,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1WZkXCNbYj4jQtPtxUP1bxtw91YSpn5Lzk"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    3987476295,
+                    8,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 95,
+    ): (
+        table_name: "storage.ledger",
+        id: 95,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1W53nWnqavj4BEbv53zwLMVVTKVTs4gfkP"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    4083947,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 93,
+    ): (
+        table_name: "storage.ledger",
+        id: 93,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1VLGEhMhsb2HDhUaa2oeHQ8qM7Y7s72d3s"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    6535157,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 91,
+    ): (
+        table_name: "storage.ledger",
+        id: 91,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1UFF5DSDDtk3fM1ewaLvVG6fhaAeCdgYEt"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    6701439,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 89,
+    ): (
+        table_name: "storage.ledger",
+        id: 89,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1TreKYWjXdKDaKCga4b8zobDq2pdHdGZuA"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    1388777449,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 87,
+    ): (
+        table_name: "storage.ledger",
+        id: 87,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1RuvNyBmcB6shsv9WCruiifzFvnNHdvk1a"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    1441746528,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 84,
+    ): (
+        table_name: "storage.ledger",
+        id: 84,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1RrNFg8Pm4WXEpzsrb6YeGZeib6moPn849"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    78270768,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 80,
+    ): (
+        table_name: "storage.ledger",
+        id: 80,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1LHUdjqTGVigZoSSvq8CZpbeP1mTTYNmLk"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    68523527,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 123,
+    ): (
+        table_name: "storage.ledger",
+        id: 123,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz2L3KjqXf8ZtvFz6TY2qxUzBxrYyeGCbugM"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    15317873,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 121,
+    ): (
+        table_name: "storage.ledger",
+        id: 121,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz2KGfnYWeBd7xQYDCo52x22JbgXkK41Caiw"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    4050688,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 119,
+    ): (
+        table_name: "storage.ledger",
+        id: 119,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1ioU6W4otB7ebgRZTq1EVVra3vMyXqeqsm"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    10416557,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 117,
+    ): (
+        table_name: "storage.ledger",
+        id: 117,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1gACjUSBkWjqWv5ZBMRk6G9Sp8xNAYgwYV"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    7822061,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 115,
+    ): (
+        table_name: "storage.ledger",
+        id: 115,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1fCCyqjcmwNw5Vv1b7yVXPvJzL42KqxWxd"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    53514154,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 113,
+    ): (
+        table_name: "storage.ledger",
+        id: 113,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1dAFwciSCkzzQL2goqZyqucFyqVPmXzCkJ"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    575337043,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 111,
+    ): (
+        table_name: "storage.ledger",
+        id: 111,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1c2e1WMKKtf6oBZcZK3YFxrXgVbb2ggRr9"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    347542068,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 109,
+    ): (
+        table_name: "storage.ledger",
+        id: 109,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1bRDYJHp3ACUojEeM6Ja442YEwNmcb7ph9"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    8664047,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 107,
+    ): (
+        table_name: "storage.ledger",
+        id: 107,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1ZWbokP5pGwT3tTtLPP2KhXX5ssg1EtDPs"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    9037230,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 105,
+    ): (
+        table_name: "storage.ledger",
+        id: 105,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1YqsEWdPxBmqVKsJircrwBmCmZDtHAgHzp"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    234558725,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 103,
+    ): (
+        table_name: "storage.ledger",
+        id: 103,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1YQDCB6Hbn2ozMyS2kf6WPJDeRvJtmtNqQ"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    40274210,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 101,
+    ): (
+        table_name: "storage.ledger",
+        id: 101,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "idx_address_4",
+                value: Address("tz1Xy5UM1tC3CFcbPBVq5PjufaxcLjMwfQkE"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Int((0, [])),
+            ),
+            (
+                name: "balance",
+                value: Int((1, [
+                    14432120,
+                ])),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger.allowances",
+        id: 86,
+    ): (
+        table_name: "storage.ledger.allowances",
+        id: 86,
+        fk_id: Some(84),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "address_5",
+                value: Address("another address\' allowance set"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger.allowances",
+        id: 83,
+    ): (
+        table_name: "storage.ledger.allowances",
+        id: 83,
+        fk_id: Some(80),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "address_5",
+                value: Address("test :-)"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger.allowances",
+        id: 82,
+    ): (
+        table_name: "storage.ledger.allowances",
+        id: 82,
+        fk_id: Some(80),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    48,
+                ])),
+            ),
+            (
+                name: "address_5",
+                value: Address("test"),
+            ),
+        ],
+    ),
+}

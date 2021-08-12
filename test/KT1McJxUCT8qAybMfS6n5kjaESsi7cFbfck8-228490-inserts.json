@@ -1,12 +1,18 @@
 {
     (
         table_name: "storage",
-        id: 136,
+        id: 91,
     ): (
         table_name: "storage",
-        id: 136,
+        id: 91,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    90,
+                ])),
+            ),
             (
                 name: "deleted",
                 value: Bool(false),
@@ -19,14 +25,20 @@
     ),
     (
         table_name: "storage.market_map",
-        id: 144,
+        id: 99,
     ): (
         table_name: "storage.market_map",
-        id: 144,
+        id: 99,
         fk_id: None,
         columns: [
             (
-                name: "idx_markets_nat_7",
+                name: "tx_context_id",
+                value: Int((1, [
+                    90,
+                ])),
+            ),
+            (
+                name: "idx_markets_nat_4",
                 value: Int((1, [
                     60019725,
                 ])),
@@ -55,12 +67,18 @@
     ),
     (
         table_name: "storage.market_map.fa12",
-        id: 146,
+        id: 101,
     ): (
         table_name: "storage.market_map.fa12",
-        id: 146,
-        fk_id: Some(144),
+        id: 101,
+        fk_id: Some(99),
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    90,
+                ])),
+            ),
             (
                 name: "metadata_fa12",
                 value: Address("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
@@ -69,12 +87,18 @@
     ),
     (
         table_name: "storage.market_map.auctionRunning",
-        id: 145,
+        id: 100,
     ): (
         table_name: "storage.market_map.auctionRunning",
-        id: 145,
-        fk_id: Some(144),
+        id: 100,
+        fk_id: Some(99),
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    90,
+                ])),
+            ),
             (
                 name: "auctionRunning_uniswap_contribution",
                 value: Int((1, [
@@ -101,12 +125,18 @@
     ),
     (
         table_name: "storage.liquidity_provider_map",
-        id: 142,
+        id: 97,
     ): (
         table_name: "storage.liquidity_provider_map",
-        id: 142,
+        id: 97,
         fk_id: None,
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    90,
+                ])),
+            ),
             (
                 name: "idx_markets_market_id",
                 value: Int((1, [
@@ -125,12 +155,18 @@
     ),
     (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 143,
+        id: 98,
     ): (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 143,
-        fk_id: Some(142),
+        id: 98,
+        fk_id: Some(97),
         columns: [
+            (
+                name: "tx_context_id",
+                value: Int((1, [
+                    90,
+                ])),
+            ),
             (
                 name: "bet_quantity",
                 value: Int((1, [
