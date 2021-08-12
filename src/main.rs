@@ -28,10 +28,10 @@ extern crate serde_json;
 extern crate spinners;
 extern crate termion;
 
-use clap::{App, Arg, SubCommand};
 use std::cmp::Ordering;
 
 pub mod block;
+pub mod config;
 pub mod error;
 pub mod highlevel;
 pub mod michelson;
@@ -42,6 +42,7 @@ pub mod table;
 pub mod table_builder;
 pub mod tx_context;
 
+use crate::config::CONFIG;
 use michelson::StorageParser;
 
 fn stdout_is_tty() -> bool {
@@ -62,57 +63,8 @@ macro_rules! p {
 fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
-    let matches = App::new("Tezos Contract Baby Indexer")
-        .version("0.0")
-        .author("john newby <john.newby@tzconnect.com>")
-        .about("Indexes a single contract")
-        .arg(
-            Arg::with_name("contract_id")
-                .short("c")
-                .long("contract_id")
-                .value_name("CONTRACT_ID")
-                .help("Sets the id of the contract to use")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("levels")
-                .short("l")
-                .long("levels")
-                .value_name("LEVELS")
-                .help("Gives the set of levels to load")
-                .takes_value(true),
-        )
-        .arg(
-            Arg::with_name("init")
-                .short("i")
-                .long("init")
-                .value_name("INIT")
-                .help("If present, clear the DB out, load the levels, and set the in-between levels as already loaded")
-                .takes_value(false),
-        )
-        .arg(
-            Arg::with_name("ssl")
-                .short("S")
-                .long("ssl")
-                .help("Use SSL for postgres connection")
-                .takes_value(false)
-        )
-        .arg(
-            Arg::with_name("ca-cert")
-                .short("C")
-                .long("ca-cert")
-                .help("CA Cert for SSL postgres connection")
-                .takes_value(true))
-        .subcommand(
-            SubCommand::with_name("generate-sql")
-                .about("Generated table definitions")
-                .version("0.0"),
-        )
-        .get_matches();
 
-    let contract_id = matches
-        .value_of("contract_id")
-        .expect("contract_id is required");
+    let contract_id = &CONFIG.contract_id;
 
     // init by grabbing the contract data.
     let json = StorageParser::get_everything(contract_id, None).unwrap();
@@ -134,7 +86,7 @@ fn main() {
     //debug!("{:#?}", big_map_table_names);
 
     // If generate-sql command is given, just output SQL and quit.
-    if matches.is_present("generate-sql") {
+    if CONFIG.generate_sql {
         let mut generator = PostgresqlGenerator::new();
         println!("{}", generator.create_common_tables());
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -149,16 +101,10 @@ fn main() {
         return;
     }
 
-    let ssl = matches.is_present("ssl");
-    let ca_cert = matches.value_of("ca-cert");
+    let mut connection = postgresql_generator::connect().unwrap();
 
-    let mut connection = postgresql_generator::connect(ssl, ca_cert).unwrap();
-
-    let init = matches.is_present("init");
-    if init {
-        println!(
-            "Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort"
-        );
+    if CONFIG.init {
+        p!("Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort");
         std::thread::sleep(std::time::Duration::from_millis(5000));
         postgresql_generator::delete_everything(&mut connection).unwrap();
     }
@@ -168,27 +114,32 @@ fn main() {
 
     let storage_declaration = storage_parser.get_storage_declaration(contract_id).unwrap();
 
-    if let Some(levels) = matches.value_of("levels") {
-        let levels = range(&levels.to_string());
-        for level in &levels {
-            let result = crate::highlevel::load_and_store_level(
-                &node,
-                contract_id,
-                *level,
-                &storage_declaration,
-                &mut storage_parser,
-                &mut connection,
-            )
-            .unwrap();
-            p!("{}", level_text(*level, &result));
-        }
+    let head = michelson::StorageParser::head().unwrap();
+    let mut first = head._level;
 
-        if init {
-            let first: u32 = *levels.iter().min().unwrap();
-            let head = michelson::StorageParser::head().unwrap();
-            postgresql_generator::fill_in_levels(&mut connection, first, head._level).unwrap();
+    for level in &CONFIG.levels {
+        let result = crate::highlevel::load_and_store_level(
+            &node,
+            contract_id,
+            *level,
+            &storage_declaration,
+            &mut storage_parser,
+            &mut connection,
+        )
+        .unwrap();
+        p!("{}", level_text(*level, &result));
+        if *level < first {
+            first = *level;
         }
+    }
 
+    if CONFIG.init {
+        postgresql_generator::fill_in_levels(
+            &mut postgresql_generator::connect().unwrap(),
+            first,
+            head._level,
+        )
+        .unwrap();
         return;
     }
 
@@ -311,25 +262,4 @@ fn level_text(level: u32, result: &crate::highlevel::SaveLevelResult) -> String 
         "level {} {} transactions for us, origination={}",
         level, result.tx_count, result.is_origination
     )
-}
-
-// get range of args in the form 1,2,3 or 1-3. All ranges inclusive.
-fn range(arg: &str) -> Vec<u32> {
-    let mut result = vec![];
-    for h in arg.split(',') {
-        let s = String::from(h);
-        match s.find('-') {
-            Some(_) => {
-                let fromto: Vec<String> = s.split('-').map(String::from).collect();
-                for i in fromto[0].parse::<u32>().unwrap()..fromto[1].parse::<u32>().unwrap() + 1 {
-                    result.push(i);
-                }
-            }
-            None => {
-                result.push(s.parse::<u32>().unwrap());
-            }
-        }
-    }
-    result.sort_unstable();
-    result
 }

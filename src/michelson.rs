@@ -1,4 +1,5 @@
 use crate::block;
+use crate::config::CONFIG;
 use crate::err;
 use crate::error::Res;
 use crate::node::Node;
@@ -13,13 +14,6 @@ use std::str::FromStr;
 use std::sync::atomic::AtomicU32;
 
 const MAX_ARAY_LENGTH: usize = 20; // Max length of array that we'll convert to PAIRs.
-
-lazy_static! {
-    static ref NODE_URL: String = match std::env::var("NODE_URL") {
-        Ok(s) => s,
-        Err(_) => "http://edo2full.newby.org:8732".to_string(),
-    };
-}
 
 macro_rules! serde2json {
     ($serde:expr) => {
@@ -150,7 +144,7 @@ impl StorageParser {
     }
     /// Return the highest level on the chain
     pub(crate) fn head() -> Res<Level> {
-        let json = Self::load(&format!("{}/chains/main/blocks/head", *NODE_URL))?;
+        let json = Self::load(&format!("{}/chains/main/blocks/head", CONFIG.node_url))?;
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
@@ -170,7 +164,7 @@ impl StorageParser {
     }
 
     pub(crate) fn level_json(level: u32) -> Res<(JsonValue, block::Block)> {
-        let res = Self::load(&format!("{}/chains/main/blocks/{}", *NODE_URL, level))?;
+        let res = Self::load(&format!("{}/chains/main/blocks/{}", CONFIG.node_url, level))?;
         let block: crate::block::Block = serde_json::from_str(&res.to_string())?;
         Ok((res, block))
     }
@@ -198,7 +192,7 @@ impl StorageParser {
     pub(crate) fn get_storage(&self, contract_id: &str) -> Result<JsonValue, Box<dyn Error>> {
         Self::load(&format!(
             "{}/chains/main/blocks/head/context/contracts/{}/storage",
-            *NODE_URL, contract_id
+            CONFIG.node_url, contract_id
         ))
     }
 
@@ -213,7 +207,7 @@ impl StorageParser {
         };
         let url = format!(
             "{}/chains/main/blocks/{}/context/contracts/{}/script",
-            *NODE_URL, level, contract_id
+            CONFIG.node_url, level, contract_id
         );
         debug!("Loading contract data for {} url is {}", contract_id, url);
         Self::load(&url)

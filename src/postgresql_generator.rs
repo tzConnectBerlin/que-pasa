@@ -3,6 +3,7 @@ use crate::michelson::Level;
 use crate::storage::SimpleExpr;
 use crate::table::{Column, Table};
 use crate::tx_context::{TxContext, TxContextMap};
+use crate::CONFIG;
 use chrono::{DateTime, Utc};
 use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
@@ -22,21 +23,18 @@ impl Default for PostgresqlGenerator {
     }
 }
 
-pub(crate) fn connect(ssl: bool, ca_cert: Option<&str>) -> Res<Client> {
-    let url = std::env::var(&"DATABASE_URL").unwrap();
-    debug!("DATABASE_URL={}", url);
-
-    if ssl {
+pub(crate) fn connect() -> Res<Client> {
+    if CONFIG.ssl {
         let mut builder = TlsConnector::builder();
-        if let Some(ca_cert) = ca_cert {
+        if let Some(ca_cert) = &CONFIG.ca_cert {
             builder.add_root_certificate(Certificate::from_pem(&fs::read(ca_cert)?)?);
         }
         let connector = builder.build()?;
         let connector = MakeTlsConnector::new(connector);
 
-        Ok(postgres::Client::connect(&url, connector)?)
+        Ok(postgres::Client::connect(&CONFIG.database_url, connector)?)
     } else {
-        Ok(Client::connect(&url, NoTls)?)
+        Ok(Client::connect(&CONFIG.database_url, NoTls)?)
     }
 }
 
