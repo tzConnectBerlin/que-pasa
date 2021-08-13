@@ -1,14 +1,17 @@
 
-CONTRACT=""
+export NODE_URL=http://florence.newby.org:8732
+export CONTRACT_ID=KT1Cupwd7N6Gx2nXXkrDoyUe7zTwXy2MxqEX
+# export NODE_URL=http://florence.newby.org:8732
+# export CONTRACT_ID=KT1Cupwd7N6Gx2nXXkrDoyUe7zTwXy2MxqEX
+export DATABASE_URL=host=0.0.0.0 dbname=tezos user=quepasa password=quepasa port=5432
 NETWORK="florencenet"
-BLOCKS=""
-NODE_URL = "http://florence.newby.org:8732"
+# BLOCKS=245893,245894
 
 gen-sql:
-ifeq ($(strip $(CONTRACT)),"")
-	$(error variable CONTRACT not set)
+ifeq ($(strip $(CONTRACT_ID)),"")
+	$(error variable CONTRACT_ID not set)
 else
-	cargo run -- -c $(CONTRACT) generate-sql > contract.sql/init.sql
+	cargo +nightly run -- generate-sql > contract.sql/init.sql
 endif
 
 start-db:
@@ -24,18 +27,18 @@ start-graphql:
 	cd graphql && npm install && npm start
 
 start-indexer:
-ifeq ($(strip $(CONTRACT)),"")
-	$(error variable CONTRACT not set)
+ifeq ($(strip $(CONTRACT_ID)),"")
+	$(error variable CONTRACT_ID not set)
 else
-							cargo run -- -c $(CONTRACT)
+	cargo +nightly run -- -l 248654
 endif
 
 fill:
-ifeq ($(strip $(CONTRACT)),"")
-	$(error variable CONTRACT not set)
+ifeq ($(strip $(CONTRACT_ID)),"")
+	$(error variable CONTRACT_ID not set)
 else
-		$(eval BLOCKS := $(shell python ./script/get-levels.py $(NETWORK) $(CONTRACT)))
-		cargo run -- -c $(CONTRACT) -l $(BLOCKS)
+	$(eval BLOCKS := $(shell python3 ./script/get-levels.py $(NETWORK) $(CONTRACT_ID)))
+	cargo +nightly run -- -l $(BLOCKS)
 endif
 
 db:

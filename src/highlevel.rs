@@ -211,15 +211,14 @@ pub(crate) fn execute_for_level(
 
     let (inserts, tx_contexts) = storage_processor.process_block(block, rel_ast, contract_id)?;
 
-    postgresql_generator::save_tx_contexts(&mut transaction, &tx_contexts)?;
+    postgresql_generator::delete_level(&mut transaction, &node_cli.level(level)?)?;
+    postgresql_generator::save_level(&mut transaction, &node_cli.level(level)?)?;
 
+    postgresql_generator::save_tx_contexts(&mut transaction, &tx_contexts)?;
     let mut keys = inserts
         .keys()
         .collect::<Vec<&crate::table::insert::InsertKey>>();
     keys.sort_by_key(|a| a.id);
-
-    postgresql_generator::delete_level(&mut transaction, &node_cli.level(level)?)?;
-    postgresql_generator::save_level(&mut transaction, &node_cli.level(level)?)?;
     for key in keys.iter() {
         postgresql_generator::exec(
             &mut transaction,
@@ -230,7 +229,10 @@ pub(crate) fn execute_for_level(
             ),
         )?;
     }
-    postgresql_generator::set_max_id(&mut transaction, storage_processor.get_id_value() as i32)?;
+    postgresql_generator::set_max_id(
+        &mut transaction,
+        (storage_processor.get_id_value() + 1) as i32,
+    )?;
     transaction.commit()?;
     Ok(SaveLevelResult {
         level,

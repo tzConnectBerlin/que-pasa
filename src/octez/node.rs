@@ -8,6 +8,7 @@ use std::error::Error;
 
 pub struct NodeClient {
     node_url: String,
+    chain: String,
 }
 
 #[derive(Clone, Debug)]
@@ -18,13 +19,13 @@ pub struct Level {
 }
 
 impl NodeClient {
-    pub fn new(node_url: String) -> NodeClient {
-        NodeClient { node_url }
+    pub fn new(node_url: String, chain: String) -> Self {
+        Self { node_url, chain }
     }
 
     /// Return the highest level on the chain
     pub(crate) fn head(&self) -> Res<Level> {
-        let json = self.load(&format!("{}/chains/main/blocks/head", self.node_url))?;
+        let json = self.load("blocks/head")?;
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
@@ -44,7 +45,7 @@ impl NodeClient {
     }
 
     pub(crate) fn level_json(&self, level: u32) -> Res<(JsonValue, Block)> {
-        let res = self.load(&format!("/chains/main/blocks/{}", level))?;
+        let res = self.load(&format!("blocks/{}", level))?;
         let block: Block = serde_json::from_str(&res.to_string())?;
         Ok((res, block))
     }
@@ -60,7 +61,7 @@ impl NodeClient {
             None => "head".to_string(),
         };
         self.load(&format!(
-            "chains/main/blocks/{}/context/contracts/{}/script",
+            "blocks/{}/context/contracts/{}/script",
             level, contract_id
         ))
     }
@@ -79,9 +80,8 @@ impl NodeClient {
     }
 
     fn load(&self, endpoint: &str) -> Result<JsonValue, Box<dyn Error>> {
-        let uri = format!("{}/{}", self.node_url, endpoint);
+        let uri = format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
 
-        debug!("Loading: {}", uri,);
         let mut response = Vec::new();
         let mut handle = Easy::new();
         handle.timeout(std::time::Duration::from_secs(20))?;

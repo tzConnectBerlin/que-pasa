@@ -68,6 +68,7 @@ pub(crate) struct TxContext {
     pub operation_hash: String,
     pub source: Option<String>,
     pub destination: Option<String>,
+    pub entrypoint: Option<String>,
 }
 
 impl Hash for TxContext {
@@ -78,6 +79,7 @@ impl Hash for TxContext {
         self.operation_hash.hash(state);
         self.source.hash(state);
         self.destination.hash(state);
+        self.entrypoint.hash(state);
     }
 }
 
@@ -90,6 +92,7 @@ impl PartialEq for TxContext {
             && self.operation_hash == other.operation_hash
             && self.source == other.source
             && self.destination == other.destination
+            && self.entrypoint == other.entrypoint
     }
 }
 
@@ -138,6 +141,9 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         contract_id: &str,
     ) -> Res<(Inserts, Vec<TxContext>)> {
+        self.inserts.clear();
+        self.tx_contexts.clear();
+
         let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
         let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
         let operations = block.operations();
@@ -163,9 +169,6 @@ impl StorageProcessor {
                 )?);
             }
         }
-
-        self.inserts.clear();
-        self.tx_contexts.clear();
 
         for (tx_context, store) in &storages {
             let storage_json = serde_json::to_string(store)?;
@@ -220,6 +223,7 @@ impl StorageProcessor {
                                 operation_hash: operation.hash.clone(),
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
+                                entrypoint: content.parameters.clone().map(|p| p.entrypoint),
                             }),
                             big_map_diff.clone(),
                         )
@@ -238,6 +242,7 @@ impl StorageProcessor {
                                 operation_hash: operation.hash.clone(),
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
+                                entrypoint: content.parameters.clone().map(|p| p.entrypoint),
                             }),
                             big_map_diff.clone(),
                         )
@@ -272,6 +277,7 @@ impl StorageProcessor {
                                     operation_hash: operation.hash.clone(),
                                     source: content.source.clone(),
                                     destination: content.destination.clone(),
+                                    entrypoint: content.parameters.clone().map(|p| p.entrypoint),
                                 }),
                                 storage.clone(),
                             ));

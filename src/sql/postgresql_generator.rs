@@ -23,10 +23,7 @@ impl Default for PostgresqlGenerator {
     }
 }
 
-pub(crate) fn connect(ssl: bool, ca_cert: Option<String>) -> Res<Client> {
-    let url = std::env::var(&"DATABASE_URL").unwrap();
-    debug!("DATABASE_URL={}", url);
-
+pub(crate) fn connect(url: &str, ssl: bool, ca_cert: Option<String>) -> Res<Client> {
     if ssl {
         let mut builder = TlsConnector::builder();
         if let Some(ca_cert) = ca_cert {
@@ -35,9 +32,9 @@ pub(crate) fn connect(ssl: bool, ca_cert: Option<String>) -> Res<Client> {
         let connector = builder.build()?;
         let connector = MakeTlsConnector::new(connector);
 
-        Ok(postgres::Client::connect(&url, connector)?)
+        Ok(postgres::Client::connect(url, connector)?)
     } else {
-        Ok(Client::connect(&url, NoTls)?)
+        Ok(Client::connect(url, NoTls)?)
     }
 }
 
@@ -46,7 +43,6 @@ pub(crate) fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Er
 }
 
 pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<dyn Error>> {
-    debug!("postgresql_generator::exec {}:", sql);
     match transaction.execute(sql, &[]) {
         Ok(x) => Ok(x),
         Err(e) => Err(Box::new(crate::error::Error::new(&e.to_string()))),
@@ -176,8 +172,8 @@ pub(crate) fn save_tx_contexts(
 ) -> Res<()> {
     let stmt = transaction.prepare("
 INSERT INTO
-tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination) VALUES
-($1, $2, $3, $4, $5, $6, $7)")?;
+tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination, entrypoint) VALUES
+($1, $2, $3, $4, $5, $6, $7, $8)")?;
     for tx_context in tx_context_map {
         transaction.execute(
             &stmt,
@@ -191,6 +187,7 @@ tx_contexts(id, level, operation_group_number, operation_number, operation_hash,
                 &tx_context.operation_hash,
                 &tx_context.source,
                 &tx_context.destination,
+                &tx_context.entrypoint,
             ],
         )?;
     }
@@ -280,6 +277,20 @@ impl PostgresqlGenerator {
         Ok(cols)
     }
 
+    fn table_sql_columns(&self, table: &Table) -> Vec<String> {
+        let mut cols: Vec<String> = table
+            .columns
+            .iter()
+            .filter(|x| self.create_sql((*x).clone()).is_some())
+            .map(|x| x.name.clone())
+            .collect();
+
+        if let Some(x) = Self::parent_name(&table.name) {
+            cols.push(format!("{}_id", x))
+        };
+        cols.iter().map(|c| Self::quote_id(c)).collect()
+    }
+
     fn indices(&self, table: &Table) -> Vec<String> {
         let mut indices = table.indices.clone();
         if let Some(parent_key) = self.parent_key(table) {
@@ -336,22 +347,27 @@ impl PostgresqlGenerator {
         if table.name == "storage" {
             return Ok("".to_string());
         }
-        let mut indices = self.indices(table);
-        indices.remove(indices.iter().position(|x| *x == "tx_context_id").unwrap());
+        let columns: Vec<String> = self.table_sql_columns(table);
         Ok(format!(
             r#"
 CREATE VIEW "{}_live" AS (
-        SELECT t1.* FROM "{}" t1
-        INNER JOIN (
-                SELECT {}, MAX(_level) AS _level FROM "{}"
-        GROUP BY {}) t2
-        ON t1._level = t2._level);
+    SELECT
+        {}
+    FROM "{}" t1
+    JOIN tx_contexts ctx
+      ON  ctx.id = t1.tx_context_id
+      AND ctx.level = (
+            SELECT
+                MAX(ctx.level) AS _level
+            FROM "{}" custom_table
+            JOIN tx_contexts ctx ON custom_table.tx_context_id = ctx.id
+        )
+);
 "#,
             table.name,
+            columns.join(", "),
             table.name,
-            indices.join(", "),
             table.name,
-            indices.join(", "),
         ))
     }
 

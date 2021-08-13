@@ -22,4 +22,5 @@ CREATE TABLE tx_contexts(
        operation_group_number INTEGER NOT NULL,
        operation_number INTEGER NOT NULL,
        source VARCHAR(100) NOT NULL,
-       destination VARCHAR(100) NOT NULL);
+       destination VARCHAR(100),
+       entrypoint VARCHAR(100));

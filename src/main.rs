@@ -49,7 +49,7 @@ fn main() {
     env_logger::init();
 
     let contract_id = &CONFIG.contract_id;
-    let node_cli = &node::NodeClient::new(CONFIG.node_url.clone());
+    let node_cli = &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
 
     // init by grabbing the contract data.
     let json = node_cli.get_contract_script(contract_id, None).unwrap();
@@ -80,7 +80,9 @@ fn main() {
         return;
     }
 
-    let mut dbconn = postgresql_generator::connect(CONFIG.ssl, CONFIG.ca_cert.clone()).unwrap();
+    let mut dbconn =
+        postgresql_generator::connect(&CONFIG.database_url, CONFIG.ssl, CONFIG.ca_cert.clone())
+            .unwrap();
 
     if CONFIG.init {
         p!("Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort");
@@ -94,18 +96,20 @@ fn main() {
     let head = node_cli.head().unwrap();
     let mut first = head._level;
 
-    let levels_res = highlevel::execute_for_levels(
-        node_cli,
-        rel_ast,
-        contract_id,
-        &CONFIG.levels,
-        &mut storage_processor,
-        &mut dbconn,
-    )
-    .unwrap();
-    let max_level_processed = levels_res.iter().max_by_key(|res| res.level).unwrap().level;
-    if max_level_processed > first {
-        first = max_level_processed;
+    if CONFIG.levels.len() > 0 {
+        let levels_res = highlevel::execute_for_levels(
+            node_cli,
+            rel_ast,
+            contract_id,
+            &CONFIG.levels,
+            &mut storage_processor,
+            &mut dbconn,
+        )
+        .unwrap();
+        let max_level_processed = levels_res.iter().max_by_key(|res| res.level).unwrap().level;
+        if max_level_processed > first {
+            first = max_level_processed;
+        }
     }
 
     if CONFIG.init {
