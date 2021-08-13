@@ -1,42 +1,189 @@
 use crate::error::Res;
 use crate::octez::node::NodeClient;
+use crate::p;
 use crate::relational::RelationalAST;
 use crate::sql::postgresql_generator;
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::storage_value::processor::StorageProcessor;
+use std::cmp::Ordering;
+
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
 pub(crate) fn get_origination(
     _contract_id: &str,
-    connection: &mut postgres::Client,
+    dbconn: &mut postgres::Client,
 ) -> Res<Option<u32>> {
-    postgresql_generator::get_origination(connection)
+    postgresql_generator::get_origination(dbconn)
 }
 
 pub struct SaveLevelResult {
+    pub level: u32,
     pub is_origination: bool,
     pub tx_count: u32,
 }
 
 pub(crate) fn get_storage_processor(
     _contract_id: &str,
-    connection: &mut postgres::Client,
+    dbconn: &mut postgres::Client,
 ) -> Res<StorageProcessor> {
-    let id = crate::postgresql_generator::get_max_id(connection)? as u32;
+    let id = crate::postgresql_generator::get_max_id(dbconn)? as u32;
     Ok(StorageProcessor::new(id))
 }
 
-pub(crate) fn load_and_store_level(
+pub(crate) fn execute_continuous(
+    node_cli: &NodeClient,
+    rel_ast: &RelationalAST,
+    contract_id: &str,
+    storage_processor: &mut StorageProcessor,
+    dbconn: &mut postgres::Client,
+) -> Res<SaveLevelResult> {
+    let is_tty = stdout_is_tty();
+    let print_status = |result: &SaveLevelResult| {
+        p!("{}", level_text(result));
+    };
+
+    loop {
+        let _spinner;
+
+        if is_tty {
+            _spinner = spinners::Spinner::new(spinners::Spinners::Line, "".into());
+            //print!("Waiting for first block");
+        }
+
+        let chain_head = node_cli.head().unwrap();
+        let db_head = postgresql_generator::get_head(dbconn).unwrap().unwrap();
+        debug!("db: {} chain: {}", db_head._level, chain_head._level);
+        match chain_head._level.cmp(&db_head._level) {
+            Ordering::Greater => {
+                for level in (db_head._level + 1)..=chain_head._level {
+                    let result = execute_for_level(
+                        node_cli,
+                        rel_ast,
+                        contract_id,
+                        level,
+                        storage_processor,
+                        dbconn,
+                    )?;
+                    print_status(&result);
+                }
+                continue;
+            }
+            Ordering::Less => {
+                return Err("More levels in DB than chain, bailing!".into());
+            }
+            Ordering::Equal => {
+                // they are equal, so we will just check that the hashes match.
+                if db_head.hash == chain_head.hash {
+                    // if they match, nothing to do.
+                } else {
+                    p!("");
+                    p!(
+                        "Hashes don't match: {:?} (db) <> {:?} (chain)",
+                        db_head.hash,
+                        chain_head.hash
+                    );
+                    let mut transaction = dbconn.transaction()?;
+                    postgresql_generator::delete_level(&mut transaction, &db_head)?;
+                    transaction.commit()?;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1500));
+            }
+        }
+    }
+}
+
+pub(crate) fn execute_missing_levels(
+    node_cli: &NodeClient,
+    rel_ast: &RelationalAST,
+    contract_id: &str,
+    storage_processor: &mut StorageProcessor,
+    dbconn: &mut postgres::Client,
+) -> Res<()> {
+    loop {
+        let origination_level = get_origination(contract_id, dbconn).unwrap();
+
+        let mut missing_levels: Vec<u32> = postgresql_generator::get_missing_levels(
+            dbconn,
+            origination_level,
+            node_cli.head().unwrap()._level,
+        )
+        .unwrap();
+        missing_levels.reverse();
+
+        if missing_levels.is_empty() {
+            // finally through them
+            return Ok(());
+        }
+
+        while let Some(level) = missing_levels.pop() {
+            let store_result = loop {
+                match execute_for_level(
+                    node_cli,
+                    rel_ast,
+                    contract_id,
+                    level as u32,
+                    storage_processor,
+                    dbconn,
+                ) {
+                    Ok(x) => break x,
+                    Err(e) => {
+                        warn!("Error contacting node: {:?}", e);
+                        std::thread::sleep(std::time::Duration::from_millis(1500));
+                    }
+                };
+            };
+
+            if store_result.is_origination {
+                p!(
+                    "Found new origination level {}",
+                    get_origination(contract_id, dbconn).unwrap().unwrap()
+                );
+                break;
+            }
+            p!(
+                " {} transactions for us, {} remaining",
+                store_result.tx_count,
+                missing_levels.len()
+            );
+        }
+    }
+}
+
+pub(crate) fn execute_for_levels(
+    node_cli: &NodeClient,
+    rel_ast: &RelationalAST,
+    contract_id: &str,
+    levels: &[u32],
+    storage_processor: &mut StorageProcessor,
+    dbconn: &mut postgres::Client,
+) -> Res<Vec<SaveLevelResult>> {
+    let mut res: Vec<SaveLevelResult> = vec![];
+    for level in levels {
+        let level_res = execute_for_level(
+            node_cli,
+            rel_ast,
+            contract_id,
+            *level,
+            storage_processor,
+            dbconn,
+        )?;
+        p!("{}", level_text(&level_res));
+        res.push(level_res);
+    }
+    Ok(res)
+}
+
+pub(crate) fn execute_for_level(
     node_cli: &NodeClient,
     rel_ast: &RelationalAST,
     contract_id: &str,
     level: u32,
     storage_processor: &mut StorageProcessor,
-    connection: &mut postgres::Client,
+    dbconn: &mut postgres::Client,
 ) -> Res<SaveLevelResult> {
     let generator = PostgresqlGenerator::new();
-    let mut transaction = postgresql_generator::transaction(connection)?;
+    let mut transaction = postgresql_generator::transaction(dbconn)?;
     let (_json, block) = node_cli.level_json(level)?;
 
     if block.has_contract_origination(contract_id) {
@@ -45,6 +192,7 @@ pub(crate) fn load_and_store_level(
         postgresql_generator::set_origination(&mut transaction, level)?;
         transaction.commit()?;
         return Ok(SaveLevelResult {
+            level,
             is_origination: true,
             tx_count: 0,
         });
@@ -55,6 +203,7 @@ pub(crate) fn load_and_store_level(
         postgresql_generator::save_level(&mut transaction, &node_cli.level(level)?)?;
         transaction.commit()?; // TODO: think about this
         return Ok(SaveLevelResult {
+            level,
             is_origination: false,
             tx_count: 0,
         });
@@ -84,9 +233,21 @@ pub(crate) fn load_and_store_level(
     postgresql_generator::set_max_id(&mut transaction, storage_processor.get_id_value() as i32)?;
     transaction.commit()?;
     Ok(SaveLevelResult {
+        level,
         is_origination: false,
         tx_count: keys.len() as u32,
     })
+}
+
+fn level_text(result: &SaveLevelResult) -> String {
+    format!(
+        "level {} {} transactions for us, origination={}",
+        result.level, result.tx_count, result.is_origination
+    )
+}
+
+fn stdout_is_tty() -> bool {
+    atty::is(atty::Stream::Stdout)
 }
 
 /// Load from the ../test directory, only for testing

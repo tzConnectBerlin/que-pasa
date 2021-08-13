@@ -37,3 +37,18 @@ impl std::error::Error for Error {
         &self.details
     }
 }
+
+pub(crate) fn stdout_is_tty() -> bool {
+    atty::is(atty::Stream::Stdout)
+}
+
+#[macro_export]
+macro_rules! p {
+    ( $( $a:expr) , + ) => {
+        if crate::error::stdout_is_tty() {
+            println!( $( $a, )* );
+        } else {
+            info!( $( $a, )* );
+        }
+    };
+}
