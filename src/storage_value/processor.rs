@@ -63,9 +63,10 @@ impl ProcessStorageContext {
 pub(crate) struct TxContext {
     pub id: Option<u32>,
     pub level: u32,
-    pub operation_group_number: u32,
-    pub operation_number: u32,
     pub operation_hash: String,
+    pub operation_group_number: usize,
+    pub operation_number: usize,
+    pub content_number: usize,
     pub source: Option<String>,
     pub destination: Option<String>,
     pub entrypoint: Option<String>,
@@ -74,9 +75,10 @@ pub(crate) struct TxContext {
 impl Hash for TxContext {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.level.hash(state);
+        self.operation_hash.hash(state);
         self.operation_group_number.hash(state);
         self.operation_number.hash(state);
-        self.operation_hash.hash(state);
+        self.content_number.hash(state);
         self.source.hash(state);
         self.destination.hash(state);
         self.entrypoint.hash(state);
@@ -87,9 +89,10 @@ impl Hash for TxContext {
 impl PartialEq for TxContext {
     fn eq(&self, other: &Self) -> bool {
         self.level == other.level
+            && self.operation_hash == other.operation_hash
             && self.operation_group_number == other.operation_group_number
             && self.operation_number == other.operation_number
-            && self.operation_hash == other.operation_hash
+            && self.content_number == other.content_number
             && self.source == other.source
             && self.destination == other.destination
             && self.entrypoint == other.entrypoint
@@ -148,12 +151,8 @@ impl StorageProcessor {
         let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
         let operations = block.operations();
 
-        let mut operation_group_number = 0u32;
-        for operation_group in operations {
-            operation_group_number += 1;
-            let mut operation_number = 0u32;
-            for operation in operation_group {
-                operation_number += 1;
+        for (operation_group_number, operation_group) in operations.iter().enumerate() {
+            for (operation_number, operation) in operation_group.iter().enumerate() {
                 storages.extend(self.get_storage_from_operation(
                     block.header.level,
                     operation_group_number,
@@ -205,12 +204,12 @@ impl StorageProcessor {
     fn get_big_map_diffs_from_operation(
         &mut self,
         level: u32,
-        operation_group_number: u32,
-        operation_number: u32,
+        operation_group_number: usize,
+        operation_number: usize,
         operation: &block::Operation,
     ) -> Res<Vec<(TxContext, block::BigMapDiff)>> {
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
-        for content in &operation.contents {
+        for (content_number, content) in operation.contents.iter().enumerate() {
             if let Some(operation_result) = &content.metadata.operation_result {
                 if let Some(big_map_diffs) = &operation_result.big_map_diff {
                     result.extend(big_map_diffs.iter().map(|big_map_diff| {
@@ -218,9 +217,10 @@ impl StorageProcessor {
                             self.tx_context(TxContext {
                                 id: None,
                                 level,
+                                operation_hash: operation.hash.clone(),
                                 operation_number,
                                 operation_group_number,
-                                operation_hash: operation.hash.clone(),
+                                content_number,
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
                                 entrypoint: content.parameters.clone().map(|p| p.entrypoint),
@@ -237,9 +237,10 @@ impl StorageProcessor {
                             self.tx_context(TxContext {
                                 id: None,
                                 level,
+                                operation_hash: operation.hash.clone(),
                                 operation_group_number,
                                 operation_number,
-                                operation_hash: operation.hash.clone(),
+                                content_number,
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
                                 entrypoint: content.parameters.clone().map(|p| p.entrypoint),
@@ -256,14 +257,14 @@ impl StorageProcessor {
     fn get_storage_from_operation(
         &mut self,
         level: u32,
-        operation_group_number: u32,
-        operation_number: u32,
+        operation_group_number: usize,
+        operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
     ) -> Res<Vec<(TxContext, ::serde_json::Value)>> {
         let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
 
-        for content in &operation.contents {
+        for (content_number, content) in operation.contents.iter().enumerate() {
             if let Some(destination) = &content.destination {
                 if destination == contract_id {
                     if let Some(operation_result) = &content.metadata.operation_result {
@@ -272,9 +273,10 @@ impl StorageProcessor {
                                 self.tx_context(TxContext {
                                     id: None,
                                     level,
+                                    operation_hash: operation.hash.clone(),
                                     operation_group_number,
                                     operation_number,
-                                    operation_hash: operation.hash.clone(),
+                                    content_number,
                                     source: content.source.clone(),
                                     destination: content.destination.clone(),
                                     entrypoint: content.parameters.clone().map(|p| p.entrypoint),

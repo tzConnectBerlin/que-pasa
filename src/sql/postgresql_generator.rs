@@ -172,8 +172,8 @@ pub(crate) fn save_tx_contexts(
 ) -> Res<()> {
     let stmt = transaction.prepare("
 INSERT INTO
-tx_contexts(id, level, operation_group_number, operation_number, operation_hash, source, destination, entrypoint) VALUES
-($1, $2, $3, $4, $5, $6, $7, $8)")?;
+tx_contexts(id, level, operation_group_number, operation_number, content_number, operation_hash, source, destination, entrypoint) VALUES
+($1, $2, $3, $4, $5, $6, $7, $8, $9)")?;
     for tx_context in tx_context_map {
         transaction.execute(
             &stmt,
@@ -184,6 +184,7 @@ tx_contexts(id, level, operation_group_number, operation_number, operation_hash,
                 &(tx_context.level as i32),
                 &(tx_context.operation_group_number as i32),
                 &(tx_context.operation_number as i32),
+                &(tx_context.content_number as i32),
                 &tx_context.operation_hash,
                 &tx_context.source,
                 &tx_context.destination,
