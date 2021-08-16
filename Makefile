@@ -1,10 +1,10 @@
 
-export NODE_URL=http://florence.newby.org:8732
-export CONTRACT_ID=KT1Cupwd7N6Gx2nXXkrDoyUe7zTwXy2MxqEX
+export NODE_URL=https://testnet-tezos.giganode.io
+export CONTRACT_ID=KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS
 # export NODE_URL=http://florence.newby.org:8732
 # export CONTRACT_ID=KT1Cupwd7N6Gx2nXXkrDoyUe7zTwXy2MxqEX
 export DATABASE_URL=host=0.0.0.0 dbname=tezos user=quepasa password=quepasa port=5432
-NETWORK="florencenet"
+NETWORK="granadanet"
 # BLOCKS=245893,245894
 
 gen-sql:

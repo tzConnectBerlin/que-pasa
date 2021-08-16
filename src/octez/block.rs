@@ -1,5 +1,5 @@
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Block {
     pub protocol: String,
     #[serde(rename = "chain_id")]
@@ -50,7 +50,7 @@ impl Block {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Header {
     pub level: u32,
     pub proto: i64,
@@ -69,7 +69,7 @@ pub struct Header {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Metadata {
     pub protocol: String,
     #[serde(rename = "next_protocol")]
@@ -85,11 +85,8 @@ pub struct Metadata {
     #[serde(rename = "max_operation_list_length")]
     pub max_operation_list_length: Vec<MaxOperationListLength>,
     pub baker: String,
-    pub level: Level,
     #[serde(rename = "level_info")]
     pub level_info: LevelInfo,
-    #[serde(rename = "voting_period_kind")]
-    pub voting_period_kind: String,
     #[serde(rename = "voting_period_info")]
     pub voting_period_info: VotingPeriodInfo,
     #[serde(rename = "nonce_hash")]
@@ -102,13 +99,13 @@ pub struct Metadata {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct TestChainStatus {
     pub status: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct MaxOperationListLength {
     #[serde(rename = "max_size")]
     pub max_size: i64,
@@ -117,7 +114,7 @@ pub struct MaxOperationListLength {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Level {
     pub level: i64,
     #[serde(rename = "level_position")]
@@ -134,7 +131,7 @@ pub struct Level {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct LevelInfo {
     pub level: i64,
     #[serde(rename = "level_position")]
@@ -147,7 +144,7 @@ pub struct LevelInfo {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct VotingPeriodInfo {
     #[serde(rename = "voting_period")]
     pub voting_period: VotingPeriod,
@@ -156,7 +153,7 @@ pub struct VotingPeriodInfo {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct VotingPeriod {
     pub index: i64,
     pub kind: String,
@@ -165,7 +162,7 @@ pub struct VotingPeriod {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct BalanceUpdate {
     pub kind: String,
     pub contract: Option<String>,
@@ -177,7 +174,7 @@ pub struct BalanceUpdate {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Operation {
     pub protocol: String,
     #[serde(rename = "chain_id")]
@@ -189,7 +186,7 @@ pub struct Operation {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Content {
     pub kind: String,
     pub endorsement: Option<Endorsement>,
@@ -210,7 +207,7 @@ pub struct Content {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Endorsement {
     pub branch: String,
     pub operations: Operations,
@@ -218,14 +215,14 @@ pub struct Endorsement {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Operations {
     pub kind: String,
     pub level: i64,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct OperationMetadata {
     #[serde(rename = "balance_updates")]
     pub balance_updates: Vec<BalanceUpdate>,
@@ -240,7 +237,7 @@ pub struct OperationMetadata {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct OperationResult {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
@@ -266,7 +263,7 @@ pub struct OperationResult {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct BigMapDiff {
     pub action: String,
     #[serde(rename = "big_map")]
@@ -282,7 +279,7 @@ pub struct BigMapDiff {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Key {
     pub string: Option<String>,
     pub prim: Option<String>,
@@ -291,7 +288,7 @@ pub struct Key {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Arg {
     pub prim: Option<String>,
     pub bytes: Option<String>,
@@ -303,7 +300,7 @@ pub struct Arg {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Value {
     pub string: Option<String>,
     pub prim: Option<String>,
@@ -314,20 +311,20 @@ pub struct Value {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct KeyType {
     pub prim: Option<String>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct ValueType {
     pub prim: Option<String>,
     pub args: Option<Vec<Arg>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct LazyStorageDiff {
     pub kind: String,
     pub id: String,
@@ -335,7 +332,7 @@ pub struct LazyStorageDiff {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Diff {
     pub action: String,
     pub updates: Vec<Update>,
@@ -346,7 +343,7 @@ pub struct Diff {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Update {
     #[serde(rename = "key_hash")]
     pub key_hash: String,
@@ -355,14 +352,14 @@ pub struct Update {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct ValueType2 {
     pub prim: Option<String>,
     pub args: Option<Vec<Arg>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct InternalOperationResult {
     pub kind: String,
     pub source: String,
@@ -374,14 +371,14 @@ pub struct InternalOperationResult {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Parameters {
     pub entrypoint: String,
     pub value: Option<serde_json::Value>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Result {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
@@ -402,21 +399,21 @@ pub struct Result {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Storage {
     pub prim: Option<String>,
     pub args: Vec<Vec<::serde_json::Value>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Script {
     pub code: Vec<Code>,
     pub storage: serde_json::Value,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, serde_derive::Serialize, serde_derive::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct Code {
     pub prim: Option<String>,
     pub args: Option<Vec<::serde_json::Value>>,
