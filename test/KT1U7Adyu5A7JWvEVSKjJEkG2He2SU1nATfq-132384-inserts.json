@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 369,
+        id: 214,
     ): (
         table_name: "storage",
-        id: 369,
+        id: 214,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    345,
+                    213,
                 ])),
             ),
             (
@@ -35,16 +35,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 375,
+        id: 220,
     ): (
         table_name: "storage.token_total_supply",
-        id: 375,
+        id: 220,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    345,
+                    213,
                 ])),
             ),
             (
@@ -65,16 +65,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 380,
+        id: 225,
     ): (
         table_name: "storage.ledger",
-        id: 380,
+        id: 225,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    345,
+                    213,
                 ])),
             ),
             (
@@ -98,16 +98,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 378,
+        id: 223,
     ): (
         table_name: "storage.ledger",
-        id: 378,
+        id: 223,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    345,
+                    213,
                 ])),
             ),
             (
@@ -132,16 +132,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 376,
+        id: 221,
     ): (
         table_name: "storage.ledger",
-        id: 376,
+        id: 221,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    345,
+                    213,
                 ])),
             ),
             (

@@ -1,10 +1,10 @@
 {
     (
         table_name: "storage",
-        id: 3,
+        id: 2,
     ): (
         table_name: "storage",
-        id: 3,
+        id: 2,
         fk_id: None,
         columns: [
             (
@@ -35,10 +35,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 9,
+        id: 8,
     ): (
         table_name: "storage.token_total_supply",
-        id: 9,
+        id: 8,
         fk_id: None,
         columns: [
             (
@@ -64,10 +64,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 12,
+        id: 9,
     ): (
         table_name: "storage.ledger",
-        id: 12,
+        id: 9,
         fk_id: None,
         columns: [
             (
@@ -79,7 +79,7 @@
             (
                 name: "idx_tokens_nat_3",
                 value: Int((1, [
-                    12,
+                    10,
                 ])),
             ),
             (
@@ -94,10 +94,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 10,
+        id: 11,
     ): (
         table_name: "storage.ledger",
-        id: 10,
+        id: 11,
         fk_id: None,
         columns: [
             (
@@ -109,7 +109,7 @@
             (
                 name: "idx_tokens_nat_3",
                 value: Int((1, [
-                    10,
+                    12,
                 ])),
             ),
             (

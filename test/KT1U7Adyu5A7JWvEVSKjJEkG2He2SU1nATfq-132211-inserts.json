@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 32,
+        id: 26,
     ): (
         table_name: "storage",
-        id: 32,
+        id: 26,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -35,16 +35,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 40,
+        id: 34,
     ): (
         table_name: "storage.token_total_supply",
-        id: 40,
+        id: 34,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -65,16 +65,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 39,
+        id: 33,
     ): (
         table_name: "storage.token_total_supply",
-        id: 39,
+        id: 33,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -95,16 +95,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 38,
+        id: 32,
     ): (
         table_name: "storage.token_total_supply",
-        id: 38,
+        id: 32,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -125,16 +125,16 @@
     ),
     (
         table_name: "storage.questions",
-        id: 51,
+        id: 45,
     ): (
         table_name: "storage.questions",
-        id: 51,
+        id: 45,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -209,16 +209,16 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 52,
+        id: 46,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 52,
-        fk_id: Some(51),
+        id: 46,
+        fk_id: Some(45),
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -253,16 +253,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 49,
+        id: 43,
     ): (
         table_name: "storage.ledger",
-        id: 49,
+        id: 43,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -286,16 +286,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 47,
+        id: 41,
     ): (
         table_name: "storage.ledger",
-        id: 47,
+        id: 41,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -319,16 +319,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 45,
+        id: 39,
     ): (
         table_name: "storage.ledger",
-        id: 45,
+        id: 39,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -353,16 +353,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 43,
+        id: 37,
     ): (
         table_name: "storage.ledger",
-        id: 43,
+        id: 37,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (
@@ -387,16 +387,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 41,
+        id: 35,
     ): (
         table_name: "storage.ledger",
-        id: 41,
+        id: 35,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    31,
+                    25,
                 ])),
             ),
             (

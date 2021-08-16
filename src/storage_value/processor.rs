@@ -165,6 +165,7 @@ impl StorageProcessor {
                     operation_group_number,
                     operation_number,
                     &operation,
+                    contract_id,
                 )?);
             }
         }
@@ -207,47 +208,50 @@ impl StorageProcessor {
         operation_group_number: usize,
         operation_number: usize,
         operation: &block::Operation,
+        contract_id: &str,
     ) -> Res<Vec<(TxContext, block::BigMapDiff)>> {
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
         for (content_number, content) in operation.contents.iter().enumerate() {
-            if let Some(operation_result) = &content.metadata.operation_result {
-                if let Some(big_map_diffs) = &operation_result.big_map_diff {
-                    result.extend(big_map_diffs.iter().map(|big_map_diff| {
-                        (
-                            self.tx_context(TxContext {
-                                id: None,
-                                level,
-                                operation_hash: operation.hash.clone(),
-                                operation_number,
-                                operation_group_number,
-                                content_number,
-                                source: content.source.clone(),
-                                destination: content.destination.clone(),
-                                entrypoint: content.parameters.clone().map(|p| p.entrypoint),
-                            }),
-                            big_map_diff.clone(),
-                        )
-                    }));
+            if content.destination == Some(contract_id.to_string()) {
+                if let Some(operation_result) = &content.metadata.operation_result {
+                    if let Some(big_map_diffs) = &operation_result.big_map_diff {
+                        result.extend(big_map_diffs.iter().map(|big_map_diff| {
+                            (
+                                self.tx_context(TxContext {
+                                    id: None,
+                                    level,
+                                    operation_hash: operation.hash.clone(),
+                                    operation_number,
+                                    operation_group_number,
+                                    content_number,
+                                    source: content.source.clone(),
+                                    destination: content.destination.clone(),
+                                    entrypoint: content.parameters.clone().map(|p| p.entrypoint),
+                                }),
+                                big_map_diff.clone(),
+                            )
+                        }));
+                    }
                 }
-            }
-            for internal_operation_result in &content.metadata.internal_operation_results {
-                if let Some(big_map_diffs) = &internal_operation_result.result.big_map_diff {
-                    result.extend(big_map_diffs.iter().map(|big_map_diff| {
-                        (
-                            self.tx_context(TxContext {
-                                id: None,
-                                level,
-                                operation_hash: operation.hash.clone(),
-                                operation_group_number,
-                                operation_number,
-                                content_number,
-                                source: content.source.clone(),
-                                destination: content.destination.clone(),
-                                entrypoint: content.parameters.clone().map(|p| p.entrypoint),
-                            }),
-                            big_map_diff.clone(),
-                        )
-                    }));
+                for internal_operation_result in &content.metadata.internal_operation_results {
+                    if let Some(big_map_diffs) = &internal_operation_result.result.big_map_diff {
+                        result.extend(big_map_diffs.iter().map(|big_map_diff| {
+                            (
+                                self.tx_context(TxContext {
+                                    id: None,
+                                    level,
+                                    operation_hash: operation.hash.clone(),
+                                    operation_group_number,
+                                    operation_number,
+                                    content_number,
+                                    source: content.source.clone(),
+                                    destination: content.destination.clone(),
+                                    entrypoint: content.parameters.clone().map(|p| p.entrypoint),
+                                }),
+                                big_map_diff.clone(),
+                            )
+                        }));
+                    }
                 }
             }
         }

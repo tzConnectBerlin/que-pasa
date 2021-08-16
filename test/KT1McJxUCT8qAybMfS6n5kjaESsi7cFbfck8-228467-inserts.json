@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 76,
+        id: 66,
     ): (
         table_name: "storage",
-        id: 76,
+        id: 66,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    74,
+                    65,
                 ])),
             ),
             (
@@ -25,16 +25,16 @@
     ),
     (
         table_name: "storage.lambda_map",
-        id: 82,
+        id: 72,
     ): (
         table_name: "storage.lambda_map",
-        id: 82,
+        id: 72,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    74,
+                    65,
                 ])),
             ),
             (

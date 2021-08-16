@@ -129,6 +129,7 @@ pub(crate) fn execute_missing_levels(
                     Ok(x) => break x,
                     Err(e) => {
                         warn!("Error contacting node: {:?}", e);
+                        println!("did it warn?");
                         std::thread::sleep(std::time::Duration::from_millis(1500));
                     }
                 };
@@ -142,7 +143,8 @@ pub(crate) fn execute_missing_levels(
                 break;
             }
             p!(
-                " {} transactions for us, {} remaining",
+                "processed level {}: {} transactions for us, {} levels remaining",
+                store_result.level,
                 store_result.tx_count,
                 missing_levels.len()
             );
@@ -373,18 +375,20 @@ fn test_block() {
     ];
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<crate::table::insert::Insert>) {
-        inserts.sort_by_key(|x| {
-            tables[&x.table_name]
+        inserts.sort_by_key(|insert| {
+            let mut res = tables[&insert.table_name]
                 .indices
                 .iter()
-                .map(|index| {
+                .map(|idx| {
                     PostgresqlGenerator::sql_value(
-                        x.get_column(index)
+                        insert
+                            .get_column(idx)
                             .map_or(&crate::storage_value::parser::Value::None, |col| &col.value),
                     )
                 })
-                .collect::<Vec<String>>()
-                .insert(0, x.table_name.clone())
+                .collect::<Vec<String>>();
+            res.insert(0, insert.table_name.clone());
+            res
         });
     }
 

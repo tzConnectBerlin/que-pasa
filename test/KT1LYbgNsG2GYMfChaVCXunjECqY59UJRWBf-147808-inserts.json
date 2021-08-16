@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 16,
+        id: 10,
     ): (
         table_name: "storage",
-        id: 16,
+        id: 10,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    14,
+                    9,
                 ])),
             ),
             (

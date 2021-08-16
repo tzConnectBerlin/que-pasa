@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 393,
+        id: 228,
     ): (
         table_name: "storage",
-        id: 393,
+        id: 228,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    382,
+                    227,
                 ])),
             ),
             (
@@ -35,16 +35,16 @@
     ),
     (
         table_name: "storage.questions",
-        id: 399,
+        id: 234,
     ): (
         table_name: "storage.questions",
-        id: 399,
+        id: 234,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    382,
+                    227,
                 ])),
             ),
             (
@@ -121,16 +121,16 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 400,
+        id: 235,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 400,
-        fk_id: Some(399),
+        id: 235,
+        fk_id: Some(234),
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    382,
+                    227,
                 ])),
             ),
             (
