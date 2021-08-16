@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 130,
+        id: 131,
     ): (
         table_name: "storage",
-        id: 130,
+        id: 131,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    127,
+                    128,
                 ])),
             ),
             (
@@ -25,16 +25,16 @@
     ),
     (
         table_name: "storage.market_map",
-        id: 138,
+        id: 139,
     ): (
         table_name: "storage.market_map",
-        id: 138,
+        id: 139,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    127,
+                    128,
                 ])),
             ),
             (
@@ -67,16 +67,16 @@
     ),
     (
         table_name: "storage.market_map.fa12",
-        id: 140,
+        id: 141,
     ): (
         table_name: "storage.market_map.fa12",
-        id: 140,
-        fk_id: Some(138),
+        id: 141,
+        fk_id: Some(139),
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    127,
+                    128,
                 ])),
             ),
             (
@@ -87,16 +87,16 @@
     ),
     (
         table_name: "storage.market_map.auctionRunning",
-        id: 139,
+        id: 140,
     ): (
         table_name: "storage.market_map.auctionRunning",
-        id: 139,
-        fk_id: Some(138),
+        id: 140,
+        fk_id: Some(139),
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    127,
+                    128,
                 ])),
             ),
             (
@@ -127,16 +127,16 @@
     ),
     (
         table_name: "storage.liquidity_provider_map",
-        id: 136,
+        id: 137,
     ): (
         table_name: "storage.liquidity_provider_map",
-        id: 136,
+        id: 137,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    127,
+                    128,
                 ])),
             ),
             (
@@ -157,16 +157,16 @@
     ),
     (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 137,
+        id: 138,
     ): (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 137,
-        fk_id: Some(136),
+        id: 138,
+        fk_id: Some(137),
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    127,
+                    128,
                 ])),
             ),
             (

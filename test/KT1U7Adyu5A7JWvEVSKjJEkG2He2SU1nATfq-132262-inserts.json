@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 120,
+        id: 149,
     ): (
         table_name: "storage",
-        id: 120,
+        id: 149,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    119,
+                    148,
                 ])),
             ),
             (
@@ -35,16 +35,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 126,
+        id: 155,
     ): (
         table_name: "storage.token_total_supply",
-        id: 126,
+        id: 155,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    119,
+                    148,
                 ])),
             ),
             (
@@ -64,16 +64,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 129,
+        id: 158,
     ): (
         table_name: "storage.ledger",
-        id: 129,
+        id: 158,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    119,
+                    148,
                 ])),
             ),
             (
@@ -94,16 +94,16 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 127,
+        id: 156,
     ): (
         table_name: "storage.ledger",
-        id: 127,
+        id: 156,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    119,
+                    148,
                 ])),
             ),
             (

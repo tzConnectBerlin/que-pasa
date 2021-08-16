@@ -1,16 +1,16 @@
 {
     (
         table_name: "storage",
-        id: 210,
+        id: 314,
     ): (
         table_name: "storage",
-        id: 210,
+        id: 314,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    207,
+                    301,
                 ])),
             ),
             (
@@ -35,16 +35,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 218,
+        id: 322,
     ): (
         table_name: "storage.token_total_supply",
-        id: 218,
+        id: 322,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    207,
+                    301,
                 ])),
             ),
             (
@@ -61,16 +61,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 217,
+        id: 321,
     ): (
         table_name: "storage.token_total_supply",
-        id: 217,
+        id: 321,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    207,
+                    301,
                 ])),
             ),
             (
@@ -87,16 +87,16 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 216,
+        id: 320,
     ): (
         table_name: "storage.token_total_supply",
-        id: 216,
+        id: 320,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    207,
+                    301,
                 ])),
             ),
             (
@@ -113,16 +113,16 @@
     ),
     (
         table_name: "storage.questions",
-        id: 219,
+        id: 323,
     ): (
         table_name: "storage.questions",
-        id: 219,
+        id: 323,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    207,
+                    301,
                 ])),
             ),
             (
@@ -197,16 +197,16 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 220,
+        id: 324,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 220,
-        fk_id: Some(219),
+        id: 324,
+        fk_id: Some(323),
         columns: [
             (
                 name: "tx_context_id",
                 value: Int((1, [
-                    207,
+                    301,
                 ])),
             ),
             (

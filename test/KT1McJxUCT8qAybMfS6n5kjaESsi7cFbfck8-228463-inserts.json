@@ -1,10 +1,10 @@
 {
     (
         table_name: "storage",
-        id: 40,
+        id: 41,
     ): (
         table_name: "storage",
-        id: 40,
+        id: 41,
         fk_id: None,
         columns: [
             (
@@ -25,10 +25,10 @@
     ),
     (
         table_name: "storage.lambda_map",
-        id: 46,
+        id: 47,
     ): (
         table_name: "storage.lambda_map",
-        id: 46,
+        id: 47,
         fk_id: None,
         columns: [
             (

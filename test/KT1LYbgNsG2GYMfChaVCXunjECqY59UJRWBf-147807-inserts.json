@@ -1,10 +1,10 @@
 {
     (
         table_name: "storage",
-        id: 10,
+        id: 11,
     ): (
         table_name: "storage",
-        id: 10,
+        id: 11,
         fk_id: None,
         columns: [
             (
