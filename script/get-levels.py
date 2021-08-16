@@ -13,12 +13,28 @@ if len(sys.argv) != 3:
 network = sys.argv[1]
 contract_id = sys.argv[2]
 
-bcd_url = f"https://api.better-call.dev/v1/contract/{network}/{contract_id}/operations"
 
-levels = []
+def get_latest_level(bcd_baseurl):
+    u = f"{bcd_baseurl}/head"
+    with urllib.request.urlopen(u) as url:
+        for x in json.loads(url.read().decode()):
+            if x["network"] == network:
+                return x["level"]
+    raise ValueError(f"failed to find latest level for network={network}")
+
+
+bcd_baseurl = "https://api.better-call.dev/v1"
+
+# adding current <head> to blocks, in order to know up to where we can safely
+# assign empty set of results to unrelated blocks in the db (see the --init
+# command of the indexer)
+head = get_latest_level(bcd_baseurl)
+levels = [str(head)]
+
 last_id_query = ""
+bcd_ops_url = f"{bcd_baseurl}/contract/{network}/{contract_id}/operations"
 while True:
-    u = f"{bcd_url}{last_id_query}"
+    u = f"{bcd_ops_url}{last_id_query}"
     # print(u)
     with urllib.request.urlopen(u) as url:
         data = json.loads(url.read().decode())

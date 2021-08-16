@@ -93,11 +93,8 @@ fn main() {
     let mut storage_processor =
         crate::highlevel::get_storage_processor(contract_id, &mut dbconn).unwrap();
 
-    let head = node_cli.head().unwrap();
-    let mut first = head._level;
-
     if CONFIG.levels.len() > 0 {
-        let levels_res = highlevel::execute_for_levels(
+        highlevel::execute_for_levels(
             node_cli,
             rel_ast,
             contract_id,
@@ -106,14 +103,12 @@ fn main() {
             &mut dbconn,
         )
         .unwrap();
-        let max_level_processed = levels_res.iter().max_by_key(|res| res.level).unwrap().level;
-        if max_level_processed > first {
-            first = max_level_processed;
-        }
     }
 
     if CONFIG.init {
-        postgresql_generator::fill_in_levels(&mut dbconn, first, head._level).unwrap();
+        let first = CONFIG.levels.iter().min().unwrap();
+        let last = CONFIG.levels.iter().max().unwrap();
+        postgresql_generator::fill_in_levels(&mut dbconn, *first, *last).unwrap();
         return;
     }
 
