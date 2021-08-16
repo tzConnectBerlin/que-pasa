@@ -81,7 +81,6 @@ impl NodeClient {
 
     fn load(&self, endpoint: &str) -> Result<JsonValue, Box<dyn Error>> {
         let uri = format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-        println!("loading: {}", uri);
 
         let mut response = Vec::new();
         let mut handle = Easy::new();
