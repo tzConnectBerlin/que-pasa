@@ -63,21 +63,25 @@ impl ProcessStorageContext {
 pub(crate) struct TxContext {
     pub id: Option<u32>,
     pub level: u32,
-    pub operation_group_number: u32,
-    pub operation_number: u32,
     pub operation_hash: String,
+    pub operation_group_number: usize,
+    pub operation_number: usize,
+    pub content_number: usize,
     pub source: Option<String>,
     pub destination: Option<String>,
+    pub entrypoint: Option<String>,
 }
 
 impl Hash for TxContext {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.level.hash(state);
+        self.operation_hash.hash(state);
         self.operation_group_number.hash(state);
         self.operation_number.hash(state);
-        self.operation_hash.hash(state);
+        self.content_number.hash(state);
         self.source.hash(state);
         self.destination.hash(state);
+        self.entrypoint.hash(state);
     }
 }
 
@@ -85,11 +89,13 @@ impl Hash for TxContext {
 impl PartialEq for TxContext {
     fn eq(&self, other: &Self) -> bool {
         self.level == other.level
+            && self.operation_hash == other.operation_hash
             && self.operation_group_number == other.operation_group_number
             && self.operation_number == other.operation_number
-            && self.operation_hash == other.operation_hash
+            && self.content_number == other.content_number
             && self.source == other.source
             && self.destination == other.destination
+            && self.entrypoint == other.entrypoint
     }
 }
 
@@ -117,9 +123,9 @@ type BigMapMap = std::collections::HashMap<u32, (u32, RelationalAST)>;
 
 pub(crate) struct StorageProcessor {
     big_map_map: BigMapMap,
-    pub id_generator: IdGenerator,
-    inserts: crate::table::insert::Inserts,
-    pub tx_contexts: TxContextMap,
+    id_generator: IdGenerator,
+    inserts: Inserts,
+    tx_contexts: TxContextMap,
 }
 
 impl StorageProcessor {
@@ -130,6 +136,58 @@ impl StorageProcessor {
             tx_contexts: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
         }
+    }
+
+    pub(crate) fn process_block(
+        &mut self,
+        block: block::Block,
+        rel_ast: &RelationalAST,
+        contract_id: &str,
+    ) -> Res<(Inserts, Vec<TxContext>)> {
+        self.inserts.clear();
+        self.tx_contexts.clear();
+
+        let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
+        let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
+        let operations = block.operations();
+
+        for (operation_group_number, operation_group) in operations.iter().enumerate() {
+            for (operation_number, operation) in operation_group.iter().enumerate() {
+                storages.extend(self.get_storage_from_operation(
+                    block.header.level,
+                    operation_group_number,
+                    operation_number,
+                    &operation,
+                    contract_id,
+                )?);
+                big_map_diffs.extend(self.get_big_map_diffs_from_operation(
+                    block.header.level,
+                    operation_group_number,
+                    operation_number,
+                    &operation,
+                )?);
+            }
+        }
+
+        for (tx_context, store) in &storages {
+            let storage_json = serde_json::to_string(store)?;
+            let parsed_storage = parser::parse(storage_json)?;
+
+            self.process_storage_value(&parsed_storage, rel_ast, tx_context)?;
+        }
+
+        for (tx_content, diff) in &big_map_diffs {
+            self.process_big_map_diff(diff, tx_content)?;
+        }
+
+        Ok((
+            self.inserts.clone(),
+            self.tx_contexts.keys().cloned().collect(),
+        ))
+    }
+
+    pub(crate) fn get_id_value(&self) -> u32 {
+        self.id_generator.id
     }
 
     fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {
@@ -143,15 +201,15 @@ impl StorageProcessor {
         }
     }
 
-    pub(crate) fn get_big_map_diffs_from_operation(
+    fn get_big_map_diffs_from_operation(
         &mut self,
         level: u32,
-        operation_group_number: u32,
-        operation_number: u32,
+        operation_group_number: usize,
+        operation_number: usize,
         operation: &block::Operation,
     ) -> Res<Vec<(TxContext, block::BigMapDiff)>> {
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
-        for content in &operation.contents {
+        for (content_number, content) in operation.contents.iter().enumerate() {
             if let Some(operation_result) = &content.metadata.operation_result {
                 if let Some(big_map_diffs) = &operation_result.big_map_diff {
                     result.extend(big_map_diffs.iter().map(|big_map_diff| {
@@ -159,11 +217,13 @@ impl StorageProcessor {
                             self.tx_context(TxContext {
                                 id: None,
                                 level,
+                                operation_hash: operation.hash.clone(),
                                 operation_number,
                                 operation_group_number,
-                                operation_hash: operation.hash.clone(),
+                                content_number,
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
+                                entrypoint: content.parameters.clone().map(|p| p.entrypoint),
                             }),
                             big_map_diff.clone(),
                         )
@@ -177,11 +237,13 @@ impl StorageProcessor {
                             self.tx_context(TxContext {
                                 id: None,
                                 level,
+                                operation_hash: operation.hash.clone(),
                                 operation_group_number,
                                 operation_number,
-                                operation_hash: operation.hash.clone(),
+                                content_number,
                                 source: content.source.clone(),
                                 destination: content.destination.clone(),
+                                entrypoint: content.parameters.clone().map(|p| p.entrypoint),
                             }),
                             big_map_diff.clone(),
                         )
@@ -192,17 +254,17 @@ impl StorageProcessor {
         Ok(result)
     }
 
-    pub(crate) fn get_storage_from_operation(
+    fn get_storage_from_operation(
         &mut self,
         level: u32,
-        operation_group_number: u32,
-        operation_number: u32,
+        operation_group_number: usize,
+        operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
     ) -> Res<Vec<(TxContext, ::serde_json::Value)>> {
         let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
 
-        for content in &operation.contents {
+        for (content_number, content) in operation.contents.iter().enumerate() {
             if let Some(destination) = &content.destination {
                 if destination == contract_id {
                     if let Some(operation_result) = &content.metadata.operation_result {
@@ -211,11 +273,13 @@ impl StorageProcessor {
                                 self.tx_context(TxContext {
                                     id: None,
                                     level,
+                                    operation_hash: operation.hash.clone(),
                                     operation_group_number,
                                     operation_number,
-                                    operation_hash: operation.hash.clone(),
+                                    content_number,
                                     source: content.source.clone(),
                                     destination: content.destination.clone(),
+                                    entrypoint: content.parameters.clone().map(|p| p.entrypoint),
                                 }),
                                 storage.clone(),
                             ));
@@ -301,7 +365,7 @@ impl StorageProcessor {
         }
     }
 
-    pub(crate) fn process_big_map_diff(
+    fn process_big_map_diff(
         &mut self,
         diff: &block::BigMapDiff,
         tx_context: &TxContext,
@@ -365,7 +429,7 @@ impl StorageProcessor {
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. raises an error if it cannot do this (i.e. they do not match).
-    pub(crate) fn process_storage_value(
+    fn process_storage_value(
         &mut self,
         value: &parser::Value,
         rel_ast: &RelationalAST,
@@ -404,7 +468,7 @@ impl StorageProcessor {
         ctx.clone()
     }
 
-    pub(crate) fn process_storage_value_internal(
+    fn process_storage_value_internal(
         &mut self,
         ctx: &ProcessStorageContext,
         value: &parser::Value,
@@ -646,13 +710,5 @@ impl StorageProcessor {
                 assert!(e.fk_id == fk_id);
                 (*e).clone()
             })
-    }
-
-    pub(crate) fn get_inserts(&self) -> Inserts {
-        self.inserts.clone()
-    }
-
-    pub(crate) fn clear_inserts(&mut self) {
-        self.inserts.clear();
     }
 }

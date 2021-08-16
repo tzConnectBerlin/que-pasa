@@ -19,7 +19,7 @@ levels = []
 last_id_query = ""
 while True:
     u = f"{bcd_url}{last_id_query}"
-    print(u)
+    # print(u)
     with urllib.request.urlopen(u) as url:
         data = json.loads(url.read().decode())
         last_id = "0"

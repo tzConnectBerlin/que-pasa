@@ -92,20 +92,29 @@ pub fn init_config() -> Res<Config> {
 
     config.contract_id = matches
         .value_of("contract_id")
+        .map_or_else(|| std::env::var("CONTRACT_ID"), |s| Ok(s.to_string()))
         .map(|s| s.to_string())
         .unwrap();
 
-    config.database_url = match matches
-        .value_of("database_url")
-        .map_or_else(|| std::env::var("DATABASE_URL"), |s| Ok(s.to_string()))
-    {
-        Ok(x) => x,
-        Err(_) => {
-            return Err(err!(
-                "Database URL must be set either on the command line or in the environment"
-            ))
-        }
+    config.generate_sql = match matches.subcommand() {
+        ("generate-sql", _) => true,
+        _ => matches.is_present("generate_sql"),
     };
+
+    if !config.generate_sql {
+        config.database_url = match matches
+            .value_of("database_url")
+            .map_or_else(|| std::env::var("DATABASE_URL"), |s| Ok(s.to_string()))
+        {
+            Ok(x) => x,
+            Err(_) => {
+                return Err(err!(
+                    "Database URL must be set either on the command line or in the environment"
+                ))
+            }
+        };
+        println!("db url: \"{}\"", config.database_url);
+    }
 
     if matches.is_present("ssl") {
         config.ssl = true;
@@ -114,8 +123,6 @@ pub fn init_config() -> Res<Config> {
         config.ssl = false;
         config.ca_cert = None;
     }
-
-    config.generate_sql = matches.is_present("generate_sql");
 
     config.init = matches.is_present("init");
 

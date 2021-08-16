@@ -85,11 +85,8 @@ pub struct Metadata {
     #[serde(rename = "max_operation_list_length")]
     pub max_operation_list_length: Vec<MaxOperationListLength>,
     pub baker: String,
-    pub level: Level,
     #[serde(rename = "level_info")]
     pub level_info: LevelInfo,
-    #[serde(rename = "voting_period_kind")]
-    pub voting_period_kind: String,
     #[serde(rename = "voting_period_info")]
     pub voting_period_info: VotingPeriodInfo,
     #[serde(rename = "nonce_hash")]
