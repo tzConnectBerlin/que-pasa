@@ -37,6 +37,7 @@ pub mod storage_structure;
 pub mod storage_value;
 
 use config::CONFIG;
+use env_logger::Env;
 use octez::node;
 use sql::postgresql_generator;
 use sql::table;
@@ -46,7 +47,11 @@ use storage_structure::typing;
 
 fn main() {
     dotenv::dotenv().ok();
-    env_logger::init();
+    // The `Env` lets us tweak what the environment
+    // variables to read are and what the default
+    // value is if they're missing
+    let env = Env::default().filter_or("RUST_LOG", "info");
+    env_logger::init_from_env(env);
 
     let contract_id = &CONFIG.contract_id;
     let node_cli = &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
@@ -93,11 +98,8 @@ fn main() {
     let mut storage_processor =
         crate::highlevel::get_storage_processor(contract_id, &mut dbconn).unwrap();
 
-    let head = node_cli.head().unwrap();
-    let mut first = head._level;
-
     if CONFIG.levels.len() > 0 {
-        let levels_res = highlevel::execute_for_levels(
+        highlevel::execute_for_levels(
             node_cli,
             rel_ast,
             contract_id,
@@ -106,14 +108,12 @@ fn main() {
             &mut dbconn,
         )
         .unwrap();
-        let max_level_processed = levels_res.iter().max_by_key(|res| res.level).unwrap().level;
-        if max_level_processed > first {
-            first = max_level_processed;
-        }
     }
 
     if CONFIG.init {
-        postgresql_generator::fill_in_levels(&mut dbconn, first, head._level).unwrap();
+        let first = CONFIG.levels.iter().min().unwrap();
+        let last = CONFIG.levels.iter().max().unwrap();
+        postgresql_generator::fill_in_levels(&mut dbconn, *first, *last).unwrap();
         return;
     }
 
