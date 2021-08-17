@@ -92,7 +92,6 @@ fn lex(json: &JsonValue) -> JsonValue {
 /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
 /// data to stash it in the database.
 pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
-    debug!("parse_lexed: {:?}", json);
     if let JsonValue::Array(a) = json {
         return Ok(Value::List(
             a.iter().map(|x| parse_lexed(x).unwrap()).collect(),
@@ -141,7 +140,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
                 if !args.is_empty() {
                     return parse_lexed(&args[0]);
                 } else {
-                    warn!("Got SOME with no content");
+                    debug!("Got SOME with no content");
                     return Ok(Value::None);
                 }
             }
@@ -149,7 +148,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
             "UNIT" => return Ok(Value::Unit(None)),
 
             _ => {
-                warn!("Unknown prim {}", json["prim"]);
+                debug!("Ignoring unknown prim {}", json["prim"]);
                 return Ok(Value::None);
             }
         }
