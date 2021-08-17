@@ -373,7 +373,7 @@ CREATE VIEW "{}_live" AS (
     }
 
     fn escape(s: &str) -> String {
-        s.to_string()
+        s.to_string().replace("'", "''")
     }
 
     pub fn sql_value(value: &parser::Value) -> String {
