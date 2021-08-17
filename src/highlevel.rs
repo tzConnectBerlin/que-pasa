@@ -129,7 +129,6 @@ pub(crate) fn execute_missing_levels(
                     Ok(x) => break x,
                     Err(e) => {
                         warn!("Error contacting node: {:?}", e);
-                        println!("did it warn?");
                         std::thread::sleep(std::time::Duration::from_millis(1500));
                     }
                 };

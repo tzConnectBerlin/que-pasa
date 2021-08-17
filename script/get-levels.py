@@ -12,11 +12,12 @@ if len(sys.argv) != 3:
 
 network = sys.argv[1]
 contract_id = sys.argv[2]
+bcd_timeout = 30  # seconds
 
 
 def get_latest_level(bcd_baseurl):
     u = f"{bcd_baseurl}/head"
-    with urllib.request.urlopen(u) as url:
+    with urllib.request.urlopen(u, timeout=bcd_timeout) as url:
         for x in json.loads(url.read().decode()):
             if x["network"] == network:
                 return x["level"]
@@ -36,7 +37,7 @@ bcd_ops_url = f"{bcd_baseurl}/contract/{network}/{contract_id}/operations"
 while True:
     u = f"{bcd_ops_url}{last_id_query}"
     # print(u)
-    with urllib.request.urlopen(u) as url:
+    with urllib.request.urlopen(u, timeout=bcd_timeout) as url:
         data = json.loads(url.read().decode())
         last_id = "0"
         if "last_id" in data:

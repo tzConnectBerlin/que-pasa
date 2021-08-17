@@ -37,6 +37,7 @@ pub mod storage_structure;
 pub mod storage_value;
 
 use config::CONFIG;
+use env_logger::Env;
 use octez::node;
 use sql::postgresql_generator;
 use sql::table;
@@ -46,7 +47,11 @@ use storage_structure::typing;
 
 fn main() {
     dotenv::dotenv().ok();
-    env_logger::init();
+    // The `Env` lets us tweak what the environment
+    // variables to read are and what the default
+    // value is if they're missing
+    let env = Env::default().filter_or("RUST_LOG", "info");
+    env_logger::init_from_env(env);
 
     let contract_id = &CONFIG.contract_id;
     let node_cli = &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
