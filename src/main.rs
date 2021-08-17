@@ -47,9 +47,6 @@ use storage_structure::typing;
 
 fn main() {
     dotenv::dotenv().ok();
-    // The `Env` lets us tweak what the environment
-    // variables to read are and what the default
-    // value is if they're missing
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
