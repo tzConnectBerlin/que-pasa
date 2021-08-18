@@ -29,13 +29,13 @@ extern crate spinners;
 extern crate termion;
 
 pub mod config;
-pub mod error;
 pub mod highlevel;
 pub mod octez;
 pub mod sql;
 pub mod storage_structure;
 pub mod storage_value;
 
+use anyhow::Context;
 use config::CONFIG;
 use env_logger::Env;
 use octez::node;
@@ -47,24 +47,33 @@ use storage_structure::typing;
 
 fn main() {
     dotenv::dotenv().ok();
-    // The `Env` lets us tweak what the environment
-    // variables to read are and what the default
-    // value is if they're missing
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
     let contract_id = &CONFIG.contract_id;
-    let node_cli = &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
+    let node_cli =
+        &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
 
     // init by grabbing the contract data.
-    let json = node_cli.get_contract_script(contract_id, None).unwrap();
+    let json = node_cli
+        .get_contract_script(contract_id, None)
+        .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
-    let type_ast = typing::storage_ast_from_json(storage_definition).unwrap();
+    let type_ast = typing::storage_ast_from_json(storage_definition)
+        .with_context(|| {
+            "failed to derive a storage type from the storage definition"
+        })
+        .unwrap();
 
     // Build the internal representation from the storage defition
     let ctx = relational::Context::init();
     let mut indexes = relational::Indexes::new();
-    let rel_ast = &relational::build_relational_ast(&ctx, &type_ast, &mut indexes);
+    let rel_ast =
+        &relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
+            .with_context(|| {
+                "failed to build a relational AST from the storage type"
+            })
+            .unwrap();
 
     // Generate the SQL schema for this contract
     let mut builder = table_builder::TableBuilder::new();
@@ -77,28 +86,51 @@ fn main() {
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
         for (_name, table) in sorted_tables {
-            print!("{}", generator.create_table_definition(table).unwrap());
+            print!(
+                "{}",
+                generator
+                    .create_table_definition(table)
+                    .unwrap()
+            );
             println!();
-            print!("{}", generator.create_view_definition(table).unwrap());
+            print!(
+                "{}",
+                generator
+                    .create_view_definition(table)
+                    .unwrap()
+            );
             println!();
         }
         return;
     }
 
-    let mut dbconn =
-        postgresql_generator::connect(&CONFIG.database_url, CONFIG.ssl, CONFIG.ca_cert.clone())
-            .unwrap();
+    let mut dbconn = postgresql_generator::connect(
+        &CONFIG.database_url,
+        CONFIG.ssl,
+        CONFIG.ca_cert.clone(),
+    )
+    .with_context(|| "failed to connect to the db")
+    .unwrap();
 
     if CONFIG.init {
-        p!("Initialising--all data in DB will be destroyed. Interrupt within 5 seconds to abort");
+        println!(
+            "Initialising--all data in DB will be destroyed. \
+            Interrupt within 5 seconds to abort"
+        );
         std::thread::sleep(std::time::Duration::from_millis(5000));
-        postgresql_generator::delete_everything(&mut dbconn).unwrap();
+        postgresql_generator::delete_everything(&mut dbconn)
+            .with_context(|| "failed to delete the db's content")
+            .unwrap();
     }
 
     let mut storage_processor =
-        crate::highlevel::get_storage_processor(contract_id, &mut dbconn).unwrap();
+        crate::highlevel::get_storage_processor(contract_id, &mut dbconn)
+            .with_context(|| {
+                "could not initialize storage processor from the db state"
+            })
+            .unwrap();
 
-    if CONFIG.levels.len() > 0 {
+    if !CONFIG.levels.is_empty() {
         highlevel::execute_for_levels(
             node_cli,
             rel_ast,
@@ -113,7 +145,11 @@ fn main() {
     if CONFIG.init {
         let first = CONFIG.levels.iter().min().unwrap();
         let last = CONFIG.levels.iter().max().unwrap();
-        postgresql_generator::fill_in_levels(&mut dbconn, *first, *last).unwrap();
+        postgresql_generator::fill_in_levels(&mut dbconn, *first, *last)
+            .with_context(|| {
+                "failed to mark levels unrelated to the contract as empty in the db"
+            })
+            .unwrap();
         return;
     }
 

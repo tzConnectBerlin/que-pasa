@@ -1,7 +1,5 @@
+use anyhow::{anyhow, Result};
 use clap::{App, Arg, SubCommand};
-
-use crate::err;
-use crate::error::Res;
 
 #[derive(Clone, Default, Debug)]
 pub struct Config {
@@ -20,7 +18,7 @@ lazy_static! {
 }
 
 // init config and return it also.
-pub fn init_config() -> Res<Config> {
+pub fn init_config() -> Result<Config> {
     let mut config: Config = Default::default();
     let matches = App::new("Tezos Contract Baby Indexer")
         .version("0.0")
@@ -93,7 +91,6 @@ pub fn init_config() -> Res<Config> {
     config.contract_id = matches
         .value_of("contract_id")
         .map_or_else(|| std::env::var("CONTRACT_ID"), |s| Ok(s.to_string()))
-        .map(|s| s.to_string())
         .unwrap();
 
     config.generate_sql = match matches.subcommand() {
@@ -108,7 +105,7 @@ pub fn init_config() -> Res<Config> {
         {
             Ok(x) => x,
             Err(_) => {
-                return Err(err!(
+                return Err(anyhow!(
                     "Database URL must be set either on the command line or in the environment"
                 ))
             }
@@ -118,7 +115,9 @@ pub fn init_config() -> Res<Config> {
 
     if matches.is_present("ssl") {
         config.ssl = true;
-        config.ca_cert = matches.value_of("ssl-cert").map(String::from);
+        config.ca_cert = matches
+            .value_of("ssl-cert")
+            .map(String::from);
     } else {
         config.ssl = false;
         config.ca_cert = None;
@@ -136,7 +135,7 @@ pub fn init_config() -> Res<Config> {
     {
         Ok(x) => x,
         Err(_) => {
-            return Err(err!(
+            return Err(anyhow!(
                 "Node URL must be set either on the command line or in the environment"
             ))
         }
@@ -152,8 +151,11 @@ fn range(arg: &str) -> Vec<u32> {
         let s = String::from(h);
         match s.find('-') {
             Some(_) => {
-                let fromto: Vec<String> = s.split('-').map(String::from).collect();
-                for i in fromto[0].parse::<u32>().unwrap()..fromto[1].parse::<u32>().unwrap() + 1 {
+                let fromto: Vec<String> =
+                    s.split('-').map(String::from).collect();
+                for i in fromto[0].parse::<u32>().unwrap()
+                    ..fromto[1].parse::<u32>().unwrap() + 1
+                {
                     result.push(i);
                 }
             }

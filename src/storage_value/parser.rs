@@ -1,13 +1,13 @@
-use crate::err;
-use crate::error::Res;
+use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, TimeZone, Utc};
 use json;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
-use std::error::Error;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
+)]
 pub enum Value {
     Address(String),
     Bool(bool),
@@ -45,15 +45,17 @@ impl Value {
     }
 }
 
-pub(crate) fn parse(storage_json: String) -> Res<Value> {
-    let json_parsed = &json::parse(&storage_json)?;
+pub(crate) fn parse(storage_json: String) -> Result<Value> {
+    let json_parsed = &json::parse(&storage_json)
+        .with_context(|| "failed to parse storage data into json")?;
     let lexed = lex(json_parsed);
     parse_lexed(&lexed)
+        .with_context(|| "failed to parse storage json into Value")
 }
 
-pub(crate) fn decode_address(hex: &str) -> Res<String> {
+pub(crate) fn decode_address(hex: &str) -> Result<String> {
     if hex.len() != 44 {
-        return Err(err!(
+        return Err(anyhow!(
             "44 length byte arrays only supported right now, got {}",
             hex
         ));
@@ -69,10 +71,10 @@ pub(crate) fn decode_address(hex: &str) -> Res<String> {
             "00" => format!("06a19f{}", rest),
             "01" => format!("06a1a1{}", rest),
             "02" => format!("06a1a4{}", rest),
-            _ => return Err(err!("Did not recognise byte array {}", hex)),
+            _ => return Err(anyhow!("Did not recognise byte array {}", hex)),
         }
     } else {
-        return Err(err!("Unknown format {}", hex));
+        return Err(anyhow!("Unknown format {}", hex));
     };
     let encoded = bs58::encode(hex::decode(new_hex.as_str())?)
         .with_check()
@@ -91,10 +93,12 @@ fn lex(json: &JsonValue) -> JsonValue {
 
 /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
 /// data to stash it in the database.
-pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
+pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
     if let JsonValue::Array(a) = json {
         return Ok(Value::List(
-            a.iter().map(|x| parse_lexed(x).unwrap()).collect(),
+            a.iter()
+                .map(|x| parse_lexed(x).unwrap())
+                .collect(),
         ));
     }
     let args: Vec<JsonValue> = match &json["args"] {
@@ -117,7 +121,9 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
             "FALSE" => return Ok(Value::Bool(false)),
             "LEFT" => return Ok(Value::Left(Box::new(parse_lexed(&args[0])?))),
             "NONE" => return Ok(Value::None),
-            "RIGHT" => return Ok(Value::Right(Box::new(parse_lexed(&args[0])?))),
+            "RIGHT" => {
+                return Ok(Value::Right(Box::new(parse_lexed(&args[0])?)))
+            }
             "PAIR" => {
                 match args.len() {
                     0 | 1 => return Ok(Value::None),
@@ -154,11 +160,18 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
         }
     }
 
-    let keys: Vec<String> = json.entries().map(|(a, _)| String::from(a)).collect();
+    let keys: Vec<String> = json
+        .entries()
+        .map(|(a, _)| String::from(a))
+        .collect();
     if keys.len() == 1 {
         // it's a leaf node, hence a value.
         let key = &keys[0];
-        let s = String::from(json[key].as_str().ok_or(format!("Key {} not found", key))?);
+        let s = String::from(
+            json[key]
+                .as_str()
+                .ok_or_else(|| anyhow!("Key {} not found", key))?,
+        );
         return match key.as_str() {
             "address" => Ok(Value::Address(s)),
             "bytes" => Ok(Value::Bytes(s)),
@@ -170,7 +183,11 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Res<Value> {
             "unit" => Ok(Value::Unit(None)),
             "prim" => Ok(prim(&s)),
             _ => {
-                panic!("Couldn't match {} in {}", key.to_string(), json.to_string());
+                panic!(
+                    "Couldn't match {} in {}",
+                    key.to_string(),
+                    json.to_string()
+                );
             }
         };
     }
@@ -203,21 +220,23 @@ pub(crate) fn lexer_unfold_many_pair(v: &mut Vec<JsonValue>) -> JsonValue {
     }
 }
 
-fn bigint(source: &str) -> Result<BigInt, Box<dyn Error>> {
+fn bigint(source: &str) -> Result<BigInt> {
     Ok(BigInt::from_str(source)?)
 }
 
-pub(crate) fn parse_date(value: &Value) -> Result<DateTime<Utc>, Box<dyn Error>> {
+pub(crate) fn parse_date(value: &Value) -> Result<DateTime<Utc>> {
     match value {
         Value::Int(s) => {
-            let ts: i64 = s.to_i64().ok_or("Num conversion failed")?;
+            let ts: i64 = s
+                .to_i64()
+                .ok_or_else(|| anyhow!("Num conversion failed"))?;
             Ok(Utc.timestamp(ts, 0))
         }
         Value::String(s) => {
             let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
             Ok(fixedoffset.with_timezone(&Utc))
         }
-        _ => Err(err!("Can't parse {:?}", value)),
+        _ => Err(anyhow!("Can't parse {:?}", value)),
     }
 }
 

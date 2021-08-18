@@ -1,10 +1,8 @@
-use crate::err;
-use crate::error::Res;
 use crate::octez::block::Block;
+use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
-use std::error::Error;
 
 pub struct NodeClient {
     node_url: String,
@@ -24,18 +22,20 @@ impl NodeClient {
     }
 
     /// Return the highest level on the chain
-    pub(crate) fn head(&self) -> Res<Level> {
-        let json = self.load("blocks/head")?;
+    pub(crate) fn head(&self) -> Result<Level> {
+        let json = self
+            .load("blocks/head")
+            .with_context(|| "failed to get block head")?;
         Ok(Level {
             _level: json["header"]["level"]
                 .as_u32()
-                .ok_or_else(|| err!("Couldn't get level from node"))?,
+                .ok_or_else(|| anyhow!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
             baked_at: Some(Self::timestamp_from_block(&json)?),
         })
     }
 
-    pub(crate) fn level(&self, level: u32) -> Res<Level> {
+    pub(crate) fn level(&self, level: u32) -> Result<Level> {
         let (json, block) = self.level_json(level)?;
         Ok(Level {
             _level: block.header.level as u32,
@@ -44,9 +44,19 @@ impl NodeClient {
         })
     }
 
-    pub(crate) fn level_json(&self, level: u32) -> Res<(JsonValue, Block)> {
-        let res = self.load(&format!("blocks/{}", level))?;
-        let block: Block = serde_json::from_str(&res.to_string())?;
+    pub(crate) fn level_json(&self, level: u32) -> Result<(JsonValue, Block)> {
+        let res = self
+            .load(&format!("blocks/{}", level))
+            .with_context(|| {
+                format!("failed to get level_json for level={}", level)
+            })?;
+        let block: Block = serde_json::from_str(&res.to_string())
+            .with_context(|| {
+                format!(
+                    "failed to parse level_json into Block for level={}",
+                    level
+                )
+            })?;
         Ok((res, block))
     }
 
@@ -55,32 +65,45 @@ impl NodeClient {
         &self,
         contract_id: &str,
         level: Option<u32>,
-    ) -> Result<JsonValue, Box<dyn Error>> {
+    ) -> Result<JsonValue> {
         let level = match level {
             Some(x) => format!("{}", x),
             None => "head".to_string(),
         };
+
         self.load(&format!(
             "blocks/{}/context/contracts/{}/script",
             level, contract_id
         ))
+        .with_context(|| {
+            format!(
+                "failed to get script data for contract='{}', level={}",
+                contract_id, level
+            )
+        })
     }
 
-    fn parse_rfc3339(rfc3339: &str) -> Res<DateTime<Utc>> {
+    fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {
         let fixedoffset = chrono::DateTime::parse_from_rfc3339(rfc3339)?;
         Ok(fixedoffset.with_timezone(&Utc))
     }
 
-    fn timestamp_from_block(json: &JsonValue) -> Res<DateTime<Utc>> {
+    fn timestamp_from_block(json: &JsonValue) -> Result<DateTime<Utc>> {
         Self::parse_rfc3339(
             json["header"]["timestamp"]
                 .as_str()
-                .ok_or_else(|| err!("Couldn't parse string {:?}", json["header"]["timestamp"]))?,
+                .ok_or_else(|| {
+                    anyhow!(
+                        "Couldn't parse string {:?}",
+                        json["header"]["timestamp"]
+                    )
+                })?,
         )
     }
 
-    fn load(&self, endpoint: &str) -> Result<JsonValue, Box<dyn Error>> {
-        let uri = format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
+    fn load(&self, endpoint: &str) -> Result<JsonValue> {
+        let uri =
+            format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
         debug!("loading: {}", uri);
 
         let mut response = Vec::new();
