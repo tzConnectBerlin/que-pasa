@@ -1,4 +1,5 @@
-use crate::octez::node::{Level, NodeClient};
+use crate::octez::block::{Block, LevelMeta};
+use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::postgresql_generator;
 use crate::sql::postgresql_generator::PostgresqlGenerator;
@@ -6,6 +7,7 @@ use crate::storage_value::processor::{StorageProcessor, TxContext};
 use crate::table::insert::Inserts;
 use anyhow::{anyhow, Context, Result};
 use std::cmp::Ordering;
+use std::sync::mpsc::Receiver;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -209,12 +211,30 @@ pub(crate) fn execute_for_level(
             )
         })?;
 
+    execute_for_block(
+        rel_ast,
+        contract_id,
+        level,
+        &block,
+        storage_processor,
+        dbconn,
+    )
+}
+
+pub(crate) fn execute_for_block(
+    rel_ast: &RelationalAST,
+    contract_id: &str,
+    level: &LevelMeta,
+    block: &Block,
+    storage_processor: &mut StorageProcessor,
+    dbconn: &mut postgres::Client,
+) -> Result<SaveLevelResult> {
     if block.has_contract_origination(contract_id) {
         mark_level_contract_origination(dbconn, level)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as contract origination in db",
-                    level_height)
+                    level._level)
             })?;
         return Ok(SaveLevelResult {
             level: level._level,
@@ -228,7 +248,7 @@ pub(crate) fn execute_for_level(
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as empty in db",
-                    level_height)
+                    level._level)
             })?;
         return Ok(SaveLevelResult {
             level: level._level,
@@ -242,7 +262,7 @@ pub(crate) fn execute_for_level(
         .with_context(|| {
             format!(
                 "execute for level={} failed: could not process block",
-                level_height
+                level._level
             )
         })?;
 
@@ -256,7 +276,7 @@ pub(crate) fn execute_for_level(
     .with_context(|| {
         format!(
             "execute for level={} failed: could not save processed block",
-            level_height
+            level._level
         )
     })?;
     Ok(SaveLevelResult {
@@ -268,7 +288,7 @@ pub(crate) fn execute_for_level(
 
 fn mark_level_contract_origination(
     dbconn: &mut postgres::Client,
-    level: &Level,
+    level: &LevelMeta,
 ) -> Result<()> {
     let mut transaction = postgresql_generator::transaction(dbconn)?;
     postgresql_generator::delete_level(&mut transaction, level)?;
@@ -280,7 +300,7 @@ fn mark_level_contract_origination(
 
 fn mark_level_empty(
     dbconn: &mut postgres::Client,
-    level: &Level,
+    level: &LevelMeta,
 ) -> Result<()> {
     let mut transaction = postgresql_generator::transaction(dbconn)?;
     postgresql_generator::delete_level(&mut transaction, level)?;
@@ -291,7 +311,7 @@ fn mark_level_empty(
 
 fn save_level_processed_contract(
     dbconn: &mut postgres::Client,
-    level: &Level,
+    level: &LevelMeta,
     inserts: &Inserts,
     tx_contexts: Vec<TxContext>,
     next_id: i32,

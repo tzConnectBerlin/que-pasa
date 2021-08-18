@@ -178,7 +178,7 @@ pub(crate) fn build_relational_ast(
             }
             ComplexExprTy::List(elems_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let elems_ast = build_relational_ast(ctx, elems_type, indexes)?;
+                let elems_ast = build_index(ctx, elems_type, indexes)?;
                 Ok(RelationalAST::List {
                     table: ctx.table_name.clone(),
                     elems_ast: Box::new(elems_ast),

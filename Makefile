@@ -4,16 +4,16 @@ export DATABASE_URL=host=0.0.0.0 dbname=tezos user=quepasa password=quepasa port
 
 # PMM on GRANADA testnet:
 
-export NODE_URL=https://testnet-tezos.giganode.io
-export CONTRACT_ID=KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS
-NETWORK="granadanet"
+# export NODE_URL=https://testnet-tezos.giganode.io
+# export CONTRACT_ID=KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS
+# NETWORK="granadanet"
 
 
 # HEN on GRANADA:
 
-# export NODE_URL=https://mainnet-tezos.giganode.io
-# export CONTRACT_ID=KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB
-# NETWORK="mainnet"
+export NODE_URL=https://mainnet-tezos.giganode.io
+export CONTRACT_ID=KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB
+NETWORK="mainnet"
 
 
 gen-sql:
@@ -49,6 +49,9 @@ else
 	$(eval BLOCKS := $(shell python3 ./script/get-levels.py $(NETWORK) $(CONTRACT_ID)))
 	RUST_BACKTRACE=1 cargo +nightly run -- --init -l $(BLOCKS)
 endif
+
+filln:
+	RUST_BACKTRACE=1 cargo +nightly run -- --init --bcd-url https://api.better-call.dev/v1 --network $(NETWORK)
 
 db:
 	make gen-sql

@@ -11,6 +11,8 @@ pub struct Config {
     pub init: bool,
     pub levels: Vec<u32>,
     pub node_url: String,
+    pub network: String,
+    pub bcd_url: Option<String>,
 }
 
 lazy_static! {
@@ -64,6 +66,18 @@ pub fn init_config() -> Result<Config> {
                 .long("node-url")
                 .value_name("NODE_URL")
                 .help("The URL of the Tezos node")
+                .takes_value(true))
+        .arg(
+            Arg::with_name("network")
+                .long("network")
+                .value_name("NETWORK")
+                .help("Name of the Tezos network to target (eg 'main', 'granadanet', ..)")
+                .takes_value(true))
+        .arg(
+            Arg::with_name("bcd_url")
+                .long("bcd-url")
+                .value_name("BCD_URL")
+                .help("Optional: better-call.dev api url (enables fast bootstrap)")
                 .takes_value(true))
         .arg(
             Arg::with_name("levels")
@@ -140,6 +154,14 @@ pub fn init_config() -> Result<Config> {
             ))
         }
     };
+    config.bcd_url = matches
+        .value_of("bcd_url")
+        .map(String::from);
+    config.network = matches
+        .value_of("network")
+        .map_or_else(|| std::env::var("NETWORK"), |s| Ok(s.to_string()))
+        .unwrap_or("mainnet".to_string());
+
     debug!("Config={:#?}", config);
     Ok(config)
 }

@@ -1,32 +1,33 @@
-use crate::octez::block::Block;
+use crate::octez::block::{Block, LevelMeta};
 use anyhow::{anyhow, Context, Result};
+use backoff::{retry, Error, ExponentialBackoff};
 use chrono::{DateTime, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
+use std::time::Duration;
 
+#[derive(Clone)]
 pub struct NodeClient {
     node_url: String,
     chain: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct Level {
-    pub _level: u32,
-    pub hash: Option<String>,
-    pub baked_at: Option<DateTime<Utc>>,
+    timeout: Duration,
 }
 
 impl NodeClient {
     pub fn new(node_url: String, chain: String) -> Self {
-        Self { node_url, chain }
+        Self {
+            node_url,
+            chain,
+            timeout: Duration::from_secs(5),
+        }
     }
 
     /// Return the highest level on the chain
-    pub(crate) fn head(&self) -> Result<Level> {
+    pub(crate) fn head(&self) -> Result<LevelMeta> {
         let json = self
             .load("blocks/head")
             .with_context(|| "failed to get block head")?;
-        Ok(Level {
+        Ok(LevelMeta {
             _level: json["header"]["level"]
                 .as_u32()
                 .ok_or_else(|| anyhow!("Couldn't get level from node"))?,
@@ -35,9 +36,9 @@ impl NodeClient {
         })
     }
 
-    pub(crate) fn level(&self, level: u32) -> Result<Level> {
+    pub(crate) fn level(&self, level: u32) -> Result<LevelMeta> {
         let (json, block) = self.level_json(level)?;
-        Ok(Level {
+        Ok(LevelMeta {
             _level: block.header.level as u32,
             hash: Some(block.hash),
             baked_at: Some(Self::timestamp_from_block(&json)?),
@@ -45,19 +46,19 @@ impl NodeClient {
     }
 
     pub(crate) fn level_json(&self, level: u32) -> Result<(JsonValue, Block)> {
-        let res = self
+        let resp = self
             .load(&format!("blocks/{}", level))
             .with_context(|| {
                 format!("failed to get level_json for level={}", level)
             })?;
-        let block: Block = serde_json::from_str(&res.to_string())
+        let block: Block = serde_json::from_str(&resp.to_string())
             .with_context(|| {
                 format!(
                     "failed to parse level_json into Block for level={}",
                     level
                 )
             })?;
-        Ok((res, block))
+        Ok((resp, block))
     }
 
     /// Get all of the data for the contract.
@@ -102,29 +103,37 @@ impl NodeClient {
     }
 
     fn load(&self, endpoint: &str) -> Result<JsonValue> {
-        let uri =
-            format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-        debug!("loading: {}", uri);
+        let op = || -> Result<JsonValue> {
+            let uri =
+                format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
+            debug!("loading: {}", uri);
 
-        let mut response = Vec::new();
-        let mut handle = Easy::new();
-        handle.timeout(std::time::Duration::from_secs(20))?;
-        handle.url(&uri)?;
-        {
-            let mut transfer = handle.transfer();
-            transfer.write_function(|new_data| {
-                response.extend_from_slice(new_data);
-                Ok(new_data.len())
-            })?;
-            transfer.perform()?;
-        }
-        let json =
-            json::parse(std::str::from_utf8(&response).with_context(|| {
+            let mut response = Vec::new();
+            let mut handle = Easy::new();
+            handle.timeout(self.timeout)?;
+            handle.url(&uri)?;
+            {
+                let mut transfer = handle.transfer();
+                transfer.write_function(|new_data| {
+                    response.extend_from_slice(new_data);
+                    Ok(new_data.len())
+                })?;
+                transfer.perform()?;
+            }
+            let body = std::str::from_utf8(&response).with_context(|| {
                 format!("failed to read response for uri='{}'", uri)
-            })?)
-            .with_context(|| {
-                format!("failed to parse json for uri='{}'", uri)
             })?;
-        Ok(json)
+            let json = json::parse(body).with_context(|| {
+                format!(
+                    "failed to parse json for uri='{}', body: {}",
+                    uri, body
+                )
+            })?;
+            Ok(json)
+        };
+        retry(ExponentialBackoff::default(), || {
+            op().map_err(Error::Transient)
+        })
+        .map_err(|e| anyhow!(e))
     }
 }

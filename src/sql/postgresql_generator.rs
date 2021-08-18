@@ -1,4 +1,4 @@
-use crate::octez::node::Level;
+use crate::octez::block::LevelMeta;
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::SimpleExprTy;
 use crate::storage_value::parser;
@@ -48,7 +48,7 @@ pub(crate) fn transaction(client: &mut Client) -> Result<Transaction> {
 pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64> {
     match transaction.execute(sql, &[]) {
         Ok(x) => Ok(x),
-        Err(e) => Err(anyhow!(e.to_string())),
+        Err(e) => Err(anyhow!("err on sql={}: {}", sql, e.to_string())),
     }
 }
 
@@ -65,7 +65,7 @@ pub(crate) fn fill_in_levels(
             format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
 }
 
-pub(crate) fn get_head(dbconn: &mut Client) -> Result<Option<Level>> {
+pub(crate) fn get_head(dbconn: &mut Client) -> Result<Option<LevelMeta>> {
     let result = dbconn.query(
         "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
         &[],
@@ -76,7 +76,7 @@ pub(crate) fn get_head(dbconn: &mut Client) -> Result<Option<Level>> {
         let _level: i32 = result[0].get(0);
         let hash: Option<String> = result[0].get(1);
         let baked_at: Option<DateTime<Utc>> = result[0].get(3);
-        Ok(Some(Level {
+        Ok(Some(LevelMeta {
             _level: _level as u32,
             hash,
             baked_at,
@@ -155,7 +155,7 @@ pub(crate) fn get_origination(dbconn: &mut Client) -> Result<Option<u32>> {
 
 pub(crate) fn save_level(
     transaction: &mut Transaction,
-    level: &Level,
+    level: &LevelMeta,
 ) -> Result<u64> {
     exec(
         transaction,
@@ -178,7 +178,7 @@ pub(crate) fn save_level(
 
 pub(crate) fn delete_level(
     transaction: &mut Transaction,
-    level: &Level,
+    level: &LevelMeta,
 ) -> Result<u64> {
     exec(
         transaction,
