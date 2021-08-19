@@ -118,7 +118,13 @@ impl NodeClient {
             })?;
             transfer.perform()?;
         }
-        let json = json::parse(std::str::from_utf8(&response)?)?;
+        let json =
+            json::parse(std::str::from_utf8(&response).with_context(|| {
+                format!("failed to read response for uri='{}'", uri)
+            })?)
+            .with_context(|| {
+                format!("failed to parse json for uri='{}'", uri)
+            })?;
         Ok(json)
     }
 }
