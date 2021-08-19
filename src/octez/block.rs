@@ -346,7 +346,7 @@ pub struct Operations {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct OperationMetadata {
-    #[serde(rename = "balance_updates")]
+    #[serde(rename = "balance_updates", default)]
     pub balance_updates: Vec<BalanceUpdate>,
     pub delegate: Option<String>,
     #[serde(default)]

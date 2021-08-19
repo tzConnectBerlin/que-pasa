@@ -46,11 +46,20 @@ use sql::postgresql_generator;
 use sql::table;
 use sql::table_builder;
 use std::iter;
+use std::panic;
+use std::process;
 use std::thread;
 use storage_structure::relational;
 use storage_structure::typing;
 
 fn main() {
+    let orig_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        // invoke the default handler and exit the process
+        orig_hook(panic_info);
+        process::exit(1);
+    }));
+
     dotenv::dotenv().ok();
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
@@ -152,23 +161,23 @@ fn main() {
             bcd::BCDClient::new(bcd_url, CONFIG.network.clone())
         });
 
-        let cli_count = 1000;
+        let cli_count = 100;
 
         let (height_send, height_recv) = flume::bounded::<u32>(cli_count);
         let (block_send, block_recv) =
             flume::bounded::<Box<(LevelMeta, Block)>>(cli_count);
 
         let producers = iter::repeat(BlockProducer::new(node_cli));
-        let mut producer_threads = vec![];
+        let mut threads = vec![];
         for producer in producers.take(cli_count) {
             let in_ch = height_recv.clone();
             let out_ch = block_send.clone();
-            producer_threads.push(thread::spawn(move || {
+            threads.push(thread::spawn(move || {
                 producer.run(in_ch, out_ch).unwrap();
             }));
         }
 
-        thread::spawn(move || {
+        threads.push(thread::spawn(move || {
             if let Some(bcd_cli) = bcd {
                 let mut last_id = None;
                 loop {
@@ -187,27 +196,29 @@ fn main() {
                         height_send.send(level).unwrap();
                     }
                 }
+            } else {
+                let latest_level = node_cli.head().unwrap()._level;
+                for level in [0..latest_level] {
+                    height_send.send(level).unwrap();
+                }
             }
-        });
+        }));
 
-        let rel_ast_cl = rel_ast.clone();
-        thread::spawn(move || {
-            for b in block_recv {
-                let (level, block) = *b;
-                highlevel::execute_for_block(
-                    &rel_ast_cl,
-                    contract_id,
-                    &level,
-                    &block,
-                    &mut storage_processor,
-                    &mut dbconn,
-                )
-                .unwrap();
-            }
-        });
+        for b in block_recv {
+            let (level, block) = *b;
+            highlevel::execute_for_block(
+                rel_ast,
+                contract_id,
+                &level,
+                &block,
+                &mut storage_processor,
+                &mut dbconn,
+            )
+            .unwrap();
+        }
 
-        for thread in producer_threads {
-            thread.join();
+        for t in threads {
+            t.join().unwrap();
         }
 
         // let first = CONFIG.levels.iter().min().unwrap();
