@@ -1,17 +1,14 @@
-use crate::error::Res;
 use crate::octez::node::Level;
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::SimpleExprTy;
 use crate::storage_value::parser;
 use crate::storage_value::processor::TxContext;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use native_tls::{Certificate, TlsConnector};
 use postgres::{Client, NoTls, Transaction};
 use postgres_native_tls::MakeTlsConnector;
-use std::error::Error;
 use std::fs;
-
-use crate::err;
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
@@ -23,11 +20,17 @@ impl Default for PostgresqlGenerator {
     }
 }
 
-pub(crate) fn connect(url: &str, ssl: bool, ca_cert: Option<String>) -> Res<Client> {
+pub(crate) fn connect(
+    url: &str,
+    ssl: bool,
+    ca_cert: Option<String>,
+) -> Result<Client> {
     if ssl {
         let mut builder = TlsConnector::builder();
         if let Some(ca_cert) = ca_cert {
-            builder.add_root_certificate(Certificate::from_pem(&fs::read(ca_cert)?)?);
+            builder.add_root_certificate(Certificate::from_pem(&fs::read(
+                ca_cert,
+            )?)?);
         }
         let connector = builder.build()?;
         let connector = MakeTlsConnector::new(connector);
@@ -38,27 +41,31 @@ pub(crate) fn connect(url: &str, ssl: bool, ca_cert: Option<String>) -> Res<Clie
     }
 }
 
-pub(crate) fn transaction(client: &mut Client) -> Result<Transaction, Box<dyn Error>> {
+pub(crate) fn transaction(client: &mut Client) -> Result<Transaction> {
     Ok(client.transaction()?)
 }
 
-pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64, Box<dyn Error>> {
+pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64> {
     match transaction.execute(sql, &[]) {
         Ok(x) => Ok(x),
-        Err(e) => Err(Box::new(crate::error::Error::new(&e.to_string()))),
+        Err(e) => Err(anyhow!(e.to_string())),
     }
 }
 
-pub(crate) fn delete_everything(dbconn: &mut Client) -> Res<u64> {
+pub(crate) fn delete_everything(dbconn: &mut Client) -> Result<u64> {
     Ok(dbconn.execute("DELETE FROM levels", &[])?)
 }
 
-pub(crate) fn fill_in_levels(dbconn: &mut Client, from: u32, to: u32) -> Res<u64> {
+pub(crate) fn fill_in_levels(
+    dbconn: &mut Client,
+    from: u32,
+    to: u32,
+) -> Result<u64> {
     Ok(dbconn.execute(
             format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
 }
 
-pub(crate) fn get_head(dbconn: &mut Client) -> Res<Option<Level>> {
+pub(crate) fn get_head(dbconn: &mut Client) -> Result<Option<Level>> {
     let result = dbconn.query(
         "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
         &[],
@@ -75,7 +82,7 @@ pub(crate) fn get_head(dbconn: &mut Client) -> Res<Option<Level>> {
             baked_at,
         }))
     } else {
-        Err(crate::error::Error::boxed("Too many results for get_head"))
+        Err(anyhow!("Too many results for get_head"))
     }
 }
 
@@ -83,7 +90,7 @@ pub(crate) fn get_missing_levels(
     dbconn: &mut Client,
     origination: Option<u32>,
     end: u32,
-) -> Res<Vec<u32>> {
+) -> Result<Vec<u32>> {
     let start = origination.unwrap_or(1);
     let mut rows: Vec<i32> = vec![];
     for row in dbconn.query(
@@ -91,30 +98,37 @@ pub(crate) fn get_missing_levels(
         rows.push(row.get(0));
     }
     rows.reverse();
-    Ok(rows.iter().map(|x| *x as u32).collect::<Vec<u32>>())
+    Ok(rows
+        .iter()
+        .map(|x| *x as u32)
+        .collect::<Vec<u32>>())
 }
 
-pub(crate) fn get_max_id(dbconn: &mut Client) -> Res<i32> {
+pub(crate) fn get_max_id(dbconn: &mut Client) -> Result<i32> {
     let max_id: i32 = dbconn.query("SELECT max_id FROM max_id", &[])?[0].get(0);
     Ok(max_id + 1)
 }
 
-pub(crate) fn set_max_id(dbconn: &mut Transaction, max_id: i32) -> Res<()> {
+pub(crate) fn set_max_id(dbconn: &mut Transaction, max_id: i32) -> Result<()> {
     let updated = dbconn.execute("UPDATE max_id SET max_id=$1", &[&max_id])?;
     if updated == 1 {
         Ok(())
     } else {
-        Err(crate::error::Error::boxed(
-            "Wrong number of rows in max_id table. Please fix manually. Sorry",
+        Err(anyhow!(
+            "Wrong number of rows in max_id table. Please fix manually. Sorry"
         ))
     }
 }
 
 /// get the origination of the contract, which is currently store in the levels (will change)
-pub(crate) fn set_origination(transaction: &mut Transaction, level: u32) -> Res<()> {
+pub(crate) fn set_origination(
+    transaction: &mut Transaction,
+    level: u32,
+) -> Result<()> {
     exec(
         transaction,
-        &"UPDATE levels SET is_origination = FALSE WHERE is_origination = TRUE".to_string(),
+        &"UPDATE levels SET is_origination = FALSE WHERE is_origination = TRUE"
+            .to_string(),
     )?;
     exec(
         transaction,
@@ -126,21 +140,23 @@ pub(crate) fn set_origination(transaction: &mut Transaction, level: u32) -> Res<
     Ok(())
 }
 
-pub(crate) fn get_origination(dbconn: &mut Client) -> Res<Option<u32>> {
-    let result = dbconn.query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
+pub(crate) fn get_origination(dbconn: &mut Client) -> Result<Option<u32>> {
+    let result = dbconn
+        .query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
     if result.is_empty() {
         Ok(None)
     } else if result.len() == 1 {
         let level: i32 = result[0].get(0);
         Ok(Some(level as u32))
     } else {
-        Err(crate::error::Error::boxed(
-            "Too many results for get_origination",
-        ))
+        Err(anyhow!("Too many results for get_origination"))
     }
 }
 
-pub(crate) fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
+pub(crate) fn save_level(
+    transaction: &mut Transaction,
+    level: &Level,
+) -> Result<u64> {
     exec(
         transaction,
         &format!(
@@ -151,15 +167,19 @@ pub(crate) fn save_level(transaction: &mut Transaction, level: &Level) -> Res<u6
                 None => "NULL".to_string(),
             },
             match &level.baked_at {
-                Some(baked_at) =>
-                    PostgresqlGenerator::sql_value(&parser::Value::Timestamp(*baked_at)),
+                Some(baked_at) => PostgresqlGenerator::sql_value(
+                    &parser::Value::Timestamp(*baked_at)
+                ),
                 None => "NULL".to_string(),
             }
         ),
     )
 }
 
-pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<u64> {
+pub(crate) fn delete_level(
+    transaction: &mut Transaction,
+    level: &Level,
+) -> Result<u64> {
     exec(
         transaction,
         &format!("DELETE FROM levels where _level = {}", level._level),
@@ -169,7 +189,7 @@ pub(crate) fn delete_level(transaction: &mut Transaction, level: &Level) -> Res<
 pub(crate) fn save_tx_contexts(
     transaction: &mut Transaction,
     tx_context_map: &[TxContext],
-) -> Res<()> {
+) -> Result<()> {
     let stmt = transaction.prepare("
 INSERT INTO
 tx_contexts(id, level, operation_group_number, operation_number, content_number, operation_hash, source, destination, entrypoint) VALUES
@@ -180,7 +200,8 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
             &[
                 &(tx_context
                     .id
-                    .ok_or_else(|| err!("Missing ID on TxContext"))? as i32),
+                    .ok_or_else(|| anyhow!("Missing ID on TxContext"))?
+                    as i32),
                 &(tx_context.level as i32),
                 &(tx_context.operation_group_number as i32),
                 &(tx_context.operation_number as i32),
@@ -265,7 +286,7 @@ impl PostgresqlGenerator {
         include_str!("../../sql/postgresql-table-footer.sql").to_string()
     }
 
-    pub(crate) fn create_columns(&self, table: &Table) -> Res<Vec<String>> {
+    pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
             Some(x) => vec![format!(r#""{}_id" BIGINT"#, x)],
             None => vec![],
@@ -289,7 +310,9 @@ impl PostgresqlGenerator {
         if let Some(x) = Self::parent_name(&table.name) {
             cols.push(format!("{}_id", x))
         };
-        cols.iter().map(|c| Self::quote_id(c)).collect()
+        cols.iter()
+            .map(|c| Self::quote_id(c))
+            .collect()
     }
 
     fn indices(&self, table: &Table) -> Vec<String> {
@@ -309,11 +332,13 @@ impl PostgresqlGenerator {
     }
 
     fn parent_name(name: &str) -> Option<String> {
-        name.rfind('.').map(|pos| name[0..pos].to_string())
+        name.rfind('.')
+            .map(|pos| name[0..pos].to_string())
     }
 
     fn parent_key(&self, table: &Table) -> Option<String> {
-        Self::parent_name(&table.name).map(|parent| format!(r#""{}_id""#, parent))
+        Self::parent_name(&table.name)
+            .map(|parent| format!(r#""{}_id""#, parent))
     }
 
     fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
@@ -329,7 +354,10 @@ impl PostgresqlGenerator {
         include_str!("../../sql/postgresql-common-tables.sql").to_string()
     }
 
-    pub(crate) fn create_table_definition(&self, table: &Table) -> Res<String> {
+    pub(crate) fn create_table_definition(
+        &self,
+        table: &Table,
+    ) -> Result<String> {
         let mut v: Vec<String> = vec![self.start_table(&table.name)];
         let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
@@ -344,7 +372,10 @@ impl PostgresqlGenerator {
         Ok(v.join("\n"))
     }
 
-    pub(crate) fn create_view_definition(&self, table: &Table) -> Res<String> {
+    pub(crate) fn create_view_definition(
+        &self,
+        table: &Table,
+    ) -> Result<String> {
         if table.name == "storage" {
             return Ok("".to_string());
         }
@@ -381,7 +412,9 @@ CREATE VIEW "{}_live" AS (
             parser::Value::Address(s)
             | parser::Value::KeyHash(s)
             | parser::Value::String(s)
-            | parser::Value::Unit(Some(s)) => format!(r#"'{}'"#, Self::escape(s)),
+            | parser::Value::Unit(Some(s)) => {
+                format!(r#"'{}'"#, Self::escape(s))
+            }
             parser::Value::Bool(val) => {
                 if *val {
                     "true".to_string()
@@ -398,9 +431,9 @@ CREATE VIEW "{}_live" AS (
                     }
                 )
             }
-            parser::Value::Int(b) | parser::Value::Mutez(b) | parser::Value::Nat(b) => {
-                b.to_str_radix(10)
-            }
+            parser::Value::Int(b)
+            | parser::Value::Mutez(b)
+            | parser::Value::Nat(b) => b.to_str_radix(10),
             parser::Value::None => "NULL".to_string(),
             parser::Value::Timestamp(t) => {
                 format!("'{}'", t.to_rfc2822())
@@ -410,11 +443,16 @@ CREATE VIEW "{}_live" AS (
             | parser::Value::List(_)
             | parser::Value::Pair(_, _)
             | parser::Value::Right(_)
-            | parser::Value::Unit(None) => panic!("sql_value called with {:?}", value),
+            | parser::Value::Unit(None) => {
+                panic!("sql_value called with {:?}", value)
+            }
         }
     }
 
-    pub(crate) fn build_insert(&self, insert: &crate::table::insert::Insert) -> String {
+    pub(crate) fn build_insert(
+        &self,
+        insert: &crate::table::insert::Insert,
+    ) -> String {
         let mut columns: String = insert
             .columns
             .iter()

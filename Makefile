@@ -20,7 +20,7 @@ gen-sql:
 ifeq ($(strip $(CONTRACT_ID)),"")
 	$(error variable CONTRACT_ID not set)
 else
-	cargo +nightly run -- generate-sql > contract.sql/init.sql
+	RUST_BACKTRACE=1 cargo +nightly run -- generate-sql > contract.sql/init.sql
 endif
 
 start-db:
@@ -39,7 +39,7 @@ start-indexer:
 ifeq ($(strip $(CONTRACT_ID)),"")
 	$(error variable CONTRACT_ID not set)
 else
-	cargo +nightly run -- -l 248654
+	RUST_BACKTRACE=1 cargo +nightly run -- -l 248654
 endif
 
 fill:
@@ -47,7 +47,7 @@ ifeq ($(strip $(CONTRACT_ID)),"")
 	$(error variable CONTRACT_ID not set)
 else
 	$(eval BLOCKS := $(shell python3 ./script/get-levels.py $(NETWORK) $(CONTRACT_ID)))
-	cargo +nightly run -- --init -l $(BLOCKS)
+	RUST_BACKTRACE=1 cargo +nightly run -- --init -l $(BLOCKS)
 endif
 
 db:
