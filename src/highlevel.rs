@@ -192,14 +192,7 @@ impl Executor {
         let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
             let (level, block) = *b;
-            execute_for_block(
-                &self.rel_ast,
-                &self.contract_id,
-                &level,
-                &block,
-                &mut storage_processor,
-                &mut self.dbconn,
-            )?;
+            self.exec_for_block(&level, &block, &mut storage_processor)?;
         }
 
         Ok(())
@@ -237,135 +230,125 @@ impl Executor {
                 )
             })?;
 
-        execute_for_block(
-            &self.rel_ast,
-            &self.contract_id,
-            level,
-            &block,
-            storage_processor,
-            &mut self.dbconn,
-        )
+        self.exec_for_block(level, &block, storage_processor)
     }
-}
 
-pub(crate) fn execute_for_block(
-    rel_ast: &RelationalAST,
-    contract_id: &str,
-    level: &LevelMeta,
-    block: &Block,
-    storage_processor: &mut StorageProcessor,
-    dbconn: &mut postgres::Client,
-) -> Result<SaveLevelResult> {
-    if block.has_contract_origination(contract_id) {
-        mark_level_contract_origination(dbconn, level)
+    fn exec_for_block(
+        &mut self,
+        level: &LevelMeta,
+        block: &Block,
+        storage_processor: &mut StorageProcessor,
+    ) -> Result<SaveLevelResult> {
+        if block.has_contract_origination(&self.contract_id) {
+            self.mark_level_contract_origination(level)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as contract origination in db",
                     level._level)
             })?;
-        return Ok(SaveLevelResult {
-            level: level._level,
-            is_origination: true,
-            tx_count: 0,
-        });
-    }
+            return Ok(SaveLevelResult {
+                level: level._level,
+                is_origination: true,
+                tx_count: 0,
+            });
+        }
 
-    if !block.is_contract_active(contract_id) {
-        mark_level_empty(dbconn, level)
+        if !block.is_contract_active(&self.contract_id) {
+            self.mark_level_empty(level)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as empty in db",
                     level._level)
             })?;
-        return Ok(SaveLevelResult {
-            level: level._level,
-            is_origination: false,
-            tx_count: 0,
-        });
-    }
+            return Ok(SaveLevelResult {
+                level: level._level,
+                is_origination: false,
+                tx_count: 0,
+            });
+        }
 
-    let (inserts, tx_contexts) = storage_processor
-        .process_block(block, rel_ast, contract_id)
+        let (inserts, tx_contexts) = storage_processor
+            .process_block(block, &self.rel_ast, &self.contract_id)
+            .with_context(|| {
+                format!(
+                    "execute for level={} failed: could not process block",
+                    level._level
+                )
+            })?;
+
+        self.save_level_processed_contract(
+            level,
+            &inserts,
+            tx_contexts,
+            (storage_processor.get_id_value() + 1) as i32,
+        )
         .with_context(|| {
             format!(
-                "execute for level={} failed: could not process block",
+                "execute for level={} failed: could not save processed block",
                 level._level
             )
         })?;
-
-    save_level_processed_contract(
-        dbconn,
-        level,
-        &inserts,
-        tx_contexts,
-        (storage_processor.get_id_value() + 1) as i32,
-    )
-    .with_context(|| {
-        format!(
-            "execute for level={} failed: could not save processed block",
-            level._level
-        )
-    })?;
-    Ok(SaveLevelResult {
-        level: level._level,
-        is_origination: false,
-        tx_count: inserts.len() as u32,
-    })
-}
-
-fn mark_level_contract_origination(
-    dbconn: &mut postgres::Client,
-    level: &LevelMeta,
-) -> Result<()> {
-    let mut transaction = postgresql_generator::transaction(dbconn)?;
-    postgresql_generator::delete_level(&mut transaction, level)?;
-    postgresql_generator::save_level(&mut transaction, level)?;
-    postgresql_generator::set_origination(&mut transaction, level._level)?;
-    transaction.commit()?;
-    Ok(())
-}
-
-fn mark_level_empty(
-    dbconn: &mut postgres::Client,
-    level: &LevelMeta,
-) -> Result<()> {
-    let mut transaction = postgresql_generator::transaction(dbconn)?;
-    postgresql_generator::delete_level(&mut transaction, level)?;
-    postgresql_generator::save_level(&mut transaction, level)?;
-    transaction.commit()?;
-    Ok(())
-}
-
-fn save_level_processed_contract(
-    dbconn: &mut postgres::Client,
-    level: &LevelMeta,
-    inserts: &Inserts,
-    tx_contexts: Vec<TxContext>,
-    next_id: i32,
-) -> Result<()> {
-    let mut transaction = postgresql_generator::transaction(dbconn)?;
-    postgresql_generator::delete_level(&mut transaction, level)?;
-    postgresql_generator::save_level(&mut transaction, level)?;
-
-    postgresql_generator::save_tx_contexts(&mut transaction, &tx_contexts)?;
-    let mut keys = inserts
-        .keys()
-        .collect::<Vec<&crate::table::insert::InsertKey>>();
-    keys.sort_by_key(|a| a.id);
-    let generator = PostgresqlGenerator::new();
-    for key in keys.iter() {
-        postgresql_generator::exec(
-            &mut transaction,
-            &generator.build_insert(
-                inserts
-                    .get(key)
-                    .ok_or_else(|| anyhow!("No insert for key"))?,
-            ),
-        )?;
+        Ok(SaveLevelResult {
+            level: level._level,
+            is_origination: false,
+            tx_count: inserts.len() as u32,
+        })
     }
-    postgresql_generator::set_max_id(&mut transaction, next_id)?;
-    transaction.commit()?;
-    Ok(())
+
+    fn mark_level_contract_origination(
+        &mut self,
+        level: &LevelMeta,
+    ) -> Result<()> {
+        let mut transaction =
+            postgresql_generator::transaction(&mut self.dbconn)?;
+        postgresql_generator::delete_level(&mut transaction, level)?;
+        postgresql_generator::save_level(&mut transaction, level)?;
+        postgresql_generator::set_origination(&mut transaction, level._level)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    fn mark_level_empty(&mut self, level: &LevelMeta) -> Result<()> {
+        let mut transaction =
+            postgresql_generator::transaction(&mut self.dbconn)?;
+        postgresql_generator::delete_level(&mut transaction, level)?;
+        postgresql_generator::save_level(&mut transaction, level)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    fn save_level_processed_contract(
+        &mut self,
+        level: &LevelMeta,
+        inserts: &Inserts,
+        tx_contexts: Vec<TxContext>,
+        next_id: i32,
+    ) -> Result<()> {
+        let mut transaction =
+            postgresql_generator::transaction(&mut self.dbconn)?;
+        postgresql_generator::delete_level(&mut transaction, level)?;
+        postgresql_generator::save_level(&mut transaction, level)?;
+
+        postgresql_generator::save_tx_contexts(&mut transaction, &tx_contexts)?;
+        let mut keys = inserts
+            .keys()
+            .collect::<Vec<&crate::table::insert::InsertKey>>();
+        keys.sort_by_key(|a| a.id);
+        let generator = PostgresqlGenerator::new();
+        for key in keys.iter() {
+            postgresql_generator::exec(
+                &mut transaction,
+                &generator.build_insert(
+                    inserts
+                        .get(key)
+                        .ok_or_else(|| anyhow!("No insert for key"))?,
+                ),
+            )?;
+        }
+        postgresql_generator::set_max_id(&mut transaction, next_id)?;
+        transaction.commit()?;
+        Ok(())
+    }
 }
 
 fn level_text(result: &SaveLevelResult) -> String {
