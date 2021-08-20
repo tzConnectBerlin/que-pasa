@@ -166,6 +166,6 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
             )),
         }
     } else {
-        panic!("Wrong JS {}", json.to_string());
+        Err(anyhow!("Wrong JS {}", json.to_string()))
     }
 }

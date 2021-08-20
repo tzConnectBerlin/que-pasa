@@ -38,14 +38,25 @@ pub mod storage_value;
 use anyhow::Context;
 use config::CONFIG;
 use env_logger::Env;
+use octez::bcd;
 use octez::node;
 use sql::postgresql_generator;
 use sql::table;
 use sql::table_builder;
+use std::panic;
+use std::process;
+use std::thread;
 use storage_structure::relational;
 use storage_structure::typing;
 
 fn main() {
+    let orig_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        // invoke the default handler and exit the process
+        orig_hook(panic_info);
+        process::exit(1);
+    }));
+
     dotenv::dotenv().ok();
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
@@ -117,59 +128,53 @@ fn main() {
             "Initialising--all data in DB will be destroyed. \
             Interrupt within 5 seconds to abort"
         );
-        std::thread::sleep(std::time::Duration::from_millis(5000));
+        thread::sleep(std::time::Duration::from_millis(5000));
         postgresql_generator::delete_everything(&mut dbconn)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
     }
 
-    let mut storage_processor =
-        crate::highlevel::get_storage_processor(contract_id, &mut dbconn)
-            .with_context(|| {
-                "could not initialize storage processor from the db state"
-            })
-            .unwrap();
+    let mut executor = highlevel::Executor::new(
+        node_cli.clone(),
+        rel_ast.clone(),
+        contract_id.clone(),
+        dbconn,
+    );
 
-    if !CONFIG.levels.is_empty() {
-        highlevel::execute_for_levels(
-            node_cli,
-            rel_ast,
-            contract_id,
-            &CONFIG.levels,
-            &mut storage_processor,
-            &mut dbconn,
-        )
-        .unwrap();
-    }
-
+    let num_getters = CONFIG.workers_cap;
     if CONFIG.init {
-        let first = CONFIG.levels.iter().min().unwrap();
-        let last = CONFIG.levels.iter().max().unwrap();
-        postgresql_generator::fill_in_levels(&mut dbconn, *first, *last)
-            .with_context(|| {
-                "failed to mark levels unrelated to the contract as empty in the db"
-            })
-            .unwrap();
+        match CONFIG.bcd_url.clone() {
+            Some(bcd_url) => {
+                let bcd_cli = bcd::BCDClient::new(
+                    bcd_url,
+                    CONFIG.network.clone(),
+                    contract_id.clone(),
+                );
+
+                executor
+                    .exec_parallel(num_getters, move |height_chan| {
+                        bcd_cli
+                            .populate_levels_chan(height_chan)
+                            .unwrap()
+                    })
+                    .unwrap()
+            }
+            None => {
+                executor
+                    .exec_levels(num_getters, CONFIG.levels.clone())
+                    .unwrap();
+            }
+        };
+
+        executor.fill_in_levels().unwrap();
         return;
     }
 
     // No args so we will first load missing levels
-    highlevel::execute_missing_levels(
-        node_cli,
-        rel_ast,
-        contract_id,
-        &mut storage_processor,
-        &mut dbconn,
-    )
-    .unwrap();
+    executor
+        .exec_missing_levels(num_getters)
+        .unwrap();
 
     // At last, normal operation.
-    crate::highlevel::execute_continuous(
-        node_cli,
-        rel_ast,
-        contract_id,
-        &mut storage_processor,
-        &mut dbconn,
-    )
-    .unwrap();
+    executor.exec_continuous().unwrap();
 }

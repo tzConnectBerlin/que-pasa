@@ -12,6 +12,9 @@ edition = "2018"
 pretty_assertions = "*"
 
 [dependencies]
+backoff = "0.3.0"
+reqwest = { version = "0.11.4", features = ["blocking"] }
+flume = "0.10.8"
 anyhow = "1.0"
 atty = "0.2.14"
 backtrace = "*"

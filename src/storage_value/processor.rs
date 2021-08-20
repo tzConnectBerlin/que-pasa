@@ -137,7 +137,7 @@ impl StorageProcessor {
 
     pub(crate) fn process_block(
         &mut self,
-        block: block::Block,
+        block: &block::Block,
         rel_ast: &RelationalAST,
         contract_id: &str,
     ) -> Result<(Inserts, Vec<TxContext>)> {
@@ -310,26 +310,32 @@ impl StorageProcessor {
                     if let Some(operation_result) =
                         &content.metadata.operation_result
                     {
-                        if let Some(storage) = &operation_result.storage {
-                            results.push((
-                                self.tx_context(TxContext {
-                                    id: None,
-                                    level,
-                                    operation_hash: operation.hash.clone(),
-                                    operation_group_number,
-                                    operation_number,
-                                    content_number,
-                                    source: content.source.clone(),
-                                    destination: content.destination.clone(),
-                                    entrypoint: content
-                                        .parameters
-                                        .clone()
-                                        .map(|p| p.entrypoint),
-                                }),
-                                storage.clone(),
-                            ));
-                        } else {
-                            return Err(anyhow!("no storage found!"));
+                        if operation_result.status == "applied" {
+                            let tx_context = TxContext {
+                                id: None,
+                                level,
+                                operation_hash: operation.hash.clone(),
+                                operation_group_number,
+                                operation_number,
+                                content_number,
+                                source: content.source.clone(),
+                                destination: content.destination.clone(),
+                                entrypoint: content
+                                    .parameters
+                                    .clone()
+                                    .map(|p| p.entrypoint),
+                            };
+                            if let Some(storage) = &operation_result.storage {
+                                results.push((
+                                    self.tx_context(tx_context),
+                                    storage.clone(),
+                                ));
+                            } else {
+                                return Err(anyhow!(
+                                    "no storage found! tx_context={:#?}",
+                                    tx_context
+                                ));
+                            }
                         }
                     }
                 }
