@@ -53,11 +53,7 @@ impl Executor {
         // in the db
 
         let mut storage_processor = self.get_storage_processor()?;
-
         let is_tty = stdout_is_tty();
-        let print_status = |result: &SaveLevelResult| {
-            info!("{}", level_text(result));
-        };
 
         loop {
             let _spinner;
@@ -81,7 +77,7 @@ impl Executor {
                     for level in (db_head._level + 1)..=chain_head._level {
                         let result =
                             self.exec_level(level, &mut storage_processor)?;
-                        print_status(&result);
+                        Self::print_status(&result);
                     }
                     continue;
                 }
@@ -192,10 +188,16 @@ impl Executor {
         let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
             let (level, block) = *b;
-            self.exec_for_block(&level, &block, &mut storage_processor)?;
+            let res =
+                self.exec_for_block(&level, &block, &mut storage_processor)?;
+            Self::print_status(&res);
         }
 
         Ok(())
+    }
+
+    fn print_status(result: &SaveLevelResult) {
+        info!("{}", level_text(result));
     }
 
     fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
@@ -352,10 +354,16 @@ impl Executor {
 }
 
 fn level_text(result: &SaveLevelResult) -> String {
-    format!(
-        "level {} {} transactions for us, origination={}",
-        result.level, result.tx_count, result.is_origination
-    )
+    match result {
+        SaveLevelResult {
+            is_origination: true,
+            ..
+        } => format!("level {}: contract origination", result.level),
+        SaveLevelResult { tx_count: 1, .. } => {
+            format!("level {}: {} tx for us", result.level, result.tx_count)
+        }
+        _ => format!("level {}: {} txs for us", result.level, result.tx_count),
+    }
 }
 
 fn stdout_is_tty() -> bool {
@@ -558,7 +566,7 @@ fn test_block() {
             .unwrap();
 
             let (inserts, _) = storage_processor
-                .process_block(block, &rel_ast, contract.id)
+                .process_block(&block, &rel_ast, contract.id)
                 .unwrap();
 
             let filename =

@@ -43,7 +43,6 @@ impl ConcurrentBlockGetter {
             let (_, block) = node_cli
                 .level_json(level_height)
                 .unwrap();
-            println!("got block data for level {}", level_height);
 
             send_ch.send(Box::new((level, block)))?;
         }
