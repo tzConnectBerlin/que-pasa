@@ -46,12 +46,8 @@ fill:
 ifeq ($(strip $(CONTRACT_ID)),"")
 	$(error variable CONTRACT_ID not set)
 else
-	$(eval BLOCKS := $(shell python3 ./script/get-levels.py $(NETWORK) $(CONTRACT_ID)))
-	RUST_BACKTRACE=1 cargo +nightly run -- --init -l $(BLOCKS)
-endif
-
-filln:
 	RUST_BACKTRACE=1 cargo +nightly run -- --init --bcd-url https://api.better-call.dev/v1 --network $(NETWORK)
+endif
 
 db:
 	make gen-sql

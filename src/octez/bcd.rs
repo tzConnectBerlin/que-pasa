@@ -1,5 +1,5 @@
 // bcd => better-call.dev
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -20,24 +20,29 @@ impl BCDClient {
         }
     }
 
-    pub fn populate_levels_chan(&self, height_send: flume::Sender<u32>) {
+    pub fn populate_levels_chan(
+        &self,
+        height_send: flume::Sender<u32>,
+    ) -> Result<()> {
         let mut last_id = None;
+        let latest_level = self.get_latest_level()?;
+        height_send.send(latest_level)?;
+
         loop {
-            let (levels, new_last_id) = self
-                .get_levels_page_with_contract(
-                    self.contract_id.to_string(),
-                    last_id,
-                )
-                .unwrap();
+            let (levels, new_last_id) = self.get_levels_page_with_contract(
+                self.contract_id.to_string(),
+                last_id,
+            )?;
             if levels.is_empty() {
                 break;
             }
             last_id = Some(new_last_id);
 
             for level in levels {
-                height_send.send(level).unwrap();
+                height_send.send(level)?;
             }
         }
+        Ok(())
     }
 
     fn get_levels_page_with_contract(
@@ -49,7 +54,10 @@ impl BCDClient {
         if let Some(last_id) = last_id {
             params.push(("last_id".to_string(), last_id))
         }
-        let resp = self.load(format!("{}/operations", contract_id), &params)?;
+        let resp = self.load(
+            format!("contract/{}/{}/operations", self.network, contract_id),
+            &params,
+        )?;
 
         #[derive(Deserialize)]
         struct Operation {
@@ -73,13 +81,32 @@ impl BCDClient {
         Ok((levels, parsed.last_id))
     }
 
+    fn get_latest_level(&self) -> Result<u32> {
+        let resp = self.load("head".to_string(), &[])?;
+        #[derive(Deserialize)]
+        struct Parsed {
+            network: String,
+            level: u32,
+        }
+        let parsed: Vec<Parsed> = serde_json::from_str(&resp)?;
+        match parsed
+            .iter()
+            .find(|elem| elem.network == self.network)
+        {
+            Some(elem) => Ok(elem.level),
+            None => Err(anyhow!(
+                "better-call.dev /head call has no entry for network={}",
+                self.network
+            )),
+        }
+    }
+
     fn load(
         &self,
         endpoint: String,
         query_params: &[(String, String)],
     ) -> Result<String> {
-        let uri =
-            format!("{}/contract/{}/{}", self.api_url, self.network, endpoint);
+        let uri = format!("{}/{}", self.api_url, endpoint);
         info!("GET {}..", uri);
 
         let cli = reqwest::blocking::Client::new();

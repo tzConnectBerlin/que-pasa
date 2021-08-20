@@ -153,7 +153,9 @@ fn main() {
 
                 executor
                     .exec_parallel(num_getters, move |height_chan| {
-                        bcd_cli.populate_levels_chan(height_chan)
+                        bcd_cli
+                            .populate_levels_chan(height_chan)
+                            .unwrap()
                     })
                     .unwrap()
             }

@@ -149,7 +149,7 @@ impl Executor {
     pub fn exec_parallel<F>(
         &mut self,
         num_getters: usize,
-        levels_fn: F,
+        levels_selector: F,
     ) -> Result<()>
     where
         F: FnOnce(flume::Sender<u32>) + Send + 'static,
@@ -164,7 +164,7 @@ impl Executor {
             ConcurrentBlockGetter::new(self.node_cli.clone(), num_getters);
         let mut threads = block_getter.run(height_recv, block_send);
 
-        threads.push(thread::spawn(|| levels_fn(height_send)));
+        threads.push(thread::spawn(|| levels_selector(height_send)));
 
         self.read_block_chan(block_recv)?;
 
