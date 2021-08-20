@@ -168,14 +168,16 @@ pub fn init_config() -> Result<Config> {
     config.network = matches
         .value_of("network")
         .map_or_else(|| std::env::var("NETWORK"), |s| Ok(s.to_string()))
-        .unwrap_or("mainnet".to_string());
+        .unwrap_or_else(|_| "mainnet".to_string());
 
     let workers_cap = match matches.value_of("workers_cap") {
         Some(s) => s.to_string(),
-        None => std::env::var("WORKERS_CAP").unwrap_or("10".to_string()),
+        None => {
+            std::env::var("WORKERS_CAP").unwrap_or_else(|_| "10".to_string())
+        }
     };
     config.workers_cap = workers_cap.parse::<usize>()?;
-    if config.workers_cap <= 0 {
+    if config.workers_cap == 0 {
         warn!(
             "set workers_cap ({}) is invalid. defaulting to 1",
             config.workers_cap
