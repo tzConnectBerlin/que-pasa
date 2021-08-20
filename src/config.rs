@@ -13,6 +13,7 @@ pub struct Config {
     pub node_url: String,
     pub network: String,
     pub bcd_url: Option<String>,
+    pub workers_cap: usize,
 }
 
 lazy_static! {
@@ -79,6 +80,13 @@ pub fn init_config() -> Result<Config> {
                 .value_name("BCD_URL")
                 .help("Optional: better-call.dev api url (enables fast bootstrap)")
                 .takes_value(true))
+        .arg(
+            Arg::with_name("workers_cap")
+                .long("workers-cap")
+                .value_name("WORKERS_CAP")
+                .help("max number of workers used to concurrently fetch block data from the node (only applies during bootstrap)")
+                .takes_value(true),
+        )
         .arg(
             Arg::with_name("levels")
                 .short("l")
@@ -161,6 +169,19 @@ pub fn init_config() -> Result<Config> {
         .value_of("network")
         .map_or_else(|| std::env::var("NETWORK"), |s| Ok(s.to_string()))
         .unwrap_or("mainnet".to_string());
+
+    let workers_cap = match matches.value_of("workers_cap") {
+        Some(s) => s.to_string(),
+        None => std::env::var("WORKERS_CAP").unwrap_or("10".to_string()),
+    };
+    config.workers_cap = workers_cap.parse::<usize>()?;
+    if config.workers_cap <= 0 {
+        warn!(
+            "set workers_cap ({}) is invalid. defaulting to 1",
+            config.workers_cap
+        );
+        config.workers_cap = 1;
+    }
 
     debug!("Config={:#?}", config);
     Ok(config)

@@ -7,18 +7,40 @@ pub struct BCDClient {
     api_url: String,
     network: String,
     timeout: Duration,
+    contract_id: String,
 }
 
 impl BCDClient {
-    pub fn new(api_url: String, network: String) -> Self {
+    pub fn new(api_url: String, network: String, contract_id: String) -> Self {
         Self {
             api_url,
             network,
             timeout: Duration::from_secs(20),
+            contract_id,
         }
     }
 
-    pub fn get_levels_with_contract(
+    pub fn populate_levels_chan(&self, height_send: flume::Sender<u32>) {
+        let mut last_id = None;
+        loop {
+            let (levels, new_last_id) = self
+                .get_levels_page_with_contract(
+                    self.contract_id.to_string(),
+                    last_id,
+                )
+                .unwrap();
+            if levels.is_empty() {
+                break;
+            }
+            last_id = Some(new_last_id);
+
+            for level in levels {
+                height_send.send(level).unwrap();
+            }
+        }
+    }
+
+    fn get_levels_page_with_contract(
         &self,
         contract_id: String,
         last_id: Option<String>,

@@ -56,13 +56,22 @@ pub(crate) fn delete_everything(dbconn: &mut Client) -> Result<u64> {
     Ok(dbconn.execute("DELETE FROM levels", &[])?)
 }
 
-pub(crate) fn fill_in_levels(
-    dbconn: &mut Client,
-    from: u32,
-    to: u32,
-) -> Result<u64> {
+pub(crate) fn fill_in_levels(dbconn: &mut Client) -> Result<u64> {
     Ok(dbconn.execute(
-            format!("INSERT INTO levels(_level, hash) SELECT g.level, NULL FROM GENERATE_SERIES({},{}) AS g(level) WHERE g.level NOT IN (SELECT _level FROM levels)", from, to).as_str(), &[])?)
+        "
+INSERT INTO levels(_level, hash)
+SELECT
+    g.level,
+    NULL
+FROM GENERATE_SERIES(
+    (SELECT MIN(_level) FROM levels),
+    (SELECT MAX(_level) FROM levels)
+) AS g(level)
+WHERE g.level NOT IN (
+    SELECT _level FROM levels
+)",
+        &[],
+    )?)
 }
 
 pub(crate) fn get_head(dbconn: &mut Client) -> Result<Option<LevelMeta>> {

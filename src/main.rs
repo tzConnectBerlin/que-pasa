@@ -39,13 +39,10 @@ use anyhow::Context;
 use config::CONFIG;
 use env_logger::Env;
 use octez::bcd;
-use octez::block::{Block, LevelMeta};
-use octez::block_producer::BlockProducer;
 use octez::node;
 use sql::postgresql_generator;
 use sql::table;
 use sql::table_builder;
-use std::iter;
 use std::panic;
 use std::process;
 use std::thread;
@@ -137,117 +134,45 @@ fn main() {
             .unwrap();
     }
 
-    let mut storage_processor =
-        crate::highlevel::get_storage_processor(contract_id, &mut dbconn)
-            .with_context(|| {
-                "could not initialize storage processor from the db state"
-            })
-            .unwrap();
+    let mut executor = highlevel::Executor::new(
+        node_cli.clone(),
+        rel_ast.clone(),
+        contract_id.clone(),
+        dbconn,
+    );
 
-    if !CONFIG.levels.is_empty() {
-        highlevel::execute_for_levels(
-            node_cli,
-            rel_ast,
-            contract_id,
-            &CONFIG.levels,
-            &mut storage_processor,
-            &mut dbconn,
-        )
-        .unwrap();
-    }
-
+    let num_getters = CONFIG.workers_cap;
     if CONFIG.init {
-        let bcd = CONFIG.bcd_url.clone().map(|bcd_url| {
-            bcd::BCDClient::new(bcd_url, CONFIG.network.clone())
-        });
+        match CONFIG.bcd_url.clone() {
+            Some(bcd_url) => {
+                let bcd_cli = bcd::BCDClient::new(
+                    bcd_url,
+                    CONFIG.network.clone(),
+                    contract_id.clone(),
+                );
 
-        let cli_count = 100;
-
-        let (height_send, height_recv) = flume::bounded::<u32>(cli_count);
-        let (block_send, block_recv) =
-            flume::bounded::<Box<(LevelMeta, Block)>>(cli_count);
-
-        let producers = iter::repeat(BlockProducer::new(node_cli));
-        let mut threads = vec![];
-        for producer in producers.take(cli_count) {
-            let in_ch = height_recv.clone();
-            let out_ch = block_send.clone();
-            threads.push(thread::spawn(move || {
-                producer.run(in_ch, out_ch).unwrap();
-            }));
-        }
-
-        threads.push(thread::spawn(move || {
-            if let Some(bcd_cli) = bcd {
-                let mut last_id = None;
-                loop {
-                    let (levels, new_last_id) = bcd_cli
-                        .get_levels_with_contract(
-                            contract_id.to_string(),
-                            last_id,
-                        )
-                        .unwrap();
-                    if levels.is_empty() {
-                        break;
-                    }
-                    last_id = Some(new_last_id);
-
-                    for level in levels {
-                        height_send.send(level).unwrap();
-                    }
-                }
-            } else {
-                let latest_level = node_cli.head().unwrap()._level;
-                for level in [0..latest_level] {
-                    height_send.send(level).unwrap();
-                }
+                executor
+                    .exec_parallel(num_getters, move |height_chan| {
+                        bcd_cli.populate_levels_chan(height_chan)
+                    })
+                    .unwrap()
             }
-        }));
+            None => {
+                executor
+                    .exec_levels(num_getters, CONFIG.levels.clone())
+                    .unwrap();
+            }
+        };
 
-        for b in block_recv {
-            let (level, block) = *b;
-            highlevel::execute_for_block(
-                rel_ast,
-                contract_id,
-                &level,
-                &block,
-                &mut storage_processor,
-                &mut dbconn,
-            )
-            .unwrap();
-        }
-
-        for t in threads {
-            t.join().unwrap();
-        }
-
-        // let first = CONFIG.levels.iter().min().unwrap();
-        // let last = CONFIG.levels.iter().max().unwrap();
-        // postgresql_generator::fill_in_levels(&mut dbconn, *first, *last)
-        //     .with_context(|| {
-        //         "failed to mark levels unrelated to the contract as empty in the db"
-        //     })
-        //     .unwrap();
+        executor.fill_in_levels().unwrap();
         return;
     }
 
     // No args so we will first load missing levels
-    highlevel::execute_missing_levels(
-        node_cli,
-        rel_ast,
-        contract_id,
-        &mut storage_processor,
-        &mut dbconn,
-    )
-    .unwrap();
+    executor
+        .exec_missing_levels(num_getters)
+        .unwrap();
 
     // At last, normal operation.
-    crate::highlevel::execute_continuous(
-        node_cli,
-        rel_ast,
-        contract_id,
-        &mut storage_processor,
-        &mut dbconn,
-    )
-    .unwrap();
+    executor.exec_continuous().unwrap();
 }
