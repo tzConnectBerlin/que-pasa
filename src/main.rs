@@ -66,15 +66,19 @@ fn main() {
         &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
 
     // init by grabbing the contract data.
-    let json = node_cli
-        .get_contract_script(contract_id, None)
+    info!(
+        "getting the storage definition for contract={}..",
+        contract_id
+    );
+    let storage_def = &node_cli
+        .get_contract_storage_definition(contract_id, None)
         .unwrap();
-    let storage_definition = &json["code"][1]["args"][0];
-    let type_ast = typing::storage_ast_from_json(storage_definition)
+    let type_ast = typing::storage_ast_from_json(storage_def)
         .with_context(|| {
             "failed to derive a storage type from the storage definition"
         })
         .unwrap();
+    info!("storage definition retrieved, and type derived");
 
     // Build the internal representation from the storage defition
     let ctx = relational::Context::init();
@@ -167,6 +171,13 @@ fn main() {
         };
 
         executor.fill_in_levels().unwrap();
+        return;
+    }
+
+    if !CONFIG.levels.is_empty() {
+        executor
+            .exec_levels(num_getters, CONFIG.levels.clone())
+            .unwrap();
         return;
     }
 

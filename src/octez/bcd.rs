@@ -50,7 +50,7 @@ impl BCDClient {
         contract_id: String,
         last_id: Option<String>,
     ) -> Result<(Vec<u32>, String)> {
-        let mut params = vec![];
+        let mut params = vec![("status".to_string(), "applied".to_string())];
         if let Some(last_id) = last_id {
             params.push(("last_id".to_string(), last_id))
         }

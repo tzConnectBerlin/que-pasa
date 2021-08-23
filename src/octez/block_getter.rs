@@ -39,8 +39,7 @@ impl ConcurrentBlockGetter {
         send_ch: flume::Sender<Box<(LevelMeta, Block)>>,
     ) -> Result<()> {
         for level_height in recv_ch {
-            let level = node_cli.level(level_height).unwrap();
-            let (_, block) = node_cli
+            let (_, level, block) = node_cli
                 .level_json(level_height)
                 .unwrap();
 

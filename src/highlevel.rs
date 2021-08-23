@@ -213,16 +213,7 @@ impl Executor {
         level_height: u32,
         storage_processor: &mut StorageProcessor,
     ) -> Result<SaveLevelResult> {
-        let level = &self
-            .node_cli
-            .level(level_height)
-            .with_context(|| {
-                format!(
-                    "execute for level={} failed: could not get level metadata",
-                    level_height
-                )
-            })?;
-        let (_json, block) = self
+        let (_json, level, block) = self
             .node_cli
             .level_json(level_height)
             .with_context(|| {
@@ -232,7 +223,7 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(level, &block, storage_processor)
+        self.exec_for_block(&level, &block, storage_processor)
     }
 
     fn exec_for_block(

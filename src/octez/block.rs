@@ -572,8 +572,8 @@ pub struct InternalOperationResult {
     pub nonce: i64,
     pub amount: Option<String>,
     pub destination: Option<String>,
-    pub parameters: Option<serde_json::Value>,
-    pub result: Result,
+    pub parameters: Option<Parameters>,
+    pub result: OperationResult,
 }
 
 #[derive(
