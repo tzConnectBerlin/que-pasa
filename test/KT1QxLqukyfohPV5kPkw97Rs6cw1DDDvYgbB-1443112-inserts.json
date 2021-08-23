@@ -87,14 +87,6 @@
                 value: Timestamp("2021-04-24T17:15:44Z"),
             ),
             (
-                name: "current_delegated",
-                value: None,
-            ),
-            (
-                name: "current_candidate",
-                value: None,
-            ),
-            (
                 name: "baker_validator",
                 value: Address("KT1Rowg7xjbQzQh3VFb2E9r6PMxoAqyJnSZi"),
             ),
