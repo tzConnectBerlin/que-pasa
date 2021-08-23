@@ -609,6 +609,14 @@ impl StorageProcessor {
                     );
                 }
             }
+            RelationalAST::Option { elem_ast } => {
+                if *v != parser::Value::None {
+                    self.process_storage_value_internal(
+                        ctx, v, elem_ast, tx_context,
+                    )?;
+                }
+                return Ok(());
+            }
             _ => {}
         };
 

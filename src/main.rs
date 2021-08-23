@@ -79,6 +79,7 @@ fn main() {
         })
         .unwrap();
     info!("storage definition retrieved, and type derived");
+    // println!("type_ast={:#?}", type_ast);
 
     // Build the internal representation from the storage defition
     let ctx = relational::Context::init();

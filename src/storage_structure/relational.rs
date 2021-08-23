@@ -106,6 +106,9 @@ impl Context {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RelationalAST {
+    Option {
+        elem_ast: Box<RelationalAST>,
+    },
     Pair {
         left_ast: Box<RelationalAST>,
         right_ast: Box<RelationalAST>,
@@ -206,11 +209,16 @@ pub(crate) fn build_relational_ast(
                     value_ast: Box::new(value_ast),
                 })
             }
-            ComplexExprTy::Option(expr_type) => build_relational_ast(
-                ctx,
-                &ele_with_annot(expr_type, ele.name.clone()),
-                indexes,
-            ),
+            ComplexExprTy::Option(expr_type) => {
+                let elem_ast = build_relational_ast(
+                    ctx,
+                    &ele_with_annot(expr_type, ele.name.clone()),
+                    indexes,
+                )?;
+                Ok(RelationalAST::Option {
+                    elem_ast: Box::new(elem_ast),
+                })
+            }
             ComplexExprTy::OrEnumeration(_, _) => {
                 Ok(build_enumeration_or(ctx, ele, &name, indexes)?.0)
             }

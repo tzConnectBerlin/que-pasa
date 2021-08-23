@@ -61,6 +61,7 @@ impl TableBuilder {
                 self.populate(key_ast);
                 self.populate(value_ast);
             }
+            RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {
                 table,
                 elems_unique,
