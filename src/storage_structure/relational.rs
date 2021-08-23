@@ -129,6 +129,7 @@ pub enum RelationalAST {
     },
     List {
         table: String,
+        elems_unique: bool,
         elems_ast: Box<RelationalAST>,
     },
     Leaf {
@@ -176,12 +177,13 @@ pub(crate) fn build_relational_ast(
                     right_ast: Box::new(right),
                 })
             }
-            ComplexExprTy::List(elems_type) => {
+            ComplexExprTy::List(elems_unique, elems_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
                 let elems_ast = build_index(ctx, elems_type, indexes)?;
                 Ok(RelationalAST::List {
                     table: ctx.table_name.clone(),
                     elems_ast: Box::new(elems_ast),
+                    elems_unique: *elems_unique,
                 })
             }
             ComplexExprTy::BigMap(key_type, value_type) => {

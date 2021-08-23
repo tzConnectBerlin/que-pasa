@@ -22,7 +22,7 @@ impl TableBuilder {
     }
 
     fn add_column(&mut self, rel_entry: &RelationalEntry) {
-        let mut table = self.get_table(rel_entry);
+        let mut table = self.get_table(rel_entry.table_name.clone());
         if rel_entry.is_index {
             table.add_index(rel_entry);
         } else {
@@ -31,8 +31,7 @@ impl TableBuilder {
         self.store_table(table);
     }
 
-    fn get_table(&self, rel_entry: &RelationalEntry) -> Table {
-        let name = rel_entry.clone().table_name;
+    fn get_table(&self, name: String) -> Table {
         match self.tables.get(&name) {
             Some(x) => x.clone(),
             None => Table::new(name),
@@ -40,7 +39,8 @@ impl TableBuilder {
     }
 
     fn store_table(&mut self, table: Table) {
-        self.tables.insert(table.name.clone(), table);
+        self.tables
+            .insert(table.name.clone(), table);
     }
 
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
@@ -61,7 +61,18 @@ impl TableBuilder {
                 self.populate(key_ast);
                 self.populate(value_ast);
             }
-            RelationalAST::List { elems_ast, .. } => self.populate(elems_ast),
+            RelationalAST::List {
+                table,
+                elems_unique,
+                elems_ast,
+            } => {
+                self.populate(elems_ast);
+                if !elems_unique {
+                    let mut t = self.get_table(table.clone());
+                    t.no_uniqueness();
+                    self.store_table(t);
+                }
+            }
             RelationalAST::OrEnumeration {
                 or_unfold,
                 left_ast,

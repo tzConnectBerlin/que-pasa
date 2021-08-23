@@ -336,8 +336,13 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn create_index(&self, table: &Table) -> String {
+        let uniqueness_constraint = match table.has_uniqueness() {
+            true => "UNIQUE",
+            false => "",
+        };
         format!(
-            "CREATE UNIQUE INDEX ON \"{}\"({});\n",
+            "CREATE {} INDEX ON \"{}\"({});\n",
+            uniqueness_constraint,
             table.name,
             self.indices(table).join(", ")
         )
