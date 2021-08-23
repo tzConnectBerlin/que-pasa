@@ -39,7 +39,7 @@ start-indexer:
 ifeq ($(strip $(CONTRACT_ID)),"")
 	$(error variable CONTRACT_ID not set)
 else
-	RUST_BACKTRACE=1 cargo +nightly run -- -l 248654
+	RUST_BACKTRACE=1 cargo +nightly run
 endif
 
 fill:
