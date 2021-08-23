@@ -20,7 +20,7 @@ pub enum SimpleExprTy {
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ComplexExprTy {
     BigMap(Box<Ele>, Box<Ele>),
-    List(Box<Ele>),
+    List(bool, Box<Ele>),
     Map(Box<Ele>, Box<Ele>),
     Pair(Box<Ele>, Box<Ele>),
     OrEnumeration(Box<Ele>, Box<Ele>),
@@ -151,6 +151,19 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
                 Ok(Ele {
                     name: annot,
                     expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
+                        true,
+                        Box::new(inner_ast),
+                    )),
+                })
+            }
+            "list" => {
+                panic!("found a list type, untested. inspect this");
+                let inner_ast =
+                    storage_ast_from_json(&args.unwrap()[0]).unwrap();
+                Ok(Ele {
+                    name: annot,
+                    expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
+                        false,
                         Box::new(inner_ast),
                     )),
                 })

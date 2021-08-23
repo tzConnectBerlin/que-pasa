@@ -17,10 +17,6 @@
                 name: "deleted",
                 value: Bool(false),
             ),
-            (
-                name: "lambda_repository_creator",
-                value: None,
-            ),
         ],
     ),
     (
@@ -40,10 +36,6 @@
             (
                 name: "deleted",
                 value: Bool(false),
-            ),
-            (
-                name: "lambda_repository_creator",
-                value: None,
             ),
         ],
     ),

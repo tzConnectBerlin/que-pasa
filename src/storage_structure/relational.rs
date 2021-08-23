@@ -106,6 +106,9 @@ impl Context {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum RelationalAST {
+    Option {
+        elem_ast: Box<RelationalAST>,
+    },
     Pair {
         left_ast: Box<RelationalAST>,
         right_ast: Box<RelationalAST>,
@@ -129,6 +132,7 @@ pub enum RelationalAST {
     },
     List {
         table: String,
+        elems_unique: bool,
         elems_ast: Box<RelationalAST>,
     },
     Leaf {
@@ -176,12 +180,13 @@ pub(crate) fn build_relational_ast(
                     right_ast: Box::new(right),
                 })
             }
-            ComplexExprTy::List(elems_type) => {
+            ComplexExprTy::List(elems_unique, elems_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
                 let elems_ast = build_index(ctx, elems_type, indexes)?;
                 Ok(RelationalAST::List {
                     table: ctx.table_name.clone(),
                     elems_ast: Box::new(elems_ast),
+                    elems_unique: *elems_unique,
                 })
             }
             ComplexExprTy::BigMap(key_type, value_type) => {
@@ -204,11 +209,16 @@ pub(crate) fn build_relational_ast(
                     value_ast: Box::new(value_ast),
                 })
             }
-            ComplexExprTy::Option(expr_type) => build_relational_ast(
-                ctx,
-                &ele_with_annot(expr_type, ele.name.clone()),
-                indexes,
-            ),
+            ComplexExprTy::Option(expr_type) => {
+                let elem_ast = build_relational_ast(
+                    ctx,
+                    &ele_with_annot(expr_type, ele.name.clone()),
+                    indexes,
+                )?;
+                Ok(RelationalAST::Option {
+                    elem_ast: Box::new(elem_ast),
+                })
+            }
             ComplexExprTy::OrEnumeration(_, _) => {
                 Ok(build_enumeration_or(ctx, ele, &name, indexes)?.0)
             }

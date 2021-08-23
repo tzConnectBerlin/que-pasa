@@ -156,10 +156,6 @@
                 ])),
             ),
             (
-                name: "winning_token",
-                value: None,
-            ),
-            (
                 name: "tokens_lqt_token_id",
                 value: Int((1, [
                     27,

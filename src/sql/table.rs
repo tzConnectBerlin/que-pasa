@@ -14,6 +14,7 @@ pub struct Table {
     pub name: String,
     pub indices: Vec<String>,
     pub columns: Vec<Column>,
+    unique: bool,
 }
 
 impl Table {
@@ -22,6 +23,7 @@ impl Table {
             name,
             indices: vec!["tx_context_id".to_string()],
             columns: vec![],
+            unique: true,
         }
     }
 
@@ -35,13 +37,27 @@ impl Table {
                     column_type: *e,
                 });
             }
-            ExprTy::ComplexExprTy(e) => panic!("add_index called with ComplexExprTy {:#?}", e),
+            ExprTy::ComplexExprTy(e) => {
+                panic!("add_index called with ComplexExprTy {:#?}", e)
+            }
         }
+    }
+
+    pub(crate) fn has_uniqueness(&self) -> bool {
+        self.unique
+    }
+
+    pub(crate) fn no_uniqueness(&mut self) {
+        self.unique = false
     }
 
     pub(crate) fn add_column(&mut self, rel_entry: &RelationalEntry) {
         let name = rel_entry.column_name.clone();
-        if self.columns.iter().any(|column| column.name == name) {
+        if self
+            .columns
+            .iter()
+            .any(|column| column.name == name)
+        {
             return;
         }
         match &rel_entry.column_type {
@@ -108,7 +124,9 @@ pub mod insert {
     impl Insert {
         #[cfg(test)]
         pub fn get_column(&self, name: &str) -> Option<&Column> {
-            self.columns.iter().find(|column| column.name == name)
+            self.columns
+                .iter()
+                .find(|column| column.name == name)
         }
     }
 

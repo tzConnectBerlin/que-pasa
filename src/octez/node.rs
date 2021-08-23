@@ -36,16 +36,10 @@ impl NodeClient {
         })
     }
 
-    pub(crate) fn level(&self, level: u32) -> Result<LevelMeta> {
-        let (json, block) = self.level_json(level)?;
-        Ok(LevelMeta {
-            _level: block.header.level as u32,
-            hash: Some(block.hash),
-            baked_at: Some(Self::timestamp_from_block(&json)?),
-        })
-    }
-
-    pub(crate) fn level_json(&self, level: u32) -> Result<(JsonValue, Block)> {
+    pub(crate) fn level_json(
+        &self,
+        level: u32,
+    ) -> Result<(JsonValue, LevelMeta, Block)> {
         let resp = self
             .load(&format!("blocks/{}", level))
             .with_context(|| {
@@ -58,30 +52,50 @@ impl NodeClient {
                     level
                 )
             })?;
-        Ok((resp, block))
+        let meta = LevelMeta {
+            _level: block.header.level as u32,
+            hash: Some(block.hash.clone()),
+            baked_at: Some(Self::timestamp_from_block(&resp)?),
+        };
+        Ok((resp, meta, block))
     }
 
     /// Get all of the data for the contract.
-    pub(crate) fn get_contract_script(
+    pub(crate) fn get_contract_storage_definition(
         &self,
         contract_id: &str,
         level: Option<u32>,
     ) -> Result<JsonValue> {
-        let level = match level {
-            Some(x) => format!("{}", x),
-            None => "head".to_string(),
-        };
+        retry(ExponentialBackoff::default(), || {
+            fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
+                warn!("transient node comm. error, retrying..");
+                Error::Transient(e)
+            }
 
-        self.load(&format!(
-            "blocks/{}/context/contracts/{}/script",
-            level, contract_id
-        ))
-        .with_context(|| {
-            format!(
-                "failed to get script data for contract='{}', level={}",
-                contract_id, level
-            )
+            let level = match level {
+                Some(x) => format!("{}", x),
+                None => "head".to_string(),
+            };
+
+            let resp = self
+                .load(&format!(
+                    "blocks/{}/context/contracts/{}/script",
+                    level, contract_id
+                ))
+                .with_context(|| {
+                    format!(
+                        "failed to get script data for contract='{}', level={}",
+                        contract_id, level
+                    )
+                })
+                .map_err(Error::Permanent)?;
+            let res = resp["code"][1]["args"][0].clone();
+            if res == JsonValue::Null {
+                return Err(anyhow!("got invalid script data (got 'null') for contract='{}', level={}", contract_id, level)).map_err(transient_err);
+            }
+            Ok(res)
         })
+        .map_err(|e| anyhow!(e))
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {

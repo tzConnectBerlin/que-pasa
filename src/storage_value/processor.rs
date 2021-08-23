@@ -64,6 +64,7 @@ pub(crate) struct TxContext {
     pub operation_group_number: usize,
     pub operation_number: usize,
     pub content_number: usize,
+    pub internal_number: Option<usize>,
     pub source: Option<String>,
     pub destination: Option<String>,
     pub entrypoint: Option<String>,
@@ -76,6 +77,7 @@ impl Hash for TxContext {
         self.operation_group_number.hash(state);
         self.operation_number.hash(state);
         self.content_number.hash(state);
+        self.internal_number.hash(state);
         self.source.hash(state);
         self.destination.hash(state);
         self.entrypoint.hash(state);
@@ -90,6 +92,7 @@ impl PartialEq for TxContext {
             && self.operation_group_number == other.operation_group_number
             && self.operation_number == other.operation_number
             && self.content_number == other.content_number
+            && self.internal_number == other.internal_number
             && self.source == other.source
             && self.destination == other.destination
             && self.entrypoint == other.entrypoint
@@ -223,12 +226,12 @@ impl StorageProcessor {
         operation: &block::Operation,
         contract_id: &str,
     ) -> Result<Vec<(TxContext, block::BigMapDiff)>> {
+        let c_dest = Some(contract_id.to_string());
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
+
         for (content_number, content) in operation.contents.iter().enumerate() {
-            if content.destination == Some(contract_id.to_string()) {
-                if let Some(operation_result) =
-                    &content.metadata.operation_result
-                {
+            if let Some(operation_result) = &content.metadata.operation_result {
+                if content.destination == c_dest {
                     if let Some(big_map_diffs) = &operation_result.big_map_diff
                     {
                         result.extend(big_map_diffs.iter().map(
@@ -241,6 +244,7 @@ impl StorageProcessor {
                                         operation_number,
                                         operation_group_number,
                                         content_number,
+                                        internal_number: None,
                                         source: content.source.clone(),
                                         destination: content
                                             .destination
@@ -256,37 +260,48 @@ impl StorageProcessor {
                         ));
                     }
                 }
-                for internal_operation_result in &content
+
+                for (internal_number, internal_op) in content
                     .metadata
                     .internal_operation_results
+                    .iter()
+                    .enumerate()
                 {
-                    if let Some(big_map_diffs) = &internal_operation_result
-                        .result
-                        .big_map_diff
-                    {
-                        result.extend(big_map_diffs.iter().map(
-                            |big_map_diff| {
-                                (
-                                    self.tx_context(TxContext {
-                                        id: None,
-                                        level,
-                                        operation_hash: operation.hash.clone(),
-                                        operation_group_number,
-                                        operation_number,
-                                        content_number,
-                                        source: content.source.clone(),
-                                        destination: content
-                                            .destination
-                                            .clone(),
-                                        entrypoint: content
-                                            .parameters
-                                            .clone()
-                                            .map(|p| p.entrypoint),
-                                    }),
-                                    big_map_diff.clone(),
-                                )
-                            },
-                        ));
+                    if internal_op.destination == c_dest {
+                        if let Some(big_map_diffs) =
+                            &internal_op.result.big_map_diff
+                        {
+                            result.extend(big_map_diffs.iter().map(
+                                |big_map_diff| {
+                                    (
+                                        self.tx_context(TxContext {
+                                            id: None,
+                                            level,
+                                            operation_hash: operation
+                                                .hash
+                                                .clone(),
+                                            operation_group_number,
+                                            operation_number,
+                                            content_number,
+                                            internal_number: Some(
+                                                internal_number,
+                                            ),
+                                            source: Some(
+                                                internal_op.source.clone(),
+                                            ),
+                                            destination: internal_op
+                                                .destination
+                                                .clone(),
+                                            entrypoint: internal_op
+                                                .parameters
+                                                .clone()
+                                                .map(|p| p.entrypoint),
+                                        }),
+                                        big_map_diff.clone(),
+                                    )
+                                },
+                            ));
+                        }
                     }
                 }
             }
@@ -304,13 +319,45 @@ impl StorageProcessor {
     ) -> Result<Vec<(TxContext, ::serde_json::Value)>> {
         let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
 
+        let c_dest = Some(contract_id.to_string());
         for (content_number, content) in operation.contents.iter().enumerate() {
-            if let Some(destination) = &content.destination {
-                if destination == contract_id {
-                    if let Some(operation_result) =
-                        &content.metadata.operation_result
+            if let Some(operation_result) = &content.metadata.operation_result {
+                if operation_result.status == "applied" {
+                    if content.destination == c_dest {
+                        let tx_context = TxContext {
+                            id: None,
+                            level,
+                            operation_hash: operation.hash.clone(),
+                            operation_group_number,
+                            operation_number,
+                            content_number,
+                            internal_number: None,
+                            source: content.source.clone(),
+                            destination: content.destination.clone(),
+                            entrypoint: content
+                                .parameters
+                                .clone()
+                                .map(|p| p.entrypoint),
+                        };
+                        if let Some(storage) = &operation_result.storage {
+                            results.push((
+                                self.tx_context(tx_context),
+                                storage.clone(),
+                            ));
+                        } else {
+                            return Err(anyhow!(
+                                "no storage found! tx_context={:#?}",
+                                tx_context
+                            ));
+                        }
+                    }
+                    for (internal_number, internal_op) in content
+                        .metadata
+                        .internal_operation_results
+                        .iter()
+                        .enumerate()
                     {
-                        if operation_result.status == "applied" {
+                        if internal_op.destination == c_dest {
                             let tx_context = TxContext {
                                 id: None,
                                 level,
@@ -318,14 +365,15 @@ impl StorageProcessor {
                                 operation_group_number,
                                 operation_number,
                                 content_number,
-                                source: content.source.clone(),
-                                destination: content.destination.clone(),
-                                entrypoint: content
+                                internal_number: Some(internal_number),
+                                source: Some(internal_op.source.clone()),
+                                destination: internal_op.destination.clone(),
+                                entrypoint: internal_op
                                     .parameters
                                     .clone()
                                     .map(|p| p.entrypoint),
                             };
-                            if let Some(storage) = &operation_result.storage {
+                            if let Some(storage) = &internal_op.result.storage {
                                 results.push((
                                     self.tx_context(tx_context),
                                     storage.clone(),
@@ -560,6 +608,14 @@ impl StorageProcessor {
                         tx_context,
                     );
                 }
+            }
+            RelationalAST::Option { elem_ast } => {
+                if *v != parser::Value::None {
+                    self.process_storage_value_internal(
+                        ctx, v, elem_ast, tx_context,
+                    )?;
+                }
+                return Ok(());
             }
             _ => {}
         };

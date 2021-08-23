@@ -22,6 +22,15 @@ CREATE TABLE tx_contexts(
        operation_group_number INTEGER NOT NULL,
        operation_number INTEGER NOT NULL,
        content_number INTEGER NOT NULL,
+       internal_number INTEGER,
        source VARCHAR(100) NOT NULL,
        destination VARCHAR(100),
        entrypoint VARCHAR(100));
+
+CREATE UNIQUE INDEX ON tx_contexts(
+    level,
+    operation_hash,
+    operation_group_number,
+    operation_number,
+    content_number,
+    coalesce(internal_number, -1));
