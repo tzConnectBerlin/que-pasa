@@ -1,5 +1,6 @@
 // bcd => better-call.dev
 use anyhow::{anyhow, Result};
+use backoff::{retry, Error, ExponentialBackoff};
 use serde::Deserialize;
 use std::time::Duration;
 
@@ -106,16 +107,26 @@ impl BCDClient {
         endpoint: String,
         query_params: &[(String, String)],
     ) -> Result<String> {
-        let uri = format!("{}/{}", self.api_url, endpoint);
-        info!("GET {}..", uri);
+        fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
+            warn!("transient better-call.dev communication error, retrying.. err={}", e);
+            Error::Transient(e)
+        }
+        let op = || -> Result<String> {
+            let uri = format!("{}/{}", self.api_url, endpoint);
+            info!("GET {}..", uri);
 
-        let cli = reqwest::blocking::Client::new();
-        let body = cli
-            .get(uri)
-            .query(query_params)
-            .timeout(self.timeout)
-            .send()?
-            .text()?;
-        Ok(body)
+            let cli = reqwest::blocking::Client::new();
+            let body = cli
+                .get(uri)
+                .query(query_params)
+                .timeout(self.timeout)
+                .send()?
+                .text()?;
+            Ok(body)
+        };
+        retry(ExponentialBackoff::default(), || {
+            op().map_err(transient_err)
+        })
+        .map_err(|e| anyhow!(e))
     }
 }

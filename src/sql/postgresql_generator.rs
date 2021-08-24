@@ -1,14 +1,6 @@
-use crate::octez::block::LevelMeta;
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::SimpleExprTy;
-use crate::storage_value::parser;
-use crate::storage_value::processor::TxContext;
-use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
-use native_tls::{Certificate, TlsConnector};
-use postgres::{Client, NoTls, Transaction};
-use postgres_native_tls::MakeTlsConnector;
-use std::fs;
+use anyhow::Result;
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
@@ -18,214 +10,6 @@ impl Default for PostgresqlGenerator {
     fn default() -> Self {
         Self::new()
     }
-}
-
-pub(crate) fn connect(
-    url: &str,
-    ssl: bool,
-    ca_cert: Option<String>,
-) -> Result<Client> {
-    if ssl {
-        let mut builder = TlsConnector::builder();
-        if let Some(ca_cert) = ca_cert {
-            builder.add_root_certificate(Certificate::from_pem(&fs::read(
-                ca_cert,
-            )?)?);
-        }
-        let connector = builder.build()?;
-        let connector = MakeTlsConnector::new(connector);
-
-        Ok(postgres::Client::connect(url, connector)?)
-    } else {
-        Ok(Client::connect(url, NoTls)?)
-    }
-}
-
-pub(crate) fn transaction(client: &mut Client) -> Result<Transaction> {
-    Ok(client.transaction()?)
-}
-
-pub(crate) fn exec(transaction: &mut Transaction, sql: &str) -> Result<u64> {
-    match transaction.execute(sql, &[]) {
-        Ok(x) => Ok(x),
-        Err(e) => Err(anyhow!("err on sql={}: {}", sql, e.to_string())),
-    }
-}
-
-pub(crate) fn delete_everything(dbconn: &mut Client) -> Result<u64> {
-    Ok(dbconn.execute("DELETE FROM levels", &[])?)
-}
-
-pub(crate) fn fill_in_levels(dbconn: &mut Client) -> Result<u64> {
-    Ok(dbconn.execute(
-        "
-INSERT INTO levels(_level, hash)
-SELECT
-    g.level,
-    NULL
-FROM GENERATE_SERIES(
-    (SELECT MIN(_level) FROM levels),
-    (SELECT MAX(_level) FROM levels)
-) AS g(level)
-WHERE g.level NOT IN (
-    SELECT _level FROM levels
-)",
-        &[],
-    )?)
-}
-
-pub(crate) fn get_head(dbconn: &mut Client) -> Result<Option<LevelMeta>> {
-    let result = dbconn.query(
-        "SELECT _level, hash, is_origination, baked_at FROM levels ORDER BY _level DESC LIMIT 1",
-        &[],
-    )?;
-    if result.is_empty() {
-        Ok(None)
-    } else if result.len() == 1 {
-        let _level: i32 = result[0].get(0);
-        let hash: Option<String> = result[0].get(1);
-        let baked_at: Option<DateTime<Utc>> = result[0].get(3);
-        Ok(Some(LevelMeta {
-            _level: _level as u32,
-            hash,
-            baked_at,
-        }))
-    } else {
-        Err(anyhow!("Too many results for get_head"))
-    }
-}
-
-pub(crate) fn get_missing_levels(
-    dbconn: &mut Client,
-    origination: Option<u32>,
-    end: u32,
-) -> Result<Vec<u32>> {
-    let start = origination.unwrap_or(1);
-    let mut rows: Vec<i32> = vec![];
-    for row in dbconn.query(
-        format!("SELECT * from generate_series({},{}) s(i) WHERE NOT EXISTS (SELECT _level FROM levels WHERE _level = s.i)", start, end).as_str(), &[])? {
-        rows.push(row.get(0));
-    }
-    rows.reverse();
-    Ok(rows
-        .iter()
-        .map(|x| *x as u32)
-        .collect::<Vec<u32>>())
-}
-
-pub(crate) fn get_max_id(dbconn: &mut Client) -> Result<i32> {
-    let max_id: i32 = dbconn.query("SELECT max_id FROM max_id", &[])?[0].get(0);
-    Ok(max_id + 1)
-}
-
-pub(crate) fn set_max_id(dbconn: &mut Transaction, max_id: i32) -> Result<()> {
-    let updated = dbconn.execute("UPDATE max_id SET max_id=$1", &[&max_id])?;
-    if updated == 1 {
-        Ok(())
-    } else {
-        Err(anyhow!(
-            "Wrong number of rows in max_id table. Please fix manually. Sorry"
-        ))
-    }
-}
-
-/// get the origination of the contract, which is currently store in the levels (will change)
-pub(crate) fn set_origination(
-    transaction: &mut Transaction,
-    level: u32,
-) -> Result<()> {
-    exec(
-        transaction,
-        &"UPDATE levels SET is_origination = FALSE WHERE is_origination = TRUE"
-            .to_string(),
-    )?;
-    exec(
-        transaction,
-        &format!(
-            "UPDATE levels SET is_origination = TRUE where _level={}",
-            level,
-        ),
-    )?;
-    Ok(())
-}
-
-pub(crate) fn get_origination(dbconn: &mut Client) -> Result<Option<u32>> {
-    let result = dbconn
-        .query("SELECT _level FROM levels WHERE is_origination = TRUE", &[])?;
-    if result.is_empty() {
-        Ok(None)
-    } else if result.len() == 1 {
-        let level: i32 = result[0].get(0);
-        Ok(Some(level as u32))
-    } else {
-        Err(anyhow!("Too many results for get_origination"))
-    }
-}
-
-pub(crate) fn save_level(
-    transaction: &mut Transaction,
-    level: &LevelMeta,
-) -> Result<u64> {
-    exec(
-        transaction,
-        &format!(
-            "INSERT INTO levels(_level, hash, baked_at) VALUES ({}, {}, {})",
-            level._level,
-            match &level.hash {
-                Some(hash) => format!("'{}'", hash),
-                None => "NULL".to_string(),
-            },
-            match &level.baked_at {
-                Some(baked_at) => PostgresqlGenerator::sql_value(
-                    &parser::Value::Timestamp(*baked_at)
-                ),
-                None => "NULL".to_string(),
-            }
-        ),
-    )
-}
-
-pub(crate) fn delete_level(
-    transaction: &mut Transaction,
-    level: &LevelMeta,
-) -> Result<u64> {
-    exec(
-        transaction,
-        &format!("DELETE FROM levels where _level = {}", level._level),
-    )
-}
-
-pub(crate) fn save_tx_contexts(
-    transaction: &mut Transaction,
-    tx_context_map: &[TxContext],
-) -> Result<()> {
-    let stmt = transaction.prepare("
-INSERT INTO
-tx_contexts(id, level, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES
-($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")?;
-    for tx_context in tx_context_map {
-        transaction.execute(
-            &stmt,
-            &[
-                &(tx_context
-                    .id
-                    .ok_or_else(|| anyhow!("Missing ID on TxContext"))?
-                    as i32),
-                &(tx_context.level as i32),
-                &(tx_context.operation_group_number as i32),
-                &(tx_context.operation_number as i32),
-                &(tx_context.content_number as i32),
-                &(tx_context
-                    .internal_number
-                    .map(|n| n as i32)),
-                &tx_context.operation_hash,
-                &tx_context.source,
-                &tx_context.destination,
-                &tx_context.entrypoint,
-            ],
-        )?;
-    }
-    Ok(())
 }
 
 impl PostgresqlGenerator {
@@ -250,7 +34,7 @@ impl PostgresqlGenerator {
         }
     }
 
-    fn quote_id(s: &str) -> String {
+    pub(crate) fn quote_id(s: &str) -> String {
         format!("\"{}\"", s)
     }
 
@@ -283,7 +67,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn timestamp(&self, name: &str) -> String {
-        format!("{} TIMESTAMP NULL", name)
+        format!("{} TIMESTAMP WITH TIME ZONE NULL", name)
     }
 
     pub(crate) fn unit(&self, name: &str) -> String {
@@ -300,7 +84,7 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
-            Some(x) => vec![format!(r#""{}_id" BIGINT"#, x)],
+            Some(x) => vec![format!(r#""{}_id" INTEGER"#, x)],
             None => vec![],
         };
         for column in &table.columns {
@@ -348,7 +132,7 @@ impl PostgresqlGenerator {
         )
     }
 
-    fn parent_name(name: &str) -> Option<String> {
+    pub(crate) fn parent_name(name: &str) -> Option<String> {
         name.rfind('.')
             .map(|pos| name[0..pos].to_string())
     }
@@ -421,81 +205,8 @@ CREATE VIEW "{}_live" AS (
     }
 
     fn escape(s: &str) -> String {
-        s.to_string().replace("'", "''")
-    }
-
-    pub fn sql_value(value: &parser::Value) -> String {
-        match value {
-            parser::Value::Address(s)
-            | parser::Value::KeyHash(s)
-            | parser::Value::String(s)
-            | parser::Value::Unit(Some(s)) => {
-                format!(r#"'{}'"#, Self::escape(s))
-            }
-            parser::Value::Bool(val) => {
-                if *val {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            }
-            parser::Value::Bytes(s) => {
-                format!(
-                    "'{}'",
-                    match parser::decode_address(s) {
-                        Ok(a) => a,
-                        Err(_) => s.to_string(),
-                    }
-                )
-            }
-            parser::Value::Int(b)
-            | parser::Value::Mutez(b)
-            | parser::Value::Nat(b) => b.to_str_radix(10),
-            parser::Value::None => "NULL".to_string(),
-            parser::Value::Timestamp(t) => {
-                format!("'{}'", t.to_rfc2822())
-            }
-            parser::Value::Elt(_, _)
-            | parser::Value::Left(_)
-            | parser::Value::List(_)
-            | parser::Value::Pair(_, _)
-            | parser::Value::Right(_)
-            | parser::Value::Unit(None) => {
-                panic!("sql_value called with {:?}", value)
-            }
-        }
-    }
-
-    pub(crate) fn build_insert(
-        &self,
-        insert: &crate::table::insert::Insert,
-    ) -> String {
-        let mut columns: String = insert
-            .columns
-            .iter()
-            .map(|x| Self::quote_id(&x.name))
-            .collect::<Vec<String>>()
-            .join(", ");
-        let mut values: String = insert
-            .columns
-            .iter()
-            .map(|x| Self::sql_value(&x.value))
-            .collect::<Vec<String>>()
-            .join(", ");
-        if let Some(fk_id) = insert.fk_id {
-            columns.push_str(&format!(
-                r#", "{}_id""#,
-                Self::parent_name(&insert.table_name).unwrap(),
-            ));
-            values.push_str(&format!(", {}", fk_id));
-        }
-        let sql = format!(
-            r#"INSERT INTO "{}"
-(id, {})
-VALUES
-({}, {})"#,
-            insert.table_name, columns, insert.id, values,
-        );
-        sql
+        s.to_string()
+            .replace("'", "''")
+            .replace("\\", "\\\\")
     }
 }

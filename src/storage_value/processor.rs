@@ -1,10 +1,12 @@
 use crate::octez::block;
-use crate::sql::table::insert::*;
+use crate::sql::insert;
+use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
+use rust_decimal::prelude::*;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -132,7 +134,7 @@ impl StorageProcessor {
     pub(crate) fn new(initial_id: u32) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
-            inserts: crate::table::insert::Inserts::new(),
+            inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
         }
@@ -519,7 +521,7 @@ impl StorageProcessor {
                                 ctx,
                                 &table,
                                 &"deleted".to_string(),
-                                parser::Value::Bool(true),
+                                insert::Value::Bool(true),
                                 tx_context,
                             ),
                             Some(val) => self.process_storage_value_internal(
@@ -552,7 +554,7 @@ impl StorageProcessor {
             ctx,
             &"storage".to_string(),
             &"deleted".to_string(),
-            parser::Value::Bool(false),
+            insert::Value::Bool(false),
             tx_context,
         );
         self.process_storage_value_internal(
@@ -599,12 +601,12 @@ impl StorageProcessor {
             }
             RelationalAST::OrEnumeration { or_unfold, .. } => {
                 let rel_entry = self.resolve_or(ctx, or_unfold, v, rel_ast)?;
-                if rel_entry.value != None {
+                if let Some(value) = rel_entry.value {
                     self.sql_add_cell(
                         ctx,
                         &rel_entry.table_name,
                         &rel_entry.column_name,
-                        parser::Value::Unit(rel_entry.value),
+                        insert::Value::String(value),
                         tx_context,
                     );
                 }
@@ -751,8 +753,8 @@ impl StorageProcessor {
                         &rel_entry.table_name,
                         &rel_entry.column_name,
                         match &rel_entry.value {
-                            Some(s) => parser::Value::String(s.clone()),
-                            None => parser::Value::None,
+                            Some(s) => insert::Value::String(s.clone()),
+                            None => insert::Value::Null,
                         },
                         tx_context,
                     );
@@ -782,25 +784,8 @@ impl StorageProcessor {
                         if let ExprTy::SimpleExprTy(simple_type) =
                             rel_entry.column_type
                         {
-                            let v = match simple_type {
-                                SimpleExprTy::Timestamp => {
-                                    parser::Value::Timestamp(
-                                        parser::parse_date(&value.clone())
-                                            .unwrap(),
-                                    )
-                                }
-                                SimpleExprTy::Address => {
-                                    if let parser::Value::Bytes(a) = v {
-                                        // sometimes we get bytes where we expected an address.
-                                        parser::Value::Address(
-                                            parser::decode_address(a).unwrap(),
-                                        )
-                                    } else {
-                                        v.clone()
-                                    }
-                                }
-                                _ => v.clone(),
-                            };
+                            let v =
+                                Self::storage2sql_value(&simple_type, value)?;
                             self.sql_add_cell(
                                 ctx,
                                 &rel_entry.table_name,
@@ -821,6 +806,95 @@ impl StorageProcessor {
         }
     }
 
+    fn storage2sql_value(
+        t: &SimpleExprTy,
+        v: &parser::Value,
+    ) -> Result<insert::Value> {
+        debug!("t: {:#?}, v: {:#?}", t, v);
+        match t {
+            SimpleExprTy::String => {
+                if let parser::Value::String(s) = v {
+                    Ok(insert::Value::String(s.clone()))
+                } else {
+                    Err(anyhow!(
+                        "storage2sql_value: failed to match type with value"
+                    ))
+                }
+            }
+            SimpleExprTy::KeyHash => {
+                if let parser::Value::Bytes(bs) = v {
+                    Ok(insert::Value::String(bs.clone()))
+                } else {
+                    Err(anyhow!(
+                        "storage2sql_value: failed to match type with value"
+                    ))
+                }
+            }
+            SimpleExprTy::Timestamp => {
+                Ok(insert::Value::Timestamp(parser::parse_date(v)?))
+            }
+            SimpleExprTy::Address => {
+                match v {
+                    parser::Value::Bytes(bs) =>
+                    // sometimes we get bytes where we expected an address.
+                    {
+                        Ok(insert::Value::String(
+                            parser::decode_address(bs).unwrap(),
+                        ))
+                    }
+                    parser::Value::Address(addr) => {
+                        Ok(insert::Value::String(addr.clone()))
+                    }
+                    _ => Err(anyhow!(
+                        "storage2sql_value: failed to match type with value"
+                    )),
+                }
+            }
+            SimpleExprTy::Bool => {
+                if let parser::Value::Bool(b) = v {
+                    Ok(insert::Value::Bool(*b))
+                } else {
+                    Err(anyhow!(
+                        "storage2sql_value: failed to match type with value"
+                    ))
+                }
+            }
+            SimpleExprTy::Bytes => {
+                if let parser::Value::Bytes(bs) = v {
+                    Ok(insert::Value::String(bs.clone()))
+                } else {
+                    Err(anyhow!(
+                        "storage2sql_value: failed to match type with value"
+                    ))
+                }
+            }
+            SimpleExprTy::Unit => match v {
+                parser::Value::Unit(None) => Ok(insert::Value::Null),
+                parser::Value::Unit(Some(u)) => {
+                    Ok(insert::Value::String(u.clone()))
+                }
+                _ => Err(anyhow!(
+                    "storage2sql_value: failed to match type with value"
+                )),
+            },
+            SimpleExprTy::Int | SimpleExprTy::Mutez | SimpleExprTy::Nat => {
+                match v {
+                    parser::Value::Int(i)
+                    | parser::Value::Mutez(i)
+                    | parser::Value::Nat(i) => Ok(insert::Value::Numeric(
+                        Decimal::from_str(i.to_str_radix(10).as_str()).unwrap(),
+                    )),
+                    _ => Err(anyhow!(
+                        "storage2sql_value: failed to match type with value"
+                    )),
+                }
+            }
+            _ => Err(anyhow!(
+                "storage2sql_value: failed to match type with value"
+            )),
+        }
+    }
+
     fn save_bigmap_location(
         &mut self,
         bigmap_id: u32,
@@ -836,7 +910,7 @@ impl StorageProcessor {
         ctx: &ProcessStorageContext,
         table_name: &str,
         column_name: &str,
-        value: parser::Value,
+        value: insert::Value,
         tx_context: &TxContext,
     ) {
         let mut insert = match self.get_insert(table_name, ctx.id, ctx.fk_id) {
@@ -847,7 +921,7 @@ impl StorageProcessor {
                 fk_id: ctx.fk_id,
                 columns: vec![Column {
                     name: "tx_context_id".to_string(),
-                    value: parser::Value::Int(tx_context.id.unwrap().into()),
+                    value: insert::Value::Int(tx_context.id.unwrap() as i32),
                 }],
             },
         };
