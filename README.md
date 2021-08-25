@@ -1,4 +1,4 @@
-# The Baby Tezos Indexer
+# Que Pasa, the baby indexer for Tezos
 
 This repo contains the baby indexer, an indexer for one (1) smart contract. It reads the contract's storage definition and generates SQL DDL for a SQL representation of the tables, which it then populates.
 
