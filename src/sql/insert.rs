@@ -1,13 +1,14 @@
 use chrono::{DateTime, Utc};
 use postgres::types::BorrowToSql;
-use rust_decimal::prelude::*;
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(
+    Ord, PartialOrd, Clone, Debug, Eq, PartialEq, Serialize, Deserialize,
+)]
 pub enum Value {
     String(String),
     Bool(bool),
-    Numeric(Decimal),
+    Numeric(String),
     Int(i32),
     BigInt(i64),
     Timestamp(DateTime<Utc>),
@@ -48,13 +49,13 @@ impl PartialOrd for InsertKey {
 }
 
 //Change name for more clarity?
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub value: Value,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Insert {
     pub table_name: String,
     pub id: u32,

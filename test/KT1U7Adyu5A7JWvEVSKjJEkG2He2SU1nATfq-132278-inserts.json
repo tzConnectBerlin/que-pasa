@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    121,
-                ])),
+                value: Int(121),
             ),
             (
                 name: "deleted",
@@ -19,17 +17,15 @@
             ),
             (
                 name: "stablecoin",
-                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
             (
                 name: "owner",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "last_token_created",
-                value: Int((1, [
-                    9,
-                ])),
+                value: Numeric("9"),
             ),
         ],
     ),
@@ -43,19 +39,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    121,
-                ])),
+                value: Int(121),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    9,
-                ])),
+                value: Numeric("9"),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((0, [])),
+                value: Numeric("0"),
             ),
         ],
     ),
@@ -69,19 +61,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    121,
-                ])),
+                value: Int(121),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    8,
-                ])),
+                value: Numeric("8"),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((0, [])),
+                value: Numeric("0"),
             ),
         ],
     ),
@@ -95,19 +83,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    121,
-                ])),
+                value: Int(121),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    7,
-                ])),
+                value: Numeric("7"),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((0, [])),
+                value: Numeric("0"),
             ),
         ],
     ),
@@ -121,9 +105,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    121,
-                ])),
+                value: Int(121),
             ),
             (
                 name: "idx_string_0",
@@ -131,47 +113,27 @@
             ),
             (
                 name: "uniswap_contribution_factor",
-                value: Int((1, [
-                    0,
-                    3876673904,
-                    1652502935,
-                    88352421,
-                ])),
+                value: Numeric("7000000000000000000000000000000000000"),
             ),
             (
                 name: "yes_preference",
-                value: Int((1, [
-                    0,
-                    578341072,
-                    4161245922,
-                    1173825026,
-                ])),
+                value: Numeric("93000000000000000000000000000000000000"),
             ),
             (
                 name: "total_auction_quantity",
-                value: Int((1, [
-                    1661992960,
-                    1808227885,
-                    5,
-                ])),
+                value: Numeric("100000000000000000000"),
             ),
             (
                 name: "tokens_lqt_token_id",
-                value: Int((1, [
-                    9,
-                ])),
+                value: Numeric("9"),
             ),
             (
                 name: "tokens_no_token_id",
-                value: Int((1, [
-                    8,
-                ])),
+                value: Numeric("8"),
             ),
             (
                 name: "tokens_yes_token_id",
-                value: Int((1, [
-                    7,
-                ])),
+                value: Numeric("7"),
             ),
             (
                 name: "market_close",
@@ -187,7 +149,7 @@
             ),
             (
                 name: "owner",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
         ],
     ),
@@ -201,37 +163,23 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    121,
-                ])),
+                value: Int(121),
             ),
             (
                 name: "idx_address_1",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "total_token",
-                value: Int((1, [
-                    0,
-                    578341072,
-                    4161245922,
-                    1173825026,
-                ])),
+                value: Numeric("93000000000000000000000000000000000000"),
             ),
             (
                 name: "quantity",
-                value: Int((1, [
-                    1661992960,
-                    1808227885,
-                    5,
-                ])),
+                value: Numeric("100000000000000000000"),
             ),
             (
                 name: "rate",
-                value: Int((1, [
-                    2568814592,
-                    216532498,
-                ])),
+                value: Numeric("930000000000000000"),
             ),
         ],
     ),

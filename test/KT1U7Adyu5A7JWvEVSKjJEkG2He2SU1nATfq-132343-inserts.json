@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "deleted",
@@ -19,17 +17,15 @@
             ),
             (
                 name: "stablecoin",
-                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
             (
                 name: "owner",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "last_token_created",
-                value: Int((1, [
-                    12,
-                ])),
+                value: Numeric("12"),
             ),
         ],
     ),
@@ -43,22 +39,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    12,
-                ])),
+                value: Numeric("12"),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((1, [
-                    1217727865,
-                    1225424440,
-                ])),
+                value: Numeric("5263157894736842105"),
             ),
         ],
     ),
@@ -72,23 +61,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Int((1, [
-                    10,
-                ])),
+                value: Numeric("10"),
             ),
             (
                 name: "idx_tokens_address_2",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
-                value: Int((0, [])),
+                value: Numeric("0"),
             ),
         ],
     ),
@@ -102,23 +87,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Int((1, [
-                    12,
-                ])),
+                value: Numeric("12"),
             ),
             (
                 name: "idx_tokens_address_2",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
-                value: Int((0, [])),
+                value: Numeric("0"),
             ),
         ],
     ),

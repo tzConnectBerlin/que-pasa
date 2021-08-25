@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    116,
-                ])),
+                value: Int(116),
             ),
             (
                 name: "deleted",
@@ -29,27 +27,23 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    116,
-                ])),
+                value: Int(116),
             ),
             (
                 name: "idx_markets_nat_4",
-                value: Int((1, [
-                    60019725,
-                ])),
+                value: Numeric("60019725"),
             ),
             (
                 name: "state",
-                value: Unit(Some("storage.market_map.auctionRunning")),
+                value: String("storage.market_map.auctionRunning"),
             ),
             (
                 name: "currency",
-                value: Unit(Some("metadata_fa12")),
+                value: String("metadata_fa12"),
             ),
             (
                 name: "metadata_adjudicator",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "metadata_description",
@@ -71,13 +65,11 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    116,
-                ])),
+                value: Int(116),
             ),
             (
                 name: "metadata_fa12",
-                value: Address("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
+                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
             ),
         ],
     ),
@@ -91,29 +83,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    116,
-                ])),
+                value: Int(116),
             ),
             (
                 name: "auctionRunning_uniswap_contribution",
-                value: Int((1, [
-                    1320764240,
-                    27241185,
-                ])),
+                value: Numeric("117000000000050000"),
             ),
             (
                 name: "auctionRunning_yes_preference",
-                value: Int((1, [
-                    1320764240,
-                    27241185,
-                ])),
+                value: Numeric("117000000000050000"),
             ),
             (
                 name: "auctionRunning_quantity",
-                value: Int((1, [
-                    1500010000,
-                ])),
+                value: Numeric("1500010000"),
             ),
             (
                 name: "auctionRunning_auction_period_end",
@@ -131,23 +113,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    116,
-                ])),
+                value: Int(116),
             ),
             (
                 name: "idx_markets_market_id",
-                value: Int((1, [
-                    60019725,
-                ])),
+                value: Numeric("60019725"),
             ),
             (
                 name: "idx_markets_originator",
-                value: Address("tz1VWU45MQ7nxu5PGgWxgDePemev6bUDNGZ2"),
+                value: String("tz1VWU45MQ7nxu5PGgWxgDePemev6bUDNGZ2"),
             ),
             (
                 name: "noname",
-                value: Unit(Some("storage.liquidity_provider_map.bet")),
+                value: String("storage.liquidity_provider_map.bet"),
             ),
         ],
     ),
@@ -161,21 +139,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    116,
-                ])),
+                value: Int(116),
             ),
             (
                 name: "bet_quantity",
-                value: Int((1, [
-                    500000000,
-                ])),
+                value: Numeric("500000000"),
             ),
             (
                 name: "bet_predicted_probability",
-                value: Int((1, [
-                    78000000,
-                ])),
+                value: Numeric("78000000"),
             ),
         ],
     ),

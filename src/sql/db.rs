@@ -100,32 +100,73 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
             });
         }
 
-        let column_names: String = columns
+        let v_names: String = columns
             .iter()
             .map(|x| PostgresqlGenerator::quote_id(&x.name))
             .collect::<Vec<String>>()
             .join(", ");
 
-        let value_refs = (1..columns.len() + 1)
-            .map(|i| format!("${}", i.to_string()))
+        let v_refs = columns
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let i = i + 1;
+                match c.value {
+                    Value::Numeric(_) => format!("${}::text", i.to_string()),
+                    Value::Bool(_) => format!("${}::boolean", i.to_string()),
+                    Value::String(_) => format!("${}::text", i.to_string()),
+                    Value::Int(_) => format!("${}::integer", i.to_string()),
+                    Value::BigInt(_) => format!("${}::bigint", i.to_string()),
+                    Value::Timestamp(_) => {
+                        format!("${}::timestamp with time zone", i.to_string())
+                    }
+                    Value::Null => format!("${}", i.to_string()),
+                    //_ => format!("${}", i.to_string()),
+                }
+            })
             .collect::<Vec<String>>()
             .join(", ");
 
-        let values: Vec<&dyn postgres::types::ToSql> = columns
+        let v_struct = (1..columns.len() + 1)
+            .map(|i| format!("v{}", i.to_string()))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let v_select = columns
             .iter()
-            .map(|x| x.value.borrow_to_sql())
-            .collect();
+            .enumerate()
+            .map(|(i, c)| {
+                let i = i + 1;
+                match c.value {
+                    Value::Numeric(_) => {
+                        format!("v.v{}::numeric", i.to_string())
+                    }
+                    Value::Bool(_) => format!("v.v{}::boolean", i.to_string()),
+                    Value::String(_) => format!("v.v{}::text", i.to_string()),
+                    Value::Int(_) => format!("v.v{}::integer", i.to_string()),
+                    Value::BigInt(_) => format!("v.v{}::bigint", i.to_string()),
+                    Value::Timestamp(_) => format!(
+                        "v.v{}::timestamp with time zone",
+                        i.to_string()
+                    ),
+                    Value::Null => format!("v.v{}", i.to_string()),
+                }
+            })
+            .collect::<Vec<String>>()
+            .join(", ");
 
         let qry = format!(
             r#"
 INSERT INTO "{}" (
     {}
-) VALUES (
-    {}
-)"#,
-            insert.table_name, column_names, value_refs,
+)
+SELECT {}
+FROM (
+    VALUES ({})
+) as v({})"#,
+            insert.table_name, v_names, v_select, v_refs, v_struct
         );
-        debug!(
+        println!(
             "qry: {}, values: {:?}",
             qry,
             columns
@@ -136,22 +177,17 @@ INSERT INTO "{}" (
         );
         let stmt = tx.prepare(qry.as_str())?;
 
+        let values: Vec<&dyn postgres::types::ToSql> = columns
+            .iter()
+            .map(|x| x.value.borrow_to_sql())
+            .collect();
+
         tx.query_raw(&stmt, values)?;
         Ok(())
     }
 
     pub(crate) fn transaction(&mut self) -> Result<Transaction> {
         Ok(self.dbconn.transaction()?)
-    }
-
-    pub(crate) fn exec(
-        transaction: &mut Transaction,
-        sql: &str,
-    ) -> Result<u64> {
-        match transaction.execute(sql, &[]) {
-            Ok(x) => Ok(x),
-            Err(e) => Err(anyhow!("err on sql={}: {}", sql, e.to_string())),
-        }
     }
 
     pub(crate) fn delete_everything(&mut self) -> Result<u64> {
@@ -262,26 +298,22 @@ SET max_id = $1",
 
     /// get the origination of the contract, which is currently store in the levels (will change)
     pub(crate) fn set_origination(
-        transaction: &mut Transaction,
+        tx: &mut Transaction,
         level: u32,
     ) -> Result<()> {
-        Self::exec(
-            transaction,
-            &"
+        tx.execute(
+            "
 UPDATE levels
 SET is_origination = FALSE
-WHERE is_origination = TRUE"
-                .to_string(),
+WHERE is_origination = TRUE",
+            &[],
         )?;
-        Self::exec(
-            transaction,
-            &format!(
-                "
+        tx.execute(
+            "
 UPDATE levels
 SET is_origination = TRUE
 WHERE _level = {}",
-                level,
-            ),
+            &[&level],
         )?;
         Ok(())
     }
@@ -321,17 +353,15 @@ INSERT INTO levels(
     }
 
     pub(crate) fn delete_level(
-        transaction: &mut Transaction,
+        tx: &mut Transaction,
         level: &LevelMeta,
-    ) -> Result<u64> {
-        Self::exec(
-            transaction,
-            &format!(
-                "
+    ) -> Result<()> {
+        tx.execute(
+            "
 DELETE FROM levels
-WHERE _level = {}",
-                level._level
-            ),
-        )
+WHERE _level = $1",
+            &[&level._level],
+        )?;
+        Ok(())
     }
 }
