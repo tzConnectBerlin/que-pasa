@@ -559,7 +559,6 @@ fn test_block() {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
                 println!("filename: {}", filename);
-                continue;
                 let v: Inserts = ron::de::from_reader(reader).unwrap();
 
                 let mut expected_result: Vec<Insert> =

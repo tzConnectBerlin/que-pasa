@@ -166,7 +166,7 @@ FROM (
 ) as v({})"#,
             insert.table_name, v_names, v_select, v_refs, v_struct
         );
-        println!(
+        debug!(
             "qry: {}, values: {:?}",
             qry,
             columns
@@ -312,8 +312,8 @@ WHERE is_origination = TRUE",
             "
 UPDATE levels
 SET is_origination = TRUE
-WHERE _level = {}",
-            &[&level],
+WHERE _level = $1",
+            &[&(level as i32)],
         )?;
         Ok(())
     }
@@ -360,7 +360,7 @@ INSERT INTO levels(
             "
 DELETE FROM levels
 WHERE _level = $1",
-            &[&level._level],
+            &[&(level._level as i32)],
         )?;
         Ok(())
     }
