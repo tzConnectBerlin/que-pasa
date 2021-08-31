@@ -204,9 +204,11 @@ CREATE VIEW "{}_live" AS (
         ))
     }
 
+    /*
     fn escape(s: &str) -> String {
         s.to_string()
             .replace("'", "''")
             .replace("\\", "\\\\")
     }
+    */
 }

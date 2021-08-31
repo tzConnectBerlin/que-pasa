@@ -25,7 +25,7 @@
             ),
             (
                 name: "last_token_created",
-                value: Numeric("9"),
+                value: Numeric(Some("9")),
             ),
         ],
     ),
@@ -47,31 +47,31 @@
             ),
             (
                 name: "uniswap_contribution_factor",
-                value: Numeric("7000000000000000000000000000000000000"),
+                value: Numeric(Some("7000000000000000000000000000000000000")),
             ),
             (
                 name: "yes_preference",
-                value: Numeric("93000000000000000000000000000000000000"),
+                value: Numeric(Some("93000000000000000000000000000000000000")),
             ),
             (
                 name: "total_auction_quantity",
-                value: Numeric("100000000000000000000"),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "winning_token",
-                value: Numeric("7"),
+                value: Numeric(Some("7")),
             ),
             (
                 name: "tokens_lqt_token_id",
-                value: Numeric("9"),
+                value: Numeric(Some("9")),
             ),
             (
                 name: "tokens_no_token_id",
-                value: Numeric("8"),
+                value: Numeric(Some("8")),
             ),
             (
                 name: "tokens_yes_token_id",
-                value: Numeric("7"),
+                value: Numeric(Some("7")),
             ),
             (
                 name: "market_close",
@@ -109,15 +109,15 @@
             ),
             (
                 name: "total_token",
-                value: Numeric("93000000000000000000000000000000000000"),
+                value: Numeric(Some("93000000000000000000000000000000000000")),
             ),
             (
                 name: "quantity",
-                value: Numeric("100000000000000000000"),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "rate",
-                value: Numeric("930000000000000000"),
+                value: Numeric(Some("930000000000000000")),
             ),
         ],
     ),

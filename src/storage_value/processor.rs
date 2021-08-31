@@ -6,6 +6,7 @@ use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
+use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
@@ -880,9 +881,9 @@ impl StorageProcessor {
                 match v {
                     parser::Value::Int(i)
                     | parser::Value::Mutez(i)
-                    | parser::Value::Nat(i) => {
-                        Ok(insert::Value::Numeric(i.to_str_radix(10)))
-                    }
+                    | parser::Value::Nat(i) => Ok(insert::Value::Numeric(
+                        PgNumeric::new(Some(BigDecimal::new(i.clone(), 0))),
+                    )),
                     _ => Err(anyhow!(
                         "storage2sql_value: failed to match type with value"
                     )),

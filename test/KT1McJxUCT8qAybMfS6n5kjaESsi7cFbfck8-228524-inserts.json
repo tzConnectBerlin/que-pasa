@@ -31,7 +31,7 @@
             ),
             (
                 name: "idx_markets_nat_4",
-                value: Numeric("82195281"),
+                value: Numeric(Some("82195281")),
             ),
             (
                 name: "state",
@@ -87,15 +87,15 @@
             ),
             (
                 name: "auctionRunning_uniswap_contribution",
-                value: Numeric("94999999740100000"),
+                value: Numeric(Some("94999999740100000")),
             ),
             (
                 name: "auctionRunning_yes_preference",
-                value: Numeric("95000000002500000"),
+                value: Numeric(Some("95000000002500000")),
             ),
             (
                 name: "auctionRunning_quantity",
-                value: Numeric("2500100000"),
+                value: Numeric(Some("2500100000")),
             ),
             (
                 name: "auctionRunning_auction_period_end",
@@ -117,7 +117,7 @@
             ),
             (
                 name: "idx_markets_market_id",
-                value: Numeric("82195281"),
+                value: Numeric(Some("82195281")),
             ),
             (
                 name: "idx_markets_originator",
@@ -143,11 +143,11 @@
             ),
             (
                 name: "bet_quantity",
-                value: Numeric("500100000"),
+                value: Numeric(Some("500100000")),
             ),
             (
                 name: "bet_predicted_probability",
-                value: Numeric("37992401"),
+                value: Numeric(Some("37992401")),
             ),
         ],
     ),

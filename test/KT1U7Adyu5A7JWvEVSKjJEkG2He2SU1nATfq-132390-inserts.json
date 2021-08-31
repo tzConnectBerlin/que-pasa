@@ -25,7 +25,7 @@
             ),
             (
                 name: "last_token_created",
-                value: Numeric("15"),
+                value: Numeric(Some("15")),
             ),
         ],
     ),
@@ -43,11 +43,11 @@
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Numeric("15"),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Numeric("9890109890109890109"),
+                value: Numeric(Some("9890109890109890109")),
             ),
         ],
     ),
@@ -65,7 +65,7 @@
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Numeric("15"),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "idx_tokens_address_2",
@@ -73,7 +73,7 @@
             ),
             (
                 name: "tokens_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -91,7 +91,7 @@
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Numeric("13"),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "idx_tokens_address_2",
@@ -99,7 +99,7 @@
             ),
             (
                 name: "tokens_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),

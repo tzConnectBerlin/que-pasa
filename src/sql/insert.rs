@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use pg_bigdecimal::PgNumeric;
 use postgres::types::BorrowToSql;
 use std::collections::BTreeMap;
 
@@ -8,7 +9,7 @@ use std::collections::BTreeMap;
 pub enum Value {
     String(String),
     Bool(bool),
-    Numeric(String),
+    Numeric(PgNumeric),
     Int(i32),
     BigInt(i64),
     Timestamp(DateTime<Utc>),
@@ -23,13 +24,13 @@ impl Value {
             Value::Int(i) => i.borrow_to_sql(),
             Value::BigInt(i) => i.borrow_to_sql(),
             Value::Timestamp(t) => t.borrow_to_sql(),
-            Value::Numeric(d) => d.borrow_to_sql(),
+            Value::Numeric(n) => n.borrow_to_sql(),
             Value::Null => "NULL".borrow_to_sql(),
         }
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InsertKey {
     pub table_name: String,
     pub id: u32,

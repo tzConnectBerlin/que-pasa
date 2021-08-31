@@ -255,6 +255,7 @@ impl Executor {
                     level._level
                 )
             })?;
+        let tx_count = tx_contexts.len() as u32;
 
         self.save_level_processed_contract(
             level,
@@ -271,7 +272,7 @@ impl Executor {
         Ok(SaveLevelResult {
             level: level._level,
             is_origination: false,
-            tx_count: inserts.len() as u32,
+            tx_count,
         })
     }
 

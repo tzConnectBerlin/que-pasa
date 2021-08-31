@@ -106,65 +106,16 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
             .collect::<Vec<String>>()
             .join(", ");
 
-        let v_refs = columns
-            .iter()
-            .enumerate()
-            .map(|(i, c)| {
-                let i = i + 1;
-                match c.value {
-                    Value::Numeric(_) => format!("${}::text", i.to_string()),
-                    Value::Bool(_) => format!("${}::boolean", i.to_string()),
-                    Value::String(_) => format!("${}::text", i.to_string()),
-                    Value::Int(_) => format!("${}::integer", i.to_string()),
-                    Value::BigInt(_) => format!("${}::bigint", i.to_string()),
-                    Value::Timestamp(_) => {
-                        format!("${}::timestamp with time zone", i.to_string())
-                    }
-                    Value::Null => format!("${}", i.to_string()),
-                    //_ => format!("${}", i.to_string()),
-                }
-            })
-            .collect::<Vec<String>>()
-            .join(", ");
-
-        let v_struct = (1..columns.len() + 1)
-            .map(|i| format!("v{}", i.to_string()))
-            .collect::<Vec<String>>()
-            .join(", ");
-
-        let v_select = columns
-            .iter()
-            .enumerate()
-            .map(|(i, c)| {
-                let i = i + 1;
-                match c.value {
-                    Value::Numeric(_) => {
-                        format!("v.v{}::numeric", i.to_string())
-                    }
-                    Value::Bool(_) => format!("v.v{}::boolean", i.to_string()),
-                    Value::String(_) => format!("v.v{}::text", i.to_string()),
-                    Value::Int(_) => format!("v.v{}::integer", i.to_string()),
-                    Value::BigInt(_) => format!("v.v{}::bigint", i.to_string()),
-                    Value::Timestamp(_) => format!(
-                        "v.v{}::timestamp with time zone",
-                        i.to_string()
-                    ),
-                    Value::Null => format!("v.v{}", i.to_string()),
-                }
-            })
+        let v_refs = (1..columns.len() + 1)
+            .map(|i| format!("${}", i.to_string()))
             .collect::<Vec<String>>()
             .join(", ");
 
         let qry = format!(
             r#"
-INSERT INTO "{}" (
-    {}
-)
-SELECT {}
-FROM (
-    VALUES ({})
-) as v({})"#,
-            insert.table_name, v_names, v_select, v_refs, v_struct
+INSERT INTO "{}" ( {} )
+VALUES ( {} )"#,
+            insert.table_name, v_names, v_refs,
         );
         debug!(
             "qry: {}, values: {:?}",

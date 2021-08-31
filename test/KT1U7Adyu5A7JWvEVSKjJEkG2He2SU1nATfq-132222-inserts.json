@@ -25,7 +25,7 @@
             ),
             (
                 name: "last_token_created",
-                value: Numeric("6"),
+                value: Numeric(Some("6")),
             ),
         ],
     ),

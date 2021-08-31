@@ -25,7 +25,7 @@
             ),
             (
                 name: "last_token_created",
-                value: Numeric("3"),
+                value: Numeric(Some("3")),
             ),
         ],
     ),
@@ -43,11 +43,11 @@
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Numeric("3"),
+                value: Numeric(Some("3")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -65,11 +65,11 @@
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Numeric("2"),
+                value: Numeric(Some("2")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -87,11 +87,11 @@
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Numeric("1"),
+                value: Numeric(Some("1")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -113,27 +113,27 @@
             ),
             (
                 name: "uniswap_contribution_factor",
-                value: Numeric("7000000000000001000000000000000000000"),
+                value: Numeric(Some("7000000000000001000000000000000000000")),
             ),
             (
                 name: "yes_preference",
-                value: Numeric("7000000000000001000000000000000000000"),
+                value: Numeric(Some("7000000000000001000000000000000000000")),
             ),
             (
                 name: "total_auction_quantity",
-                value: Numeric("100000000000000000000"),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "tokens_lqt_token_id",
-                value: Numeric("3"),
+                value: Numeric(Some("3")),
             ),
             (
                 name: "tokens_no_token_id",
-                value: Numeric("2"),
+                value: Numeric(Some("2")),
             ),
             (
                 name: "tokens_yes_token_id",
-                value: Numeric("1"),
+                value: Numeric(Some("1")),
             ),
             (
                 name: "market_close",
@@ -171,15 +171,15 @@
             ),
             (
                 name: "total_token",
-                value: Numeric("7000000000000001000000000000000000000"),
+                value: Numeric(Some("7000000000000001000000000000000000000")),
             ),
             (
                 name: "quantity",
-                value: Numeric("100000000000000000000"),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "rate",
-                value: Numeric("70000000000000010"),
+                value: Numeric(Some("70000000000000010")),
             ),
         ],
     ),

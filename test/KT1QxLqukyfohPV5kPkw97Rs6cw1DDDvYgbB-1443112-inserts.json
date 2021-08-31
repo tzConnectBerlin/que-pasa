@@ -17,27 +17,27 @@
             ),
             (
                 name: "veto",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "total_votes",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "total_supply",
-                value: Numeric("42835649442"),
+                value: Numeric(Some("42835649442")),
             ),
             (
                 name: "total_reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "token_pool",
-                value: Numeric("14695349500"),
+                value: Numeric(Some("14695349500")),
             ),
             (
                 name: "token_id",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "token_address",
@@ -45,23 +45,23 @@
             ),
             (
                 name: "tez_pool",
-                value: Numeric("42835649442"),
+                value: Numeric(Some("42835649442")),
             ),
             (
                 name: "reward_per_share",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward_per_sec",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "period_finish",
@@ -99,11 +99,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -125,11 +125,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -151,11 +151,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -177,11 +177,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -203,11 +203,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -229,11 +229,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -255,11 +255,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -281,11 +281,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -307,11 +307,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -333,11 +333,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -359,11 +359,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -385,11 +385,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -411,11 +411,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -437,11 +437,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -463,11 +463,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -489,11 +489,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -515,11 +515,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -541,11 +541,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -567,11 +567,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -593,11 +593,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -619,11 +619,11 @@
             ),
             (
                 name: "reward_paid",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -645,11 +645,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("15317873"),
+                value: Numeric(Some("15317873")),
             ),
         ],
     ),
@@ -671,11 +671,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("4050688"),
+                value: Numeric(Some("4050688")),
             ),
         ],
     ),
@@ -697,11 +697,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("10416557"),
+                value: Numeric(Some("10416557")),
             ),
         ],
     ),
@@ -723,11 +723,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("7822061"),
+                value: Numeric(Some("7822061")),
             ),
         ],
     ),
@@ -749,11 +749,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("53514154"),
+                value: Numeric(Some("53514154")),
             ),
         ],
     ),
@@ -775,11 +775,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("575337043"),
+                value: Numeric(Some("575337043")),
             ),
         ],
     ),
@@ -801,11 +801,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("347542068"),
+                value: Numeric(Some("347542068")),
             ),
         ],
     ),
@@ -827,11 +827,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("8664047"),
+                value: Numeric(Some("8664047")),
             ),
         ],
     ),
@@ -853,11 +853,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("9037230"),
+                value: Numeric(Some("9037230")),
             ),
         ],
     ),
@@ -879,11 +879,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("234558725"),
+                value: Numeric(Some("234558725")),
             ),
         ],
     ),
@@ -905,11 +905,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("40274210"),
+                value: Numeric(Some("40274210")),
             ),
         ],
     ),
@@ -931,11 +931,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("14432120"),
+                value: Numeric(Some("14432120")),
             ),
         ],
     ),
@@ -957,11 +957,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("172829188"),
+                value: Numeric(Some("172829188")),
             ),
         ],
     ),
@@ -983,11 +983,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("38347214663"),
+                value: Numeric(Some("38347214663")),
             ),
         ],
     ),
@@ -1009,11 +1009,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("4083947"),
+                value: Numeric(Some("4083947")),
             ),
         ],
     ),
@@ -1035,11 +1035,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("6535157"),
+                value: Numeric(Some("6535157")),
             ),
         ],
     ),
@@ -1061,11 +1061,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("6701439"),
+                value: Numeric(Some("6701439")),
             ),
         ],
     ),
@@ -1087,11 +1087,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("1388777449"),
+                value: Numeric(Some("1388777449")),
             ),
         ],
     ),
@@ -1113,11 +1113,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("1441746528"),
+                value: Numeric(Some("1441746528")),
             ),
         ],
     ),
@@ -1139,11 +1139,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("78270768"),
+                value: Numeric(Some("78270768")),
             ),
         ],
     ),
@@ -1165,11 +1165,11 @@
             ),
             (
                 name: "frozen_balance",
-                value: Numeric("0"),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Numeric("68523527"),
+                value: Numeric(Some("68523527")),
             ),
         ],
     ),
