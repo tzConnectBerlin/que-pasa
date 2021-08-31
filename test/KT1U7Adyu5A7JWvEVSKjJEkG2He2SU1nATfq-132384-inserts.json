@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    213,
-                ])),
+                value: Int(213),
             ),
             (
                 name: "deleted",
@@ -19,17 +17,15 @@
             ),
             (
                 name: "stablecoin",
-                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
             (
                 name: "owner",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "last_token_created",
-                value: Int((1, [
-                    15,
-                ])),
+                value: Numeric(Some("15")),
             ),
         ],
     ),
@@ -43,23 +39,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    213,
-                ])),
+                value: Int(213),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    13,
-                ])),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((1, [
-                    3903053373,
-                    4110948536,
-                    5,
-                ])),
+                value: Numeric(Some("109890109890109890109")),
             ),
         ],
     ),
@@ -73,26 +61,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    213,
-                ])),
+                value: Int(213),
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Int((1, [
-                    15,
-                ])),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "idx_tokens_address_2",
-                value: Address("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
                 name: "tokens_balance",
-                value: Int((1, [
-                    2241060413,
-                    2302720651,
-                ])),
+                value: Numeric(Some("9890109890109890109")),
             ),
         ],
     ),
@@ -106,27 +87,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    213,
-                ])),
+                value: Int(213),
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Int((1, [
-                    15,
-                ])),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "idx_tokens_address_2",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
-                value: Int((1, [
-                    1661992960,
-                    1808227885,
-                    5,
-                ])),
+                value: Numeric(Some("100000000000000000000")),
             ),
         ],
     ),
@@ -140,27 +113,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    213,
-                ])),
+                value: Int(213),
             ),
             (
                 name: "idx_tokens_nat_3",
-                value: Int((1, [
-                    13,
-                ])),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "idx_tokens_address_2",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
-                value: Int((1, [
-                    1661992960,
-                    1808227885,
-                    5,
-                ])),
+                value: Numeric(Some("100000000000000000000")),
             ),
         ],
     ),

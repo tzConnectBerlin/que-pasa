@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    9,
-                ])),
+                value: Int(9),
             ),
             (
                 name: "deleted",
@@ -19,7 +17,7 @@
             ),
             (
                 name: "lambda_repository_creator",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
         ],
     ),
@@ -33,9 +31,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    9,
-                ])),
+                value: Int(9),
             ),
             (
                 name: "idx_lambda_repository_string_0",

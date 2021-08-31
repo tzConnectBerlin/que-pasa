@@ -68,7 +68,7 @@ impl NodeClient {
     ) -> Result<JsonValue> {
         retry(ExponentialBackoff::default(), || {
             fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
-                warn!("transient node comm. error, retrying..");
+                warn!("transient node communication error, retrying.. err='script definition missing in response'");
                 Error::Transient(e)
             }
 
@@ -117,6 +117,10 @@ impl NodeClient {
     }
 
     fn load(&self, endpoint: &str) -> Result<JsonValue> {
+        fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
+            warn!("transient node communication error, retrying.. err={}", e);
+            Error::Transient(e)
+        }
         let op = || -> Result<JsonValue> {
             let uri =
                 format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
@@ -146,7 +150,7 @@ impl NodeClient {
             Ok(json)
         };
         retry(ExponentialBackoff::default(), || {
-            op().map_err(Error::Transient)
+            op().map_err(transient_err)
         })
         .map_err(|e| anyhow!(e))
     }

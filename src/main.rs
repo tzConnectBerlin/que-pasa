@@ -40,8 +40,8 @@ use config::CONFIG;
 use env_logger::Env;
 use octez::bcd;
 use octez::node;
+use sql::db::DBClient;
 use sql::postgresql_generator;
-use sql::table;
 use sql::table_builder;
 use std::panic;
 use std::process;
@@ -97,6 +97,7 @@ fn main() {
     // If generate-sql command is given, just output SQL and quit.
     if CONFIG.generate_sql {
         let generator = PostgresqlGenerator::new();
+        println!("BEGIN;\n");
         println!("{}", generator.create_common_tables());
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
@@ -116,10 +117,11 @@ fn main() {
             );
             println!();
         }
+        println!("\nCOMMIT;");
         return;
     }
 
-    let mut dbconn = postgresql_generator::connect(
+    let mut dbcli = DBClient::connect(
         &CONFIG.database_url,
         CONFIG.ssl,
         CONFIG.ca_cert.clone(),
@@ -133,7 +135,8 @@ fn main() {
             Interrupt within 5 seconds to abort"
         );
         thread::sleep(std::time::Duration::from_millis(5000));
-        postgresql_generator::delete_everything(&mut dbconn)
+        dbcli
+            .delete_everything()
             .with_context(|| "failed to delete the db's content")
             .unwrap();
     }
@@ -142,7 +145,7 @@ fn main() {
         node_cli.clone(),
         rel_ast.clone(),
         contract_id.clone(),
-        dbconn,
+        dbcli,
     );
 
     let num_getters = CONFIG.workers_cap;

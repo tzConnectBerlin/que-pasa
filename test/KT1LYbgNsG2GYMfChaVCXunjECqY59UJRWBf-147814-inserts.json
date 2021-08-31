@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    33,
-                ])),
+                value: Int(33),
             ),
             (
                 name: "deleted",

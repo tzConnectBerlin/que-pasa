@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "deleted",
@@ -19,60 +17,51 @@
             ),
             (
                 name: "veto",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "total_votes",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "total_supply",
-                value: Int((1, [
-                    4180943778,
-                    9,
-                ])),
+                value: Numeric(Some("42835649442")),
             ),
             (
                 name: "total_reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "token_pool",
-                value: Int((1, [
-                    1810447612,
-                    3,
-                ])),
+                value: Numeric(Some("14695349500")),
             ),
             (
                 name: "token_id",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "token_address",
-                value: Address("KT1AFA2mwNUMNd4SsujE1YYp29vd8BZejyKW"),
+                value: String("KT1AFA2mwNUMNd4SsujE1YYp29vd8BZejyKW"),
             ),
             (
                 name: "tez_pool",
-                value: Int((1, [
-                    4180943778,
-                    9,
-                ])),
+                value: Numeric(Some("42835649442")),
             ),
             (
                 name: "reward_per_share",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward_per_sec",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "period_finish",
@@ -88,7 +77,7 @@
             ),
             (
                 name: "baker_validator",
-                value: Address("KT1Rowg7xjbQzQh3VFb2E9r6PMxoAqyJnSZi"),
+                value: String("KT1Rowg7xjbQzQh3VFb2E9r6PMxoAqyJnSZi"),
             ),
         ],
     ),
@@ -102,21 +91,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz2L3KjqXf8ZtvFz6TY2qxUzBxrYyeGCbugM"),
+                value: String("tz2L3KjqXf8ZtvFz6TY2qxUzBxrYyeGCbugM"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -130,21 +117,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz2KGfnYWeBd7xQYDCo52x22JbgXkK41Caiw"),
+                value: String("tz2KGfnYWeBd7xQYDCo52x22JbgXkK41Caiw"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -158,21 +143,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1ioU6W4otB7ebgRZTq1EVVra3vMyXqeqsm"),
+                value: String("tz1ioU6W4otB7ebgRZTq1EVVra3vMyXqeqsm"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -186,21 +169,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1gACjUSBkWjqWv5ZBMRk6G9Sp8xNAYgwYV"),
+                value: String("tz1gACjUSBkWjqWv5ZBMRk6G9Sp8xNAYgwYV"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -214,21 +195,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1fCCyqjcmwNw5Vv1b7yVXPvJzL42KqxWxd"),
+                value: String("tz1fCCyqjcmwNw5Vv1b7yVXPvJzL42KqxWxd"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -242,21 +221,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1dAFwciSCkzzQL2goqZyqucFyqVPmXzCkJ"),
+                value: String("tz1dAFwciSCkzzQL2goqZyqucFyqVPmXzCkJ"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -270,21 +247,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1c2e1WMKKtf6oBZcZK3YFxrXgVbb2ggRr9"),
+                value: String("tz1c2e1WMKKtf6oBZcZK3YFxrXgVbb2ggRr9"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -298,21 +273,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1bRDYJHp3ACUojEeM6Ja442YEwNmcb7ph9"),
+                value: String("tz1bRDYJHp3ACUojEeM6Ja442YEwNmcb7ph9"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -326,21 +299,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1ZWbokP5pGwT3tTtLPP2KhXX5ssg1EtDPs"),
+                value: String("tz1ZWbokP5pGwT3tTtLPP2KhXX5ssg1EtDPs"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -354,21 +325,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1YqsEWdPxBmqVKsJircrwBmCmZDtHAgHzp"),
+                value: String("tz1YqsEWdPxBmqVKsJircrwBmCmZDtHAgHzp"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -382,21 +351,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1YQDCB6Hbn2ozMyS2kf6WPJDeRvJtmtNqQ"),
+                value: String("tz1YQDCB6Hbn2ozMyS2kf6WPJDeRvJtmtNqQ"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -410,21 +377,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1Xy5UM1tC3CFcbPBVq5PjufaxcLjMwfQkE"),
+                value: String("tz1Xy5UM1tC3CFcbPBVq5PjufaxcLjMwfQkE"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -438,21 +403,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1X4epy6wnxhrYPQRaBYbhejzXuD6A4D3RW"),
+                value: String("tz1X4epy6wnxhrYPQRaBYbhejzXuD6A4D3RW"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -466,21 +429,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1WZkXCNbYj4jQtPtxUP1bxtw91YSpn5Lzk"),
+                value: String("tz1WZkXCNbYj4jQtPtxUP1bxtw91YSpn5Lzk"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -494,21 +455,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1W53nWnqavj4BEbv53zwLMVVTKVTs4gfkP"),
+                value: String("tz1W53nWnqavj4BEbv53zwLMVVTKVTs4gfkP"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -522,21 +481,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1VLGEhMhsb2HDhUaa2oeHQ8qM7Y7s72d3s"),
+                value: String("tz1VLGEhMhsb2HDhUaa2oeHQ8qM7Y7s72d3s"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -550,21 +507,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1UFF5DSDDtk3fM1ewaLvVG6fhaAeCdgYEt"),
+                value: String("tz1UFF5DSDDtk3fM1ewaLvVG6fhaAeCdgYEt"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -578,21 +533,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1TreKYWjXdKDaKCga4b8zobDq2pdHdGZuA"),
+                value: String("tz1TreKYWjXdKDaKCga4b8zobDq2pdHdGZuA"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -606,21 +559,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1RuvNyBmcB6shsv9WCruiifzFvnNHdvk1a"),
+                value: String("tz1RuvNyBmcB6shsv9WCruiifzFvnNHdvk1a"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -634,21 +585,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1RrNFg8Pm4WXEpzsrb6YeGZeib6moPn849"),
+                value: String("tz1RrNFg8Pm4WXEpzsrb6YeGZeib6moPn849"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -662,21 +611,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_6",
-                value: Address("tz1LHUdjqTGVigZoSSvq8CZpbeP1mTTYNmLk"),
+                value: String("tz1LHUdjqTGVigZoSSvq8CZpbeP1mTTYNmLk"),
             ),
             (
                 name: "reward_paid",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "reward",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -690,23 +637,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz2L3KjqXf8ZtvFz6TY2qxUzBxrYyeGCbugM"),
+                value: String("tz2L3KjqXf8ZtvFz6TY2qxUzBxrYyeGCbugM"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    15317873,
-                ])),
+                value: Numeric(Some("15317873")),
             ),
         ],
     ),
@@ -720,23 +663,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz2KGfnYWeBd7xQYDCo52x22JbgXkK41Caiw"),
+                value: String("tz2KGfnYWeBd7xQYDCo52x22JbgXkK41Caiw"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    4050688,
-                ])),
+                value: Numeric(Some("4050688")),
             ),
         ],
     ),
@@ -750,23 +689,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1ioU6W4otB7ebgRZTq1EVVra3vMyXqeqsm"),
+                value: String("tz1ioU6W4otB7ebgRZTq1EVVra3vMyXqeqsm"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    10416557,
-                ])),
+                value: Numeric(Some("10416557")),
             ),
         ],
     ),
@@ -780,23 +715,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1gACjUSBkWjqWv5ZBMRk6G9Sp8xNAYgwYV"),
+                value: String("tz1gACjUSBkWjqWv5ZBMRk6G9Sp8xNAYgwYV"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    7822061,
-                ])),
+                value: Numeric(Some("7822061")),
             ),
         ],
     ),
@@ -810,23 +741,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1fCCyqjcmwNw5Vv1b7yVXPvJzL42KqxWxd"),
+                value: String("tz1fCCyqjcmwNw5Vv1b7yVXPvJzL42KqxWxd"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    53514154,
-                ])),
+                value: Numeric(Some("53514154")),
             ),
         ],
     ),
@@ -840,23 +767,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1dAFwciSCkzzQL2goqZyqucFyqVPmXzCkJ"),
+                value: String("tz1dAFwciSCkzzQL2goqZyqucFyqVPmXzCkJ"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    575337043,
-                ])),
+                value: Numeric(Some("575337043")),
             ),
         ],
     ),
@@ -870,23 +793,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1c2e1WMKKtf6oBZcZK3YFxrXgVbb2ggRr9"),
+                value: String("tz1c2e1WMKKtf6oBZcZK3YFxrXgVbb2ggRr9"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    347542068,
-                ])),
+                value: Numeric(Some("347542068")),
             ),
         ],
     ),
@@ -900,23 +819,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1bRDYJHp3ACUojEeM6Ja442YEwNmcb7ph9"),
+                value: String("tz1bRDYJHp3ACUojEeM6Ja442YEwNmcb7ph9"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    8664047,
-                ])),
+                value: Numeric(Some("8664047")),
             ),
         ],
     ),
@@ -930,23 +845,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1ZWbokP5pGwT3tTtLPP2KhXX5ssg1EtDPs"),
+                value: String("tz1ZWbokP5pGwT3tTtLPP2KhXX5ssg1EtDPs"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    9037230,
-                ])),
+                value: Numeric(Some("9037230")),
             ),
         ],
     ),
@@ -960,23 +871,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1YqsEWdPxBmqVKsJircrwBmCmZDtHAgHzp"),
+                value: String("tz1YqsEWdPxBmqVKsJircrwBmCmZDtHAgHzp"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    234558725,
-                ])),
+                value: Numeric(Some("234558725")),
             ),
         ],
     ),
@@ -990,23 +897,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1YQDCB6Hbn2ozMyS2kf6WPJDeRvJtmtNqQ"),
+                value: String("tz1YQDCB6Hbn2ozMyS2kf6WPJDeRvJtmtNqQ"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    40274210,
-                ])),
+                value: Numeric(Some("40274210")),
             ),
         ],
     ),
@@ -1020,23 +923,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1Xy5UM1tC3CFcbPBVq5PjufaxcLjMwfQkE"),
+                value: String("tz1Xy5UM1tC3CFcbPBVq5PjufaxcLjMwfQkE"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    14432120,
-                ])),
+                value: Numeric(Some("14432120")),
             ),
         ],
     ),
@@ -1050,23 +949,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1X4epy6wnxhrYPQRaBYbhejzXuD6A4D3RW"),
+                value: String("tz1X4epy6wnxhrYPQRaBYbhejzXuD6A4D3RW"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    172829188,
-                ])),
+                value: Numeric(Some("172829188")),
             ),
         ],
     ),
@@ -1080,24 +975,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1WZkXCNbYj4jQtPtxUP1bxtw91YSpn5Lzk"),
+                value: String("tz1WZkXCNbYj4jQtPtxUP1bxtw91YSpn5Lzk"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    3987476295,
-                    8,
-                ])),
+                value: Numeric(Some("38347214663")),
             ),
         ],
     ),
@@ -1111,23 +1001,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1W53nWnqavj4BEbv53zwLMVVTKVTs4gfkP"),
+                value: String("tz1W53nWnqavj4BEbv53zwLMVVTKVTs4gfkP"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    4083947,
-                ])),
+                value: Numeric(Some("4083947")),
             ),
         ],
     ),
@@ -1141,23 +1027,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1VLGEhMhsb2HDhUaa2oeHQ8qM7Y7s72d3s"),
+                value: String("tz1VLGEhMhsb2HDhUaa2oeHQ8qM7Y7s72d3s"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    6535157,
-                ])),
+                value: Numeric(Some("6535157")),
             ),
         ],
     ),
@@ -1171,23 +1053,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1UFF5DSDDtk3fM1ewaLvVG6fhaAeCdgYEt"),
+                value: String("tz1UFF5DSDDtk3fM1ewaLvVG6fhaAeCdgYEt"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    6701439,
-                ])),
+                value: Numeric(Some("6701439")),
             ),
         ],
     ),
@@ -1201,23 +1079,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1TreKYWjXdKDaKCga4b8zobDq2pdHdGZuA"),
+                value: String("tz1TreKYWjXdKDaKCga4b8zobDq2pdHdGZuA"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    1388777449,
-                ])),
+                value: Numeric(Some("1388777449")),
             ),
         ],
     ),
@@ -1231,23 +1105,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1RuvNyBmcB6shsv9WCruiifzFvnNHdvk1a"),
+                value: String("tz1RuvNyBmcB6shsv9WCruiifzFvnNHdvk1a"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    1441746528,
-                ])),
+                value: Numeric(Some("1441746528")),
             ),
         ],
     ),
@@ -1261,23 +1131,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1RrNFg8Pm4WXEpzsrb6YeGZeib6moPn849"),
+                value: String("tz1RrNFg8Pm4WXEpzsrb6YeGZeib6moPn849"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    78270768,
-                ])),
+                value: Numeric(Some("78270768")),
             ),
         ],
     ),
@@ -1291,23 +1157,19 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_4",
-                value: Address("tz1LHUdjqTGVigZoSSvq8CZpbeP1mTTYNmLk"),
+                value: String("tz1LHUdjqTGVigZoSSvq8CZpbeP1mTTYNmLk"),
             ),
             (
                 name: "frozen_balance",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
             (
                 name: "balance",
-                value: Int((1, [
-                    68523527,
-                ])),
+                value: Numeric(Some("68523527")),
             ),
         ],
     ),
@@ -1321,13 +1183,11 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_5",
-                value: Address("another address\' allowance set"),
+                value: String("another address\' allowance set"),
             ),
         ],
     ),
@@ -1341,13 +1201,11 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_5",
-                value: Address("test :-)"),
+                value: String("test :-)"),
             ),
         ],
     ),
@@ -1361,13 +1219,11 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    1,
-                ])),
+                value: Int(1),
             ),
             (
                 name: "idx_address_5",
-                value: Address("test"),
+                value: String("test"),
             ),
         ],
     ),

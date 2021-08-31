@@ -9,9 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    183,
-                ])),
+                value: Int(183),
             ),
             (
                 name: "deleted",
@@ -19,17 +17,15 @@
             ),
             (
                 name: "stablecoin",
-                value: Address("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
             (
                 name: "owner",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "last_token_created",
-                value: Int((1, [
-                    15,
-                ])),
+                value: Numeric(Some("15")),
             ),
         ],
     ),
@@ -43,19 +39,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    183,
-                ])),
+                value: Int(183),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    15,
-                ])),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -69,19 +61,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    183,
-                ])),
+                value: Int(183),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    14,
-                ])),
+                value: Numeric(Some("14")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -95,19 +83,15 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    183,
-                ])),
+                value: Int(183),
             ),
             (
                 name: "idx_tokens_nat_10",
-                value: Int((1, [
-                    13,
-                ])),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "tokens_nat_11",
-                value: Int((0, [])),
+                value: Numeric(Some("0")),
             ),
         ],
     ),
@@ -121,9 +105,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    183,
-                ])),
+                value: Int(183),
             ),
             (
                 name: "idx_string_0",
@@ -131,47 +113,27 @@
             ),
             (
                 name: "uniswap_contribution_factor",
-                value: Int((1, [
-                    0,
-                    1302894480,
-                    1511079875,
-                    113595970,
-                ])),
+                value: Numeric(Some("9000000000000000000000000000000000000")),
             ),
             (
                 name: "yes_preference",
-                value: Int((1, [
-                    0,
-                    3152120496,
-                    7701686,
-                    1148581478,
-                ])),
+                value: Numeric(Some("91000000000000000000000000000000000000")),
             ),
             (
                 name: "total_auction_quantity",
-                value: Int((1, [
-                    1661992960,
-                    1808227885,
-                    5,
-                ])),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "tokens_lqt_token_id",
-                value: Int((1, [
-                    15,
-                ])),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "tokens_no_token_id",
-                value: Int((1, [
-                    14,
-                ])),
+                value: Numeric(Some("14")),
             ),
             (
                 name: "tokens_yes_token_id",
-                value: Int((1, [
-                    13,
-                ])),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "market_close",
@@ -187,7 +149,7 @@
             ),
             (
                 name: "owner",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
         ],
     ),
@@ -201,37 +163,23 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int((1, [
-                    183,
-                ])),
+                value: Int(183),
             ),
             (
                 name: "idx_address_1",
-                value: Address("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "total_token",
-                value: Int((1, [
-                    0,
-                    3152120496,
-                    7701686,
-                    1148581478,
-                ])),
+                value: Numeric(Some("91000000000000000000000000000000000000")),
             ),
             (
                 name: "quantity",
-                value: Int((1, [
-                    1661992960,
-                    1808227885,
-                    5,
-                ])),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "rate",
-                value: Int((1, [
-                    3113943040,
-                    211875885,
-                ])),
+                value: Numeric(Some("910000000000000000")),
             ),
         ],
     ),

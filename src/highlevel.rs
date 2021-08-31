@@ -2,23 +2,15 @@ use crate::octez::block::{Block, LevelMeta};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
-use crate::sql::postgresql_generator;
-use crate::sql::postgresql_generator::PostgresqlGenerator;
+use crate::sql::db::DBClient;
+use crate::sql::insert::{InsertKey, Inserts};
 use crate::storage_value::processor::{StorageProcessor, TxContext};
-use crate::table::insert::Inserts;
 use anyhow::{anyhow, Context, Result};
 use std::cmp::Ordering;
 use std::thread;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
-
-pub(crate) fn get_origination(
-    _contract_id: &str,
-    dbconn: &mut postgres::Client,
-) -> Result<Option<u32>> {
-    postgresql_generator::get_origination(dbconn)
-}
 
 pub struct SaveLevelResult {
     pub level: u32,
@@ -30,7 +22,7 @@ pub struct Executor {
     node_cli: NodeClient,
     rel_ast: RelationalAST,
     contract_id: String,
-    dbconn: postgres::Client,
+    dbcli: DBClient,
 }
 
 impl Executor {
@@ -38,13 +30,13 @@ impl Executor {
         node_cli: NodeClient,
         rel_ast: RelationalAST,
         contract_id: String,
-        dbconn: postgres::Client,
+        dbcli: DBClient,
     ) -> Self {
         Self {
             node_cli,
             rel_ast,
             contract_id,
-            dbconn,
+            dbcli,
         }
     }
 
@@ -65,7 +57,7 @@ impl Executor {
             }
 
             let chain_head = self.node_cli.head()?;
-            let db_head = match postgresql_generator::get_head(&mut self.dbconn)? {
+            let db_head = match self.dbcli.get_head()? {
                 Some(head) => Ok(head),
                 None => Err(anyhow!(
                     "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
@@ -95,12 +87,9 @@ impl Executor {
                             "Hashes don't match: {:?} (db) <> {:?} (chain)",
                             db_head.hash, chain_head.hash
                         );
-                        let mut transaction = self.dbconn.transaction()?;
-                        postgresql_generator::delete_level(
-                            &mut transaction,
-                            &db_head,
-                        )?;
-                        transaction.commit()?;
+                        let mut tx = self.dbcli.transaction()?;
+                        DBClient::delete_level(&mut tx, &db_head)?;
+                        tx.commit()?;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(1500));
                 }
@@ -122,17 +111,13 @@ impl Executor {
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
         loop {
-            let origination_level =
-                get_origination(&self.contract_id, &mut self.dbconn)?;
+            let origination_level = self.dbcli.get_origination()?;
 
             let latest_level = self.node_cli.head()?._level;
 
-            let missing_levels: Vec<u32> =
-                postgresql_generator::get_missing_levels(
-                    &mut self.dbconn,
-                    origination_level,
-                    latest_level,
-                )?;
+            let missing_levels: Vec<u32> = self
+                .dbcli
+                .get_missing_levels(origination_level, latest_level)?;
             if missing_levels.is_empty() {
                 // finally through them
                 return Ok(());
@@ -174,7 +159,7 @@ impl Executor {
         // fills in all levels in db as empty that are missing between min and max
         // level present
 
-        postgresql_generator::fill_in_levels(&mut self.dbconn)
+        self.dbcli.fill_in_levels()
             .with_context(|| {
                 "failed to mark levels unrelated to the contract as empty in the db"
             })?;
@@ -201,7 +186,9 @@ impl Executor {
     }
 
     fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
-        let id = crate::postgresql_generator::get_max_id(&mut self.dbconn)
+        let id = self
+            .dbcli
+            .get_max_id()
             .with_context(|| {
                 "could not initialize storage processor from the db state"
             })?;
@@ -268,6 +255,7 @@ impl Executor {
                     level._level
                 )
             })?;
+        let tx_count = tx_contexts.len() as u32;
 
         self.save_level_processed_contract(
             level,
@@ -284,7 +272,7 @@ impl Executor {
         Ok(SaveLevelResult {
             level: level._level,
             is_origination: false,
-            tx_count: inserts.len() as u32,
+            tx_count,
         })
     }
 
@@ -292,21 +280,19 @@ impl Executor {
         &mut self,
         level: &LevelMeta,
     ) -> Result<()> {
-        let mut transaction =
-            postgresql_generator::transaction(&mut self.dbconn)?;
-        postgresql_generator::delete_level(&mut transaction, level)?;
-        postgresql_generator::save_level(&mut transaction, level)?;
-        postgresql_generator::set_origination(&mut transaction, level._level)?;
-        transaction.commit()?;
+        let mut tx = self.dbcli.transaction()?;
+        DBClient::delete_level(&mut tx, level)?;
+        DBClient::save_level(&mut tx, level)?;
+        DBClient::set_origination(&mut tx, level._level)?;
+        tx.commit()?;
         Ok(())
     }
 
     fn mark_level_empty(&mut self, level: &LevelMeta) -> Result<()> {
-        let mut transaction =
-            postgresql_generator::transaction(&mut self.dbconn)?;
-        postgresql_generator::delete_level(&mut transaction, level)?;
-        postgresql_generator::save_level(&mut transaction, level)?;
-        transaction.commit()?;
+        let mut tx = self.dbcli.transaction()?;
+        DBClient::delete_level(&mut tx, level)?;
+        DBClient::save_level(&mut tx, level)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -317,29 +303,25 @@ impl Executor {
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
-        let mut transaction =
-            postgresql_generator::transaction(&mut self.dbconn)?;
-        postgresql_generator::delete_level(&mut transaction, level)?;
-        postgresql_generator::save_level(&mut transaction, level)?;
+        let mut tx = self.dbcli.transaction()?;
+        DBClient::delete_level(&mut tx, level)?;
+        DBClient::save_level(&mut tx, level)?;
 
-        postgresql_generator::save_tx_contexts(&mut transaction, &tx_contexts)?;
+        DBClient::save_tx_contexts(&mut tx, &tx_contexts)?;
         let mut keys = inserts
             .keys()
-            .collect::<Vec<&crate::table::insert::InsertKey>>();
+            .collect::<Vec<&InsertKey>>();
         keys.sort_by_key(|a| a.id);
-        let generator = PostgresqlGenerator::new();
         for key in keys.iter() {
-            postgresql_generator::exec(
-                &mut transaction,
-                &generator.build_insert(
-                    inserts
-                        .get(key)
-                        .ok_or_else(|| anyhow!("No insert for key"))?,
-                ),
+            DBClient::apply_insert(
+                &mut tx,
+                inserts
+                    .get(key)
+                    .ok_or_else(|| anyhow!("no insert for key"))?,
             )?;
         }
-        postgresql_generator::set_max_id(&mut transaction, next_id)?;
-        transaction.commit()?;
+        DBClient::set_max_id(&mut tx, next_id)?;
+        tx.commit()?;
         Ok(())
     }
 }
@@ -394,11 +376,11 @@ fn test_generate() {
             .unwrap();
     println!("{:#?}", rel_ast);
     let generator = crate::postgresql_generator::PostgresqlGenerator::new();
-    let mut builder = crate::table_builder::TableBuilder::new();
+    let mut builder = crate::sql::table_builder::TableBuilder::new();
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
     sorted_tables.sort_by_key(|a| a.0);
-    let mut tables: Vec<crate::table::Table> = vec![];
+    let mut tables: Vec<crate::sql::table::Table> = vec![];
     for (_name, table) in sorted_tables {
         print!(
             "{}",
@@ -421,7 +403,8 @@ fn test_generate() {
     let p = Path::new(filename);
     let file = File::open(p).unwrap();
     let reader = BufReader::new(file);
-    let v: Vec<crate::table::Table> = serde_json::from_reader(reader).unwrap();
+    let v: Vec<crate::sql::table::Table> =
+        serde_json::from_reader(reader).unwrap();
     assert_eq!(v.len(), tables.len());
     //test doesn't verify view exist
     for i in 0..v.len() {
@@ -435,7 +418,8 @@ fn test_block() {
     // if it fails for a good reason, the output can be used to repopulate the
     // test files. To do this, execute script/generate_test_output.bash
     use crate::octez::block::Block;
-    use crate::sql::postgresql_generator::PostgresqlGenerator;
+    use crate::sql::insert;
+    use crate::sql::insert::Insert;
     use crate::sql::table_builder::{TableBuilder, TableMap};
     use crate::storage_structure::relational::{build_relational_ast, Indexes};
     use crate::storage_structure::typing;
@@ -499,32 +483,24 @@ fn test_block() {
         },
     ];
 
-    fn sort_inserts(
-        tables: &TableMap,
-        inserts: &mut Vec<crate::table::insert::Insert>,
-    ) {
+    fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {
-            let mut res = tables[&insert.table_name]
+            let mut res: Vec<insert::Value> = tables[&insert.table_name]
                 .indices
                 .iter()
                 .map(|idx| {
-                    PostgresqlGenerator::sql_value(
-                        insert.get_column(idx).map_or(
-                            &crate::storage_value::parser::Value::None,
-                            |col| &col.value,
-                        ),
-                    )
+                    insert
+                        .get_column(idx)
+                        .map_or(insert::Value::Null, |col| col.value.clone())
                 })
-                .collect::<Vec<String>>();
-            res.insert(0, insert.table_name.clone());
+                .collect();
+            res.insert(0, insert::Value::String(insert.table_name.clone()));
             res
         });
     }
 
-    let mut results: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> =
-        vec![];
-    let mut expected: Vec<(&str, u32, Vec<crate::table::insert::Insert>)> =
-        vec![];
+    let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
+    let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
     for contract in &contracts {
         let mut storage_processor = StorageProcessor::new(1);
 
@@ -572,8 +548,7 @@ fn test_block() {
     "
             );
 
-            let mut result: Vec<crate::table::insert::Insert> =
-                inserts.values().cloned().collect();
+            let mut result: Vec<Insert> = inserts.values().cloned().collect();
             sort_inserts(tables, &mut result);
             results.push((contract.id, *level, result));
 
@@ -585,10 +560,9 @@ fn test_block() {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
                 println!("filename: {}", filename);
-                let v: crate::table::insert::Inserts =
-                    ron::de::from_reader(reader).unwrap();
+                let v: Inserts = ron::de::from_reader(reader).unwrap();
 
-                let mut expected_result: Vec<crate::table::insert::Insert> =
+                let mut expected_result: Vec<Insert> =
                     v.values().cloned().collect();
                 sort_inserts(tables, &mut expected_result);
 
