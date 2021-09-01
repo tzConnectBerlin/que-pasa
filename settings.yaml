@@ -1,0 +1,5 @@
+contracts:
+- name: "new"
+  address: "KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF"
+- name: "old"
+  address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"

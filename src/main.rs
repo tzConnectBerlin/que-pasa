@@ -48,7 +48,6 @@ use std::panic;
 use std::process;
 use std::thread;
 use storage_structure::relational;
-use storage_structure::typing;
 
 fn main() {
     let orig_hook = panic::take_hook();
@@ -62,41 +61,43 @@ fn main() {
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
-    let contract_id = &CONFIG.contract_id;
+    let contract_id = &CONFIG.contracts[0];
     let node_cli =
         &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
 
-    // init by grabbing the contract data.
-    info!(
-        "getting the storage definition for contract={}..",
-        contract_id.name
-    );
-    let storage_def = &node_cli
-        .get_contract_storage_definition(&contract_id.address, None)
-        .unwrap();
-    let type_ast = typing::storage_ast_from_json(storage_def)
-        .with_context(|| {
-            "failed to derive a storage type from the storage definition"
-        })
-        .unwrap();
-    info!("storage definition retrieved, and type derived");
+    let mut dbcli = DBClient::connect(
+        &CONFIG.database_url,
+        CONFIG.ssl,
+        CONFIG.ca_cert.clone(),
+    )
+    .with_context(|| "failed to connect to the db")
+    .unwrap();
 
-    // Build the internal representation from the storage defition
-    let ctx = relational::Context::init();
-    let mut indexes = relational::Indexes::new();
-    let rel_ast =
-        &relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
-            .with_context(|| {
-                "failed to build a relational AST from the storage type"
-            })
+    if CONFIG.init {
+        println!(
+            "Initialising--all data in DB will be destroyed. \
+            Interrupt within 5 seconds to abort"
+        );
+        thread::sleep(std::time::Duration::from_millis(5000));
+        dbcli
+            .delete_everything()
+            .with_context(|| "failed to delete the db's content")
             .unwrap();
+    }
 
-    // Generate the SQL schema for this contract
-    let mut builder = table_builder::TableBuilder::new();
-    builder.populate(rel_ast);
+    let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
+    executor.add_contract(contract_id);
 
     // If generate-sql command is given, just output SQL and quit.
     if CONFIG.generate_sql {
+        let rel_ast = executor
+            .get_contract_rel_ast(contract_id)
+            .unwrap();
+
+        // Generate the SQL schema for this contract
+        let mut builder = table_builder::TableBuilder::new();
+        builder.populate(rel_ast);
+
         let generator = PostgresqlGenerator::new(contract_id);
         println!("BEGIN;\n");
         println!("{}", generator.create_common_tables());
@@ -121,29 +122,6 @@ fn main() {
         println!("\nCOMMIT;");
         return;
     }
-
-    let mut dbcli = DBClient::connect(
-        &CONFIG.database_url,
-        CONFIG.ssl,
-        CONFIG.ca_cert.clone(),
-    )
-    .with_context(|| "failed to connect to the db")
-    .unwrap();
-
-    if CONFIG.init {
-        println!(
-            "Initialising--all data in DB will be destroyed. \
-            Interrupt within 5 seconds to abort"
-        );
-        thread::sleep(std::time::Duration::from_millis(5000));
-        dbcli
-            .delete_everything()
-            .with_context(|| "failed to delete the db's content")
-            .unwrap();
-    }
-
-    let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
-    executor.add_contract(contract_id, rel_ast);
 
     let num_getters = CONFIG.workers_cap;
     if CONFIG.init {

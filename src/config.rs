@@ -1,9 +1,11 @@
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, SubCommand};
+use serde_yaml;
+use std::fs;
 
 #[derive(Clone, Default, Debug)]
 pub struct Config {
-    pub contract_id: ContractID,
+    pub contracts: Vec<ContractID>,
     pub database_url: String,
     pub ssl: bool,
     pub ca_cert: Option<String>,
@@ -16,7 +18,9 @@ pub struct Config {
     pub workers_cap: usize,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Default, Debug)]
+#[derive(
+    Hash, Eq, PartialEq, Clone, Default, Debug, Serialize, Deserialize,
+)]
 pub struct ContractID {
     pub address: String,
     pub name: String,
@@ -34,11 +38,11 @@ pub fn init_config() -> Result<Config> {
         .author("john newby <john.newby@tzconect.com>")
         .about("Indexes a single contract")
         .arg(
-            Arg::with_name("contract_id")
+            Arg::with_name("contract_settings")
                 .short("c")
-                .long("contract-id")
-                .value_name("CONTRACT_ID")
-                .help("Sets the id of the contract to use")
+                .long("contract-settings")
+                .value_name("CONTRACT_SETTINGS")
+                .help("path to the settings yaml (for contract settings)")
                 .takes_value(true),
         )
         .arg(
@@ -116,15 +120,14 @@ pub fn init_config() -> Result<Config> {
         )
         .get_matches();
 
-    let contract_address = matches
-        .value_of("contract_id")
-        .map_or_else(|| std::env::var("CONTRACT_ID"), |s| Ok(s.to_string()))
+    let fpath = matches
+        .value_of("contract_settings")
+        .map_or_else(
+            || std::env::var("CONTRACT_SETTINGS"),
+            |s| Ok(s.to_string()),
+        )
         .unwrap();
-
-    config.contract_id = ContractID {
-        address: contract_address,
-        name: "KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF".to_string(),
-    };
+    config.contracts = parse_contract_settings_file(fpath).unwrap();
 
     config.generate_sql = match matches.subcommand() {
         ("generate-sql", _) => true,
@@ -222,4 +225,14 @@ fn range(arg: &str) -> Vec<u32> {
     }
     result.sort_unstable();
     result
+}
+
+fn parse_contract_settings_file(fpath: String) -> Result<Vec<ContractID>> {
+    let content = fs::read_to_string(fpath)?;
+    #[derive(Serialize, Deserialize)]
+    struct ParseType {
+        contracts: Vec<ContractID>,
+    }
+    let res: ParseType = serde_yaml::from_str(&content)?;
+    Ok(res.contracts)
 }

@@ -13,6 +13,8 @@ use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::db::DBClient;
 use crate::sql::insert::{InsertKey, Inserts};
+use crate::storage_structure::relational;
+use crate::storage_structure::typing;
 use crate::storage_value::processor::{StorageProcessor, TxContext};
 
 pub struct SaveLevelResult {
@@ -38,13 +40,42 @@ impl Executor {
         }
     }
 
-    pub fn add_contract(
-        &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
-    ) {
+    pub fn add_contract(&mut self, contract_id: &ContractID) {
+        // init by grabbing the contract data.
+        info!(
+            "getting the storage definition for contract={}..",
+            contract_id.name
+        );
+        let storage_def = &self
+            .node_cli
+            .get_contract_storage_definition(&contract_id.address, None)
+            .unwrap();
+        let type_ast = typing::storage_ast_from_json(storage_def)
+            .with_context(|| {
+                "failed to derive a storage type from the storage definition"
+            })
+            .unwrap();
+        info!("storage definition retrieved, and type derived");
+
+        // Build the internal representation from the storage defition
+        let ctx = relational::Context::init();
+        let mut indexes = relational::Indexes::new();
+        let rel_ast =
+            &relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
+                .with_context(|| {
+                    "failed to build a relational AST from the storage type"
+                })
+                .unwrap();
+
         self.contracts
             .insert(contract_id.clone(), rel_ast.clone());
+    }
+
+    pub fn get_contract_rel_ast(
+        &self,
+        contract_id: &ContractID,
+    ) -> Option<&RelationalAST> {
+        self.contracts.get(contract_id)
     }
 
     pub fn exec_continuous(&mut self) -> Result<()> {

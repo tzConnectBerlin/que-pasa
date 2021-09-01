@@ -1,4 +1,5 @@
 export DATABASE_URL=host=0.0.0.0 dbname=tezos user=quepasa password=quepasa port=5432
+export CONTRACT_SETTINGS=settings.yaml
 # BLOCKS=245893,245894
 
 
