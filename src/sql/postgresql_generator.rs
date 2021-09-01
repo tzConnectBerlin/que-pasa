@@ -86,11 +86,7 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
-            Some(t) => vec![format!(
-                r#""{contract_schema}.{table}_id" INTEGER"#,
-                contract_schema = self.contract_id,
-                table = t
-            )],
+            Some(t) => vec![format!(r#""{table}_id" INTEGER"#, table = t)],
             None => vec![],
         };
         for column in &table.columns {
@@ -131,10 +127,11 @@ impl PostgresqlGenerator {
             false => "",
         };
         format!(
-            "CREATE {} INDEX ON \"{}\"({});\n",
-            uniqueness_constraint,
-            table.name,
-            self.indices(table).join(", ")
+            "CREATE {unique} INDEX ON \"{contract_schema}.{table}\"({columns});\n",
+            unique = uniqueness_constraint,
+            contract_schema = self.contract_id,
+            table = table.name,
+            columns = self.indices(table).join(", ")
         )
     }
 
@@ -159,7 +156,11 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn create_common_tables(&self) -> String {
-        include_str!("../../sql/postgresql-common-tables.sql").to_string()
+        format!(
+            include_str!("../../sql/postgresql-common-tables.sql"),
+            contract_schema = self.contract_id,
+        )
+        .to_string()
     }
 
     pub(crate) fn create_table_definition(

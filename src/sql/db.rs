@@ -58,8 +58,8 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
                         .id
                         .ok_or_else(|| anyhow!("Missing ID on TxContext"))?
                         as i32),
-                    &tx_context.contract,
                     &(tx_context.level as i32),
+                    &tx_context.contract,
                     &(tx_context.operation_group_number as i32),
                     &(tx_context.operation_number as i32),
                     &(tx_context.content_number as i32),

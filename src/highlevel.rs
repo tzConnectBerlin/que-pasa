@@ -430,7 +430,8 @@ fn test_generate() {
         build_relational_ast(&context.clone(), &type_ast, &mut Indexes::new())
             .unwrap();
     println!("{:#?}", rel_ast);
-    let generator = crate::postgresql_generator::PostgresqlGenerator::new();
+    let generator =
+        crate::postgresql_generator::PostgresqlGenerator::new("testcontract");
     let mut builder = crate::sql::table_builder::TableBuilder::new();
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();

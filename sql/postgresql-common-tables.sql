@@ -41,3 +41,5 @@ CREATE UNIQUE INDEX ON tx_contexts(
     operation_number,
     content_number,
     coalesce(internal_number, -1));
+
+CREATE SCHEMA {contract_schema};
