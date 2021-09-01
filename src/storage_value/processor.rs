@@ -143,8 +143,8 @@ impl StorageProcessor {
     pub(crate) fn process_block(
         &mut self,
         block: &block::Block,
-        rel_ast: &RelationalAST,
         contract_id: &str,
+        rel_ast: &RelationalAST,
     ) -> Result<(Inserts, Vec<TxContext>)> {
         self.inserts.clear();
         self.tx_contexts.clear();

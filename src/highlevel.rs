@@ -7,6 +7,7 @@ use crate::sql::insert::{InsertKey, Inserts};
 use crate::storage_value::processor::{StorageProcessor, TxContext};
 use anyhow::{anyhow, Context, Result};
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::thread;
 
 #[cfg(test)]
@@ -20,9 +21,9 @@ pub struct SaveLevelResult {
 
 pub struct Executor {
     node_cli: NodeClient,
-    rel_ast: RelationalAST,
-    contract_id: String,
     dbcli: DBClient,
+
+    contracts: HashMap<String, RelationalAST>,
 }
 
 impl Executor {
@@ -218,80 +219,102 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
         storage_processor: &mut StorageProcessor,
-    ) -> Result<SaveLevelResult> {
-        if block.has_contract_origination(&self.contract_id) {
-            self.mark_level_contract_origination(level)
+    ) -> Result<HashMap<String, SaveLevelResult>> {
+        let mut contract_results = HashMap::new();
+        for (contract_id, rel_ast) in self.contracts {
+            if block.has_contract_origination(&contract_id) {
+                self.mark_level_contract_origination(level, contract_id)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as contract origination in db",
                     level._level)
             })?;
-            return Ok(SaveLevelResult {
-                level: level._level,
-                is_origination: true,
-                tx_count: 0,
-            });
-        }
+                contract_results.try_insert(
+                    contract_id,
+                    SaveLevelResult {
+                        level: level._level,
+                        is_origination: true,
+                        tx_count: 0,
+                    },
+                );
+                continue;
+            }
 
-        if !block.is_contract_active(&self.contract_id) {
-            self.mark_level_empty(level)
+            if !block.is_contract_active(contract_id) {
+                self.mark_level_empty(level, contract_id)
             .with_context(|| {
                 format!(
-                    "execute for level={} failed: could not mark level as empty in db",
-                    level._level)
+                    "execute failed (level={}, contract={}): could not mark level as empty in db",
+                    level._level, contract_id)
             })?;
-            return Ok(SaveLevelResult {
-                level: level._level,
-                is_origination: false,
-                tx_count: 0,
-            });
-        }
 
-        let (inserts, tx_contexts) = storage_processor
-            .process_block(block, &self.rel_ast, &self.contract_id)
-            .with_context(|| {
-                format!(
-                    "execute for level={} failed: could not process block",
-                    level._level
-                )
-            })?;
-        let tx_count = tx_contexts.len() as u32;
+                contract_results.try_insert(
+                    contract_id,
+                    SaveLevelResult {
+                        level: level._level,
+                        is_origination: false,
+                        tx_count: 0,
+                    },
+                );
+                continue;
+            }
 
-        self.save_level_processed_contract(
-            level,
-            &inserts,
-            tx_contexts,
-            (storage_processor.get_id_value() + 1) as i32,
-        )
-        .with_context(|| {
-            format!(
-                "execute for level={} failed: could not save processed block",
-                level._level
+            let (inserts, tx_contexts) = storage_processor
+                .process_block(block, contract_id, rel_ast)
+                .with_context(|| {
+                    format!(
+                        "execute failed (level={}, contract={}): could not process block",
+                        level._level, contract_id,
+                    )
+                })?;
+            let tx_count = tx_contexts.len() as u32;
+
+            self.save_level_processed_contract(
+                level,
+                contract_id,
+                &inserts,
+                tx_contexts,
+                (storage_processor.get_id_value() + 1) as i32,
             )
-        })?;
-        Ok(SaveLevelResult {
-            level: level._level,
-            is_origination: false,
-            tx_count,
-        })
+            .with_context(|| {
+                format!(
+                "execute failed (level={}, contract={}): could not save processed block",
+                level._level, contract_id,
+            )
+            })?;
+            contract_results.try_insert(
+                contract_id,
+                SaveLevelResult {
+                    level: level._level,
+                    is_origination: false,
+                    tx_count,
+                },
+            );
+        }
+        contract_results
     }
 
     fn mark_level_contract_origination(
         &mut self,
         level: &LevelMeta,
+        contract_id: &str,
     ) -> Result<()> {
         let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_level(&mut tx, level)?;
-        DBClient::save_level(&mut tx, level)?;
-        DBClient::set_origination(&mut tx, level._level)?;
+        DBClient::delete_level(&mut tx, level, contract_id)?;
+        DBClient::save_level(&mut tx, level, contract_id)?;
+        DBClient::set_origination(&mut tx, level._level, contract_id)?;
         tx.commit()?;
         Ok(())
     }
 
-    fn mark_level_empty(&mut self, level: &LevelMeta) -> Result<()> {
+    fn mark_level_empty(
+        &mut self,
+        level: &LevelMeta,
+        contract_id: &str,
+    ) -> Result<()> {
         let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_level(&mut tx, level)?;
-        DBClient::save_level(&mut tx, level)?;
+        DBClient::delete_level(&mut tx, level, contract_id)?;
+        DBClient::save_level(&mut tx, level, contract_id)?;
         tx.commit()?;
         Ok(())
     }
@@ -299,15 +322,16 @@ impl Executor {
     fn save_level_processed_contract(
         &mut self,
         level: &LevelMeta,
+        contract_id: &str,
         inserts: &Inserts,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
         let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_level(&mut tx, level)?;
-        DBClient::save_level(&mut tx, level)?;
+        DBClient::delete_level(&mut tx, level, contract_id)?;
+        DBClient::save_level(&mut tx, level, contract_id)?;
 
-        DBClient::save_tx_contexts(&mut tx, &tx_contexts)?;
+        DBClient::save_tx_contexts(&mut tx, &tx_contexts, contract_id)?;
         let mut keys = inserts
             .keys()
             .collect::<Vec<&InsertKey>>();
@@ -315,6 +339,7 @@ impl Executor {
         for key in keys.iter() {
             DBClient::apply_insert(
                 &mut tx,
+                contract_id,
                 inserts
                     .get(key)
                     .ok_or_else(|| anyhow!("no insert for key"))?,
@@ -533,7 +558,7 @@ fn test_block() {
             .unwrap();
 
             let (inserts, _) = storage_processor
-                .process_block(&block, &rel_ast, contract.id)
+                .process_block(&block, contract.id, &rel_ast)
                 .unwrap();
 
             let filename =

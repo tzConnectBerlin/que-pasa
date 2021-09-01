@@ -77,6 +77,7 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
 
     pub(crate) fn apply_insert(
         tx: &mut postgres::Transaction,
+        contract_id: &str,
         insert: &Insert,
     ) -> Result<()> {
         let mut columns = insert.columns.clone();
@@ -113,9 +114,9 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
 
         let qry = format!(
             r#"
-INSERT INTO "{}" ( {} )
+INSERT INTO "{}.{}" ( {} )
 VALUES ( {} )"#,
-            insert.table_name, v_names, v_refs,
+            contract_id, insert.table_name, v_names, v_refs,
         );
         debug!(
             "qry: {}, values: {:?}",
@@ -147,10 +148,11 @@ VALUES ( {} )"#,
             .execute("DELETE FROM levels", &[])?)
     }
 
-    pub(crate) fn fill_in_levels(&mut self) -> Result<u64> {
+    pub(crate) fn fill_in_levels(&mut self, contract_id: &str) -> Result<u64> {
         Ok(self.dbconn.execute(
-            "
-INSERT INTO levels(_level, hash)
+            format!(
+                "
+INSERT INTO {schema}.levels(_level, hash)
 SELECT
     g.level,
     NULL
@@ -159,8 +161,10 @@ FROM GENERATE_SERIES(
     (SELECT MAX(_level) FROM levels)
 ) AS g(level)
 WHERE g.level NOT IN (
-    SELECT _level FROM levels
+    SELECT _level FROM {schema}.levels
 )",
+                schema = contract_id
+            ),
             &[],
         )?)
     }

@@ -1,5 +1,4 @@
 /target
-contract.sql
 node_modules
 .env
 .githooks
