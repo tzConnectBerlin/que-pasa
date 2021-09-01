@@ -7,7 +7,7 @@ CREATE UNIQUE INDEX levels__level ON levels(_level);
 CREATE UNIQUE INDEX levels_hash ON levels(hash);
 
 CREATE TABLE contract_levels (
-    contract VARCHAR(100) NOT NULL,
+    contract TEXT NOT NULL,
     level INTEGER NOT NULL,
     is_origination BOOLEAN NOT NULL DEFAULT false,
     PRIMARY KEY(contract, level)
@@ -22,7 +22,7 @@ INSERT INTO max_id (max_id) VALUES (1);
 CREATE TABLE tx_contexts(
        id INTEGER NOT NULL PRIMARY KEY,
        level INTEGER NOT NULL REFERENCES levels(_level) ON DELETE CASCADE,
-       contract VARCHAR(100) NOT NULL,
+       contract TEXT NOT NULL,
        operation_hash VARCHAR(100) NOT NULL,
        operation_group_number INTEGER NOT NULL,
        operation_number INTEGER NOT NULL,

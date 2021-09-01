@@ -3,7 +3,7 @@ use clap::{App, Arg, SubCommand};
 
 #[derive(Clone, Default, Debug)]
 pub struct Config {
-    pub contract_id: String,
+    pub contract_id: ContractID,
     pub database_url: String,
     pub ssl: bool,
     pub ca_cert: Option<String>,
@@ -14,6 +14,12 @@ pub struct Config {
     pub network: String,
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
+}
+
+#[derive(Hash, Eq, PartialEq, Clone, Default, Debug)]
+pub struct ContractID {
+    pub address: String,
+    pub name: String,
 }
 
 lazy_static! {
@@ -110,10 +116,15 @@ pub fn init_config() -> Result<Config> {
         )
         .get_matches();
 
-    config.contract_id = matches
+    let contract_address = matches
         .value_of("contract_id")
         .map_or_else(|| std::env::var("CONTRACT_ID"), |s| Ok(s.to_string()))
         .unwrap();
+
+    config.contract_id = ContractID {
+        address: contract_address,
+        name: "KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF".to_string(),
+    };
 
     config.generate_sql = match matches.subcommand() {
         ("generate-sql", _) => true,

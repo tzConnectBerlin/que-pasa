@@ -69,10 +69,10 @@ fn main() {
     // init by grabbing the contract data.
     info!(
         "getting the storage definition for contract={}..",
-        contract_id
+        contract_id.name
     );
     let storage_def = &node_cli
-        .get_contract_storage_definition(contract_id, None)
+        .get_contract_storage_definition(&contract_id.address, None)
         .unwrap();
     let type_ast = typing::storage_ast_from_json(storage_def)
         .with_context(|| {
@@ -152,7 +152,7 @@ fn main() {
                 let bcd_cli = bcd::BCDClient::new(
                     bcd_url,
                     CONFIG.network.clone(),
-                    contract_id.clone(),
+                    contract_id.address.clone(),
                 );
 
                 executor

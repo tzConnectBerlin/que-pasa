@@ -1,10 +1,3 @@
-use crate::octez::block::{Block, LevelMeta};
-use crate::octez::block_getter::ConcurrentBlockGetter;
-use crate::octez::node::NodeClient;
-use crate::relational::RelationalAST;
-use crate::sql::db::DBClient;
-use crate::sql::insert::{InsertKey, Inserts};
-use crate::storage_value::processor::{StorageProcessor, TxContext};
 use anyhow::{anyhow, Context, Result};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -13,9 +6,18 @@ use std::thread;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
+use crate::config::ContractID;
+use crate::octez::block::{Block, LevelMeta};
+use crate::octez::block_getter::ConcurrentBlockGetter;
+use crate::octez::node::NodeClient;
+use crate::relational::RelationalAST;
+use crate::sql::db::DBClient;
+use crate::sql::insert::{InsertKey, Inserts};
+use crate::storage_value::processor::{StorageProcessor, TxContext};
+
 pub struct SaveLevelResult {
     pub level: u32,
-    pub contract_id: String,
+    pub contract_id: ContractID,
     pub is_origination: bool,
     pub tx_count: u32,
 }
@@ -24,7 +26,7 @@ pub struct Executor {
     node_cli: NodeClient,
     dbcli: DBClient,
 
-    contracts: HashMap<String, RelationalAST>,
+    contracts: HashMap<ContractID, RelationalAST>,
 }
 
 impl Executor {
@@ -36,9 +38,13 @@ impl Executor {
         }
     }
 
-    pub fn add_contract(&mut self, contract_id: &str, rel_ast: &RelationalAST) {
+    pub fn add_contract(
+        &mut self,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) {
         self.contracts
-            .insert(contract_id.to_string(), rel_ast.clone());
+            .insert(contract_id.clone(), rel_ast.clone());
     }
 
     pub fn exec_continuous(&mut self) -> Result<()> {
@@ -120,7 +126,7 @@ impl Executor {
                 self.contracts
                     .keys()
                     .cloned()
-                    .collect::<Vec<String>>()
+                    .collect::<Vec<ContractID>>()
                     .as_slice(),
                 latest_level,
             )?;
@@ -160,7 +166,7 @@ impl Executor {
         Ok(())
     }
 
-    pub fn fill_in_levels(&mut self, contract_id: &String) -> Result<()> {
+    pub fn fill_in_levels(&mut self, contract_id: &ContractID) -> Result<()> {
         // fills in all levels in db as empty that are missing between min and max
         // level present
 
@@ -250,10 +256,10 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
         storage_processor: &mut StorageProcessor,
-        contract_id: &String,
+        contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
-        if block.has_contract_origination(contract_id) {
+        if block.has_contract_origination(&contract_id.address) {
             self.mark_level_contract_origination(level, contract_id)
             .with_context(|| {
                 format!(
@@ -268,12 +274,12 @@ impl Executor {
             });
         }
 
-        if !block.is_contract_active(contract_id) {
+        if !block.is_contract_active(&contract_id.address) {
             self.mark_level_empty(level, contract_id)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not mark level as empty in db",
-                    level._level, contract_id)
+                    level._level, contract_id.name)
             })?;
 
             return Ok(SaveLevelResult {
@@ -285,11 +291,11 @@ impl Executor {
         }
 
         let (inserts, tx_contexts) = storage_processor
-                .process_block(block, contract_id, rel_ast)
+                .process_block(block, &contract_id.address, rel_ast)
                 .with_context(|| {
                     format!(
                         "execute failed (level={}, contract={}): could not process block",
-                        level._level, contract_id,
+                        level._level, contract_id.name,
                     )
                 })?;
         let tx_count = tx_contexts.len() as u32;
@@ -304,7 +310,7 @@ impl Executor {
             .with_context(|| {
                 format!(
                 "execute failed (level={}, contract={}): could not save processed block",
-                level._level, contract_id,
+                level._level, contract_id.name,
             )
             })?;
         Ok(SaveLevelResult {
@@ -318,7 +324,7 @@ impl Executor {
     fn mark_level_contract_origination(
         &mut self,
         level: &LevelMeta,
-        contract_id: &String,
+        contract_id: &ContractID,
     ) -> Result<()> {
         let mut tx = self.dbcli.transaction()?;
         DBClient::delete_contract_level(&mut tx, contract_id, level._level)?;
@@ -331,7 +337,7 @@ impl Executor {
     fn mark_level_empty(
         &mut self,
         level: &LevelMeta,
-        contract_id: &String,
+        contract_id: &ContractID,
     ) -> Result<()> {
         let mut tx = self.dbcli.transaction()?;
         DBClient::delete_contract_level(&mut tx, contract_id, level._level)?;
@@ -343,7 +349,7 @@ impl Executor {
     fn save_level_processed_contract(
         &mut self,
         level: &LevelMeta,
-        contract_id: &String,
+        contract_id: &ContractID,
         inserts: &Inserts,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
@@ -379,17 +385,17 @@ fn level_text(result: &SaveLevelResult) -> String {
             ..
         } => format!(
             "level {}, contract {}: contract origination",
-            result.level, result.contract_id
+            result.level, result.contract_id.name
         ),
         SaveLevelResult { tx_count: 1, .. } => {
             format!(
                 "level {}, contract {}: {} tx for us",
-                result.level, result.contract_id, result.tx_count
+                result.level, result.contract_id.name, result.tx_count
             )
         }
         _ => format!(
             "level {}, contract {}: {} txs for us",
-            result.level, result.contract_id, result.tx_count
+            result.level, result.contract_id.name, result.tx_count
         ),
     }
 }

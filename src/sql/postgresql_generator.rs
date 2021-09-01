@@ -1,17 +1,19 @@
-use crate::sql::table::{Column, Table};
-use crate::storage_structure::typing::SimpleExprTy;
 use anyhow::Result;
 use std::vec::Vec;
 
+use crate::config::ContractID;
+use crate::sql::table::{Column, Table};
+use crate::storage_structure::typing::SimpleExprTy;
+
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
-    contract_id: String,
+    contract_id: ContractID,
 }
 
 impl PostgresqlGenerator {
-    pub(crate) fn new(contract_id: &str) -> Self {
+    pub(crate) fn new(contract_id: &ContractID) -> Self {
         Self {
-            contract_id: contract_id.to_string(),
+            contract_id: contract_id.clone(),
         }
     }
 
@@ -75,7 +77,7 @@ impl PostgresqlGenerator {
     pub(crate) fn start_table(&self, name: &str) -> String {
         format!(
             include_str!("../../sql/postgresql-table-header.sql"),
-            contract_schema = self.contract_id,
+            contract_schema = self.contract_id.name,
             table = name
         )
     }
@@ -127,9 +129,9 @@ impl PostgresqlGenerator {
             false => "",
         };
         format!(
-            "CREATE {unique} INDEX ON \"{contract_schema}.{table}\"({columns});\n",
+            "CREATE {unique} INDEX ON {contract_schema}.\"{table}\"({columns});\n",
             unique = uniqueness_constraint,
-            contract_schema = self.contract_id,
+            contract_schema = self.contract_id.name,
             table = table.name,
             columns = self.indices(table).join(", ")
         )
@@ -148,8 +150,8 @@ impl PostgresqlGenerator {
     fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
         Self::parent_name(&table.name).map(|parent| {
             format!(
-                r#"FOREIGN KEY ("{table}_id") REFERENCES "{contract_schema}.{table}"(id)"#,
-                contract_schema = self.contract_id,
+                r#"FOREIGN KEY ("{table}_id") REFERENCES {contract_schema}."{table}"(id)"#,
+                contract_schema = self.contract_id.name,
                 table = parent,
             )
         })
@@ -158,7 +160,7 @@ impl PostgresqlGenerator {
     pub(crate) fn create_common_tables(&self) -> String {
         format!(
             include_str!("../../sql/postgresql-common-tables.sql"),
-            contract_schema = self.contract_id,
+            contract_schema = self.contract_id.name,
         )
         .to_string()
     }
@@ -191,21 +193,21 @@ impl PostgresqlGenerator {
         let columns: Vec<String> = self.table_sql_columns(table);
         Ok(format!(
             r#"
-CREATE VIEW "{contract_schema}.{table}_live" AS (
+CREATE VIEW {contract_schema}."{table}_live" AS (
     SELECT
         {columns}
-    FROM "{contract_schema}.{table}" t1
+    FROM {contract_schema}."{table}" t1
     JOIN tx_contexts ctx
       ON  ctx.id = t1.tx_context_id
       AND ctx.level = (
             SELECT
                 MAX(ctx.level) AS _level
-            FROM "{contract_schema}.{table}" custom_table
+            FROM {contract_schema}."{table}" custom_table
             JOIN tx_contexts ctx ON custom_table.tx_context_id = ctx.id
         )
 );
 "#,
-            contract_schema = self.contract_id,
+            contract_schema = self.contract_id.name,
             table = table.name,
             columns = columns.join(", "),
         ))

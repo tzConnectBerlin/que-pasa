@@ -7,6 +7,7 @@ use std::fs;
 
 use chrono::{DateTime, Utc};
 
+use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
@@ -78,7 +79,7 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
 
     pub(crate) fn apply_insert(
         tx: &mut postgres::Transaction,
-        contract_id: &str,
+        contract_id: &ContractID,
         insert: &Insert,
     ) -> Result<()> {
         let mut columns = insert.columns.clone();
@@ -115,9 +116,9 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
 
         let qry = format!(
             r#"
-INSERT INTO "{contract_schema}.{table}" ( {v_names} )
+INSERT INTO {contract_schema}."{table}" ( {v_names} )
 VALUES ( {v_refs} )"#,
-            contract_schema = contract_id,
+            contract_schema = contract_id.name,
             table = insert.table_name,
             v_names = v_names,
             v_refs = v_refs,
@@ -154,7 +155,7 @@ VALUES ( {v_refs} )"#,
 
     pub(crate) fn fill_in_levels(
         &mut self,
-        contract_id: &String,
+        contract_id: &ContractID,
     ) -> Result<u64> {
         Ok(self.dbconn.execute(
             "
@@ -169,7 +170,7 @@ FROM GENERATE_SERIES(
 WHERE g.level NOT IN (
     SELECT level FROM contract_levels WHERE contract = $1
 )",
-            &[contract_id],
+            &[&contract_id.name],
         )?)
     }
 
@@ -200,7 +201,7 @@ DESC LIMIT 1",
 
     pub(crate) fn get_missing_levels(
         &mut self,
-        contracts: &[String],
+        contracts: &[ContractID],
         end: u32,
     ) -> Result<Vec<u32>> {
         let mut rows: Vec<i32> = vec![];
@@ -223,7 +224,7 @@ ORDER BY 1",
                     start, end
                 )
                 .as_str(),
-                &[contract_id],
+                &[&contract_id.name],
             )? {
                 rows.push(row.get(0));
             }
@@ -295,7 +296,7 @@ WHERE _level = $1",
 
     pub(crate) fn save_contract_level(
         tx: &mut Transaction,
-        contract_id: &String,
+        contract_id: &ContractID,
         level: u32,
     ) -> Result<()> {
         tx.execute(
@@ -304,14 +305,14 @@ INSERT INTO contract_levels(
     contract, level
 ) VALUES ($1, $2)
 ",
-            &[contract_id, &(level as i32)],
+            &[&contract_id.name, &(level as i32)],
         )?;
         Ok(())
     }
 
     pub(crate) fn delete_contract_level(
         tx: &mut Transaction,
-        contract_id: &String,
+        contract_id: &ContractID,
         level: u32,
     ) -> Result<()> {
         tx.execute(
@@ -319,7 +320,7 @@ INSERT INTO contract_levels(
 DELETE FROM contract_levels
 WHERE contract = $1
   AND level = $2",
-            &[contract_id, &(level as i32)],
+            &[&contract_id.name, &(level as i32)],
         )?;
         Ok(())
     }
@@ -327,7 +328,7 @@ WHERE contract = $1
     /// get the origination of the contract, which is currently store in the levels (will change)
     pub(crate) fn set_origination(
         tx: &mut Transaction,
-        contract_id: &String,
+        contract_id: &ContractID,
         level: u32,
     ) -> Result<()> {
         tx.execute(
@@ -336,7 +337,7 @@ UPDATE contract_levels
 SET is_origination = FALSE
 WHERE is_origination = TRUE
   AND contract = $1",
-            &[contract_id],
+            &[&contract_id.name],
         )?;
         tx.execute(
             "
@@ -344,14 +345,14 @@ UPDATE contract_levels
 SET is_origination = TRUE
 WHERE contract = $1
   AND level = $2",
-            &[contract_id, &(level as i32)],
+            &[&contract_id.name, &(level as i32)],
         )?;
         Ok(())
     }
 
     pub(crate) fn get_origination(
         &mut self,
-        contract_id: &String,
+        contract_id: &ContractID,
     ) -> Result<Option<u32>> {
         let result = self.dbconn.query(
             "
@@ -360,7 +361,7 @@ SELECT
 FROM contract_levels
 WHERE contract = $1
   AND is_origination = TRUE",
-            &[contract_id],
+            &[&contract_id.name],
         )?;
         if result.is_empty() {
             Ok(None)
