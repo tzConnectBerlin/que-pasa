@@ -62,6 +62,7 @@ impl ProcessStorageContext {
 pub(crate) struct TxContext {
     pub id: Option<u32>,
     pub level: u32,
+    pub contract: String,
     pub operation_hash: String,
     pub operation_group_number: usize,
     pub operation_number: usize,
@@ -75,6 +76,7 @@ pub(crate) struct TxContext {
 impl Hash for TxContext {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.level.hash(state);
+        self.contract.hash(state);
         self.operation_hash.hash(state);
         self.operation_group_number.hash(state);
         self.operation_number.hash(state);
@@ -90,6 +92,7 @@ impl Hash for TxContext {
 impl PartialEq for TxContext {
     fn eq(&self, other: &Self) -> bool {
         self.level == other.level
+            && self.contract == other.contract
             && self.operation_hash == other.operation_hash
             && self.operation_group_number == other.operation_group_number
             && self.operation_number == other.operation_number
@@ -242,6 +245,7 @@ impl StorageProcessor {
                                     self.tx_context(TxContext {
                                         id: None,
                                         level,
+                                        contract: contract_id.to_string(),
                                         operation_hash: operation.hash.clone(),
                                         operation_number,
                                         operation_group_number,
@@ -279,6 +283,7 @@ impl StorageProcessor {
                                         self.tx_context(TxContext {
                                             id: None,
                                             level,
+                                            contract: contract_id.to_string(),
                                             operation_hash: operation
                                                 .hash
                                                 .clone(),
@@ -329,6 +334,7 @@ impl StorageProcessor {
                         let tx_context = TxContext {
                             id: None,
                             level,
+                            contract: contract_id.to_string(),
                             operation_hash: operation.hash.clone(),
                             operation_group_number,
                             operation_number,
@@ -363,6 +369,7 @@ impl StorageProcessor {
                             let tx_context = TxContext {
                                 id: None,
                                 level,
+                                contract: contract_id.to_string(),
                                 operation_hash: operation.hash.clone(),
                                 operation_group_number,
                                 operation_number,

@@ -1,4 +1,5 @@
 #![feature(format_args_capture)]
+#![feature(map_try_insert)]
 use postgresql_generator::PostgresqlGenerator;
 
 extern crate atty;
@@ -96,7 +97,7 @@ fn main() {
 
     // If generate-sql command is given, just output SQL and quit.
     if CONFIG.generate_sql {
-        let generator = PostgresqlGenerator::new();
+        let generator = PostgresqlGenerator::new(contract_id);
         println!("BEGIN;\n");
         println!("{}", generator.create_common_tables());
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -141,12 +142,8 @@ fn main() {
             .unwrap();
     }
 
-    let mut executor = highlevel::Executor::new(
-        node_cli.clone(),
-        rel_ast.clone(),
-        contract_id.clone(),
-        dbcli,
-    );
+    let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
+    executor.add_contract(contract_id, rel_ast);
 
     let num_getters = CONFIG.workers_cap;
     if CONFIG.init {
@@ -173,7 +170,9 @@ fn main() {
             }
         };
 
-        executor.fill_in_levels().unwrap();
+        executor
+            .fill_in_levels(contract_id)
+            .unwrap();
         return;
     }
 

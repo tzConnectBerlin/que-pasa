@@ -4,17 +4,15 @@ use anyhow::Result;
 use std::vec::Vec;
 
 #[derive(Clone, Debug)]
-pub struct PostgresqlGenerator {}
-
-impl Default for PostgresqlGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
+pub struct PostgresqlGenerator {
+    contract_id: String,
 }
 
 impl PostgresqlGenerator {
-    pub(crate) fn new() -> Self {
-        Self {}
+    pub(crate) fn new(contract_id: &str) -> Self {
+        Self {
+            contract_id: contract_id.to_string(),
+        }
     }
 
     pub(crate) fn create_sql(&self, column: Column) -> Option<String> {
@@ -75,7 +73,11 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn start_table(&self, name: &str) -> String {
-        format!(include_str!("../../sql/postgresql-table-header.sql"), name)
+        format!(
+            include_str!("../../sql/postgresql-table-header.sql"),
+            contract_schema = self.contract_id,
+            table = name
+        )
     }
 
     pub(crate) fn end_table(&self) -> String {
@@ -84,7 +86,11 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
-            Some(x) => vec![format!(r#""{}_id" INTEGER"#, x)],
+            Some(t) => vec![format!(
+                r#""{contract_schema}.{table}_id" INTEGER"#,
+                contract_schema = self.contract_id,
+                table = t
+            )],
             None => vec![],
         };
         for column in &table.columns {
@@ -145,8 +151,9 @@ impl PostgresqlGenerator {
     fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
         Self::parent_name(&table.name).map(|parent| {
             format!(
-                r#"FOREIGN KEY ("{}_id") REFERENCES "{}"(id)"#,
-                parent, parent
+                r#"FOREIGN KEY ("{table}_id") REFERENCES "{contract_schema}.{table}"(id)"#,
+                contract_schema = self.contract_id,
+                table = parent,
             )
         })
     }
@@ -183,24 +190,23 @@ impl PostgresqlGenerator {
         let columns: Vec<String> = self.table_sql_columns(table);
         Ok(format!(
             r#"
-CREATE VIEW "{}_live" AS (
+CREATE VIEW "{contract_schema}.{table}_live" AS (
     SELECT
-        {}
-    FROM "{}" t1
+        {columns}
+    FROM "{contract_schema}.{table}" t1
     JOIN tx_contexts ctx
       ON  ctx.id = t1.tx_context_id
       AND ctx.level = (
             SELECT
                 MAX(ctx.level) AS _level
-            FROM "{}" custom_table
+            FROM "{contract_schema}.{table}" custom_table
             JOIN tx_contexts ctx ON custom_table.tx_context_id = ctx.id
         )
 );
 "#,
-            table.name,
-            columns.join(", "),
-            table.name,
-            table.name,
+            contract_schema = self.contract_id,
+            table = table.name,
+            columns = columns.join(", "),
         ))
     }
 
