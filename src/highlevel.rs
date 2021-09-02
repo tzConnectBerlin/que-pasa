@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::thread;
@@ -292,10 +293,10 @@ impl Executor {
         let mut tx = self.dbcli.transaction()?;
         DBClient::delete_level(&mut tx, level)?;
         DBClient::save_level(&mut tx, level)?;
-        tx.commit()?;
 
         for (contract_id, rel_ast) in self.contracts.clone() {
-            contract_results.push(self.exec_for_block_contract(
+            contract_results.push(Self::exec_for_block_contract(
+                &mut tx,
                 level,
                 block,
                 storage_processor,
@@ -303,11 +304,12 @@ impl Executor {
                 &rel_ast,
             )?);
         }
+        tx.commit()?;
         Ok(contract_results)
     }
 
     fn exec_for_block_contract(
-        &mut self,
+        tx: &mut Transaction,
         level: &LevelMeta,
         block: &Block,
         storage_processor: &mut StorageProcessor,
@@ -315,7 +317,7 @@ impl Executor {
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
         if block.has_contract_origination(&contract_id.address) {
-            self.mark_level_contract_origination(level, contract_id)
+            Self::mark_level_contract_origination(tx, level, contract_id)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as contract origination in db",
@@ -330,7 +332,7 @@ impl Executor {
         }
 
         if !block.is_contract_active(&contract_id.address) {
-            self.mark_level_empty(level, contract_id)
+            Self::mark_level_empty(tx, level, contract_id)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not mark level as empty in db",
@@ -355,7 +357,8 @@ impl Executor {
                 })?;
         let tx_count = tx_contexts.len() as u32;
 
-        self.save_level_processed_contract(
+        Self::save_level_processed_contract(
+	    tx,
                 level,
                 contract_id,
                 &inserts,
@@ -377,58 +380,52 @@ impl Executor {
     }
 
     fn mark_level_contract_origination(
-        &mut self,
+        tx: &mut Transaction,
         level: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_contract_level(&mut tx, contract_id, level._level)?;
-        DBClient::save_contract_level(&mut tx, contract_id, level._level)?;
-        DBClient::set_origination(&mut tx, contract_id, level._level)?;
-        tx.commit()?;
+        DBClient::delete_contract_level(tx, contract_id, level._level)?;
+        DBClient::save_contract_level(tx, contract_id, level._level)?;
+        DBClient::set_origination(tx, contract_id, level._level)?;
         Ok(())
     }
 
     fn mark_level_empty(
-        &mut self,
+        tx: &mut Transaction,
         level: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_contract_level(&mut tx, contract_id, level._level)?;
-        DBClient::save_contract_level(&mut tx, contract_id, level._level)?;
-        tx.commit()?;
+        DBClient::delete_contract_level(tx, contract_id, level._level)?;
+        DBClient::save_contract_level(tx, contract_id, level._level)?;
         Ok(())
     }
 
     fn save_level_processed_contract(
-        &mut self,
+        tx: &mut Transaction,
         level: &LevelMeta,
         contract_id: &ContractID,
         inserts: &Inserts,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
-        let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_contract_level(&mut tx, contract_id, level._level)?;
-        DBClient::save_contract_level(&mut tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, level._level)?;
+        DBClient::save_contract_level(tx, contract_id, level._level)?;
 
-        DBClient::save_tx_contexts(&mut tx, &tx_contexts)?;
+        DBClient::save_tx_contexts(tx, &tx_contexts)?;
         let mut keys = inserts
             .keys()
             .collect::<Vec<&InsertKey>>();
         keys.sort_by_key(|a| a.id);
         for key in keys.iter() {
             DBClient::apply_insert(
-                &mut tx,
+                tx,
                 contract_id,
                 inserts
                     .get(key)
                     .ok_or_else(|| anyhow!("no insert for key"))?,
             )?;
         }
-        DBClient::set_max_id(&mut tx, next_id)?;
-        tx.commit()?;
+        DBClient::set_max_id(tx, next_id)?;
         Ok(())
     }
 }
