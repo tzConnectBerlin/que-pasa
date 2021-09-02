@@ -4,3 +4,4 @@ node_modules
 .githooks
 *.swp
 rusty-tags.vi
+**/#*#

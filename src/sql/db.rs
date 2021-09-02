@@ -11,6 +11,8 @@ use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
+use crate::sql::table_builder::TableBuilder;
+use crate::storage_structure::relational::RelationalAST;
 use crate::storage_value::processor::TxContext;
 
 pub struct DBClient {
@@ -41,6 +43,71 @@ impl DBClient {
                 dbconn: Client::connect(url, NoTls)?,
             })
         }
+    }
+
+    pub(crate) fn create_common_tables(&mut self) -> Result<()> {
+        self.dbconn.simple_query(
+            PostgresqlGenerator::create_common_tables().as_str(),
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn create_contract_schema(
+        &mut self,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) -> Result<bool> {
+        if !self.contract_schema_defined(contract_id)? {
+            // Generate the SQL schema for this contract
+            let mut builder = TableBuilder::new();
+            builder.populate(rel_ast);
+
+            let generator = PostgresqlGenerator::new(contract_id);
+            let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+            sorted_tables.sort_by_key(|a| a.0);
+
+            let mut tx = self.transaction()?;
+            tx.execute(
+                format!(
+                    "CREATE SCHEMA {contract_schema}",
+                    contract_schema = contract_id.name
+                )
+                .as_str(),
+                &[],
+            )?;
+            for (_name, table) in sorted_tables {
+                tx.simple_query(
+                    generator
+                        .create_table_definition(table)?
+                        .as_str(),
+                )?;
+                tx.simple_query(
+                    generator
+                        .create_view_definition(table)?
+                        .as_str(),
+                )?;
+            }
+            tx.commit()?;
+
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn contract_schema_defined(
+        &mut self,
+        contract_id: &ContractID,
+    ) -> Result<bool> {
+        let res = self.dbconn.query_opt(
+            "
+SELECT 
+    1
+FROM information_schema.schemata 
+WHERE schema_name = $1
+",
+            &[&contract_id.name],
+        )?;
+        Ok(res.is_some())
     }
 
     pub(crate) fn save_tx_contexts(
@@ -147,10 +214,26 @@ VALUES ( {v_refs} )"#,
         Ok(self.dbconn.transaction()?)
     }
 
-    pub(crate) fn delete_everything(&mut self) -> Result<u64> {
-        Ok(self
-            .dbconn
-            .execute("DELETE FROM levels", &[])?)
+    pub(crate) fn delete_everything(
+        &mut self,
+        contracts: &[ContractID],
+    ) -> Result<()> {
+        let mut schemas: Vec<&String> = contracts
+            .iter()
+            .map(|x| &x.name)
+            .collect();
+        let public_schema = "public".to_string();
+        schemas.push(&public_schema);
+
+        let mut tx = self.transaction()?;
+        for schema in schemas {
+            tx.simple_query(
+                format!("DROP SCHEMA IF EXISTS {} CASCADE", schema).as_str(),
+            )?;
+        }
+        tx.simple_query("CREATE SCHEMA public")?;
+        tx.commit()?;
+        Ok(())
     }
 
     pub(crate) fn fill_in_levels(
@@ -177,7 +260,7 @@ WHERE g.level NOT IN (
     pub(crate) fn get_head(&mut self) -> Result<Option<LevelMeta>> {
         let result = self.dbconn.query(
             "
-SELECT _level, hash, is_origination, baked_at
+SELECT _level, hash, baked_at
 FROM levels
 ORDER BY _level
 DESC LIMIT 1",
@@ -188,7 +271,7 @@ DESC LIMIT 1",
         } else if result.len() == 1 {
             let _level: i32 = result[0].get(0);
             let hash: Option<String> = result[0].get(1);
-            let baked_at: Option<DateTime<Utc>> = result[0].get(3);
+            let baked_at: Option<DateTime<Utc>> = result[0].get(2);
             Ok(Some(LevelMeta {
                 _level: _level as u32,
                 hash,
@@ -212,9 +295,9 @@ DESC LIMIT 1",
                 format!(
                     "
 SELECT
-    *
+    s.i
 FROM generate_series({},{}) s(i)
-WHERE NOT EXIST (
+WHERE NOT EXISTS (
     SELECT
         1
     FROM contract_levels c

@@ -1,6 +1,5 @@
 #![feature(format_args_capture)]
 #![feature(map_try_insert)]
-use postgresql_generator::PostgresqlGenerator;
 
 extern crate atty;
 extern crate backtrace;
@@ -42,8 +41,6 @@ use env_logger::Env;
 use octez::bcd;
 use octez::node;
 use sql::db::DBClient;
-use sql::postgresql_generator;
-use sql::table_builder;
 use std::panic;
 use std::process;
 use std::thread;
@@ -61,7 +58,6 @@ fn main() {
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
-    let contract_id = &CONFIG.contracts[0];
     let node_cli =
         &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
 
@@ -80,85 +76,53 @@ fn main() {
         );
         thread::sleep(std::time::Duration::from_millis(5000));
         dbcli
-            .delete_everything()
+            .delete_everything(&CONFIG.contracts)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
+        dbcli.create_common_tables().unwrap();
     }
 
     let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
-    executor.add_contract(contract_id);
-
-    // If generate-sql command is given, just output SQL and quit.
-    if CONFIG.generate_sql {
-        let rel_ast = executor
-            .get_contract_rel_ast(contract_id)
+    for contract_id in &CONFIG.contracts {
+        executor
+            .add_contract(contract_id)
             .unwrap();
-
-        // Generate the SQL schema for this contract
-        let mut builder = table_builder::TableBuilder::new();
-        builder.populate(rel_ast);
-
-        let generator = PostgresqlGenerator::new(contract_id);
-        println!("BEGIN;\n");
-        println!("{}", generator.create_common_tables());
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-        for (_name, table) in sorted_tables {
-            print!(
-                "{}",
-                generator
-                    .create_table_definition(table)
-                    .unwrap()
-            );
-            println!();
-            print!(
-                "{}",
-                generator
-                    .create_view_definition(table)
-                    .unwrap()
-            );
-            println!();
-        }
-        println!("\nCOMMIT;");
-        return;
     }
+    let new_contracts = executor
+        .create_contract_schemas()
+        .unwrap();
 
     let num_getters = CONFIG.workers_cap;
-    if CONFIG.init {
-        match CONFIG.bcd_url.clone() {
-            Some(bcd_url) => {
-                let bcd_cli = bcd::BCDClient::new(
-                    bcd_url,
-                    CONFIG.network.clone(),
-                    contract_id.address.clone(),
-                );
-
-                executor
-                    .exec_parallel(num_getters, move |height_chan| {
-                        bcd_cli
-                            .populate_levels_chan(height_chan)
-                            .unwrap()
-                    })
-                    .unwrap()
-            }
-            None => {
-                executor
-                    .exec_levels(num_getters, CONFIG.levels.clone())
-                    .unwrap();
-            }
-        };
-
-        executor
-            .fill_in_levels(contract_id)
-            .unwrap();
-        return;
-    }
-
     if !CONFIG.levels.is_empty() {
         executor
             .exec_levels(num_getters, CONFIG.levels.clone())
             .unwrap();
         return;
+    }
+
+    if let Some(bcd_url) = &CONFIG.bcd_url {
+        for contract_id in &new_contracts {
+            info!("Initializing contract {}..", contract_id.name);
+            let bcd_cli = bcd::BCDClient::new(
+                bcd_url.clone(),
+                CONFIG.network.clone(),
+                contract_id.address.clone(),
+            );
+
+            executor
+                .exec_parallel(num_getters, move |height_chan| {
+                    bcd_cli
+                        .populate_levels_chan(height_chan)
+                        .unwrap()
+                })
+                .unwrap();
+
+            executor
+                .fill_in_levels(contract_id)
+                .unwrap();
+
+            info!("contract {} initialized.", contract_id.name)
+        }
     }
 
     // No args so we will first load missing levels

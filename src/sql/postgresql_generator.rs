@@ -157,12 +157,8 @@ impl PostgresqlGenerator {
         })
     }
 
-    pub(crate) fn create_common_tables(&self) -> String {
-        format!(
-            include_str!("../../sql/postgresql-common-tables.sql"),
-            contract_schema = self.contract_id.name,
-        )
-        .to_string()
+    pub(crate) fn create_common_tables() -> String {
+        include_str!("../../sql/postgresql-common-tables.sql").to_string()
     }
 
     pub(crate) fn create_table_definition(

@@ -20,13 +20,6 @@ NETWORK="granadanet"
 # NETWORK="mainnet"
 
 
-gen-sql:
-ifeq ($(strip $(CONTRACT_ID)),"")
-	$(error variable CONTRACT_ID not set)
-else
-	RUST_BACKTRACE=1 cargo +nightly run -- generate-sql > contract.sql/init.sql
-endif
-
 start-db:
 	docker-compose up -d
 
@@ -54,5 +47,4 @@ else
 endif
 
 db:
-	make gen-sql
 	make start-db

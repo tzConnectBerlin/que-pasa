@@ -40,7 +40,7 @@ impl Executor {
         }
     }
 
-    pub fn add_contract(&mut self, contract_id: &ContractID) {
+    pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
         // init by grabbing the contract data.
         info!(
             "getting the storage definition for contract={}..",
@@ -48,27 +48,38 @@ impl Executor {
         );
         let storage_def = &self
             .node_cli
-            .get_contract_storage_definition(&contract_id.address, None)
-            .unwrap();
+            .get_contract_storage_definition(&contract_id.address, None)?;
         let type_ast = typing::storage_ast_from_json(storage_def)
             .with_context(|| {
                 "failed to derive a storage type from the storage definition"
-            })
-            .unwrap();
+            })?;
         info!("storage definition retrieved, and type derived");
 
         // Build the internal representation from the storage defition
         let ctx = relational::Context::init();
         let mut indexes = relational::Indexes::new();
         let rel_ast =
-            &relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
+            relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
                 .with_context(|| {
                     "failed to build a relational AST from the storage type"
-                })
-                .unwrap();
+                })?;
 
         self.contracts
-            .insert(contract_id.clone(), rel_ast.clone());
+            .insert(contract_id.clone(), rel_ast);
+        Ok(())
+    }
+
+    pub fn create_contract_schemas(&mut self) -> Result<Vec<ContractID>> {
+        let mut new_contracts: Vec<ContractID> = vec![];
+        for (contract_id, rel_ast) in &self.contracts {
+            if self
+                .dbcli
+                .create_contract_schema(contract_id, rel_ast)?
+            {
+                new_contracts.push(contract_id.clone());
+            }
+        }
+        Ok(new_contracts)
     }
 
     pub fn get_contract_rel_ast(
@@ -105,11 +116,9 @@ impl Executor {
             match chain_head._level.cmp(&db_head._level) {
                 Ordering::Greater => {
                     for level in (db_head._level + 1)..=chain_head._level {
-                        for contract_res in
-                            &self.exec_level(level, &mut storage_processor)?
-                        {
-                            Self::print_status(contract_res);
-                        }
+                        Self::print_status(
+                            &self.exec_level(level, &mut storage_processor)?,
+                        );
                     }
                     continue;
                 }
@@ -215,18 +224,33 @@ impl Executor {
         let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
             let (level, block) = *b;
-            let res =
-                self.exec_for_block(&level, &block, &mut storage_processor)?;
-            for contract_res in res {
-                Self::print_status(&contract_res);
-            }
+            Self::print_status(&self.exec_for_block(
+                &level,
+                &block,
+                &mut storage_processor,
+            )?);
         }
 
         Ok(())
     }
 
-    fn print_status(result: &SaveLevelResult) {
-        info!("{}", level_text(result));
+    fn print_status(contract_results: &[SaveLevelResult]) {
+        let mut contract_statuses: String = contract_results
+            .iter()
+            .filter_map(|c| match c.tx_count {
+                0 => None,
+                1 => Some(format!("1 tx for {}", c.contract_id.name)),
+                _ => Some(format!(
+                    "{} txs for {}",
+                    c.tx_count, c.contract_id.name
+                )),
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+        if contract_statuses.is_empty() {
+            contract_statuses = "0 txs for us".to_string();
+        }
+        info!("level {}: {}", contract_results[0].level, contract_statuses);
     }
 
     fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
@@ -409,28 +433,6 @@ impl Executor {
     }
 }
 
-fn level_text(result: &SaveLevelResult) -> String {
-    match result {
-        SaveLevelResult {
-            is_origination: true,
-            ..
-        } => format!(
-            "level {}, contract {}: contract origination",
-            result.level, result.contract_id.name
-        ),
-        SaveLevelResult { tx_count: 1, .. } => {
-            format!(
-                "level {}, contract {}: {} tx for us",
-                result.level, result.contract_id.name, result.tx_count
-            )
-        }
-        _ => format!(
-            "level {}, contract {}: {} txs for us",
-            result.level, result.contract_id.name, result.tx_count
-        ),
-    }
-}
-
 fn stdout_is_tty() -> bool {
     atty::is(atty::Stream::Stdout)
 }
@@ -444,6 +446,7 @@ fn load_test(name: &str) -> String {
 
 #[test]
 fn test_generate() {
+    use crate::sql::postgresql_generator::PostgresqlGenerator;
     use crate::storage_structure::relational::build_relational_ast;
     use crate::storage_structure::typing;
 
@@ -464,11 +467,12 @@ fn test_generate() {
 
     use crate::relational::Indexes;
     let rel_ast =
-        build_relational_ast(&context.clone(), &type_ast, &mut Indexes::new())
-            .unwrap();
+        build_relational_ast(&context, &type_ast, &mut Indexes::new()).unwrap();
     println!("{:#?}", rel_ast);
-    let generator =
-        crate::postgresql_generator::PostgresqlGenerator::new("testcontract");
+    let generator = PostgresqlGenerator::new(&ContractID {
+        name: "testcontract".to_string(),
+        address: "".to_string(),
+    });
     let mut builder = crate::sql::table_builder::TableBuilder::new();
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
