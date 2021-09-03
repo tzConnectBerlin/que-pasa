@@ -43,7 +43,7 @@ jobs:
       - attach_workspace:
           at: /
       - run: rustup component add clippy
-      - run: cargo clippy --no-deps
+      - run: cargo clippy
 
 workflows:
   version: 2
