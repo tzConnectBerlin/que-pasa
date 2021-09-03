@@ -1,6 +1,3 @@
-#![feature(format_args_capture)]
-#![feature(map_try_insert)]
-
 extern crate atty;
 extern crate backtrace;
 extern crate bs58;
