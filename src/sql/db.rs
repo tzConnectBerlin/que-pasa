@@ -100,12 +100,12 @@ impl DBClient {
     ) -> Result<bool> {
         let res = self.dbconn.query_opt(
             "
-SELECT 
+SELECT
     1
-FROM information_schema.schemata 
+FROM information_schema.schemata
 WHERE schema_name = $1
 ",
-            &[&contract_id.name],
+            &[&contract_id.name.to_lowercase()],
         )?;
         Ok(res.is_some())
     }

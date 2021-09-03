@@ -35,8 +35,12 @@ fill:
 ifeq ($(strip $(CONTRACT_ID)),"")
 	$(error variable CONTRACT_ID not set)
 else
-	RUST_BACKTRACE=1 cargo run -- --init --bcd-url https://api.better-call.dev/v1 --network $(NETWORK)
+	RUST_BACKTRACE=1 cargo run -- --bcd-url https://api.better-call.dev/v1 --network $(NETWORK)
 endif
+
+index-all:
+	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000
 
 db:
 	make start-db
+	RUST_BACKTRACE=1 cargo run -- --init

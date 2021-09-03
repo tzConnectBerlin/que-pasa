@@ -30,6 +30,13 @@ impl Table {
 
     pub(crate) fn add_index(&mut self, rel_entry: &RelationalEntry) {
         let name = rel_entry.column_name.clone();
+        if self
+            .columns
+            .iter()
+            .any(|column| column.name == name)
+        {
+            return;
+        }
         match &rel_entry.column_type {
             ExprTy::SimpleExprTy(e) => {
                 self.indices.push(name.clone());

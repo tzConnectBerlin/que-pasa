@@ -30,6 +30,7 @@ pub struct Executor {
     dbcli: DBClient,
 
     contracts: HashMap<ContractID, RelationalAST>,
+    all_contracts: bool,
 }
 
 impl Executor {
@@ -38,7 +39,12 @@ impl Executor {
             node_cli,
             dbcli,
             contracts: HashMap::new(),
+            all_contracts: false,
         }
+    }
+
+    pub fn index_all_contracts(&mut self) {
+        self.all_contracts = true
     }
 
     pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
@@ -50,11 +56,13 @@ impl Executor {
         let storage_def = &self
             .node_cli
             .get_contract_storage_definition(&contract_id.address, None)?;
+        println!("storage_def: {:#?}", storage_def);
         let type_ast = typing::storage_ast_from_json(storage_def)
             .with_context(|| {
                 "failed to derive a storage type from the storage definition"
             })?;
         info!("storage definition retrieved, and type derived");
+        println!("type_ast: {:#?}", type_ast);
 
         // Build the internal representation from the storage defition
         let ctx = relational::Context::init();
@@ -64,9 +72,46 @@ impl Executor {
                 .with_context(|| {
                     "failed to build a relational AST from the storage type"
                 })?;
+        println!("rel_ast: {:#?}", rel_ast);
 
         self.contracts
             .insert(contract_id.clone(), rel_ast);
+        Ok(())
+    }
+
+    pub fn add_missing_contracts(&mut self, block: &Block) -> Result<()> {
+        let contracts: Vec<ContractID> = block
+            .active_contracts()
+            .iter()
+            .map(|address| ContractID {
+                name: address.to_lowercase(),
+                address: address.clone(),
+            })
+            .filter(|contract_id| !self.contracts.contains_key(contract_id))
+            .collect();
+
+        if !contracts.is_empty() {
+            info!(
+                "level {}, analyzing contracts: {:#?}..",
+                block.header.level,
+                contracts
+                    .iter()
+                    .map(|x| &x.address)
+                    .collect::<Vec<&String>>()
+            );
+        }
+
+        for contract_id in &contracts {
+            self.add_contract(contract_id)?;
+            println!(
+                "{}: {:#?}",
+                contract_id.name, self.contracts[contract_id]
+            );
+            self.dbcli.create_contract_schema(
+                contract_id,
+                &self.contracts[contract_id],
+            )?;
+        }
         Ok(())
     }
 
@@ -118,6 +163,7 @@ impl Executor {
                 Ordering::Greater => {
                     for level in (db_head._level + 1)..=chain_head._level {
                         Self::print_status(
+                            level,
                             &self.exec_level(level, &mut storage_processor)?,
                         );
                     }
@@ -225,33 +271,34 @@ impl Executor {
         let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
             let (level, block) = *b;
-            Self::print_status(&self.exec_for_block(
-                &level,
-                &block,
-                &mut storage_processor,
-            )?);
+            Self::print_status(
+                level._level,
+                &self.exec_for_block(&level, &block, &mut storage_processor)?,
+            );
         }
 
         Ok(())
     }
 
-    fn print_status(contract_results: &[SaveLevelResult]) {
+    fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
         let mut contract_statuses: String = contract_results
             .iter()
             .filter_map(|c| match c.tx_count {
                 0 => None,
-                1 => Some(format!("1 tx for {}", c.contract_id.name)),
+                1 => {
+                    Some(format!("1 contract call for {}", c.contract_id.name))
+                }
                 _ => Some(format!(
-                    "{} txs for {}",
+                    "{} contract calls for {}",
                     c.tx_count, c.contract_id.name
                 )),
             })
             .collect::<Vec<String>>()
-            .join(",");
+            .join(", ");
         if contract_statuses.is_empty() {
             contract_statuses = "0 txs for us".to_string();
         }
-        info!("level {}: {}", contract_results[0].level, contract_statuses);
+        info!("level {}: {}", level, contract_statuses);
     }
 
     fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
@@ -288,6 +335,9 @@ impl Executor {
         block: &Block,
         storage_processor: &mut StorageProcessor,
     ) -> Result<Vec<SaveLevelResult>> {
+        if self.all_contracts {
+            self.add_missing_contracts(block)?;
+        }
         let mut contract_results: Vec<SaveLevelResult> = vec![];
 
         let mut tx = self.dbcli.transaction()?;

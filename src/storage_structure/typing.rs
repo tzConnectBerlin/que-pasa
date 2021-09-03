@@ -157,16 +157,16 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
                 })
             }
             "list" => {
-                panic!("found a list type, untested. inspect this");
-                //let inner_ast =
-                //    storage_ast_from_json(&args.unwrap()[0]).unwrap();
-                //Ok(Ele {
-                //    name: annot,
-                //    expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
-                //        false,
-                //        Box::new(inner_ast),
-                //    )),
-                //})
+                warn!("!!! LIST DETECTED !!!");
+                let inner_ast =
+                    storage_ast_from_json(&args.unwrap()[0]).unwrap();
+                Ok(Ele {
+                    name: annot,
+                    expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
+                        false,
+                        Box::new(inner_ast),
+                    )),
+                })
             }
             "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),
             "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),

@@ -1,3 +1,4 @@
+use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
 
 #[derive(Clone, Debug)]
@@ -71,6 +72,36 @@ impl Block {
             })
         })
     }
+
+    pub(crate) fn active_contracts(&self) -> Vec<String> {
+        let mut res: Vec<String> = vec![];
+        for operations in &self.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if let Some(address) = &content.destination {
+                        res.push(address.clone());
+                    }
+                    for result in &content
+                        .metadata
+                        .internal_operation_results
+                    {
+                        if let Some(address) = &result.destination {
+                            res.push(address.clone())
+                        }
+                    }
+                }
+            }
+        }
+        res.iter()
+            .filter(|address| is_contract(address))
+            .unique()
+            .cloned()
+            .collect()
+    }
+}
+
+fn is_contract(address: &String) -> bool {
+    address.starts_with("KT1")
 }
 
 #[derive(

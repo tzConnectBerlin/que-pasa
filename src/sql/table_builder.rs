@@ -1,5 +1,6 @@
 use crate::sql::table::Table;
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;
@@ -16,9 +17,17 @@ impl Default for TableBuilder {
 
 impl TableBuilder {
     pub(crate) fn new() -> Self {
-        Self {
+        let mut res = Self {
             tables: TableMap::new(),
-        }
+        };
+        res.add_column(&RelationalEntry {
+            table_name: "storage".to_string(),
+            column_name: "deleted".to_string(),
+            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+            value: None,
+            is_index: false,
+        });
+        res
     }
 
     fn add_column(&mut self, rel_entry: &RelationalEntry) {
@@ -68,6 +77,13 @@ impl TableBuilder {
                 self.populate(value_ast);
                 let mut t = self.get_table(table.clone());
                 t.tracks_changes();
+                t.add_column(&RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "deleted".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                    value: None,
+                    is_index: false,
+                });
                 self.store_table(t);
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),

@@ -77,49 +77,61 @@ fn main() {
             .with_context(|| "failed to delete the db's content")
             .unwrap();
         dbcli.create_common_tables().unwrap();
+        return;
     }
 
     let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
-    for contract_id in &CONFIG.contracts {
-        executor
-            .add_contract(contract_id)
-            .unwrap();
-    }
-    let new_contracts = executor
-        .create_contract_schemas()
-        .unwrap();
-
     let num_getters = CONFIG.workers_cap;
+    if CONFIG.all_contracts {
+        executor.index_all_contracts();
+    } else {
+        for contract_id in &CONFIG.contracts {
+            executor
+                .add_contract(contract_id)
+                .unwrap();
+        }
+        let new_contracts = executor
+            .create_contract_schemas()
+            .unwrap();
+
+        if !CONFIG.levels.is_empty() {
+            executor
+                .exec_levels(num_getters, CONFIG.levels.clone())
+                .unwrap();
+            return;
+        }
+
+        if let Some(bcd_url) = &CONFIG.bcd_url {
+            for contract_id in &new_contracts {
+                info!("Initializing contract {}..", contract_id.name);
+                let bcd_cli = bcd::BCDClient::new(
+                    bcd_url.clone(),
+                    CONFIG.network.clone(),
+                    contract_id.address.clone(),
+                );
+
+                executor
+                    .exec_parallel(num_getters, move |height_chan| {
+                        bcd_cli
+                            .populate_levels_chan(height_chan)
+                            .unwrap()
+                    })
+                    .unwrap();
+
+                executor
+                    .fill_in_levels(contract_id)
+                    .unwrap();
+
+                info!("contract {} initialized.", contract_id.name)
+            }
+        }
+    }
+
     if !CONFIG.levels.is_empty() {
         executor
             .exec_levels(num_getters, CONFIG.levels.clone())
             .unwrap();
         return;
-    }
-
-    if let Some(bcd_url) = &CONFIG.bcd_url {
-        for contract_id in &new_contracts {
-            info!("Initializing contract {}..", contract_id.name);
-            let bcd_cli = bcd::BCDClient::new(
-                bcd_url.clone(),
-                CONFIG.network.clone(),
-                contract_id.address.clone(),
-            );
-
-            executor
-                .exec_parallel(num_getters, move |height_chan| {
-                    bcd_cli
-                        .populate_levels_chan(height_chan)
-                        .unwrap()
-                })
-                .unwrap();
-
-            executor
-                .fill_in_levels(contract_id)
-                .unwrap();
-
-            info!("contract {} initialized.", contract_id.name)
-        }
     }
 
     // No args so we will first load missing levels

@@ -6,6 +6,7 @@ use std::fs;
 #[derive(Clone, Default, Debug)]
 pub struct Config {
     pub contracts: Vec<ContractID>,
+    pub all_contracts: bool,
     pub database_url: String,
     pub ssl: bool,
     pub ca_cert: Option<String>,
@@ -43,7 +44,14 @@ pub fn init_config() -> Result<Config> {
                 .long("contract-settings")
                 .value_name("CONTRACT_SETTINGS")
                 .help("path to the settings yaml (for contract settings)")
-                .takes_value(true),
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("index_all_contracts")
+                .long("index-all-contracts")
+                .value_name("INDEX_ALL_CONTRACTS")
+                .help("if set, *all* active contracts are indexed")
+                .takes_value(false)
         )
         .arg(
             Arg::with_name("database_url")
@@ -160,6 +168,7 @@ pub fn init_config() -> Result<Config> {
     }
 
     config.init = matches.is_present("init");
+    config.all_contracts = matches.is_present("index_all_contracts");
 
     config.levels = matches
         .value_of("levels")
