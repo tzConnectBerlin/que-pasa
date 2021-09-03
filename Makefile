@@ -1,30 +1,16 @@
 export DATABASE_URL=host=0.0.0.0 dbname=tezos user=quepasa password=quepasa port=5432
+export CONTRACT_SETTINGS=settings.yaml
 # BLOCKS=245893,245894
 
 
-# PMM on GRANADA testnet:
-
+# GRANADA testnet:
 export NODE_URL=https://testnet-tezos.giganode.io
-export CONTRACT_ID=KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF
 NETWORK="granadanet"
 
-# old PMM contract:
-#export CONTRACT_ID=KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS
-
-
 # HEN on GRANADA:
+#export NODE_URL=https://mainnet-tezos.giganode.io
+#NETWORK="mainnet"
 
-# export NODE_URL=https://mainnet-tezos.giganode.io
-# export CONTRACT_ID=KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB
-# NETWORK="mainnet"
-
-
-gen-sql:
-ifeq ($(strip $(CONTRACT_ID)),"")
-	$(error variable CONTRACT_ID not set)
-else
-	RUST_BACKTRACE=1 cargo +nightly run -- generate-sql > contract.sql/init.sql
-endif
 
 start-db:
 	docker-compose up -d
@@ -53,5 +39,4 @@ else
 endif
 
 db:
-	make gen-sql
 	make start-db

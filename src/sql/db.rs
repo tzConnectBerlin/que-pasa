@@ -7,9 +7,12 @@ use std::fs;
 
 use chrono::{DateTime, Utc};
 
+use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
+use crate::sql::table_builder::TableBuilder;
+use crate::storage_structure::relational::RelationalAST;
 use crate::storage_value::processor::TxContext;
 
 pub struct DBClient {
@@ -42,14 +45,79 @@ impl DBClient {
         }
     }
 
+    pub(crate) fn create_common_tables(&mut self) -> Result<()> {
+        self.dbconn.simple_query(
+            PostgresqlGenerator::create_common_tables().as_str(),
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn create_contract_schema(
+        &mut self,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) -> Result<bool> {
+        if !self.contract_schema_defined(contract_id)? {
+            // Generate the SQL schema for this contract
+            let mut builder = TableBuilder::new();
+            builder.populate(rel_ast);
+
+            let generator = PostgresqlGenerator::new(contract_id);
+            let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+            sorted_tables.sort_by_key(|a| a.0);
+
+            let mut tx = self.transaction()?;
+            tx.execute(
+                format!(
+                    "CREATE SCHEMA {contract_schema}",
+                    contract_schema = contract_id.name
+                )
+                .as_str(),
+                &[],
+            )?;
+            for (_name, table) in sorted_tables {
+                tx.simple_query(
+                    generator
+                        .create_table_definition(table)?
+                        .as_str(),
+                )?;
+                tx.simple_query(
+                    generator
+                        .create_view_definition(table)?
+                        .as_str(),
+                )?;
+            }
+            tx.commit()?;
+
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    fn contract_schema_defined(
+        &mut self,
+        contract_id: &ContractID,
+    ) -> Result<bool> {
+        let res = self.dbconn.query_opt(
+            "
+SELECT 
+    1
+FROM information_schema.schemata 
+WHERE schema_name = $1
+",
+            &[&contract_id.name],
+        )?;
+        Ok(res.is_some())
+    }
+
     pub(crate) fn save_tx_contexts(
         transaction: &mut Transaction,
         tx_context_map: &[TxContext],
     ) -> Result<()> {
         let stmt = transaction.prepare("
 INSERT INTO
-tx_contexts(id, level, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES
-($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")?;
+tx_contexts(id, level, contract, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES
+($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")?;
         for tx_context in tx_context_map {
             transaction.execute(
                 &stmt,
@@ -59,6 +127,7 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
                         .ok_or_else(|| anyhow!("Missing ID on TxContext"))?
                         as i32),
                     &(tx_context.level as i32),
+                    &tx_context.contract,
                     &(tx_context.operation_group_number as i32),
                     &(tx_context.operation_number as i32),
                     &(tx_context.content_number as i32),
@@ -77,6 +146,7 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
 
     pub(crate) fn apply_insert(
         tx: &mut postgres::Transaction,
+        contract_id: &ContractID,
         insert: &Insert,
     ) -> Result<()> {
         let mut columns = insert.columns.clone();
@@ -113,9 +183,12 @@ tx_contexts(id, level, operation_group_number, operation_number, content_number,
 
         let qry = format!(
             r#"
-INSERT INTO "{}" ( {} )
-VALUES ( {} )"#,
-            insert.table_name, v_names, v_refs,
+INSERT INTO {contract_schema}."{table}" ( {v_names} )
+VALUES ( {v_refs} )"#,
+            contract_schema = contract_id.name,
+            table = insert.table_name,
+            v_names = v_names,
+            v_refs = v_refs,
         );
         debug!(
             "qry: {}, values: {:?}",
@@ -141,34 +214,53 @@ VALUES ( {} )"#,
         Ok(self.dbconn.transaction()?)
     }
 
-    pub(crate) fn delete_everything(&mut self) -> Result<u64> {
-        Ok(self
-            .dbconn
-            .execute("DELETE FROM levels", &[])?)
+    pub(crate) fn delete_everything(
+        &mut self,
+        contracts: &[ContractID],
+    ) -> Result<()> {
+        let mut schemas: Vec<&String> = contracts
+            .iter()
+            .map(|x| &x.name)
+            .collect();
+        let public_schema = "public".to_string();
+        schemas.push(&public_schema);
+
+        let mut tx = self.transaction()?;
+        for schema in schemas {
+            tx.simple_query(
+                format!("DROP SCHEMA IF EXISTS {} CASCADE", schema).as_str(),
+            )?;
+        }
+        tx.simple_query("CREATE SCHEMA public")?;
+        tx.commit()?;
+        Ok(())
     }
 
-    pub(crate) fn fill_in_levels(&mut self) -> Result<u64> {
+    pub(crate) fn fill_in_levels(
+        &mut self,
+        contract_id: &ContractID,
+    ) -> Result<u64> {
         Ok(self.dbconn.execute(
             "
-INSERT INTO levels(_level, hash)
+INSERT INTO contract_levels(contract, level)
 SELECT
-    g.level,
-    NULL
+    $1,
+    g.level
 FROM GENERATE_SERIES(
     (SELECT MIN(_level) FROM levels),
     (SELECT MAX(_level) FROM levels)
 ) AS g(level)
 WHERE g.level NOT IN (
-    SELECT _level FROM levels
+    SELECT level FROM contract_levels WHERE contract = $1
 )",
-            &[],
+            &[&contract_id.name],
         )?)
     }
 
     pub(crate) fn get_head(&mut self) -> Result<Option<LevelMeta>> {
         let result = self.dbconn.query(
             "
-SELECT _level, hash, is_origination, baked_at
+SELECT _level, hash, baked_at
 FROM levels
 ORDER BY _level
 DESC LIMIT 1",
@@ -179,7 +271,7 @@ DESC LIMIT 1",
         } else if result.len() == 1 {
             let _level: i32 = result[0].get(0);
             let hash: Option<String> = result[0].get(1);
-            let baked_at: Option<DateTime<Utc>> = result[0].get(3);
+            let baked_at: Option<DateTime<Utc>> = result[0].get(2);
             Ok(Some(LevelMeta {
                 _level: _level as u32,
                 hash,
@@ -192,29 +284,33 @@ DESC LIMIT 1",
 
     pub(crate) fn get_missing_levels(
         &mut self,
-        origination: Option<u32>,
+        contracts: &[ContractID],
         end: u32,
     ) -> Result<Vec<u32>> {
-        let start = origination.unwrap_or(1);
         let mut rows: Vec<i32> = vec![];
-        for row in self.dbconn.query(
-            format!(
-                "
+        for contract_id in contracts {
+            let origination = self.get_origination(contract_id)?;
+            let start = origination.unwrap_or(1);
+            for row in self.dbconn.query(
+                format!(
+                    "
 SELECT
-    *
+    s.i
 FROM generate_series({},{}) s(i)
 WHERE NOT EXISTS (
     SELECT
-        _level
-    FROM levels
-    WHERE _level = s.i
-)",
-                start, end
-            )
-            .as_str(),
-            &[],
-        )? {
-            rows.push(row.get(0));
+        1
+    FROM contract_levels c
+    WHERE contract = $1
+)
+ORDER BY 1",
+                    start, end
+                )
+                .as_str(),
+                &[&contract_id.name],
+            )? {
+                rows.push(row.get(0));
+            }
         }
         rows.reverse();
         Ok(rows
@@ -247,47 +343,6 @@ SET max_id = $1",
         }
     }
 
-    /// get the origination of the contract, which is currently store in the levels (will change)
-    pub(crate) fn set_origination(
-        tx: &mut Transaction,
-        level: u32,
-    ) -> Result<()> {
-        tx.execute(
-            "
-UPDATE levels
-SET is_origination = FALSE
-WHERE is_origination = TRUE",
-            &[],
-        )?;
-        tx.execute(
-            "
-UPDATE levels
-SET is_origination = TRUE
-WHERE _level = $1",
-            &[&(level as i32)],
-        )?;
-        Ok(())
-    }
-
-    pub(crate) fn get_origination(&mut self) -> Result<Option<u32>> {
-        let result = self.dbconn.query(
-            "
-SELECT
-    _level
-FROM levels
-WHERE is_origination = TRUE",
-            &[],
-        )?;
-        if result.is_empty() {
-            Ok(None)
-        } else if result.len() == 1 {
-            let level: i32 = result[0].get(0);
-            Ok(Some(level as u32))
-        } else {
-            Err(anyhow!("Too many results for get_origination"))
-        }
-    }
-
     pub(crate) fn save_level(
         tx: &mut Transaction,
         level: &LevelMeta,
@@ -309,10 +364,95 @@ INSERT INTO levels(
     ) -> Result<()> {
         tx.execute(
             "
+DELETE FROM contract_levels
+WHERE level = $1",
+            &[&(level._level as i32)],
+        )?;
+        tx.execute(
+            "
 DELETE FROM levels
 WHERE _level = $1",
             &[&(level._level as i32)],
         )?;
         Ok(())
+    }
+
+    pub(crate) fn save_contract_level(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        tx.execute(
+            "
+INSERT INTO contract_levels(
+    contract, level
+) VALUES ($1, $2)
+",
+            &[&contract_id.name, &(level as i32)],
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn delete_contract_level(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        tx.execute(
+            "
+DELETE FROM contract_levels
+WHERE contract = $1
+  AND level = $2",
+            &[&contract_id.name, &(level as i32)],
+        )?;
+        Ok(())
+    }
+
+    /// get the origination of the contract, which is currently store in the levels (will change)
+    pub(crate) fn set_origination(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        tx.execute(
+            "
+UPDATE contract_levels
+SET is_origination = FALSE
+WHERE is_origination = TRUE
+  AND contract = $1",
+            &[&contract_id.name],
+        )?;
+        tx.execute(
+            "
+UPDATE contract_levels
+SET is_origination = TRUE
+WHERE contract = $1
+  AND level = $2",
+            &[&contract_id.name, &(level as i32)],
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn get_origination(
+        &mut self,
+        contract_id: &ContractID,
+    ) -> Result<Option<u32>> {
+        let result = self.dbconn.query(
+            "
+SELECT
+    level
+FROM contract_levels
+WHERE contract = $1
+  AND is_origination = TRUE",
+            &[&contract_id.name],
+        )?;
+        if result.is_empty() {
+            Ok(None)
+        } else if result.len() == 1 {
+            let level: i32 = result[0].get(0);
+            Ok(Some(level as u32))
+        } else {
+            Err(anyhow!("Too many results for get_origination"))
+        }
     }
 }
