@@ -54,12 +54,21 @@ impl TableBuilder {
             }
             RelationalAST::Map {
                 key_ast, value_ast, ..
-            }
-            | RelationalAST::BigMap {
-                key_ast, value_ast, ..
             } => {
                 self.populate(key_ast);
                 self.populate(value_ast);
+            }
+            RelationalAST::BigMap {
+                table,
+                key_ast,
+                value_ast,
+                ..
+            } => {
+                self.populate(key_ast);
+                self.populate(value_ast);
+                let mut t = self.get_table(table.clone());
+                t.tracks_changes();
+                self.store_table(t);
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {

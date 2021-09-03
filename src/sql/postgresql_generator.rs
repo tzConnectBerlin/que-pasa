@@ -186,6 +186,14 @@ impl PostgresqlGenerator {
         if table.name == "storage" {
             return Ok("".to_string());
         }
+        if table.contains_snapshots() {
+            self.create_views_for_snapshot_table(table)
+        } else {
+            self.create_views_for_changes_table(table)
+        }
+    }
+
+    fn create_views_for_snapshot_table(&self, table: &Table) -> Result<String> {
         let columns: Vec<String> = self.table_sql_columns(table);
         Ok(format!(
             r#"
@@ -198,14 +206,84 @@ CREATE VIEW {contract_schema}."{table}_live" AS (
       AND ctx.level = (
             SELECT
                 MAX(ctx.level) AS _level
-            FROM {contract_schema}."{table}" custom_table
-            JOIN tx_contexts ctx ON custom_table.tx_context_id = ctx.id
-        )
+            FROM {contract_schema}."{table}" t1_
+            JOIN tx_contexts ctx ON t1_.tx_context_id = ctx.id
+      )
+);
+
+CREATE VIEW {contract_schema}."{table}_ordered" AS (
+    SELECT
+        ROW_NUMBER() OVER (
+            ORDER BY
+                ctx.level,
+                ctx.operation_group_number,
+                ctx.operation_number,
+                ctx.content_number,
+                COALESCE(ctx.internal_number, -1)
+        ) AS ordering,
+        {columns}
+    FROM {contract_schema}."{table}" t
+    JOIN tx_contexts ctx
+      ON ctx.id = t.tx_context_id
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
             columns = columns.join(", "),
+        ))
+    }
+
+    fn create_views_for_changes_table(&self, table: &Table) -> Result<String> {
+        let columns: Vec<String> = self.table_sql_columns(table);
+        let indices: Vec<String> = table
+            .indices
+            .iter()
+            .cloned()
+            .filter(|index| index != &"tx_context_id".to_string())
+            .collect();
+
+        Ok(format!(
+            r#"
+CREATE VIEW {contract_schema}."{table}_live" AS (
+    SELECT
+        {columns}
+    FROM (
+        SELECT DISTINCT ON({indices})
+            t.*
+        FROM {contract_schema}."{table}" t
+        JOIN tx_contexts ctx
+          ON ctx.id = t.tx_context_id
+        ORDER BY
+            {indices},
+            ctx.level DESC,
+            ctx.operation_group_number DESC,
+            ctx.operation_number DESC,
+            ctx.content_number DESC,
+            COALESCE(ctx.internal_number, -1) DESC
+    ) q
+    where not q.deleted
+);
+
+CREATE VIEW {contract_schema}."{table}_ordered" AS (
+    SELECT
+        ROW_NUMBER() OVER (
+            ORDER BY
+                ctx.level,
+                ctx.operation_group_number,
+                ctx.operation_number,
+                ctx.content_number,
+                COALESCE(ctx.internal_number, -1)
+        ) AS ordering,
+        {columns}
+    FROM {contract_schema}."{table}" t
+    JOIN tx_contexts ctx
+      ON ctx.id = t.tx_context_id
+);
+"#,
+            contract_schema = self.contract_id.name,
+            table = table.name,
+            columns = columns.join(", "),
+            indices = indices.join(", "),
         ))
     }
 

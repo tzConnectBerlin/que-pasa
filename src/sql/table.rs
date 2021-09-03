@@ -14,6 +14,7 @@ pub struct Table {
     pub indices: Vec<String>,
     pub columns: Vec<Column>,
     unique: bool,
+    snapshots: bool,
 }
 
 impl Table {
@@ -23,6 +24,7 @@ impl Table {
             indices: vec!["tx_context_id".to_string()],
             columns: vec![],
             unique: true,
+            snapshots: true,
         }
     }
 
@@ -48,6 +50,14 @@ impl Table {
 
     pub(crate) fn no_uniqueness(&mut self) {
         self.unique = false
+    }
+
+    pub(crate) fn tracks_changes(&mut self) {
+        self.snapshots = false
+    }
+
+    pub(crate) fn contains_snapshots(&self) -> bool {
+        self.snapshots
     }
 
     pub(crate) fn add_column(&mut self, rel_entry: &RelationalEntry) {
