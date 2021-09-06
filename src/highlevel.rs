@@ -56,13 +56,13 @@ impl Executor {
         let storage_def = &self
             .node_cli
             .get_contract_storage_definition(&contract_id.address, None)?;
-        println!("storage_def: {:#?}", storage_def);
+        debug!("storage_def: {:#?}", storage_def);
         let type_ast = typing::storage_ast_from_json(storage_def)
             .with_context(|| {
                 "failed to derive a storage type from the storage definition"
             })?;
         info!("storage definition retrieved, and type derived");
-        println!("type_ast: {:#?}", type_ast);
+        debug!("type_ast: {:#?}", type_ast);
 
         // Build the internal representation from the storage defition
         let ctx = relational::Context::init();
@@ -72,7 +72,7 @@ impl Executor {
                 .with_context(|| {
                     "failed to build a relational AST from the storage type"
                 })?;
-        println!("rel_ast: {:#?}", rel_ast);
+        debug!("rel_ast: {:#?}", rel_ast);
 
         self.contracts
             .insert(contract_id.clone(), rel_ast);
@@ -103,10 +103,6 @@ impl Executor {
 
         for contract_id in &contracts {
             self.add_contract(contract_id)?;
-            println!(
-                "{}: {:#?}",
-                contract_id.name, self.contracts[contract_id]
-            );
             self.dbcli.create_contract_schema(
                 contract_id,
                 &self.contracts[contract_id],
@@ -594,7 +590,7 @@ fn test_block() {
         levels: Vec<u32>,
     }
 
-    let contracts: [Contract; 4] = [
+    let contracts: Vec<Contract> = vec![
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
@@ -624,6 +620,11 @@ fn test_block() {
             // Hic et Nunc hDAO contract (has "set" type in storage)
             id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
             levels: vec![1443112],
+        },
+        Contract {
+            // Has a set,list and map. map has >1 keys
+            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
+            levels: vec![50503],
         },
     ];
 

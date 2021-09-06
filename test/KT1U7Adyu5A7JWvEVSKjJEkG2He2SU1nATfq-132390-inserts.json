@@ -1,15 +1,15 @@
 {
     (
         table_name: "storage",
-        id: 237,
+        id: 248,
     ): (
         table_name: "storage",
-        id: 237,
+        id: 248,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(236),
+                value: Int(247),
             ),
             (
                 name: "deleted",
@@ -31,15 +31,15 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 243,
+        id: 254,
     ): (
         table_name: "storage.token_total_supply",
-        id: 243,
+        id: 254,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(236),
+                value: Int(247),
             ),
             (
                 name: "idx_tokens_nat_10",
@@ -53,15 +53,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 246,
+        id: 257,
     ): (
         table_name: "storage.ledger",
-        id: 246,
+        id: 257,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(236),
+                value: Int(247),
             ),
             (
                 name: "idx_tokens_nat_3",
@@ -79,15 +79,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 244,
+        id: 255,
     ): (
         table_name: "storage.ledger",
-        id: 244,
+        id: 255,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(236),
+                value: Int(247),
             ),
             (
                 name: "idx_tokens_nat_3",

@@ -157,7 +157,6 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
                 })
             }
             "list" => {
-                warn!("!!! LIST DETECTED !!!");
                 let inner_ast =
                     storage_ast_from_json(&args.unwrap()[0]).unwrap();
                 Ok(Ele {

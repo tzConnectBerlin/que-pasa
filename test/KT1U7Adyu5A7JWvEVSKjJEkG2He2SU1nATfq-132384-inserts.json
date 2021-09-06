@@ -1,15 +1,15 @@
 {
     (
         table_name: "storage",
-        id: 214,
+        id: 224,
     ): (
         table_name: "storage",
-        id: 214,
+        id: 224,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(213),
+                value: Int(223),
             ),
             (
                 name: "deleted",
@@ -31,15 +31,15 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 220,
+        id: 230,
     ): (
         table_name: "storage.token_total_supply",
-        id: 220,
+        id: 230,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(213),
+                value: Int(223),
             ),
             (
                 name: "idx_tokens_nat_10",
@@ -53,15 +53,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 225,
+        id: 235,
     ): (
         table_name: "storage.ledger",
-        id: 225,
+        id: 235,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(213),
+                value: Int(223),
             ),
             (
                 name: "idx_tokens_nat_3",
@@ -79,15 +79,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 223,
+        id: 233,
     ): (
         table_name: "storage.ledger",
-        id: 223,
+        id: 233,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(213),
+                value: Int(223),
             ),
             (
                 name: "idx_tokens_nat_3",
@@ -105,15 +105,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 221,
+        id: 231,
     ): (
         table_name: "storage.ledger",
-        id: 221,
+        id: 231,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(213),
+                value: Int(223),
             ),
             (
                 name: "idx_tokens_nat_3",

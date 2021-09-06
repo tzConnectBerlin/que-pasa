@@ -1,0 +1,136 @@
+{
+    (
+        table_name: "storage",
+        id: 2,
+    ): (
+        table_name: "storage",
+        id: 2,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "deleted",
+                value: Bool(false),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.set1",
+        id: 6,
+    ): (
+        table_name: "storage.set1",
+        id: 6,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_3",
+                value: Numeric(Some("3")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.set1",
+        id: 5,
+    ): (
+        table_name: "storage.set1",
+        id: 5,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_3",
+                value: Numeric(Some("2")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.set1",
+        id: 4,
+    ): (
+        table_name: "storage.set1",
+        id: 4,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_3",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.map1",
+        id: 9,
+    ): (
+        table_name: "storage.map1",
+        id: 9,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_1",
+                value: Numeric(Some("2")),
+            ),
+            (
+                name: "int_2",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.map1",
+        id: 8,
+    ): (
+        table_name: "storage.map1",
+        id: 8,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_1",
+                value: Numeric(Some("1")),
+            ),
+            (
+                name: "int_2",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.list1",
+        id: 11,
+    ): (
+        table_name: "storage.list1",
+        id: 11,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_0",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+}

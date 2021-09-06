@@ -598,7 +598,7 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        println!("value: {:#?}, rel_ast: {:#?}", value, rel_ast);
+        debug!("value: {:#?}, rel_ast: {:#?}", value, rel_ast);
         let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {
