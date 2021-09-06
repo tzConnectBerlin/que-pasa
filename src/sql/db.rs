@@ -66,6 +66,7 @@ impl DBClient {
             let generator = PostgresqlGenerator::new(contract_id);
             let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
             sorted_tables.sort_by_key(|a| a.0);
+            println!("tables: {:#?}", sorted_tables);
 
             let mut tx = self.transaction()?;
             tx.execute(
@@ -77,16 +78,13 @@ impl DBClient {
                 &[],
             )?;
             for (_name, table) in sorted_tables {
-                tx.simple_query(
-                    generator
-                        .create_table_definition(table)?
-                        .as_str(),
-                )?;
-                tx.simple_query(
-                    generator
-                        .create_view_definition(table)?
-                        .as_str(),
-                )?;
+                let table_def = generator.create_table_definition(table)?;
+                let views_def = generator.create_view_definition(table)?;
+
+                println!("views: {}", views_def);
+
+                tx.simple_query(table_def.as_str())?;
+                tx.simple_query(views_def.as_str())?;
             }
             tx.commit()?;
 

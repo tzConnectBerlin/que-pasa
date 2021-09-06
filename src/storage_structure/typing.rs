@@ -171,8 +171,9 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
             "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),
             "unit" => Ok(simple_expr!(SimpleExprTy::Unit, annot)),
             "lambda" => Ok(simple_expr!(SimpleExprTy::Stop, annot)),
+            "contract" => Ok(simple_expr!(SimpleExprTy::Stop, annot)), // TODO?
             _ => Err(anyhow!(
-                "Unexpected storage json: {} {:#?}",
+                "unexpected storage json: {} {:#?}",
                 prim.as_str(),
                 json
             )),

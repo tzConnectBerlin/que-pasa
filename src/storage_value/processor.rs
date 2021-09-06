@@ -1,3 +1,4 @@
+use crate::debug;
 use crate::octez::block;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
@@ -598,7 +599,11 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        debug!("value: {:#?}, rel_ast: {:#?}", value, rel_ast);
+        println!(
+            "value: {}, rel_ast: {}",
+            debug::pp_depth(3, value),
+            debug::pp_depth(3, rel_ast)
+        );
         let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {

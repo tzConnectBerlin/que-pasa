@@ -31,7 +31,7 @@ impl TableBuilder {
     }
 
     fn add_column(&mut self, rel_entry: &RelationalEntry) {
-        let mut table = self.get_table(rel_entry.table_name.clone());
+        let mut table = self.get_table(&rel_entry.table_name);
         if rel_entry.is_index {
             table.add_index(rel_entry);
         } else {
@@ -40,10 +40,14 @@ impl TableBuilder {
         self.store_table(table);
     }
 
-    fn get_table(&self, name: String) -> Table {
-        match self.tables.get(&name) {
+    fn touch_table(&mut self, name: &String) {
+        self.store_table(self.get_table(name))
+    }
+
+    fn get_table(&self, name: &String) -> Table {
+        match self.tables.get(name) {
             Some(x) => x.clone(),
-            None => Table::new(name),
+            None => Table::new(name.clone()),
         }
     }
 
@@ -75,7 +79,7 @@ impl TableBuilder {
             } => {
                 self.populate(key_ast);
                 self.populate(value_ast);
-                let mut t = self.get_table(table.clone());
+                let mut t = self.get_table(table);
                 t.tracks_changes();
                 t.add_column(&RelationalEntry {
                     table_name: "storage".to_string(),
@@ -94,18 +98,23 @@ impl TableBuilder {
             } => {
                 self.populate(elems_ast);
                 if !elems_unique {
-                    let mut t = self.get_table(table.clone());
+                    let mut t = self.get_table(table);
                     t.no_uniqueness();
                     self.store_table(t);
                 }
             }
             RelationalAST::OrEnumeration {
                 or_unfold,
+                left_table,
                 left_ast,
+                right_table,
                 right_ast,
-                ..
             } => {
                 self.add_column(or_unfold);
+
+                self.touch_table(left_table);
+                self.touch_table(right_table);
+
                 self.populate(left_ast);
                 self.populate(right_ast);
             }

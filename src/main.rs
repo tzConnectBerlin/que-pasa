@@ -26,6 +26,7 @@ extern crate spinners;
 extern crate termion;
 
 pub mod config;
+pub mod debug;
 pub mod highlevel;
 pub mod octez;
 pub mod sql;

@@ -182,7 +182,10 @@ pub(crate) fn build_relational_ast(
             }
             ComplexExprTy::List(elems_unique, elems_type) => {
                 let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let elems_ast = build_index(ctx, elems_type, indexes)?;
+                let elems_ast = match elems_unique {
+                    true => build_index(ctx, elems_type, indexes)?,
+                    false => build_relational_ast(ctx, elems_type, indexes)?,
+                };
                 Ok(RelationalAST::List {
                     table: ctx.table_name.clone(),
                     elems_ast: Box::new(elems_ast),
@@ -241,6 +244,10 @@ fn build_enumeration_or(
     column_name: &str,
     indexes: &mut Indexes,
 ) -> Result<(RelationalAST, String)> {
+    let name = match &ele.name {
+        Some(x) => x.clone(),
+        None => "noname".to_string(),
+    };
     match &ele.expr_type {
         ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
             left_type,
@@ -281,9 +288,9 @@ fn build_enumeration_or(
             ctx.table_name.clone(),
         )),
         _ => {
-            let ctx = ctx.start_table(ele.name.clone().unwrap());
+            let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
             Ok((
-                build_relational_ast(&ctx, ele, indexes)?,
+                build_relational_ast(ctx, ele, indexes)?,
                 ctx.table_name.clone(),
             ))
         }
@@ -295,6 +302,7 @@ fn build_index(
     ele: &Ele,
     indexes: &mut Indexes,
 ) -> Result<RelationalAST> {
+    println!("build index over: {:#?}", ele);
     match ele.expr_type {
         ExprTy::ComplexExprTy(ref ety) => match ety {
             ComplexExprTy::Pair(left_type, right_type) => {

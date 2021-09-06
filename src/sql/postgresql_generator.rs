@@ -274,7 +274,6 @@ CREATE VIEW {contract_schema}."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
-        deleted,
         {columns}
     FROM {contract_schema}."{table}" t
     JOIN tx_contexts ctx

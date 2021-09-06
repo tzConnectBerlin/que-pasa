@@ -1,16 +1,18 @@
-export DATABASE_URL=host=0.0.0.0 dbname=tezos user=quepasa password=quepasa port=5432
+export DATABASE_URL=host=localhost dbname=tezos user=quepasa password=quepasa port=5432
 export CONTRACT_SETTINGS=settings.yaml
 # BLOCKS=245893,245894
 
 
 # GRANADA testnet:
-export NODE_URL=https://testnet-tezos.giganode.io
-NETWORK="granadanet"
+#export NODE_URL=https://testnet-tezos.giganode.io
+#NETWORK="granadanet"
 
 # HEN on GRANADA:
-#export NODE_URL=https://mainnet-tezos.giganode.io
+export NODE_URL=https://mainnet-tezos.giganode.io
 #NETWORK="mainnet"
 
+# fast mainnet:
+#export NODE_URL=bigly.newby.org:8732
 
 start-db:
 	docker-compose up -d
@@ -39,7 +41,9 @@ else
 endif
 
 index-all:
-	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000
+	# RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000-60000
+	cargo run -- --init
+	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 1500000-1600000
 
 db:
 	make start-db
