@@ -58,6 +58,7 @@ impl DBClient {
         rel_ast: &RelationalAST,
     ) -> Result<bool> {
         if !self.contract_schema_defined(contract_id)? {
+            info!("creating schema for contract {}", contract_id.name);
             // Generate the SQL schema for this contract
             let mut builder = TableBuilder::new();
             builder.populate(rel_ast);

@@ -407,7 +407,9 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
     ) -> parser::Value {
         match rel_ast {
-            RelationalAST::List { .. } => {
+            RelationalAST::List { .. }
+            | RelationalAST::Map { .. }
+            | RelationalAST::BigMap { .. } => {
                 // do not unfold list
                 v.clone()
             }
@@ -633,7 +635,7 @@ impl StorageProcessor {
         let ctx = &self.update_context(ctx, rel_ast.table_entry());
 
         match v {
-            parser::Value::Elt(keys, values) => must_match_rel!(
+            parser::Value::Elt(key, value) => must_match_rel!(
                 rel_ast,
                 RelationalAST::Map {
                     key_ast,
@@ -642,10 +644,10 @@ impl StorageProcessor {
                 },
                 {
                     self.process_storage_value_internal(
-                        ctx, keys, key_ast, tx_context,
+                        ctx, key, key_ast, tx_context,
                     )?;
                     self.process_storage_value_internal(
-                        ctx, values, value_ast, tx_context,
+                        ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
                 }
@@ -659,10 +661,10 @@ impl StorageProcessor {
                 },
                 {
                     self.process_storage_value_internal(
-                        ctx, keys, key_ast, tx_context,
+                        ctx, key, key_ast, tx_context,
                     )?;
                     self.process_storage_value_internal(
-                        ctx, values, value_ast, tx_context,
+                        ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
                 }
@@ -703,24 +705,50 @@ impl StorageProcessor {
                     }
                 )
             }
-            parser::Value::List(l) => {
-                must_match_rel!(
-                    rel_ast,
-                    RelationalAST::List { elems_ast, .. },
-                    {
-                        for element in l {
-                            let id = self.id_generator.get_id();
-                            self.process_storage_value_internal(
-                                &ctx.with_id(id),
-                                element,
-                                elems_ast,
-                                tx_context,
-                            )?;
-                        }
-                        Ok(())
+            parser::Value::List(l) => must_match_rel!(
+                rel_ast,
+                RelationalAST::List { elems_ast, .. },
+                {
+                    for element in l {
+                        let id = self.id_generator.get_id();
+                        self.process_storage_value_internal(
+                            &ctx.with_id(id),
+                            element,
+                            elems_ast,
+                            tx_context,
+                        )?;
                     }
-                )
-            }
+                    Ok(())
+                }
+            )
+            .or(must_match_rel!(rel_ast, RelationalAST::Map { .. }, {
+                for element in l {
+                    let id = self.id_generator.get_id();
+                    self.process_storage_value_internal(
+                        &ctx.with_id(id),
+                        element,
+                        rel_ast,
+                        tx_context,
+                    )?;
+                }
+                Ok(())
+            }))
+            .or(must_match_rel!(
+                rel_ast,
+                RelationalAST::BigMap { .. },
+                {
+                    for element in l {
+                        let id = self.id_generator.get_id();
+                        self.process_storage_value_internal(
+                            &ctx.with_id(id),
+                            element,
+                            rel_ast,
+                            tx_context,
+                        )?;
+                    }
+                    Ok(())
+                }
+            )),
             parser::Value::Pair(left, right) => must_match_rel!(
                 rel_ast,
                 RelationalAST::Pair {

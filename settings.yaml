@@ -1,9 +1,9 @@
 # PMM (on granada testnet)
 contracts:
-- name: "pmm_new"
-  address: "KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF"
-- name: "pmm_old"
-  address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"
+  # - name: "pmm_new"
+  #   address: "KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF"
+  # - name: "pmm_old"
+  #   address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"
 - name: "has_list"
   address: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k"
 
