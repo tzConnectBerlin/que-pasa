@@ -128,7 +128,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_0",
+                name: "nat_0",
                 value: Numeric(Some("1")),
             ),
         ],

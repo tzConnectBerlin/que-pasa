@@ -50,7 +50,7 @@ impl Executor {
 
     pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
         // init by grabbing the contract data.
-        info!(
+        debug!(
             "getting the storage definition for contract={}..",
             contract_id.name
         );
@@ -62,7 +62,7 @@ impl Executor {
             .with_context(|| {
                 "failed to derive a storage type from the storage definition"
             })?;
-        info!("storage definition retrieved, and type derived");
+        debug!("storage definition retrieved, and type derived");
         debug!("type_ast: {:#?}", type_ast);
 
         debug!(
@@ -91,7 +91,7 @@ impl Executor {
             .active_contracts()
             .iter()
             .map(|address| ContractID {
-                name: address.to_lowercase(),
+                name: address.clone(),
                 address: address.clone(),
             })
             .filter(|contract_id| !self.contracts.contains_key(contract_id))
@@ -288,16 +288,17 @@ impl Executor {
             .iter()
             .filter_map(|c| match c.tx_count {
                 0 => None,
-                1 => {
-                    Some(format!("1 contract call for {}", c.contract_id.name))
-                }
+                1 => Some(format!(
+                    "\n\t1 contract call for {}",
+                    c.contract_id.name
+                )),
                 _ => Some(format!(
-                    "{} contract calls for {}",
+                    "\n\t{} contract calls for {}",
                     c.tx_count, c.contract_id.name
                 )),
             })
             .collect::<Vec<String>>()
-            .join(", ");
+            .join(",");
         if contract_statuses.is_empty() {
             contract_statuses = "0 txs for us".to_string();
         }

@@ -70,7 +70,7 @@ impl DBClient {
             let mut tx = self.transaction()?;
             tx.execute(
                 format!(
-                    "CREATE SCHEMA {contract_schema}",
+                    r#"CREATE SCHEMA "{contract_schema}""#,
                     contract_schema = contract_id.name
                 )
                 .as_str(),
@@ -179,7 +179,7 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
 
         let qry = format!(
             r#"
-INSERT INTO {contract_schema}."{table}" ( {v_names} )
+INSERT INTO "{contract_schema}"."{table}" ( {v_names} )
 VALUES ( {v_refs} )"#,
             contract_schema = contract_id.name,
             table = insert.table_name,

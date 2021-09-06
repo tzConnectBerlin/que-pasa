@@ -3,6 +3,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use json;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
+use std::str::from_utf8;
 use std::str::FromStr;
 
 #[derive(
@@ -54,10 +55,20 @@ pub(crate) fn parse(storage_json: String) -> Result<Value> {
 }
 
 pub(crate) fn decode_address(hex: &str) -> Result<String> {
+    let addr_hex = &hex[0..44];
+    let callback_hex = &hex[44..];
+    let mut res = decode_bs58_address(addr_hex)?;
+    if !callback_hex.is_empty() {
+        res += format!("%{}", from_utf8(&hex::decode(callback_hex)?)?).as_str();
+    }
+    Ok(res)
+}
+
+fn decode_bs58_address(hex: &str) -> Result<String> {
     if hex.len() != 44 {
         return Err(anyhow!(
-            "44 length byte arrays only supported right now, got {}",
-            hex
+            "44 length byte arrays only supported right now, got {} (which has len={})",
+            hex, hex.len()
         ));
     }
     let implicit = &hex[0..2] == "00";
@@ -258,6 +269,12 @@ fn test_decode() {
         (
             "01d62a20fd2574884476f3da2f1a41bb8cc289f8cc00",
             "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
+        ),
+        (
+            // there may be a callback address specified after the address itself
+            // (tz1..%someFunction), we want to grab the tz1 address
+            "016e4943f7a23ab9cbe56f48ff72f6c27e8956762400626f72726f775f63616c6c6261636b",
+            "KT1JdufSdfg3WyxWJcCRNsBFV9V3x9TQBkJ2%borrow_callback",
         ),
     ];
     for (from, to) in test_data {

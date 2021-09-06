@@ -169,14 +169,14 @@ impl StorageProcessor {
                     operation_number,
                     operation,
                     contract_id,
-                )?);
+                ));
                 big_map_diffs.extend(self.get_big_map_diffs_from_operation(
                     block.header.level,
                     operation_group_number,
                     operation_number,
                     operation,
                     contract_id,
-                )?);
+                ));
             }
         }
 
@@ -231,7 +231,7 @@ impl StorageProcessor {
         operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
-    ) -> Result<Vec<(TxContext, block::BigMapDiff)>> {
+    ) -> Vec<(TxContext, block::BigMapDiff)> {
         let c_dest = Some(contract_id.to_string());
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
 
@@ -314,7 +314,7 @@ impl StorageProcessor {
                 }
             }
         }
-        Ok(result)
+        result
     }
 
     fn get_storage_from_operation(
@@ -324,7 +324,7 @@ impl StorageProcessor {
         operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
-    ) -> Result<Vec<(TxContext, ::serde_json::Value)>> {
+    ) -> Vec<(TxContext, ::serde_json::Value)> {
         let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
 
         let c_dest = Some(contract_id.to_string());
@@ -354,10 +354,10 @@ impl StorageProcessor {
                                 storage.clone(),
                             ));
                         } else {
-                            return Err(anyhow!(
-                                "no storage found! tx_context={:#?}",
+                            info!(
+                                "ignoring contract call; no storage update. tx_context={:#?}",
                                 tx_context
-                            ));
+                            );
                         }
                     }
                     for (internal_number, internal_op) in content
@@ -389,17 +389,17 @@ impl StorageProcessor {
                                     storage.clone(),
                                 ));
                             } else {
-                                return Err(anyhow!(
-                                    "no storage found! tx_context={:#?}",
+                                info!(
+                                    "ignoring contract call; no storage update. tx_context={:#?}",
                                     tx_context
-                                ));
+                                );
                             }
                         }
                     }
                 }
             }
         }
-        Ok(results)
+        results
     }
 
     fn unfold_value(
@@ -884,9 +884,7 @@ impl StorageProcessor {
                     parser::Value::Bytes(bs) =>
                     // sometimes we get bytes where we expected an address.
                     {
-                        Ok(insert::Value::String(
-                            parser::decode_address(bs).unwrap(),
-                        ))
+                        Ok(insert::Value::String(parser::decode_address(bs)?))
                     }
                     parser::Value::Address(addr) => {
                         Ok(insert::Value::String(addr.clone()))

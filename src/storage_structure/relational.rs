@@ -302,7 +302,6 @@ fn build_index(
     ele: &Ele,
     indexes: &mut Indexes,
 ) -> Result<RelationalAST> {
-    println!("build index over: {:#?}", ele);
     match ele.expr_type {
         ExprTy::ComplexExprTy(ref ety) => match ety {
             ComplexExprTy::Pair(left_type, right_type) => {

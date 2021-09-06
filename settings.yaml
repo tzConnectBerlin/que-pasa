@@ -6,8 +6,10 @@ contracts:
   #   address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"
   # - name: "has_list"
   #   address: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k"
+- name: "has_udf_id"
+  address: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr"
 - name: "debug"
-  address: "KT1EpGgjQs73QfFJs9z7m1Mxm5MTnpC2tqse"
+  address: "KT1FHAtLjG6S6tfjmrDeEySVLeP8a16T4Ngr"
 
 # HEN
 #contracts:

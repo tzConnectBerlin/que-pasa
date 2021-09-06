@@ -41,9 +41,9 @@ else
 endif
 
 index-all:
-	# RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000-60000
 	cargo run -- --init
-	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 1500000-1600000
+	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000-60000
+	# RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 1500000-1600000
 
 db:
 	make start-db

@@ -617,6 +617,7 @@ pub struct InternalOperationResult {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Parameters {
+    #[serde(default)]
     pub entrypoint: String,
     pub value: Option<serde_json::Value>,
 }

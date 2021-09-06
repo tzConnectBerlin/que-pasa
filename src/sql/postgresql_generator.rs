@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::vec::Vec;
 
 use crate::config::ContractID;
+use crate::itertools::Itertools;
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::SimpleExprTy;
 
@@ -121,6 +122,9 @@ impl PostgresqlGenerator {
             indices.push(parent_key);
         }
         indices
+            .iter()
+            .map(|idx| Self::quote_id(idx))
+            .collect()
     }
 
     pub(crate) fn create_index(&self, table: &Table) -> String {
@@ -129,7 +133,7 @@ impl PostgresqlGenerator {
             false => "",
         };
         format!(
-            "CREATE {unique} INDEX ON {contract_schema}.\"{table}\"({columns});\n",
+            "CREATE {unique} INDEX ON \"{contract_schema}\".\"{table}\"({columns});\n",
             unique = uniqueness_constraint,
             contract_schema = self.contract_id.name,
             table = table.name,
@@ -143,14 +147,13 @@ impl PostgresqlGenerator {
     }
 
     fn parent_key(&self, table: &Table) -> Option<String> {
-        Self::parent_name(&table.name)
-            .map(|parent| format!(r#""{}_id""#, parent))
+        Self::parent_name(&table.name).map(|parent| format!("{}_id", parent))
     }
 
     fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
         Self::parent_name(&table.name).map(|parent| {
             format!(
-                r#"FOREIGN KEY ("{table}_id") REFERENCES {contract_schema}."{table}"(id)"#,
+                r#"FOREIGN KEY ("{table}_id") REFERENCES "{contract_schema}"."{table}"(id)"#,
                 contract_schema = self.contract_id.name,
                 table = parent,
             )
@@ -197,21 +200,21 @@ impl PostgresqlGenerator {
         let columns: Vec<String> = self.table_sql_columns(table);
         Ok(format!(
             r#"
-CREATE VIEW {contract_schema}."{table}_live" AS (
+CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         {columns}
-    FROM {contract_schema}."{table}" t1
+    FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
-      ON  ctx.id = t1.tx_context_id
+      ON  ctx.id = t.tx_context_id
       AND ctx.level = (
             SELECT
                 MAX(ctx.level) AS _level
-            FROM {contract_schema}."{table}" t1_
-            JOIN tx_contexts ctx ON t1_.tx_context_id = ctx.id
+            FROM "{contract_schema}"."{table}" t_
+            JOIN tx_contexts ctx ON t_.tx_context_id = ctx.id
       )
 );
 
-CREATE VIEW {contract_schema}."{table}_ordered" AS (
+CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
     SELECT
         ROW_NUMBER() OVER (
             ORDER BY
@@ -222,14 +225,17 @@ CREATE VIEW {contract_schema}."{table}_ordered" AS (
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
         {columns}
-    FROM {contract_schema}."{table}" t
+    FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
-            columns = columns.join(", "),
+            columns = columns
+                .iter()
+                .map(|c| format!("t.{}", c))
+                .join(", "),
         ))
     }
 
@@ -244,13 +250,13 @@ CREATE VIEW {contract_schema}."{table}_ordered" AS (
 
         Ok(format!(
             r#"
-CREATE VIEW {contract_schema}."{table}_live" AS (
+CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         {columns}
     FROM (
         SELECT DISTINCT ON({indices})
             t.*
-        FROM {contract_schema}."{table}" t
+        FROM "{contract_schema}"."{table}" t
         JOIN tx_contexts ctx
           ON ctx.id = t.tx_context_id
         ORDER BY
@@ -260,11 +266,11 @@ CREATE VIEW {contract_schema}."{table}_live" AS (
             ctx.operation_number DESC,
             ctx.content_number DESC,
             COALESCE(ctx.internal_number, -1) DESC
-    ) q
-    where not q.deleted
+    ) t
+    where not t.deleted
 );
 
-CREATE VIEW {contract_schema}."{table}_ordered" AS (
+CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
     SELECT
         ROW_NUMBER() OVER (
             ORDER BY
@@ -275,15 +281,21 @@ CREATE VIEW {contract_schema}."{table}_ordered" AS (
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
         {columns}
-    FROM {contract_schema}."{table}" t
+    FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
-            columns = columns.join(", "),
-            indices = indices.join(", "),
+            columns = columns
+                .iter()
+                .map(|c| format!("t.{}", c))
+                .join(", "),
+            indices = indices
+                .iter()
+                .map(|c| format!("t.{}", c))
+                .join(", "),
         ))
     }
 

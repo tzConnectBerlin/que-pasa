@@ -49,6 +49,9 @@ fn main() {
     panic::set_hook(Box::new(move |panic_info| {
         // invoke the default handler and exit the process
         orig_hook(panic_info);
+        // wait for a bit to give time to the root error's thread to print
+        // its error
+        thread::sleep(std::time::Duration::from_millis(500));
         process::exit(1);
     }));
 

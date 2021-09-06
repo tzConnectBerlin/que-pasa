@@ -126,7 +126,7 @@ impl NodeClient {
         let op = || -> Result<JsonValue> {
             let uri =
                 format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-            println!("loading: {}", uri);
+            debug!("loading: {}", uri);
 
             let mut response = Vec::new();
             let mut handle = Easy::new();
