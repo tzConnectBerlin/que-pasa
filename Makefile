@@ -9,7 +9,7 @@ export CONTRACT_SETTINGS=settings.yaml
 
 # HEN on GRANADA:
 export NODE_URL=https://mainnet-tezos.giganode.io
-#NETWORK="mainnet"
+NETWORK="mainnet"
 
 # fast mainnet:
 #export NODE_URL=bigly.newby.org:8732

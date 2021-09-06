@@ -89,7 +89,9 @@ impl NodeClient {
                     )
                 })
                 .map_err(Error::Permanent)?;
-            let res = resp["code"][1]["args"][0].clone();
+
+            let res = resp["code"].members().find(|x| x["prim"] == "storage").unwrap_or(&JsonValue::Null)["args"][0].clone();
+
             if res == JsonValue::Null {
                 return Err(anyhow!("got invalid script data (got 'null') for contract='{}', level={}", contract_id, level)).map_err(transient_err);
             }
@@ -124,7 +126,7 @@ impl NodeClient {
         let op = || -> Result<JsonValue> {
             let uri =
                 format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-            debug!("loading: {}", uri);
+            println!("loading: {}", uri);
 
             let mut response = Vec::new();
             let mut handle = Easy::new();

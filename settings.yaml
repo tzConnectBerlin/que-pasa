@@ -4,8 +4,10 @@ contracts:
   #   address: "KT1B5Jg8unLXy2kvLGDEfvbcca3hQ29d8WhF"
   # - name: "pmm_old"
   #   address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"
-- name: "has_list"
-  address: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k"
+  # - name: "has_list"
+  #   address: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k"
+- name: "debug"
+  address: "KT1EpGgjQs73QfFJs9z7m1Mxm5MTnpC2tqse"
 
 # HEN
 #contracts:

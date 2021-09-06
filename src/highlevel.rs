@@ -8,6 +8,7 @@ use std::thread;
 use pretty_assertions::assert_eq;
 
 use crate::config::ContractID;
+use crate::debug;
 use crate::octez::block::{Block, LevelMeta};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
@@ -63,6 +64,12 @@ impl Executor {
             })?;
         info!("storage definition retrieved, and type derived");
         debug!("type_ast: {:#?}", type_ast);
+
+        debug!(
+            "storage_def: {}, type_ast: {}",
+            debug::pp_depth(40, &storage_def),
+            debug::pp_depth(40, &type_ast),
+        );
 
         // Build the internal representation from the storage defition
         let ctx = relational::Context::init();

@@ -425,6 +425,11 @@ impl StorageProcessor {
         v: &parser::Value,
         rel_ast: &RelationalAST,
     ) -> Result<RelationalEntry> {
+        debug!(
+            "resolve_or: v={}, rel_ast={}",
+            debug::pp_depth(2, v),
+            debug::pp_depth(2, rel_ast)
+        );
         match &self.unfold_value(v, rel_ast) {
             parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
@@ -599,7 +604,7 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        println!(
+        debug!(
             "value: {}, rel_ast: {}",
             debug::pp_depth(3, value),
             debug::pp_depth(3, rel_ast)
