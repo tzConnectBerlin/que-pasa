@@ -6,6 +6,6 @@ contracts:
   address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"
 
 # HEN
-contracts:
+#contracts:
 #- name: "hen_dao"
 #  address: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB"
