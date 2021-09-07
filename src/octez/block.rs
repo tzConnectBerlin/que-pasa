@@ -1,6 +1,8 @@
 use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
 
+use crate::contract_blacklist::is_contract_blacklisted;
+
 #[derive(Clone, Debug)]
 pub struct LevelMeta {
     pub _level: u32,
@@ -32,8 +34,12 @@ impl Block {
         self.operations.clone()
     }
 
-    pub(crate) fn is_contract_active(&self, contract_id: &str) -> bool {
-        let destination = Some(contract_id.to_string());
+    pub(crate) fn is_contract_active(&self, contract_address: &str) -> bool {
+        if is_contract_blacklisted(contract_address) {
+            return false;
+        }
+
+        let destination = Some(contract_address.to_string());
         for operations in &self.operations {
             for operation in operations {
                 for content in &operation.contents {
@@ -54,7 +60,10 @@ impl Block {
         false
     }
 
-    pub(crate) fn has_contract_origination(&self, contract_id: &str) -> bool {
+    pub(crate) fn has_contract_origination(
+        &self,
+        contract_address: &str,
+    ) -> bool {
         self.operations.iter().any(|ops| {
             ops.iter().any(|op| {
                 op.contents.iter().any(|content| {
@@ -66,7 +75,7 @@ impl Block {
                             op_res
                                 .originated_contracts
                                 .iter()
-                                .any(|c| c == contract_id)
+                                .any(|c| c == contract_address)
                         })
                 })
             })
@@ -100,8 +109,8 @@ impl Block {
     }
 }
 
-fn is_contract(address: &String) -> bool {
-    address.starts_with("KT1")
+fn is_contract(address: &str) -> bool {
+    address.starts_with("KT1") && !is_contract_blacklisted(address)
 }
 
 #[derive(

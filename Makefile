@@ -4,12 +4,12 @@ export CONTRACT_SETTINGS=settings.yaml
 
 
 # GRANADA testnet:
-export NODE_URL=https://testnet-tezos.giganode.io
-NETWORK="granadanet"
+#export NODE_URL=https://testnet-tezos.giganode.io
+#NETWORK="granadanet"
 
 # HEN on GRANADA:
-#export NODE_URL=https://mainnet-tezos.giganode.io
-#NETWORK="mainnet"
+export NODE_URL=https://mainnet-tezos.giganode.io
+NETWORK="mainnet"
 
 # fast mainnet:
 #export NODE_URL=bigly.newby.org:8732
