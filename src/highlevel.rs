@@ -49,40 +49,14 @@ impl Executor {
     }
 
     pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
-        // init by grabbing the contract data.
         debug!(
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let storage_def = &self
-            .node_cli
-            .get_contract_storage_definition(&contract_id.address, None)?;
-        debug!("storage_def: {:#?}", storage_def);
-        let type_ast = typing::storage_ast_from_json(storage_def)
-            .with_context(|| {
-                "failed to derive a storage type from the storage definition"
-            })?;
-        debug!("storage definition retrieved, and type derived");
-        debug!("type_ast: {:#?}", type_ast);
-
-        debug!(
-            "storage_def: {}, type_ast: {}",
-            debug::pp_depth(10, &storage_def),
-            debug::pp_depth(10, &type_ast),
+        self.contracts.insert(
+            contract_id.clone(),
+            get_rel_ast(&mut self.node_cli, &contract_id.address)?,
         );
-
-        // Build the internal representation from the storage defition
-        let ctx = relational::Context::init();
-        let mut indexes = relational::Indexes::new();
-        let rel_ast =
-            relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
-                .with_context(|| {
-                    "failed to build a relational AST from the storage type"
-                })?;
-        debug!("rel_ast: {:#?}", rel_ast);
-
-        self.contracts
-            .insert(contract_id.clone(), rel_ast);
         Ok(())
     }
 
@@ -484,6 +458,38 @@ impl Executor {
     }
 }
 
+pub(crate) fn get_rel_ast(
+    node_cli: &mut NodeClient,
+    contract_address: &str,
+) -> Result<RelationalAST> {
+    let storage_def =
+        &node_cli.get_contract_storage_definition(contract_address, None)?;
+    debug!("storage_def: {:#?}", storage_def);
+    let type_ast =
+        typing::storage_ast_from_json(storage_def).with_context(|| {
+            "failed to derive a storage type from the storage definition"
+        })?;
+    debug!("storage definition retrieved, and type derived");
+    debug!("type_ast: {:#?}", type_ast);
+
+    debug!(
+        "storage_def: {}, type_ast: {}",
+        debug::pp_depth(10, &storage_def),
+        debug::pp_depth(10, &type_ast),
+    );
+
+    // Build the internal representation from the storage defition
+    let ctx = relational::Context::init();
+    let mut indexes = relational::Indexes::new();
+    let rel_ast =
+        relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
+            .with_context(|| {
+                "failed to build a relational AST from the storage type"
+            })?;
+    debug!("rel_ast: {:#?}", rel_ast);
+    Ok(rel_ast)
+}
+
 fn stdout_is_tty() -> bool {
     atty::is(atty::Stream::Stdout)
 }
@@ -636,8 +642,8 @@ fn test_block() {
         },
         Contract {
             // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
-            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
-            levels: vec![50503],
+            id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
+            levels: vec![1588744],
         },
     ];
 

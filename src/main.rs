@@ -77,7 +77,7 @@ fn main() {
         );
         thread::sleep(std::time::Duration::from_millis(5000));
         dbcli
-            .delete_everything(&CONFIG.contracts)
+            .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
         dbcli.create_common_tables().unwrap();

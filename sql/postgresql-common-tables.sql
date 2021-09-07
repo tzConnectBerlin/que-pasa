@@ -6,8 +6,13 @@ CREATE TABLE levels (
 CREATE UNIQUE INDEX levels__level ON levels(_level);
 CREATE UNIQUE INDEX levels_hash ON levels(hash);
 
+CREATE TABLE contracts (
+    name TEXT PRIMARY KEY,
+    address VARCHAR(100) NOT NULL
+);
+
 CREATE TABLE contract_levels (
-    contract TEXT NOT NULL,
+    contract TEXT NOT NULL REFERENCES contracts(name) ON DELETE CASCADE,
     level INTEGER NOT NULL,
     is_origination BOOLEAN NOT NULL DEFAULT false,
     PRIMARY KEY(contract, level)

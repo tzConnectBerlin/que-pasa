@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 
 use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
+use crate::octez::node::NodeClient;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table_builder::TableBuilder;
@@ -69,8 +70,14 @@ impl DBClient {
 
             let mut tx = self.transaction()?;
             tx.execute(
+                "
+INSERT INTO contracts (name, address)
+VALUES ($1, $2)",
+                &[&contract_id.name, &contract_id.address],
+            )?;
+            tx.execute(
                 format!(
-                    r#"CREATE SCHEMA "{contract_schema}""#,
+                    r#"CREATE SCHEMA IF NOT EXISTS "{contract_schema}""#,
                     contract_schema = contract_id.name
                 )
                 .as_str(),
@@ -90,6 +97,49 @@ impl DBClient {
         Ok(false)
     }
 
+    pub(crate) fn delete_contract_schema(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) -> Result<()> {
+        info!("deleting schema for contract {}", contract_id.name);
+        // Generate the SQL schema for this contract
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+        sorted_tables.reverse();
+
+        for (_name, table) in sorted_tables {
+            if table.name != "storage" {
+                tx.simple_query(
+                    format!(
+                        r#"
+DROP VIEW "{contract_schema}"."{table}_ordered";
+DROP VIEW "{contract_schema}"."{table}_live";
+"#,
+                        contract_schema = contract_id.name,
+                        table = table.name,
+                    )
+                    .as_str(),
+                )?;
+            }
+
+            tx.simple_query(
+                format!(
+                    r#"
+DROP TABLE "{contract_schema}"."{table}";
+"#,
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                )
+                .as_str(),
+            )?;
+        }
+        Ok(())
+    }
+
     fn contract_schema_defined(
         &mut self,
         contract_id: &ContractID,
@@ -98,10 +148,10 @@ impl DBClient {
             "
 SELECT
     1
-FROM information_schema.schemata
-WHERE schema_name = $1
+FROM contracts
+WHERE name = $1
 ",
-            &[&contract_id.name.to_lowercase()],
+            &[&contract_id.name],
         )?;
         Ok(res.is_some())
     }
@@ -210,24 +260,44 @@ VALUES ( {v_refs} )"#,
         Ok(self.dbconn.transaction()?)
     }
 
-    pub(crate) fn delete_everything(
+    pub(crate) fn delete_everything<F>(
         &mut self,
-        contracts: &[ContractID],
-    ) -> Result<()> {
-        let mut schemas: Vec<&String> = contracts
-            .iter()
-            .map(|x| &x.name)
-            .collect();
-        let public_schema = "public".to_string();
-        schemas.push(&public_schema);
-
+        node_cli: &mut NodeClient,
+        mut get_rel_ast: F,
+    ) -> Result<()>
+    where
+        F: FnMut(&mut NodeClient, &str) -> Result<RelationalAST>,
+    {
         let mut tx = self.transaction()?;
-        for schema in schemas {
-            tx.simple_query(
-                format!("DROP SCHEMA IF EXISTS {} CASCADE", schema).as_str(),
-            )?;
+        let contracts_table = tx.query_opt(
+            "
+SELECT
+    1
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'contracts'
+",
+            &[],
+        )?;
+        if contracts_table.is_some() {
+            for row in tx.query("SELECT name, address FROM contracts", &[])? {
+                let contract_id = ContractID {
+                    name: row.get(0),
+                    address: row.get(1),
+                };
+                let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
+                Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
+            }
         }
-        tx.simple_query("CREATE SCHEMA public")?;
+        tx.simple_query(
+            "
+DROP TABLE IF EXISTS tx_contexts;
+DROP TABLE IF EXISTS max_id;
+DROP TABLE IF EXISTS contract_levels;
+DROP TABLE IF EXISTS contracts;
+DROP TABLE IF EXISTS levels;
+",
+        )?;
         tx.commit()?;
         Ok(())
     }
