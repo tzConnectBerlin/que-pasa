@@ -67,8 +67,8 @@ impl Executor {
 
         debug!(
             "storage_def: {}, type_ast: {}",
-            debug::pp_depth(40, &storage_def),
-            debug::pp_depth(40, &type_ast),
+            debug::pp_depth(10, &storage_def),
+            debug::pp_depth(10, &type_ast),
         );
 
         // Build the internal representation from the storage defition
@@ -631,6 +631,11 @@ fn test_block() {
         },
         Contract {
             // Has a set,list and map. map has >1 keys
+            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
+            levels: vec![50503],
+        },
+        Contract {
+            // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
             id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
             levels: vec![50503],
         },

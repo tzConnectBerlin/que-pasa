@@ -18,16 +18,24 @@ impl PostgresqlGenerator {
         }
     }
 
-    pub(crate) fn create_sql(&self, column: Column) -> Option<String> {
+    pub(crate) fn create_sql(&self, column: &Column) -> Option<String> {
+        match column.name.as_str() {
+            "id" => return Some("id SERIAL PRIMARY KEY".to_string()),
+            "tx_context_id" => {
+                return Some("tx_context_id INTEGER NOT NULL".to_string())
+            }
+            _ => {}
+        }
+
         let name = Self::quote_id(&column.name);
         match column.column_type {
             SimpleExprTy::Address => Some(self.address(&name)),
             SimpleExprTy::Bool => Some(self.bool(&name)),
             SimpleExprTy::Bytes => Some(self.bytes(&name)),
-            SimpleExprTy::Int => Some(self.int(&name)),
+            SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
+                Some(self.numeric(&name))
+            }
             SimpleExprTy::KeyHash => Some(self.string(&name)),
-            SimpleExprTy::Mutez => Some(self.numeric(&name)),
-            SimpleExprTy::Nat => Some(self.nat(&name)),
             SimpleExprTy::Stop => None,
             SimpleExprTy::String => Some(self.string(&name)),
             SimpleExprTy::Timestamp => Some(self.timestamp(&name)),
@@ -49,14 +57,6 @@ impl PostgresqlGenerator {
 
     pub(crate) fn bytes(&self, name: &str) -> String {
         format!("{} TEXT NULL", name)
-    }
-
-    pub(crate) fn int(&self, name: &str) -> String {
-        format!("{} NUMERIC(64) NULL", name)
-    }
-
-    pub(crate) fn nat(&self, name: &str) -> String {
-        format!("{} NUMERIC(64) NULL", name)
     }
 
     pub(crate) fn numeric(&self, name: &str) -> String {
@@ -92,19 +92,26 @@ impl PostgresqlGenerator {
             Some(t) => vec![format!(r#""{table}_id" INTEGER"#, table = t)],
             None => vec![],
         };
-        for column in &table.columns {
-            if let Some(val) = self.create_sql(column.clone()) {
+        for column in table.get_columns() {
+            if let Some(val) = self.create_sql(column) {
                 cols.push(val);
             }
         }
         Ok(cols)
     }
 
-    fn table_sql_columns(&self, table: &Table) -> Vec<String> {
+    fn table_sql_columns(
+        &self,
+        table: &Table,
+        with_keywords: bool,
+    ) -> Vec<String> {
         let mut cols: Vec<String> = table
-            .columns
+            .get_columns()
             .iter()
-            .filter(|x| self.create_sql((*x).clone()).is_some())
+            .filter(|x| {
+                with_keywords || (x.name != "id" && x.name != "tx_context_id")
+            })
+            .filter(|x| self.create_sql(x).is_some())
             .map(|x| x.name.clone())
             .collect();
 
@@ -197,7 +204,7 @@ impl PostgresqlGenerator {
     }
 
     fn create_views_for_snapshot_table(&self, table: &Table) -> Result<String> {
-        let columns: Vec<String> = self.table_sql_columns(table);
+        let columns: Vec<String> = self.table_sql_columns(table, false);
         Ok(format!(
             r#"
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
@@ -240,7 +247,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
     }
 
     fn create_views_for_changes_table(&self, table: &Table) -> Result<String> {
-        let columns: Vec<String> = self.table_sql_columns(table);
+        let columns: Vec<String> = self.table_sql_columns(table, false);
         let indices: Vec<String> = table
             .indices
             .iter()

@@ -46,5 +46,5 @@ index-all:
 	# RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 1500000-1600000
 
 db:
-	make start-db
+	# make start-db
 	RUST_BACKTRACE=1 cargo run -- --init

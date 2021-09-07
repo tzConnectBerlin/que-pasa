@@ -921,7 +921,7 @@ impl StorageProcessor {
                     "storage2sql_value: failed to match type with value"
                 )),
             },
-            SimpleExprTy::Int | SimpleExprTy::Mutez | SimpleExprTy::Nat => {
+            SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
                 match v {
                     parser::Value::Int(i)
                     | parser::Value::Mutez(i)
@@ -969,10 +969,14 @@ impl StorageProcessor {
                 }],
             },
         };
-        insert.columns.push(Column {
-            name: column_name.to_string(),
-            value,
-        });
+        let name = match column_name {
+            "id" => ".id".to_string(),
+            "tx_context_id" => ".tx_context_id".to_string(),
+            s => s.to_string(),
+        };
+        insert
+            .columns
+            .push(Column { name, value });
 
         self.inserts.insert(
             InsertKey {

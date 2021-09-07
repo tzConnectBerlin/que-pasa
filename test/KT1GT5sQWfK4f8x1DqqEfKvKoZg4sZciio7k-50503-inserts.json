@@ -88,7 +88,7 @@
                 value: Numeric(Some("2")),
             ),
             (
-                name: "int_2",
+                name: "mutez_2",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -110,7 +110,7 @@
                 value: Numeric(Some("1")),
             ),
             (
-                name: "int_2",
+                name: "mutez_2",
                 value: Numeric(Some("1")),
             ),
         ],

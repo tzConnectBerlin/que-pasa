@@ -20,34 +20,58 @@ impl TableBuilder {
         let mut res = Self {
             tables: TableMap::new(),
         };
-        res.add_column(&RelationalEntry {
-            table_name: "storage".to_string(),
-            column_name: "deleted".to_string(),
-            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-            value: None,
-            is_index: false,
-        });
+        res.add_column(
+            true,
+            &RelationalEntry {
+                table_name: "storage".to_string(),
+                column_name: "deleted".to_string(),
+                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                value: None,
+                is_index: false,
+            },
+        );
         res
     }
 
-    fn add_column(&mut self, rel_entry: &RelationalEntry) {
+    fn add_column(&mut self, is_keyword: bool, rel_entry: &RelationalEntry) {
         let mut table = self.get_table(&rel_entry.table_name);
         if rel_entry.is_index {
-            table.add_index(rel_entry);
+            table.add_index(
+                is_keyword,
+                &rel_entry.column_name,
+                &rel_entry.column_type,
+            );
         } else {
-            table.add_column(rel_entry);
+            table.add_column(
+                is_keyword,
+                &rel_entry.column_name,
+                &rel_entry.column_type,
+            );
         }
         self.store_table(table);
     }
 
-    fn touch_table(&mut self, name: &String) {
+    fn touch_table(&mut self, name: &str) {
         self.store_table(self.get_table(name))
     }
 
-    fn get_table(&self, name: &String) -> Table {
+    fn get_table(&self, name: &str) -> Table {
         match self.tables.get(name) {
             Some(x) => x.clone(),
-            None => Table::new(name.clone()),
+            None => {
+                let mut t = Table::new(name.to_string());
+                t.add_index(
+                    true,
+                    &"tx_context_id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
+                t.add_column(
+                    true,
+                    &"id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
+                t
+            }
         }
     }
 
@@ -81,13 +105,11 @@ impl TableBuilder {
                 self.populate(value_ast);
                 let mut t = self.get_table(table);
                 t.tracks_changes();
-                t.add_column(&RelationalEntry {
-                    table_name: "storage".to_string(),
-                    column_name: "deleted".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-                    value: None,
-                    is_index: false,
-                });
+                t.add_column(
+                    true,
+                    &"deleted".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                );
                 self.store_table(t);
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
@@ -110,7 +132,7 @@ impl TableBuilder {
                 right_table,
                 right_ast,
             } => {
-                self.add_column(or_unfold);
+                self.add_column(false, or_unfold);
 
                 self.touch_table(left_table);
                 self.touch_table(right_table);
@@ -118,7 +140,9 @@ impl TableBuilder {
                 self.populate(left_ast);
                 self.populate(right_ast);
             }
-            RelationalAST::Leaf { rel_entry } => self.add_column(rel_entry),
+            RelationalAST::Leaf { rel_entry } => {
+                self.add_column(false, rel_entry)
+            }
         }
     }
 }

@@ -34,8 +34,8 @@ fn get_column_name(expr: &ExprTy) -> &str {
             SimpleExprTy::Bool => "bool",
             SimpleExprTy::Bytes => "bytes",
             SimpleExprTy::Int => "int",
-            SimpleExprTy::Mutez => "int",
             SimpleExprTy::Nat => "nat",
+            SimpleExprTy::Mutez => "mutez",
             SimpleExprTy::String => "string",
             SimpleExprTy::KeyHash => "string", // TODO: check this with the data
             SimpleExprTy::Timestamp => "timestamp",
