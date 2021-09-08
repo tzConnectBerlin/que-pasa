@@ -642,7 +642,7 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        println!(
+        debug!(
             "value: {}, rel_ast: {}",
             debug::pp_depth(3, value),
             debug::pp_depth(3, rel_ast)
@@ -659,7 +659,6 @@ impl StorageProcessor {
             }
             RelationalAST::OrEnumeration { or_unfold, .. } => {
                 let rel_entry = self.resolve_or(ctx, or_unfold, v, rel_ast)?;
-                println!("or resolved: or_unfold={:#?}, v={:#?}, rel_ast={:#?}, res={:#?}", rel_entry, or_unfold, v, rel_ast);
                 if let Some(value) = rel_entry.value {
                     self.sql_add_cell(
                         ctx,
@@ -996,7 +995,6 @@ impl StorageProcessor {
         value: insert::Value,
         tx_context: &TxContext,
     ) {
-        println!("sql_add_cell: ctx={:#?}, target={}.{}, value={:?} tx_context={:#?}", ctx, table_name, column_name, value, tx_context);
         let mut insert = match self.get_insert(table_name, ctx.id, ctx.fk_id) {
             Some(x) => x,
             None => Insert {

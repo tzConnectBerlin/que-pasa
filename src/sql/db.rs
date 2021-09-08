@@ -369,6 +369,7 @@ WHERE NOT EXISTS (
         1
     FROM contract_levels c
     WHERE contract = $1
+      AND level = s.i
 )
 ORDER BY 1",
                     start, end

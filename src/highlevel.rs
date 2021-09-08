@@ -2,6 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[cfg(test)]
@@ -30,8 +31,45 @@ pub struct Executor {
     node_cli: NodeClient,
     dbcli: DBClient,
 
-    contracts: HashMap<ContractID, RelationalAST>,
+    contracts: HashMap<ContractID, (RelationalAST, Option<u32>)>,
     all_contracts: bool,
+
+    // Everything below this level has nothing to do with what we are indexing
+    level_floor: LevelFloor,
+}
+
+#[derive(Clone)]
+struct LevelFloor {
+    f: Arc<Mutex<u32>>,
+}
+
+impl LevelFloor {
+    pub fn set(&self, floor: u32) -> Result<()> {
+        let mut level_floor = self
+            .f
+            .lock()
+            .map_err(|_| {
+                Err::<(), anyhow::Error>(anyhow!(
+                    "failed to lock level_floor mutex"
+                ))
+            })
+            .unwrap();
+        *level_floor = floor;
+        Ok(())
+    }
+
+    pub fn get(&self) -> Result<u32> {
+        let level_floor = self
+            .f
+            .lock()
+            .map_err(|_| {
+                Err::<(), anyhow::Error>(anyhow!(
+                    "failed to lock level_floor mutex"
+                ))
+            })
+            .unwrap();
+        Ok(*level_floor)
+    }
 }
 
 impl Executor {
@@ -41,7 +79,24 @@ impl Executor {
             dbcli,
             contracts: HashMap::new(),
             all_contracts: false,
+            level_floor: LevelFloor {
+                f: Arc::new(Mutex::new(0)),
+            },
         }
+    }
+
+    fn update_level_floor(&mut self) -> Result<()> {
+        let mut floor = 0;
+        if !self.all_contracts {
+            floor = self
+                .contracts
+                .values()
+                .map(|(_, lfloor)| lfloor.unwrap_or(0_u32))
+                .min()
+                .unwrap_or(0);
+        }
+
+        self.level_floor.set(floor)
     }
 
     pub fn index_all_contracts(&mut self) {
@@ -53,10 +108,12 @@ impl Executor {
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        self.contracts.insert(
-            contract_id.clone(),
-            get_rel_ast(&mut self.node_cli, &contract_id.address)?,
-        );
+        let rel_ast = get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+        let contract_floor = self
+            .dbcli
+            .get_origination(contract_id)?;
+        self.contracts
+            .insert(contract_id.clone(), (rel_ast, contract_floor));
         Ok(())
     }
 
@@ -86,7 +143,7 @@ impl Executor {
             self.add_contract(contract_id)?;
             self.dbcli.create_contract_schema(
                 contract_id,
-                &self.contracts[contract_id],
+                &self.contracts[contract_id].0,
             )?;
         }
         Ok(())
@@ -97,7 +154,7 @@ impl Executor {
         for (contract_id, rel_ast) in &self.contracts {
             if self
                 .dbcli
-                .create_contract_schema(contract_id, rel_ast)?
+                .create_contract_schema(contract_id, &rel_ast.0)?
             {
                 new_contracts.push(contract_id.clone());
             }
@@ -109,7 +166,9 @@ impl Executor {
         &self,
         contract_id: &ContractID,
     ) -> Option<&RelationalAST> {
-        self.contracts.get(contract_id)
+        self.contracts
+            .get(contract_id)
+            .map(|x| &x.0)
     }
 
     pub fn exec_continuous(&mut self) -> Result<()> {
@@ -175,8 +234,12 @@ impl Executor {
         num_getters: usize,
         levels: Vec<u32>,
     ) -> Result<()> {
+        let level_floor = self.level_floor.clone();
         self.exec_parallel(num_getters, move |height_chan| {
             for l in levels {
+                if l < level_floor.get().unwrap() {
+                    continue;
+                }
                 height_chan.send(l).unwrap();
             }
         })
@@ -329,11 +392,31 @@ impl Executor {
                 block,
                 storage_processor,
                 &contract_id,
-                &rel_ast,
+                &rel_ast.0,
             )?);
         }
         tx.commit()?;
+        for cres in &contract_results {
+            if cres.is_origination {
+                self.update_contract_floor(&cres.contract_id, cres.level)?;
+            }
+        }
         Ok(contract_results)
+    }
+
+    fn update_contract_floor(
+        &mut self,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        let (rel_ast, _) = self
+            .contracts
+            .get(contract_id)
+            .unwrap()
+            .clone();
+        self.contracts
+            .insert(contract_id.clone(), (rel_ast, Some(level)));
+        self.update_level_floor()
     }
 
     fn exec_for_block_contract(
@@ -472,7 +555,7 @@ pub(crate) fn get_rel_ast(
     debug!("storage definition retrieved, and type derived");
     debug!("type_ast: {:#?}", type_ast);
 
-    println!(
+    debug!(
         "storage_def: {}, type_ast: {}",
         debug::pp_depth(6, &storage_def),
         debug::pp_depth(6, &type_ast),
@@ -644,6 +727,10 @@ fn test_block() {
             // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
             id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
             levels: vec![1588744],
+        },
+        Contract {
+            id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
+            levels: vec![1676122],
         },
     ];
 
