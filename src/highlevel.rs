@@ -13,7 +13,7 @@ use crate::debug;
 use crate::octez::block::{Block, LevelMeta};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
-use crate::relational::RelationalAST;
+use crate::relational::{Noname, RelationalAST};
 use crate::sql::db::DBClient;
 use crate::sql::insert::{InsertKey, Inserts};
 use crate::storage_structure::relational;
@@ -86,6 +86,10 @@ impl Executor {
     }
 
     fn update_level_floor(&mut self) -> Result<()> {
+        if self.all_contracts {
+            return Ok(());
+        }
+
         let mut floor = 0;
         if !self.all_contracts {
             floor = self
@@ -235,9 +239,10 @@ impl Executor {
         levels: Vec<u32>,
     ) -> Result<()> {
         let level_floor = self.level_floor.clone();
+        let have_floor = !self.all_contracts;
         self.exec_parallel(num_getters, move |height_chan| {
             for l in levels {
-                if l < level_floor.get().unwrap() {
+                if have_floor && l < level_floor.get().unwrap() {
                     continue;
                 }
                 height_chan.send(l).unwrap();
@@ -547,7 +552,7 @@ pub(crate) fn get_rel_ast(
 ) -> Result<RelationalAST> {
     let storage_def =
         &node_cli.get_contract_storage_definition(contract_address, None)?;
-    debug!("storage_def: {:#?}", storage_def);
+    println!("storage_def: {:#?}", storage_def);
     let type_ast =
         typing::storage_ast_from_json(storage_def).with_context(|| {
             "failed to derive a storage type from the storage definition"
@@ -555,7 +560,7 @@ pub(crate) fn get_rel_ast(
     debug!("storage definition retrieved, and type derived");
     debug!("type_ast: {:#?}", type_ast);
 
-    debug!(
+    println!(
         "storage_def: {}, type_ast: {}",
         debug::pp_depth(6, &storage_def),
         debug::pp_depth(6, &type_ast),
@@ -564,12 +569,16 @@ pub(crate) fn get_rel_ast(
     // Build the internal representation from the storage defition
     let ctx = relational::Context::init();
     let mut indexes = relational::Indexes::new();
-    let rel_ast =
-        relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
-            .with_context(|| {
-                "failed to build a relational AST from the storage type"
-            })?;
-    debug!("rel_ast: {:#?}", rel_ast);
+    let rel_ast = relational::build_relational_ast(
+        &ctx,
+        &type_ast,
+        &mut indexes,
+        &mut Noname::new(),
+    )
+    .with_context(|| {
+        "failed to build a relational AST from the storage type"
+    })?;
+    println!("rel_ast: {:#?}", rel_ast);
     Ok(rel_ast)
 }
 
@@ -606,8 +615,13 @@ fn test_generate() {
     let context = Context::init();
 
     use crate::relational::Indexes;
-    let rel_ast =
-        build_relational_ast(&context, &type_ast, &mut Indexes::new()).unwrap();
+    let rel_ast = build_relational_ast(
+        &context,
+        &type_ast,
+        &mut Indexes::new(),
+        &mut Noname::new(),
+    )
+    .unwrap();
     println!("{:#?}", rel_ast);
     let generator = PostgresqlGenerator::new(&ContractID {
         name: "testcontract".to_string(),
@@ -676,6 +690,7 @@ fn test_block() {
             &crate::relational::Context::init(),
             &type_ast,
             indexes,
+            &mut Noname::new(),
         )
         .unwrap();
         Ok(rel_ast)
