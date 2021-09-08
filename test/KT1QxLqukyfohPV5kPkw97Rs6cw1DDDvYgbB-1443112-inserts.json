@@ -105,6 +105,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -130,6 +134,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -157,6 +165,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -182,6 +194,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -209,6 +225,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -234,6 +254,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -261,6 +285,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -286,6 +314,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -313,6 +345,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -338,6 +374,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -365,6 +405,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -390,6 +434,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -417,6 +465,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -442,6 +494,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -469,6 +525,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -494,6 +554,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -521,6 +585,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -546,6 +614,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -573,6 +645,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -599,6 +675,10 @@
                 name: "reward",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
         ],
     ),
     (
@@ -624,6 +704,10 @@
             (
                 name: "reward",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
             ),
         ],
     ),
@@ -651,6 +735,10 @@
                 name: "balance",
                 value: Numeric(Some("15317873")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -676,6 +764,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("4050688")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -703,6 +795,10 @@
                 name: "balance",
                 value: Numeric(Some("10416557")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -728,6 +824,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("7822061")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -755,6 +855,10 @@
                 name: "balance",
                 value: Numeric(Some("53514154")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -780,6 +884,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("575337043")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -807,6 +915,10 @@
                 name: "balance",
                 value: Numeric(Some("347542068")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -832,6 +944,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("8664047")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -859,6 +975,10 @@
                 name: "balance",
                 value: Numeric(Some("9037230")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -884,6 +1004,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("234558725")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -911,6 +1035,10 @@
                 name: "balance",
                 value: Numeric(Some("40274210")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -936,6 +1064,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("14432120")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -963,6 +1095,10 @@
                 name: "balance",
                 value: Numeric(Some("172829188")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -988,6 +1124,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("38347214663")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -1015,6 +1155,10 @@
                 name: "balance",
                 value: Numeric(Some("4083947")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -1040,6 +1184,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("6535157")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -1067,6 +1215,10 @@
                 name: "balance",
                 value: Numeric(Some("6701439")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -1092,6 +1244,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("1388777449")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),
@@ -1119,6 +1275,10 @@
                 name: "balance",
                 value: Numeric(Some("1441746528")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -1145,6 +1305,10 @@
                 name: "balance",
                 value: Numeric(Some("78270768")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
         ],
     ),
     (
@@ -1170,6 +1334,10 @@
             (
                 name: "balance",
                 value: Numeric(Some("68523527")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
             ),
         ],
     ),

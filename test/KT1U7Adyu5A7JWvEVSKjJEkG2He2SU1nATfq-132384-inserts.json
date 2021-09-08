@@ -49,6 +49,10 @@
                 name: "tokens_nat_11",
                 value: Numeric(Some("109890109890109890109")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
         ],
     ),
     (
@@ -75,6 +79,10 @@
                 name: "tokens_balance",
                 value: Numeric(Some("9890109890109890109")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
+            ),
         ],
     ),
     (
@@ -101,6 +109,10 @@
                 name: "tokens_balance",
                 value: Numeric(Some("100000000000000000000")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
+            ),
         ],
     ),
     (
@@ -126,6 +138,10 @@
             (
                 name: "tokens_balance",
                 value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
             ),
         ],
     ),

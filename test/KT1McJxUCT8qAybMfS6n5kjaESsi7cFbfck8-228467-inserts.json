@@ -37,6 +37,10 @@
                 name: "idx_lambda_repository_string_0",
                 value: String("market_claim_endpoint"),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(90982),
+            ),
         ],
     ),
 }

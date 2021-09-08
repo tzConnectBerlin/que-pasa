@@ -73,6 +73,10 @@
                 name: "author",
                 value: String("tz1UanonKsn9xEoSRTwKNmfhvCUC3wcj6NJb"),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(633),
+            ),
         ],
     ),
     (
