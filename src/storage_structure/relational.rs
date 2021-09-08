@@ -59,6 +59,19 @@ impl Context {
         }
     }
 
+    pub(crate) fn apply_prefix(&self, name: &str, is_index: bool) -> String {
+        let initial = format!(
+            "{}{}{}",
+            self.prefix,
+            if self.prefix.is_empty() { "" } else { "_" },
+            name,
+        );
+        if is_index {
+            return format!("idx_{}", initial);
+        }
+        initial
+    }
+
     pub(crate) fn name(
         &self,
         ele: &Ele,
@@ -73,16 +86,7 @@ impl Context {
                 get_index(indexes, &self.table_name),
             ),
         };
-        let initial = format!(
-            "{}{}{}",
-            self.prefix,
-            if self.prefix.is_empty() { "" } else { "_" },
-            name,
-        );
-        if is_index {
-            return format!("idx_{}", initial);
-        }
-        initial
+        self.apply_prefix(&name, is_index)
     }
 
     pub(crate) fn next(&self) -> Self {
@@ -275,18 +279,21 @@ fn build_enumeration_or(
                 ctx.table_name.clone(),
             ))
         }
-        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => Ok((
-            RelationalAST::Leaf {
-                rel_entry: RelationalEntry {
-                    table_name: ctx.table_name.clone(),
-                    column_name: column_name.to_string(),
-                    column_type: ele.expr_type.clone(),
-                    value: ele.name.clone(),
-                    is_index: false,
+        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => {
+            //let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+            Ok((
+                RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: ctx.table_name.clone(),
+                        column_name: ctx.apply_prefix(column_name, false),
+                        column_type: ele.expr_type.clone(),
+                        value: ele.name.clone(),
+                        is_index: false,
+                    },
                 },
-            },
-            ctx.table_name.clone(),
-        )),
+                ctx.table_name.clone(),
+            ))
+        }
         _ => {
             let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
             Ok((

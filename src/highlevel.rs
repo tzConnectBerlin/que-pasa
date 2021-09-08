@@ -472,10 +472,10 @@ pub(crate) fn get_rel_ast(
     debug!("storage definition retrieved, and type derived");
     debug!("type_ast: {:#?}", type_ast);
 
-    debug!(
+    println!(
         "storage_def: {}, type_ast: {}",
-        debug::pp_depth(10, &storage_def),
-        debug::pp_depth(10, &type_ast),
+        debug::pp_depth(6, &storage_def),
+        debug::pp_depth(6, &type_ast),
     );
 
     // Build the internal representation from the storage defition
