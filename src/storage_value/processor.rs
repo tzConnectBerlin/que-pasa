@@ -492,7 +492,7 @@ impl StorageProcessor {
         tx_context: &TxContext,
     ) -> Result<()> {
         match diff.action.as_str() {
-            "update" | "remove" => {
+            "update" => {
                 let big_map_id: u32 = match &diff.big_map {
                     Some(id) => id.parse()?,
                     None => {
@@ -506,10 +506,11 @@ impl StorageProcessor {
                 let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
-                        return Err(anyhow!(
-                            "no big map content found {:?}",
-                            diff
-                        ))
+                        return Ok(());
+                        // return Err(anyhow!(
+                        //     "no big map content found {:?}",
+                        //     diff
+                        // ))
                     }
                 };
                 must_match_rel!(
@@ -550,9 +551,38 @@ impl StorageProcessor {
                                 tx_context,
                             )?,
                         };
+                        self.sql_add_cell(
+                            ctx,
+                            &table,
+                            &"bigmap_id".to_string(),
+                            insert::Value::Int(big_map_id as i32),
+                            tx_context,
+                        );
                         Ok(())
                     }
                 )
+            }
+            "remove" => {
+                let big_map_id: u32 = match &diff.big_map {
+                    Some(id) => id.parse()?,
+                    None => {
+                        return Err(anyhow!(
+                            "no big map id found in diff {:?}",
+                            diff
+                        ))
+                    }
+                };
+
+                let ctx =
+                    &ProcessStorageContext::new(self.id_generator.get_id());
+                self.sql_add_cell(
+                    ctx,
+                    &"bigmap_clears".to_string(),
+                    &"bigmap_id".to_string(),
+                    insert::Value::Int(big_map_id as i32),
+                    tx_context,
+                );
+                Ok(())
             }
             "alloc" => Ok(()),
             "copy" => Ok(()),

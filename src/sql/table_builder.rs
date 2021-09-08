@@ -80,6 +80,16 @@ impl TableBuilder {
             .insert(table.name.clone(), table);
     }
 
+    fn touch_bigmap_clears_table(&mut self) {
+        let mut t = self.get_table("bigmap_clears");
+        t.add_index(
+            true,
+            "bigmap_id",
+            &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+        );
+        self.store_table(t);
+    }
+
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
         match rel_ast {
             RelationalAST::Pair {
@@ -110,7 +120,14 @@ impl TableBuilder {
                     &"deleted".to_string(),
                     &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
                 );
+                t.add_index(
+                    true,
+                    &"bigmap_id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
                 self.store_table(t);
+
+                self.touch_bigmap_clears_table();
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {

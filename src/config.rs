@@ -190,6 +190,8 @@ pub fn init_config() -> Result<Config> {
     };
     config.bcd_url = matches
         .value_of("bcd_url")
+        .map_or_else(|| std::env::var("BCD_URL"), |s| Ok(s.to_string()))
+        .ok()
         .map(String::from);
     config.network = matches
         .value_of("network")

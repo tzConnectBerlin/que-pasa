@@ -75,13 +75,14 @@ INSERT INTO contracts (name, address)
 VALUES ($1, $2)",
                 &[&contract_id.name, &contract_id.address],
             )?;
-            tx.execute(
+            tx.simple_query(
                 format!(
-                    r#"CREATE SCHEMA IF NOT EXISTS "{contract_schema}""#,
+                    r#"
+CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
+"#,
                     contract_schema = contract_id.name
                 )
                 .as_str(),
-                &[],
             )?;
             for (_name, table) in sorted_tables {
                 let table_def = generator.create_table_definition(table)?;
@@ -112,7 +113,7 @@ VALUES ($1, $2)",
         sorted_tables.reverse();
 
         for (_name, table) in sorted_tables {
-            if table.name != "storage" {
+            if table.name != "storage" && table.name != "bigmap_clears" {
                 tx.simple_query(
                     format!(
                         r#"

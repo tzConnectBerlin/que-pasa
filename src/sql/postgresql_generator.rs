@@ -24,6 +24,14 @@ impl PostgresqlGenerator {
             "tx_context_id" => {
                 return Some("tx_context_id INTEGER NOT NULL".to_string())
             }
+            "deleted" => {
+                return Some(
+                    "deleted BOOLEAN NOT NULL DEFAULT 'false'".to_string(),
+                )
+            }
+            "bigmap_id" => {
+                return Some("bigmap_id INTEGER NOT NULL".to_string())
+            }
             _ => {}
         }
 
@@ -109,7 +117,11 @@ impl PostgresqlGenerator {
             .get_columns()
             .iter()
             .filter(|x| {
-                with_keywords || (x.name != "id" && x.name != "tx_context_id")
+                with_keywords
+                    || (x.name != "id"
+                        && x.name != "deleted"
+                        && x.name != "tx_context_id"
+                        && x.name != "bigmap_id")
             })
             .filter(|x| self.create_sql(x).is_some())
             .map(|x| x.name.clone())
@@ -193,7 +205,7 @@ impl PostgresqlGenerator {
         &self,
         table: &Table,
     ) -> Result<String> {
-        if table.name == "storage" {
+        if table.name == "storage" || table.name == "bigmap_clears" {
             return Ok("".to_string());
         }
         if table.contains_snapshots() {
@@ -252,7 +264,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
             .indices
             .iter()
             .cloned()
-            .filter(|index| index != &"tx_context_id".to_string())
+            .filter(|index| index != "tx_context_id" && index != "bigmap_id")
             .collect();
 
         Ok(format!(
@@ -266,6 +278,7 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
         FROM "{contract_schema}"."{table}" t
         JOIN tx_contexts ctx
           ON ctx.id = t.tx_context_id
+        WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
         ORDER BY
             {indices},
             ctx.level DESC,
@@ -287,8 +300,28 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
+        t.deleted,
         {columns}
-    FROM "{contract_schema}"."{table}" t
+    FROM (
+        SELECT
+            t.tx_context_id,
+            t.deleted,
+            {columns}
+        FROM "{contract_schema}"."{table}" t
+        WHERE t.deleted
+           OR t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
+
+        UNION ALL
+
+        SELECT
+            clr.tx_context_id,
+            'true' as deleted,
+            {columns}
+        FROM "{contract_schema}"."{table}" t
+        JOIN "{contract_schema}".bigmap_clears clr
+          ON t.bigmap_id = clr.bigmap_id
+        WHERE NOT t.deleted
+    ) t  -- t with bigmap clears unfolded
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
 );
