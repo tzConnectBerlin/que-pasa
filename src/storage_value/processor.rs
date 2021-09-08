@@ -152,6 +152,7 @@ impl StorageProcessor {
     ) -> Result<(Inserts, Vec<TxContext>)> {
         self.inserts.clear();
         self.tx_contexts.clear();
+        self.big_map_map.clear();
 
         let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
         let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
@@ -491,7 +492,7 @@ impl StorageProcessor {
         tx_context: &TxContext,
     ) -> Result<()> {
         match diff.action.as_str() {
-            "update" => {
+            "update" | "remove" => {
                 let big_map_id: u32 = match &diff.big_map {
                     Some(id) => id.parse()?,
                     None => {
@@ -505,7 +506,10 @@ impl StorageProcessor {
                 let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
-                        return Ok(());
+                        return Err(anyhow!(
+                            "no big map content found {:?}",
+                            diff
+                        ))
                     }
                 };
                 must_match_rel!(
@@ -552,7 +556,11 @@ impl StorageProcessor {
             }
             "alloc" => Ok(()),
             "copy" => Ok(()),
-            action => Err(anyhow!("big_map action unknown: action={}", action)),
+            action => Err(anyhow!(
+                "big_map action unknown: action={}, diff={:#?}",
+                action,
+                diff
+            )),
         }
     }
 

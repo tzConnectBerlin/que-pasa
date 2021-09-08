@@ -40,9 +40,13 @@ use env_logger::Env;
 use octez::bcd;
 use octez::node;
 use sql::db::DBClient;
+use std::collections::HashMap;
 use std::panic;
 use std::process;
 use std::thread;
+
+use config::ContractID;
+use contract_blacklist::is_contract_blacklisted;
 use storage_structure::relational;
 
 fn main() {
@@ -90,6 +94,9 @@ fn main() {
     if CONFIG.all_contracts {
         executor.index_all_contracts();
     } else {
+        assert_contracts_ok(&CONFIG.contracts);
+        info!("running for contracts: {:#?}", CONFIG.contracts);
+
         for contract_id in &CONFIG.contracts {
             executor
                 .add_contract(contract_id)
@@ -146,4 +153,21 @@ fn main() {
 
     // At last, normal operation.
     executor.exec_continuous().unwrap();
+}
+
+fn assert_contracts_ok(contracts: &[ContractID]) {
+    if contracts.is_empty() {
+        panic!("zero contracts to index..");
+    }
+
+    let mut names: HashMap<String, ()> = HashMap::new();
+    for contract_id in contracts {
+        if names.contains_key(&contract_id.name) {
+            panic!("bad contract settings provided: name clash (multiple contracts assigned to name '{}'", contract_id.name);
+        }
+        if is_contract_blacklisted(&contract_id.address) {
+            panic!("bad contract settings provided: blacklisted contract cannot be indexed ({})", contract_id.name);
+        }
+        names.insert(contract_id.name.clone(), ());
+    }
 }

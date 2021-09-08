@@ -5,10 +5,8 @@ where
     T: std::fmt::Debug,
 {
     let s = format!("{:#?}", t);
-    let depth_spacing: String = std::iter::repeat(' ')
-        .take(depth * 4 + 1)
-        .collect();
+    let depth_cutoff: String = " ".repeat(depth * 4 + 1);
     s.split('\n')
-        .filter(|line| !line.starts_with(&depth_spacing))
+        .filter(|line| !line.starts_with(&depth_cutoff))
         .join("\n")
 }

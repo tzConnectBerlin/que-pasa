@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use serde_yaml;
 use std::fs;
 
@@ -47,6 +47,14 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(true)
         )
         .arg(
+            Arg::with_name("contracts")
+                .long("contracts")
+                .value_name("CONTRACTS")
+                .help("set of additional contract settings")
+                .multiple(true)
+                .takes_value(true)
+        )
+        .arg(
             Arg::with_name("index_all_contracts")
                 .long("index-all-contracts")
                 .value_name("INDEX_ALL_CONTRACTS")
@@ -73,12 +81,6 @@ pub fn init_config() -> Result<Config> {
                 .long("ca-cert")
                 .help("CA Cert for SSL postgres connection")
                 .takes_value(true))
-        .arg(
-            Arg::with_name("generate_sql")
-                .short("g")
-                .long("generate-sql")
-                .help("Generate SQL")
-                .takes_value(false))
         .arg(
             Arg::with_name("node_url")
                 .short("n")
@@ -121,41 +123,42 @@ pub fn init_config() -> Result<Config> {
                 .help("If present, clear the DB out, load the levels, and set the in-between levels as already loaded")
                 .takes_value(false),
         )
-        .subcommand(
-            SubCommand::with_name("generate-sql")
-                .about("Generated table definitions")
-                .version("0.0"),
-        )
         .get_matches();
 
-    let fpath = matches
+    let maybe_fpath = matches
         .value_of("contract_settings")
         .map_or_else(
             || std::env::var("CONTRACT_SETTINGS"),
             |s| Ok(s.to_string()),
         )
-        .unwrap();
-    config.contracts = parse_contract_settings_file(fpath).unwrap();
-
-    config.generate_sql = match matches.subcommand() {
-        ("generate-sql", _) => true,
-        _ => matches.is_present("generate_sql"),
-    };
-
-    if !config.generate_sql {
-        config.database_url = match matches
-            .value_of("database_url")
-            .map_or_else(|| std::env::var("DATABASE_URL"), |s| Ok(s.to_string()))
-        {
-            Ok(x) => x,
-            Err(_) => {
-                return Err(anyhow!(
-                    "Database URL must be set either on the command line or in the environment"
-                ))
-            }
-        };
-        println!("db url: \"{}\"", config.database_url);
+        .ok();
+    if let Some(fpath) = maybe_fpath {
+        config.contracts = parse_contract_settings_file(fpath).unwrap();
     }
+    if matches.is_present("contracts") {
+        config.contracts.extend(
+	    matches.values_of("contracts").unwrap().map(|s| {
+		match s.split_once("=") {
+		    Some((name, address)) => ContractID {
+			name: name.to_string(),
+			address: address.to_string(),
+		    },
+		    None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
+		}
+	    }).collect::<Vec<ContractID>>(),
+	);
+    }
+
+    config.database_url = match matches
+            .value_of("database_url")
+            .map_or_else(|| std::env::var("DATABASE_URL"), |s| Ok(s.to_string())) {
+        Ok(x) => x,
+        Err(_) => {
+            return Err(anyhow!(
+                "Database URL must be set either on the command line or in the environment"
+            ))
+        }
+    };
 
     if matches.is_present("ssl") {
         config.ssl = true;

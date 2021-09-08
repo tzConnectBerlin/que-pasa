@@ -4,12 +4,12 @@ export CONTRACT_SETTINGS=settings.yaml
 
 
 # GRANADA testnet:
-export NODE_URL=https://testnet-tezos.giganode.io
-NETWORK="granadanet"
+#export NODE_URL=https://testnet-tezos.giganode.io
+#NETWORK="granadanet"
 
 # HEN on GRANADA:
-#export NODE_URL=https://mainnet-tezos.giganode.io
-#NETWORK="mainnet"
+export NODE_URL=https://mainnet-tezos.giganode.io
+NETWORK="mainnet"
 
 # fast mainnet:
 #export NODE_URL=bigly.newby.org:8732
@@ -42,8 +42,8 @@ endif
 
 index-all:
 	cargo run -- --init
-	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000-60000
-	# RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 1500000-1600000
+	# RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 50000-60000
+	RUST_BACKTRACE=1 cargo run -- --index-all-contracts -l 1500000-1600000
 
 db:
 	# make start-db
