@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 
-pub(crate) fn is_contract_blacklisted(address: &str) -> bool {
-    let blacklisted = BLACKLIST.get(address).is_some();
-    if blacklisted {
-        warn!("ignoring blacklisted contract {}", address);
+pub(crate) fn is_contract_denylisted(address: &str) -> bool {
+    let denylisted = DENYLIST.get(address).is_some();
+    if denylisted {
+        warn!("ignoring denylisted contract {}", address);
     }
-    blacklisted
+    denylisted
 }
 
 lazy_static! {
-    static ref BLACKLIST: HashMap<String, ()> = init_blacklist();
+    static ref DENYLIST: HashMap<String, ()> = init_denylist();
 }
 
-fn init_blacklist() -> HashMap<String, ()> {
+fn init_denylist() -> HashMap<String, ()> {
     let mut m = HashMap::new();
-    // Following contract is blacklisted because:
+    // Following contract is denylisted because:
     //  type is: Pair (KeyHash, Map (String, Timestamp))
     //  but values are of shape: [Elt]
     // see eg:

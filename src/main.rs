@@ -26,7 +26,7 @@ extern crate spinners;
 extern crate termion;
 
 pub mod config;
-pub mod contract_blacklist;
+pub mod contract_denylist;
 pub mod debug;
 pub mod highlevel;
 pub mod octez;
@@ -46,7 +46,7 @@ use std::process;
 use std::thread;
 
 use config::ContractID;
-use contract_blacklist::is_contract_blacklisted;
+use contract_denylist::is_contract_denylisted;
 use storage_structure::relational;
 
 fn main() {
@@ -165,8 +165,8 @@ fn assert_contracts_ok(contracts: &[ContractID]) {
         if names.contains_key(&contract_id.name) {
             panic!("bad contract settings provided: name clash (multiple contracts assigned to name '{}'", contract_id.name);
         }
-        if is_contract_blacklisted(&contract_id.address) {
-            panic!("bad contract settings provided: blacklisted contract cannot be indexed ({})", contract_id.name);
+        if is_contract_denylisted(&contract_id.address) {
+            panic!("bad contract settings provided: denylisted contract cannot be indexed ({})", contract_id.name);
         }
         names.insert(contract_id.name.clone(), ());
     }

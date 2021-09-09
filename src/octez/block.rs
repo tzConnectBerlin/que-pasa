@@ -1,11 +1,11 @@
 use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
 
-use crate::contract_blacklist::is_contract_blacklisted;
+use crate::contract_denylist::is_contract_denylisted;
 
 #[derive(Clone, Debug)]
 pub struct LevelMeta {
-    pub _level: u32,
+    pub level: u32,
     pub hash: Option<String>,
     pub baked_at: Option<DateTime<Utc>>,
 }
@@ -35,7 +35,7 @@ impl Block {
     }
 
     pub(crate) fn is_contract_active(&self, contract_address: &str) -> bool {
-        if is_contract_blacklisted(contract_address) {
+        if is_contract_denylisted(contract_address) {
             return false;
         }
 
@@ -110,7 +110,7 @@ impl Block {
 }
 
 fn is_contract(address: &str) -> bool {
-    address.starts_with("KT1") && !is_contract_blacklisted(address)
+    address.starts_with("KT1") && !is_contract_denylisted(address)
 }
 
 #[derive(

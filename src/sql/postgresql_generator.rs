@@ -43,7 +43,9 @@ impl PostgresqlGenerator {
             SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
                 Some(self.numeric(&name))
             }
-            SimpleExprTy::KeyHash => Some(self.string(&name)),
+            SimpleExprTy::KeyHash
+            | SimpleExprTy::Signature
+            | SimpleExprTy::Contract => Some(self.string(&name)),
             SimpleExprTy::Stop => None,
             SimpleExprTy::String => Some(self.string(&name)),
             SimpleExprTy::Timestamp => Some(self.timestamp(&name)),
@@ -227,7 +229,7 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
       ON  ctx.id = t.tx_context_id
       AND ctx.level = (
             SELECT
-                MAX(ctx.level) AS _level
+                MAX(ctx.level) AS level
             FROM "{contract_schema}"."{table}" t_
             JOIN tx_contexts ctx ON t_.tx_context_id = ctx.id
       )

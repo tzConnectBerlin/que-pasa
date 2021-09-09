@@ -1,9 +1,9 @@
 CREATE TABLE levels (
-        _level INTEGER PRIMARY KEY,
+        level INTEGER PRIMARY KEY,
         hash VARCHAR(60),
         baked_at TIMESTAMP WITH TIME ZONE);
 
-CREATE UNIQUE INDEX levels__level ON levels(_level);
+CREATE UNIQUE INDEX levels_level ON levels(level);
 CREATE UNIQUE INDEX levels_hash ON levels(hash);
 
 CREATE TABLE contracts (
@@ -26,7 +26,7 @@ INSERT INTO max_id (max_id) VALUES (1);
 
 CREATE TABLE tx_contexts(
        id INTEGER NOT NULL PRIMARY KEY,
-       level INTEGER NOT NULL REFERENCES levels(_level) ON DELETE CASCADE,
+       level INTEGER NOT NULL REFERENCES levels(level) ON DELETE CASCADE,
        contract TEXT NOT NULL,
        operation_hash VARCHAR(100) NOT NULL,
        operation_group_number INTEGER NOT NULL,

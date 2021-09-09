@@ -11,6 +11,8 @@ pub enum SimpleExprTy {
     Nat,
     Mutez,
     KeyHash,
+    Signature,
+    Contract,
     Stop,
     String,
     Timestamp,

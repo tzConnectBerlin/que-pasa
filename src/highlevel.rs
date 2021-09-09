@@ -197,9 +197,9 @@ impl Executor {
                 None => {
                     if self.all_contracts {
                         Self::print_status(
-                            chain_head._level,
+                            chain_head.level,
                             &self.exec_level(
-                                chain_head._level,
+                                chain_head.level,
                                 &mut storage_processor,
                             )?,
                         );
@@ -210,10 +210,10 @@ impl Executor {
                 ))
                 }
             }?;
-            debug!("db: {} chain: {}", db_head._level, chain_head._level);
-            match chain_head._level.cmp(&db_head._level) {
+            debug!("db: {} chain: {}", db_head.level, chain_head.level);
+            match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
-                    for level in (db_head._level + 1)..=chain_head._level {
+                    for level in (db_head.level + 1)..=chain_head.level {
                         Self::print_status(
                             level,
                             &self.exec_level(level, &mut storage_processor)?,
@@ -263,7 +263,7 @@ impl Executor {
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
         loop {
-            let latest_level = self.node_cli.head()?._level;
+            let latest_level = self.node_cli.head()?.level;
 
             let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
                 self.contracts
@@ -326,10 +326,10 @@ impl Executor {
     ) -> Result<()> {
         let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
-            let (level, block) = *b;
+            let (meta, block) = *b;
             Self::print_status(
-                level._level,
-                &self.exec_for_block(&level, &block, &mut storage_processor)?,
+                meta.level,
+                &self.exec_for_block(&meta, &block, &mut storage_processor)?,
             );
         }
 
@@ -373,7 +373,7 @@ impl Executor {
         level_height: u32,
         storage_processor: &mut StorageProcessor,
     ) -> Result<Vec<SaveLevelResult>> {
-        let (_json, level, block) = self
+        let (_json, meta, block) = self
             .node_cli
             .level_json(level_height)
             .with_context(|| {
@@ -383,7 +383,7 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&level, &block, storage_processor)
+        self.exec_for_block(&meta, &block, storage_processor)
     }
 
     fn exec_for_block(
@@ -437,21 +437,21 @@ impl Executor {
 
     fn exec_for_block_contract(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         block: &Block,
         storage_processor: &mut StorageProcessor,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
         if block.has_contract_origination(&contract_id.address) {
-            Self::mark_level_contract_origination(tx, level, contract_id)
+            Self::mark_level_contract_origination(tx, meta, contract_id)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as contract origination in db",
-                    level._level)
+                    meta.level)
             })?;
             return Ok(SaveLevelResult {
-                level: level._level,
+                level: meta.level,
                 contract_id: contract_id.clone(),
                 is_origination: true,
                 tx_count: 0,
@@ -459,15 +459,15 @@ impl Executor {
         }
 
         if !block.is_contract_active(&contract_id.address) {
-            Self::mark_level_empty(tx, level, contract_id)
+            Self::mark_level_empty(tx, meta, contract_id)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not mark level as empty in db",
-                    level._level, contract_id.name)
+                    meta.level, contract_id.name)
             })?;
 
             return Ok(SaveLevelResult {
-                level: level._level,
+                level: meta.level,
                 contract_id: contract_id.clone(),
                 is_origination: false,
                 tx_count: 0,
@@ -479,14 +479,14 @@ impl Executor {
                 .with_context(|| {
                     format!(
                         "execute failed (level={}, contract={}): could not process block",
-                        level._level, contract_id.name,
+                        meta.level, contract_id.name,
                     )
                 })?;
         let tx_count = tx_contexts.len() as u32;
 
         Self::save_level_processed_contract(
 	    tx,
-                level,
+                meta,
                 contract_id,
                 &inserts,
                 tx_contexts,
@@ -495,11 +495,11 @@ impl Executor {
             .with_context(|| {
                 format!(
                 "execute failed (level={}, contract={}): could not save processed block",
-                level._level, contract_id.name,
+                meta.level, contract_id.name,
             )
             })?;
         Ok(SaveLevelResult {
-            level: level._level,
+            level: meta.level,
             contract_id: contract_id.clone(),
             is_origination: false,
             tx_count,
@@ -508,35 +508,35 @@ impl Executor {
 
     fn mark_level_contract_origination(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, level._level)?;
-        DBClient::save_contract_level(tx, contract_id, level._level)?;
-        DBClient::set_origination(tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
+        DBClient::save_contract_level(tx, contract_id, meta.level)?;
+        DBClient::set_origination(tx, contract_id, meta.level)?;
         Ok(())
     }
 
     fn mark_level_empty(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, level._level)?;
-        DBClient::save_contract_level(tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
+        DBClient::save_contract_level(tx, contract_id, meta.level)?;
         Ok(())
     }
 
     fn save_level_processed_contract(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         contract_id: &ContractID,
         inserts: &Inserts,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, level._level)?;
-        DBClient::save_contract_level(tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
+        DBClient::save_contract_level(tx, contract_id, meta.level)?;
 
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
         let mut keys = inserts

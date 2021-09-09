@@ -28,7 +28,7 @@ impl NodeClient {
             .load("blocks/head")
             .with_context(|| "failed to get block head")?;
         Ok(LevelMeta {
-            _level: json["header"]["level"]
+            level: json["header"]["level"]
                 .as_u32()
                 .ok_or_else(|| anyhow!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
@@ -53,7 +53,7 @@ impl NodeClient {
                 )
             })?;
         let meta = LevelMeta {
-            _level: block.header.level as u32,
+            level: block.header.level as u32,
             hash: Some(block.hash.clone()),
             baked_at: Some(Self::timestamp_from_block(&resp)?),
         };

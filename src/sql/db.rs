@@ -314,8 +314,8 @@ SELECT
     $1,
     g.level
 FROM GENERATE_SERIES(
-    (SELECT MIN(_level) FROM levels),
-    (SELECT MAX(_level) FROM levels)
+    (SELECT MIN(level) FROM levels),
+    (SELECT MAX(level) FROM levels)
 ) AS g(level)
 WHERE g.level NOT IN (
     SELECT level FROM contract_levels WHERE contract = $1
@@ -327,20 +327,20 @@ WHERE g.level NOT IN (
     pub(crate) fn get_head(&mut self) -> Result<Option<LevelMeta>> {
         let result = self.dbconn.query(
             "
-SELECT _level, hash, baked_at
+SELECT level, hash, baked_at
 FROM levels
-ORDER BY _level
+ORDER BY level
 DESC LIMIT 1",
             &[],
         )?;
         if result.is_empty() {
             Ok(None)
         } else if result.len() == 1 {
-            let _level: i32 = result[0].get(0);
+            let level: i32 = result[0].get(0);
             let hash: Option<String> = result[0].get(1);
             let baked_at: Option<DateTime<Utc>> = result[0].get(2);
             Ok(Some(LevelMeta {
-                _level: _level as u32,
+                level: level as u32,
                 hash,
                 baked_at,
             }))
@@ -413,34 +413,34 @@ SET max_id = $1",
 
     pub(crate) fn save_level(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
     ) -> Result<()> {
         tx.execute(
             "
 INSERT INTO levels(
-    _level, hash, baked_at
+    level, hash, baked_at
 ) VALUES ($1, $2, $3)
 ",
-            &[&(level._level as i32), &level.hash, &level.baked_at],
+            &[&(meta.level as i32), &meta.hash, &meta.baked_at],
         )?;
         Ok(())
     }
 
     pub(crate) fn delete_level(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
     ) -> Result<()> {
         tx.execute(
             "
 DELETE FROM contract_levels
 WHERE level = $1",
-            &[&(level._level as i32)],
+            &[&(meta.level as i32)],
         )?;
         tx.execute(
             "
 DELETE FROM levels
-WHERE _level = $1",
-            &[&(level._level as i32)],
+WHERE level = $1",
+            &[&(meta.level as i32)],
         )?;
         Ok(())
     }

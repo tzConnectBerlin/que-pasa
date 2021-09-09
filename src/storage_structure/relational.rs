@@ -37,7 +37,9 @@ fn get_column_name(expr: &ExprTy) -> &str {
             SimpleExprTy::Nat => "nat",
             SimpleExprTy::Mutez => "mutez",
             SimpleExprTy::String => "string",
-            SimpleExprTy::KeyHash => "string", // TODO: check this with the data
+            SimpleExprTy::KeyHash => "keyhash",
+            SimpleExprTy::Signature => "signature",
+            SimpleExprTy::Contract => "contract",
             SimpleExprTy::Timestamp => "timestamp",
             SimpleExprTy::Unit => "unit",
             SimpleExprTy::Stop => "stop",
