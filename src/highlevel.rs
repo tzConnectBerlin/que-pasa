@@ -194,9 +194,21 @@ impl Executor {
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
                 Some(head) => Ok(head),
-                None => Err(anyhow!(
+                None => {
+                    if self.all_contracts {
+                        Self::print_status(
+                            chain_head._level,
+                            &self.exec_level(
+                                chain_head._level,
+                                &mut storage_processor,
+                            )?,
+                        );
+                        continue;
+                    }
+                    Err(anyhow!(
                     "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
-                )),
+                ))
+                }
             }?;
             debug!("db: {} chain: {}", db_head._level, chain_head._level);
             match chain_head._level.cmp(&db_head._level) {
@@ -210,9 +222,8 @@ impl Executor {
                     continue;
                 }
                 Ordering::Less => {
-                    return Err(anyhow!(
-                        "More levels in DB than chain, bailing!"
-                    ))
+                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    continue;
                 }
                 Ordering::Equal => {
                     // they are equal, so we will just check that the hashes match.
