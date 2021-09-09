@@ -623,9 +623,14 @@ impl StorageProcessor {
         &mut self,
         ctx: &ProcessStorageContext,
         current_table: Option<String>,
+        tx_context: &TxContext,
     ) -> ProcessStorageContext {
         if let Some(table_name) = current_table {
             if ctx.last_table != Some(table_name.clone()) {
+                if let Some(last_table) = &ctx.last_table {
+                    self.sql_touch_insert(&ctx.clone(), last_table, tx_context);
+                }
+
                 return ctx
                     .with_last_table(table_name)
                     .with_fk_id(ctx.id)
@@ -680,7 +685,7 @@ impl StorageProcessor {
             _ => {}
         };
 
-        let ctx = &self.update_context(ctx, rel_ast.table_entry());
+        let ctx = &self.update_context(ctx, rel_ast.table_entry(), tx_context);
 
         match v {
             parser::Value::Elt(key, value) => must_match_rel!(
@@ -726,8 +731,11 @@ impl StorageProcessor {
                         ..
                     },
                     {
-                        let ctx =
-                            &self.update_context(ctx, Some(left_table.clone()));
+                        let ctx = &self.update_context(
+                            ctx,
+                            Some(left_table.clone()),
+                            tx_context,
+                        );
                         self.process_storage_value_internal(
                             ctx, left, left_ast, tx_context,
                         )?;
@@ -744,8 +752,11 @@ impl StorageProcessor {
                         ..
                     },
                     {
-                        let ctx = &self
-                            .update_context(ctx, Some(right_table.clone()));
+                        let ctx = &self.update_context(
+                            ctx,
+                            Some(right_table.clone()),
+                            tx_context,
+                        );
                         self.process_storage_value_internal(
                             ctx, right, right_ast, tx_context,
                         )?;
@@ -987,6 +998,36 @@ impl StorageProcessor {
             .insert(bigmap_id, (fk, rel_ast));
     }
 
+    fn sql_touch_insert(
+        &mut self,
+        ctx: &ProcessStorageContext,
+        table_name: &str,
+        tx_context: &TxContext,
+    ) -> Insert {
+        match self.get_insert(table_name, ctx.id, ctx.fk_id) {
+            Some(x) => x,
+            None => {
+                let value = Insert {
+                    table_name: table_name.to_string(),
+                    id: ctx.id,
+                    fk_id: ctx.fk_id,
+                    columns: vec![Column {
+                        name: "tx_context_id".to_string(),
+                        value: insert::Value::Int(tx_context.id.unwrap() as i32),
+                    }],
+                };
+                self.inserts.insert(
+                    InsertKey {
+                        table_name: table_name.to_string(),
+                        id: ctx.id,
+                    },
+                    value.clone(),
+                );
+                value
+            }
+        }
+    }
+
     fn sql_add_cell(
         &mut self,
         ctx: &ProcessStorageContext,
@@ -995,18 +1036,7 @@ impl StorageProcessor {
         value: insert::Value,
         tx_context: &TxContext,
     ) {
-        let mut insert = match self.get_insert(table_name, ctx.id, ctx.fk_id) {
-            Some(x) => x,
-            None => Insert {
-                table_name: table_name.to_string(),
-                id: ctx.id,
-                fk_id: ctx.fk_id,
-                columns: vec![Column {
-                    name: "tx_context_id".to_string(),
-                    value: insert::Value::Int(tx_context.id.unwrap() as i32),
-                }],
-            },
-        };
+        let mut insert = self.sql_touch_insert(ctx, table_name, tx_context);
         let name = match column_name {
             "id" => ".id".to_string(),
             "tx_context_id" => ".tx_context_id".to_string(),

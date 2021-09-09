@@ -50,7 +50,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("contracts")
                 .long("contracts")
                 .value_name("CONTRACTS")
-                .help("set of additional contract settings")
+                .help("set of additional contract settings (in syntax: <name>=<address>)")
                 .multiple(true)
                 .takes_value(true)
         )
@@ -58,7 +58,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("index_all_contracts")
                 .long("index-all-contracts")
                 .value_name("INDEX_ALL_CONTRACTS")
-                .help("if set, *all* active contracts are indexed")
+                .help("index *all* contracts")
                 .takes_value(false)
         )
         .arg(
@@ -92,7 +92,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("network")
                 .long("network")
                 .value_name("NETWORK")
-                .help("Name of the Tezos network to target (eg 'main', 'granadanet', ..)")
+                .help("For better-call.dev: name of the Tezos network to target (eg 'mainnet', 'granadanet', ..)")
                 .takes_value(true))
         .arg(
             Arg::with_name("bcd_url")
@@ -104,7 +104,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("workers_cap")
                 .long("workers-cap")
                 .value_name("WORKERS_CAP")
-                .help("max number of workers used to concurrently fetch block data from the node (only applies during bootstrap)")
+                .help("max number of workers used to concurrently fetch block data from the node (enables fast bootstrap)")
                 .takes_value(true),
         )
         .arg(
@@ -120,7 +120,7 @@ pub fn init_config() -> Result<Config> {
                 .short("i")
                 .long("init")
                 .value_name("INIT")
-                .help("If present, clear the DB out, load the levels, and set the in-between levels as already loaded")
+                .help("If set, clear the DB out and recreate global tables")
                 .takes_value(false),
         )
         .get_matches();

@@ -589,7 +589,7 @@ pub(crate) fn get_rel_ast(
     .with_context(|| {
         "failed to build a relational AST from the storage type"
     })?;
-    debug!("rel_ast: {:#?}", rel_ast);
+    println!("rel_ast: {:#?}", rel_ast);
     Ok(rel_ast)
 }
 
@@ -694,7 +694,11 @@ fn test_block() {
         json: &JsonValue,
         indexes: &mut Indexes,
     ) -> Result<RelationalAST> {
-        let storage_definition = json["code"][1]["args"][0].clone();
+        let storage_definition = json["code"]
+            .members()
+            .find(|x| x["prim"] == "storage")
+            .unwrap_or(&JsonValue::Null)["args"][0]
+            .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
         let rel_ast = build_relational_ast(
@@ -757,6 +761,10 @@ fn test_block() {
         Contract {
             id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
             levels: vec![1676122],
+        },
+        Contract {
+            id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
+            levels: vec![1678750],
         },
     ];
 
