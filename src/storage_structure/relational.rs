@@ -246,7 +246,7 @@ pub(crate) fn build_relational_ast(
             }
             ComplexExprTy::Option(expr_type) => {
                 let elem_ast = build_relational_ast(
-                    &ctx,
+                    ctx,
                     &ele_with_annot(expr_type, ele.name.clone()),
                     indexes,
                     noname,
@@ -256,7 +256,7 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::OrEnumeration(_, _) => {
-                Ok(build_enumeration_or(&ctx, ele, &name(), indexes, noname)?.0)
+                Ok(build_enumeration_or(ctx, ele, &name(), indexes, noname)?.0)
             }
         },
         ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
