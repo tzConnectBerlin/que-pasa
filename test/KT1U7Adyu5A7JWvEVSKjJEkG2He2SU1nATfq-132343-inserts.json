@@ -12,10 +12,6 @@
                 value: Int(1),
             ),
             (
-                name: "deleted",
-                value: Bool(false),
-            ),
-            (
                 name: "stablecoin",
                 value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),

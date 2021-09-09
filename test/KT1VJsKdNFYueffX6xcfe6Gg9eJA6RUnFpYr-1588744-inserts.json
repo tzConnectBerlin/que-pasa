@@ -12,10 +12,6 @@
                 value: Int(1),
             ),
             (
-                name: "deleted",
-                value: Bool(false),
-            ),
-            (
                 name: "roles_owner",
                 value: String("tz1UanonKsn9xEoSRTwKNmfhvCUC3wcj6NJb"),
             ),

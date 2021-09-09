@@ -12,10 +12,6 @@
                 value: Int(41),
             ),
             (
-                name: "deleted",
-                value: Bool(false),
-            ),
-            (
                 name: "lambda_repository_creator",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),

@@ -12,10 +12,6 @@
                 value: Int(1),
             ),
             (
-                name: "deleted",
-                value: Bool(false),
-            ),
-            (
                 name: "objkt",
                 value: String("KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"),
             ),
@@ -68,10 +64,6 @@
             (
                 name: "tx_context_id",
                 value: Int(2),
-            ),
-            (
-                name: "deleted",
-                value: Bool(false),
             ),
             (
                 name: "objkt",

@@ -11,10 +11,6 @@
                 name: "tx_context_id",
                 value: Int(164),
             ),
-            (
-                name: "deleted",
-                value: Bool(false),
-            ),
         ],
     ),
     (

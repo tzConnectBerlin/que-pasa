@@ -12,10 +12,6 @@
                 value: Int(1),
             ),
             (
-                name: "deleted",
-                value: Bool(false),
-            ),
-            (
                 name: "veto",
                 value: Numeric(Some("0")),
             ),
