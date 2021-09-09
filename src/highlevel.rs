@@ -589,7 +589,7 @@ pub(crate) fn get_rel_ast(
     .with_context(|| {
         "failed to build a relational AST from the storage type"
     })?;
-    println!("rel_ast: {:#?}", rel_ast);
+    debug!("rel_ast: {:#?}", rel_ast);
     Ok(rel_ast)
 }
 
