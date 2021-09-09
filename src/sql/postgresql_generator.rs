@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::vec::Vec;
 
 use crate::config::ContractID;
+use crate::itertools::Itertools;
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::SimpleExprTy;
 
@@ -17,16 +18,34 @@ impl PostgresqlGenerator {
         }
     }
 
-    pub(crate) fn create_sql(&self, column: Column) -> Option<String> {
+    pub(crate) fn create_sql(&self, column: &Column) -> Option<String> {
+        match column.name.as_str() {
+            "id" => return Some("id SERIAL PRIMARY KEY".to_string()),
+            "tx_context_id" => {
+                return Some("tx_context_id INTEGER NOT NULL".to_string())
+            }
+            "deleted" => {
+                return Some(
+                    "deleted BOOLEAN NOT NULL DEFAULT 'false'".to_string(),
+                )
+            }
+            "bigmap_id" => {
+                return Some("bigmap_id INTEGER NOT NULL".to_string())
+            }
+            _ => {}
+        }
+
         let name = Self::quote_id(&column.name);
         match column.column_type {
             SimpleExprTy::Address => Some(self.address(&name)),
             SimpleExprTy::Bool => Some(self.bool(&name)),
             SimpleExprTy::Bytes => Some(self.bytes(&name)),
-            SimpleExprTy::Int => Some(self.int(&name)),
-            SimpleExprTy::KeyHash => Some(self.string(&name)),
-            SimpleExprTy::Mutez => Some(self.numeric(&name)),
-            SimpleExprTy::Nat => Some(self.nat(&name)),
+            SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
+                Some(self.numeric(&name))
+            }
+            SimpleExprTy::KeyHash
+            | SimpleExprTy::Signature
+            | SimpleExprTy::Contract => Some(self.string(&name)),
             SimpleExprTy::Stop => None,
             SimpleExprTy::String => Some(self.string(&name)),
             SimpleExprTy::Timestamp => Some(self.timestamp(&name)),
@@ -48,14 +67,6 @@ impl PostgresqlGenerator {
 
     pub(crate) fn bytes(&self, name: &str) -> String {
         format!("{} TEXT NULL", name)
-    }
-
-    pub(crate) fn int(&self, name: &str) -> String {
-        format!("{} NUMERIC(64) NULL", name)
-    }
-
-    pub(crate) fn nat(&self, name: &str) -> String {
-        format!("{} NUMERIC(64) NULL", name)
     }
 
     pub(crate) fn numeric(&self, name: &str) -> String {
@@ -91,19 +102,30 @@ impl PostgresqlGenerator {
             Some(t) => vec![format!(r#""{table}_id" INTEGER"#, table = t)],
             None => vec![],
         };
-        for column in &table.columns {
-            if let Some(val) = self.create_sql(column.clone()) {
+        for column in table.get_columns() {
+            if let Some(val) = self.create_sql(column) {
                 cols.push(val);
             }
         }
         Ok(cols)
     }
 
-    fn table_sql_columns(&self, table: &Table) -> Vec<String> {
+    fn table_sql_columns(
+        &self,
+        table: &Table,
+        with_keywords: bool,
+    ) -> Vec<String> {
         let mut cols: Vec<String> = table
-            .columns
+            .get_columns()
             .iter()
-            .filter(|x| self.create_sql((*x).clone()).is_some())
+            .filter(|x| {
+                with_keywords
+                    || (x.name != "id"
+                        && x.name != "deleted"
+                        && x.name != "tx_context_id"
+                        && x.name != "bigmap_id")
+            })
+            .filter(|x| self.create_sql(x).is_some())
             .map(|x| x.name.clone())
             .collect();
 
@@ -121,6 +143,9 @@ impl PostgresqlGenerator {
             indices.push(parent_key);
         }
         indices
+            .iter()
+            .map(|idx| Self::quote_id(idx))
+            .collect()
     }
 
     pub(crate) fn create_index(&self, table: &Table) -> String {
@@ -129,7 +154,7 @@ impl PostgresqlGenerator {
             false => "",
         };
         format!(
-            "CREATE {unique} INDEX ON {contract_schema}.\"{table}\"({columns});\n",
+            "CREATE {unique} INDEX ON \"{contract_schema}\".\"{table}\"({columns});\n",
             unique = uniqueness_constraint,
             contract_schema = self.contract_id.name,
             table = table.name,
@@ -143,14 +168,13 @@ impl PostgresqlGenerator {
     }
 
     fn parent_key(&self, table: &Table) -> Option<String> {
-        Self::parent_name(&table.name)
-            .map(|parent| format!(r#""{}_id""#, parent))
+        Self::parent_name(&table.name).map(|parent| format!("{}_id", parent))
     }
 
     fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
         Self::parent_name(&table.name).map(|parent| {
             format!(
-                r#"FOREIGN KEY ("{table}_id") REFERENCES {contract_schema}."{table}"(id)"#,
+                r#"FOREIGN KEY ("{table}_id") REFERENCES "{contract_schema}"."{table}"(id)"#,
                 contract_schema = self.contract_id.name,
                 table = parent,
             )
@@ -183,7 +207,7 @@ impl PostgresqlGenerator {
         &self,
         table: &Table,
     ) -> Result<String> {
-        if table.name == "storage" {
+        if table.name == "storage" || table.name == "bigmap_clears" {
             return Ok("".to_string());
         }
         if table.contains_snapshots() {
@@ -194,24 +218,24 @@ impl PostgresqlGenerator {
     }
 
     fn create_views_for_snapshot_table(&self, table: &Table) -> Result<String> {
-        let columns: Vec<String> = self.table_sql_columns(table);
+        let columns: Vec<String> = self.table_sql_columns(table, false);
         Ok(format!(
             r#"
-CREATE VIEW {contract_schema}."{table}_live" AS (
+CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         {columns}
-    FROM {contract_schema}."{table}" t1
+    FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
-      ON  ctx.id = t1.tx_context_id
+      ON  ctx.id = t.tx_context_id
       AND ctx.level = (
             SELECT
-                MAX(ctx.level) AS _level
-            FROM {contract_schema}."{table}" t1_
-            JOIN tx_contexts ctx ON t1_.tx_context_id = ctx.id
+                MAX(ctx.level) AS level
+            FROM "{contract_schema}"."{table}" t_
+            JOIN tx_contexts ctx ON t_.tx_context_id = ctx.id
       )
 );
 
-CREATE VIEW {contract_schema}."{table}_ordered" AS (
+CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
     SELECT
         ROW_NUMBER() OVER (
             ORDER BY
@@ -222,37 +246,41 @@ CREATE VIEW {contract_schema}."{table}_ordered" AS (
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
         {columns}
-    FROM {contract_schema}."{table}" t
+    FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
-            columns = columns.join(", "),
+            columns = columns
+                .iter()
+                .map(|c| format!("t.{}", c))
+                .join(", "),
         ))
     }
 
     fn create_views_for_changes_table(&self, table: &Table) -> Result<String> {
-        let columns: Vec<String> = self.table_sql_columns(table);
+        let columns: Vec<String> = self.table_sql_columns(table, false);
         let indices: Vec<String> = table
             .indices
             .iter()
             .cloned()
-            .filter(|index| index != &"tx_context_id".to_string())
+            .filter(|index| index != "tx_context_id" && index != "bigmap_id")
             .collect();
 
         Ok(format!(
             r#"
-CREATE VIEW {contract_schema}."{table}_live" AS (
+CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         {columns}
     FROM (
         SELECT DISTINCT ON({indices})
             t.*
-        FROM {contract_schema}."{table}" t
+        FROM "{contract_schema}"."{table}" t
         JOIN tx_contexts ctx
           ON ctx.id = t.tx_context_id
+        WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
         ORDER BY
             {indices},
             ctx.level DESC,
@@ -260,11 +288,11 @@ CREATE VIEW {contract_schema}."{table}_live" AS (
             ctx.operation_number DESC,
             ctx.content_number DESC,
             COALESCE(ctx.internal_number, -1) DESC
-    ) q
-    where not q.deleted
+    ) t
+    where not t.deleted
 );
 
-CREATE VIEW {contract_schema}."{table}_ordered" AS (
+CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
     SELECT
         ROW_NUMBER() OVER (
             ORDER BY
@@ -274,17 +302,42 @@ CREATE VIEW {contract_schema}."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
-        deleted,
+        t.deleted,
         {columns}
-    FROM {contract_schema}."{table}" t
+    FROM (
+        SELECT
+            t.tx_context_id,
+            t.deleted,
+            {columns}
+        FROM "{contract_schema}"."{table}" t
+        WHERE t.deleted
+           OR t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
+
+        UNION ALL
+
+        SELECT
+            clr.tx_context_id,
+            'true' as deleted,
+            {columns}
+        FROM "{contract_schema}"."{table}" t
+        JOIN "{contract_schema}".bigmap_clears clr
+          ON t.bigmap_id = clr.bigmap_id
+        WHERE NOT t.deleted
+    ) t  -- t with bigmap clears unfolded
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
-            columns = columns.join(", "),
-            indices = indices.join(", "),
+            columns = columns
+                .iter()
+                .map(|c| format!("t.{}", c))
+                .join(", "),
+            indices = indices
+                .iter()
+                .map(|c| format!("t.{}", c))
+                .join(", "),
         ))
     }
 

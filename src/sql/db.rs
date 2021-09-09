@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 
 use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
+use crate::octez::node::NodeClient;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table_builder::TableBuilder;
@@ -58,6 +59,7 @@ impl DBClient {
         rel_ast: &RelationalAST,
     ) -> Result<bool> {
         if !self.contract_schema_defined(contract_id)? {
+            info!("creating schema for contract {}", contract_id.name);
             // Generate the SQL schema for this contract
             let mut builder = TableBuilder::new();
             builder.populate(rel_ast);
@@ -68,24 +70,26 @@ impl DBClient {
 
             let mut tx = self.transaction()?;
             tx.execute(
+                "
+INSERT INTO contracts (name, address)
+VALUES ($1, $2)",
+                &[&contract_id.name, &contract_id.address],
+            )?;
+            tx.simple_query(
                 format!(
-                    "CREATE SCHEMA {contract_schema}",
+                    r#"
+CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
+"#,
                     contract_schema = contract_id.name
                 )
                 .as_str(),
-                &[],
             )?;
             for (_name, table) in sorted_tables {
-                tx.simple_query(
-                    generator
-                        .create_table_definition(table)?
-                        .as_str(),
-                )?;
-                tx.simple_query(
-                    generator
-                        .create_view_definition(table)?
-                        .as_str(),
-                )?;
+                let table_def = generator.create_table_definition(table)?;
+                let views_def = generator.create_view_definition(table)?;
+
+                tx.simple_query(table_def.as_str())?;
+                tx.simple_query(views_def.as_str())?;
             }
             tx.commit()?;
 
@@ -94,16 +98,59 @@ impl DBClient {
         Ok(false)
     }
 
+    pub(crate) fn delete_contract_schema(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) -> Result<()> {
+        info!("deleting schema for contract {}", contract_id.name);
+        // Generate the SQL schema for this contract
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+        sorted_tables.reverse();
+
+        for (_name, table) in sorted_tables {
+            if table.name != "storage" && table.name != "bigmap_clears" {
+                tx.simple_query(
+                    format!(
+                        r#"
+DROP VIEW "{contract_schema}"."{table}_ordered";
+DROP VIEW "{contract_schema}"."{table}_live";
+"#,
+                        contract_schema = contract_id.name,
+                        table = table.name,
+                    )
+                    .as_str(),
+                )?;
+            }
+
+            tx.simple_query(
+                format!(
+                    r#"
+DROP TABLE "{contract_schema}"."{table}";
+"#,
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                )
+                .as_str(),
+            )?;
+        }
+        Ok(())
+    }
+
     fn contract_schema_defined(
         &mut self,
         contract_id: &ContractID,
     ) -> Result<bool> {
         let res = self.dbconn.query_opt(
             "
-SELECT 
+SELECT
     1
-FROM information_schema.schemata 
-WHERE schema_name = $1
+FROM contracts
+WHERE name = $1
 ",
             &[&contract_id.name],
         )?;
@@ -183,7 +230,7 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
 
         let qry = format!(
             r#"
-INSERT INTO {contract_schema}."{table}" ( {v_names} )
+INSERT INTO "{contract_schema}"."{table}" ( {v_names} )
 VALUES ( {v_refs} )"#,
             contract_schema = contract_id.name,
             table = insert.table_name,
@@ -214,24 +261,44 @@ VALUES ( {v_refs} )"#,
         Ok(self.dbconn.transaction()?)
     }
 
-    pub(crate) fn delete_everything(
+    pub(crate) fn delete_everything<F>(
         &mut self,
-        contracts: &[ContractID],
-    ) -> Result<()> {
-        let mut schemas: Vec<&String> = contracts
-            .iter()
-            .map(|x| &x.name)
-            .collect();
-        let public_schema = "public".to_string();
-        schemas.push(&public_schema);
-
+        node_cli: &mut NodeClient,
+        mut get_rel_ast: F,
+    ) -> Result<()>
+    where
+        F: FnMut(&mut NodeClient, &str) -> Result<RelationalAST>,
+    {
         let mut tx = self.transaction()?;
-        for schema in schemas {
-            tx.simple_query(
-                format!("DROP SCHEMA IF EXISTS {} CASCADE", schema).as_str(),
-            )?;
+        let contracts_table = tx.query_opt(
+            "
+SELECT
+    1
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'contracts'
+",
+            &[],
+        )?;
+        if contracts_table.is_some() {
+            for row in tx.query("SELECT name, address FROM contracts", &[])? {
+                let contract_id = ContractID {
+                    name: row.get(0),
+                    address: row.get(1),
+                };
+                let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
+                Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
+            }
         }
-        tx.simple_query("CREATE SCHEMA public")?;
+        tx.simple_query(
+            "
+DROP TABLE IF EXISTS tx_contexts;
+DROP TABLE IF EXISTS max_id;
+DROP TABLE IF EXISTS contract_levels;
+DROP TABLE IF EXISTS contracts;
+DROP TABLE IF EXISTS levels;
+",
+        )?;
         tx.commit()?;
         Ok(())
     }
@@ -247,8 +314,8 @@ SELECT
     $1,
     g.level
 FROM GENERATE_SERIES(
-    (SELECT MIN(_level) FROM levels),
-    (SELECT MAX(_level) FROM levels)
+    (SELECT MIN(level) FROM levels),
+    (SELECT MAX(level) FROM levels)
 ) AS g(level)
 WHERE g.level NOT IN (
     SELECT level FROM contract_levels WHERE contract = $1
@@ -260,20 +327,20 @@ WHERE g.level NOT IN (
     pub(crate) fn get_head(&mut self) -> Result<Option<LevelMeta>> {
         let result = self.dbconn.query(
             "
-SELECT _level, hash, baked_at
+SELECT level, hash, baked_at
 FROM levels
-ORDER BY _level
+ORDER BY level
 DESC LIMIT 1",
             &[],
         )?;
         if result.is_empty() {
             Ok(None)
         } else if result.len() == 1 {
-            let _level: i32 = result[0].get(0);
+            let level: i32 = result[0].get(0);
             let hash: Option<String> = result[0].get(1);
             let baked_at: Option<DateTime<Utc>> = result[0].get(2);
             Ok(Some(LevelMeta {
-                _level: _level as u32,
+                level: level as u32,
                 hash,
                 baked_at,
             }))
@@ -302,6 +369,7 @@ WHERE NOT EXISTS (
         1
     FROM contract_levels c
     WHERE contract = $1
+      AND level = s.i
 )
 ORDER BY 1",
                     start, end
@@ -345,34 +413,34 @@ SET max_id = $1",
 
     pub(crate) fn save_level(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
     ) -> Result<()> {
         tx.execute(
             "
 INSERT INTO levels(
-    _level, hash, baked_at
+    level, hash, baked_at
 ) VALUES ($1, $2, $3)
 ",
-            &[&(level._level as i32), &level.hash, &level.baked_at],
+            &[&(meta.level as i32), &meta.hash, &meta.baked_at],
         )?;
         Ok(())
     }
 
     pub(crate) fn delete_level(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
     ) -> Result<()> {
         tx.execute(
             "
 DELETE FROM contract_levels
 WHERE level = $1",
-            &[&(level._level as i32)],
+            &[&(meta.level as i32)],
         )?;
         tx.execute(
             "
 DELETE FROM levels
-WHERE _level = $1",
-            &[&(level._level as i32)],
+WHERE level = $1",
+            &[&(meta.level as i32)],
         )?;
         Ok(())
     }

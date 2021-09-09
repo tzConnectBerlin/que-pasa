@@ -53,6 +53,10 @@
                 name: "metadata_ipfs_hash",
                 value: String("QmSQL1yJrQbpQnWnbvo3Syzhh2w6NiBmxExFGwbS2dJ6nw"),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(90985),
+            ),
         ],
     ),
     (
@@ -124,8 +128,12 @@
                 value: String("tz1LQn3AuoxRVwBsb3rVLQ56nRvC3JqNgVxR"),
             ),
             (
-                name: "noname",
+                name: "noname_0",
                 value: String("storage.liquidity_provider_map.bet"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(90986),
             ),
         ],
     ),

@@ -1,15 +1,15 @@
 {
     (
         table_name: "storage",
-        id: 172,
+        id: 180,
     ): (
         table_name: "storage",
-        id: 172,
+        id: 180,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(171),
+                value: Int(179),
             ),
             (
                 name: "deleted",
@@ -31,15 +31,15 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 178,
+        id: 186,
     ): (
         table_name: "storage.token_total_supply",
-        id: 178,
+        id: 186,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(171),
+                value: Int(179),
             ),
             (
                 name: "idx_tokens_nat_10",
@@ -49,19 +49,23 @@
                 name: "tokens_nat_11",
                 value: Numeric(Some("7526881720430107526")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
         ],
     ),
     (
         table_name: "storage.ledger",
-        id: 181,
+        id: 189,
     ): (
         table_name: "storage.ledger",
-        id: 181,
+        id: 189,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(171),
+                value: Int(179),
             ),
             (
                 name: "idx_tokens_nat_3",
@@ -75,19 +79,23 @@
                 name: "tokens_balance",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
+            ),
         ],
     ),
     (
         table_name: "storage.ledger",
-        id: 179,
+        id: 187,
     ): (
         table_name: "storage.ledger",
-        id: 179,
+        id: 187,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(171),
+                value: Int(179),
             ),
             (
                 name: "idx_tokens_nat_3",
@@ -100,6 +108,10 @@
             (
                 name: "tokens_balance",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
             ),
         ],
     ),

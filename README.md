@@ -54,24 +54,6 @@ Variant records come in two varieties. The simplest are those which are simply o
 
 Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed. If the most recent version of the map for the keys you specify has this flag set, there is no row.
 
-## Make Commands
-
-- `make gen-sql CONTRACT=<ADDRESS>` to generate the sql and save it in `contract.sql`
-
-- `make start-db` to start the database.
-
-- `make db CONTRACT=<ADDRESS>` runs `gen-sql` and `start-db` sequentially.
-
-- `make fill CONTRACT=<ADDRESS>` to fill the database with relevant transactions data.
-
-- `make start-graphql` to start the graphql server and graphiql.
-
-- `make start-indexer CONTRACT=<ADDRESS>` to start the indexer.
-
-- `make down-db` to bring down the database.
-
-- `make destroy-db` to bring down the database and destroy the docker volume.
-
 ## Cook book
 
 The big map tables contain a row for each insertion, update and deletion.
@@ -82,3 +64,39 @@ Queries like this one will get the most recent row:
 select * from "storage.questions" sq inner join (select idx_string_0, max(_level) as max_level from "storage.questions" group by idx_string_0) sq2 on sq.idx_string_0 = sq2.idx_string_0 and sq._level = sq2.max_level;
 
 ```
+
+## Installation
+Make sure all dependencies are present on your machine. Then clone our repository, and run `cargo install` anywhere inside it.
+
+### Dependencies
+Rust's build system `cargo` is required.
+
+## Usage
+1). First, setup the database by running with `--init`. This will create a set of global tables (tables that are shared between each indexed contracts).
+2). Specify for which contracts to run (see section "Contracts setup").
+3). An initial sync is now required (processing of all relevant blocks up til now). This can be done by processing every block from head until contracts origination, though it will require fetching all blocks in this range, including blocks that are irrelevant to the setup. For the alternative fast sync see section "Fast sync".
+4). Now we're synced. Any subsequent runs will run in a continuous mode, where we wait for new blocks to arrive and process them when they do.
+
+Forks are automatically detected. When detected, indexed data belonging to the orphaned blocks is cleaned up. Make sure your backend does not expect the newest data to be immutable.
+
+### Contracts setup
+Specify for which contracts to run in a settings.yaml file:
+```
+contracts:
+- name: nft
+  address: KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton
+- name: marketplace
+  address: KT1HbQepzV1nVGg8QVznG7z4RcHseD5kwqBn
+```
+and set the `--contract-settings` CLI argument to point to the yaml file. Or alternatively/and additionally specify contracts through the `--contracts` CLI argument:
+```
+que-pasa \
+  .. \
+  --contracts \
+    nft=KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton \
+    marketplace=KT1HbQepzV1nVGg8QVznG7z4RcHseD5kwqBn \
+  ..
+```
+
+### Fast sync
+It is possible to only process the blocks relevant to the setup. For this to work it's necessary to ask from an external source in which blocks the setup contracts have been active. Currently the only external source supported is better-call.dev. If you wish to enable fast sync, set the `--bcd` and `--network` CLI args when running Que Pasa for the first time (or when running for an additional contract for the first time).

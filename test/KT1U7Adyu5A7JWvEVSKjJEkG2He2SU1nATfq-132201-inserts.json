@@ -49,6 +49,10 @@
                 name: "tokens_nat_11",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
         ],
     ),
     (
@@ -71,6 +75,10 @@
                 name: "tokens_nat_11",
                 value: Numeric(Some("0")),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
         ],
     ),
     (
@@ -92,6 +100,10 @@
             (
                 name: "tokens_nat_11",
                 value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
             ),
         ],
     ),
@@ -151,14 +163,18 @@
                 name: "owner",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48012),
+            ),
         ],
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 24,
+        id: 25,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 24,
+        id: 25,
         fk_id: Some(23),
         columns: [
             (

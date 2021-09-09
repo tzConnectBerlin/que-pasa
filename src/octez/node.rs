@@ -28,7 +28,7 @@ impl NodeClient {
             .load("blocks/head")
             .with_context(|| "failed to get block head")?;
         Ok(LevelMeta {
-            _level: json["header"]["level"]
+            level: json["header"]["level"]
                 .as_u32()
                 .ok_or_else(|| anyhow!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
@@ -53,7 +53,7 @@ impl NodeClient {
                 )
             })?;
         let meta = LevelMeta {
-            _level: block.header.level as u32,
+            level: block.header.level as u32,
             hash: Some(block.hash.clone()),
             baked_at: Some(Self::timestamp_from_block(&resp)?),
         };
@@ -89,7 +89,9 @@ impl NodeClient {
                     )
                 })
                 .map_err(Error::Permanent)?;
-            let res = resp["code"][1]["args"][0].clone();
+
+            let res = resp["code"].members().find(|x| x["prim"] == "storage").unwrap_or(&JsonValue::Null)["args"][0].clone();
+
             if res == JsonValue::Null {
                 return Err(anyhow!("got invalid script data (got 'null') for contract='{}', level={}", contract_id, level)).map_err(transient_err);
             }

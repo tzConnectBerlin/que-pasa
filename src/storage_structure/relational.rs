@@ -34,14 +34,32 @@ fn get_column_name(expr: &ExprTy) -> &str {
             SimpleExprTy::Bool => "bool",
             SimpleExprTy::Bytes => "bytes",
             SimpleExprTy::Int => "int",
-            SimpleExprTy::Mutez => "int",
             SimpleExprTy::Nat => "nat",
+            SimpleExprTy::Mutez => "mutez",
             SimpleExprTy::String => "string",
-            SimpleExprTy::KeyHash => "string", // TODO: check this with the data
+            SimpleExprTy::KeyHash => "keyhash",
+            SimpleExprTy::Signature => "signature",
+            SimpleExprTy::Contract => "contract",
             SimpleExprTy::Timestamp => "timestamp",
             SimpleExprTy::Unit => "unit",
             SimpleExprTy::Stop => "stop",
         },
+    }
+}
+
+pub struct Noname {
+    counter: u32,
+}
+
+impl Noname {
+    pub(crate) fn new() -> Noname {
+        Self { counter: 0 }
+    }
+
+    pub(crate) fn next(&mut self) -> String {
+        let noname_ident = format!("noname_{}", self.counter);
+        self.counter += 1;
+        noname_ident
     }
 }
 
@@ -59,6 +77,19 @@ impl Context {
         }
     }
 
+    pub(crate) fn apply_prefix(&self, name: &str, is_index: bool) -> String {
+        let initial = format!(
+            "{}{}{}",
+            self.prefix,
+            if self.prefix.is_empty() { "" } else { "_" },
+            name,
+        );
+        if is_index {
+            return format!("idx_{}", initial);
+        }
+        initial
+    }
+
     pub(crate) fn name(
         &self,
         ele: &Ele,
@@ -73,16 +104,7 @@ impl Context {
                 get_index(indexes, &self.table_name),
             ),
         };
-        let initial = format!(
-            "{}{}{}",
-            self.prefix,
-            if self.prefix.is_empty() { "" } else { "_" },
-            name,
-        );
-        if is_index {
-            return format!("idx_{}", initial);
-        }
-        initial
+        self.apply_prefix(&name, is_index)
     }
 
     pub(crate) fn next(&self) -> Self {
@@ -164,25 +186,34 @@ pub(crate) fn build_relational_ast(
     ctx: &Context,
     ele: &Ele,
     indexes: &mut Indexes,
+    noname: &mut Noname,
 ) -> Result<RelationalAST> {
-    let name = match &ele.name {
+    let mut name = || match &ele.name {
         Some(x) => x.clone(),
-        None => "noname".to_string(),
+        None => noname.next(),
     };
     match ele.expr_type {
         ExprTy::ComplexExprTy(ref expr_type) => match expr_type {
             ComplexExprTy::Pair(left_type, right_type) => {
                 let ctx = &ctx.next_with_prefix(ele.name.clone());
-                let left = build_relational_ast(ctx, left_type, indexes)?;
-                let right = build_relational_ast(ctx, right_type, indexes)?;
+                let left =
+                    build_relational_ast(ctx, left_type, indexes, noname)?;
+                let right =
+                    build_relational_ast(ctx, right_type, indexes, noname)?;
                 Ok(RelationalAST::Pair {
                     left_ast: Box::new(left),
                     right_ast: Box::new(right),
                 })
             }
             ComplexExprTy::List(elems_unique, elems_type) => {
-                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let elems_ast = build_index(ctx, elems_type, indexes)?;
+                let ctx =
+                    &ctx.start_table(get_table_name(indexes, Some(name())));
+                let elems_ast = match elems_unique {
+                    true => build_index(ctx, elems_type, indexes, noname)?,
+                    false => {
+                        build_relational_ast(ctx, elems_type, indexes, noname)?
+                    }
+                };
                 Ok(RelationalAST::List {
                     table: ctx.table_name.clone(),
                     elems_ast: Box::new(elems_ast),
@@ -190,9 +221,11 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::BigMap(key_type, value_type) => {
-                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let key_ast = build_index(ctx, key_type, indexes)?;
-                let value_ast = build_relational_ast(ctx, value_type, indexes)?;
+                let ctx =
+                    &ctx.start_table(get_table_name(indexes, Some(name())));
+                let key_ast = build_index(ctx, key_type, indexes, noname)?;
+                let value_ast =
+                    build_relational_ast(ctx, value_type, indexes, noname)?;
                 Ok(RelationalAST::BigMap {
                     table: ctx.table_name.clone(),
                     key_ast: Box::new(key_ast),
@@ -200,9 +233,11 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::Map(key_type, value_type) => {
-                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
-                let key_ast = build_index(ctx, key_type, indexes)?;
-                let value_ast = build_relational_ast(ctx, value_type, indexes)?;
+                let ctx =
+                    &ctx.start_table(get_table_name(indexes, Some(name())));
+                let key_ast = build_index(ctx, key_type, indexes, noname)?;
+                let value_ast =
+                    build_relational_ast(ctx, value_type, indexes, noname)?;
                 Ok(RelationalAST::Map {
                     table: ctx.table_name.clone(),
                     key_ast: Box::new(key_ast),
@@ -214,13 +249,14 @@ pub(crate) fn build_relational_ast(
                     ctx,
                     &ele_with_annot(expr_type, ele.name.clone()),
                     indexes,
+                    noname,
                 )?;
                 Ok(RelationalAST::Option {
                     elem_ast: Box::new(elem_ast),
                 })
             }
             ComplexExprTy::OrEnumeration(_, _) => {
-                Ok(build_enumeration_or(ctx, ele, &name, indexes)?.0)
+                Ok(build_enumeration_or(ctx, ele, &name(), indexes, noname)?.0)
             }
         },
         ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
@@ -240,16 +276,27 @@ fn build_enumeration_or(
     ele: &Ele,
     column_name: &str,
     indexes: &mut Indexes,
+    noname: &mut Noname,
 ) -> Result<(RelationalAST, String)> {
     match &ele.expr_type {
         ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
             left_type,
             right_type,
         )) => {
-            let (left_ast, left_table) =
-                build_enumeration_or(ctx, left_type, column_name, indexes)?;
-            let (right_ast, right_table) =
-                build_enumeration_or(ctx, right_type, column_name, indexes)?;
+            let (left_ast, left_table) = build_enumeration_or(
+                ctx,
+                left_type,
+                column_name,
+                indexes,
+                noname,
+            )?;
+            let (right_ast, right_table) = build_enumeration_or(
+                ctx,
+                right_type,
+                column_name,
+                indexes,
+                noname,
+            )?;
             let rel_entry = RelationalEntry {
                 table_name: ctx.table_name.clone(),
                 column_name: column_name.to_string(),
@@ -268,22 +315,25 @@ fn build_enumeration_or(
                 ctx.table_name.clone(),
             ))
         }
-        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => Ok((
-            RelationalAST::Leaf {
-                rel_entry: RelationalEntry {
-                    table_name: ctx.table_name.clone(),
-                    column_name: column_name.to_string(),
-                    column_type: ele.expr_type.clone(),
-                    value: ele.name.clone(),
-                    is_index: false,
+        ExprTy::SimpleExprTy(SimpleExprTy::Unit) => {
+            //let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+            Ok((
+                RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: ctx.table_name.clone(),
+                        column_name: ctx.apply_prefix(column_name, false),
+                        column_type: ele.expr_type.clone(),
+                        value: ele.name.clone(),
+                        is_index: false,
+                    },
                 },
-            },
-            ctx.table_name.clone(),
-        )),
+                ctx.table_name.clone(),
+            ))
+        }
         _ => {
             let ctx = ctx.start_table(ele.name.clone().unwrap());
             Ok((
-                build_relational_ast(&ctx, ele, indexes)?,
+                build_relational_ast(&ctx, ele, indexes, noname)?,
                 ctx.table_name.clone(),
             ))
         }
@@ -294,13 +344,15 @@ fn build_index(
     ctx: &Context,
     ele: &Ele,
     indexes: &mut Indexes,
+    noname: &mut Noname,
 ) -> Result<RelationalAST> {
     match ele.expr_type {
         ExprTy::ComplexExprTy(ref ety) => match ety {
             ComplexExprTy::Pair(left_type, right_type) => {
                 let ctx = ctx.next_with_prefix(ele.name.clone());
-                let left = build_index(&ctx.next(), left_type, indexes)?;
-                let right = build_index(&ctx, right_type, indexes)?;
+                let left =
+                    build_index(&ctx.next(), left_type, indexes, noname)?;
+                let right = build_index(&ctx, right_type, indexes, noname)?;
                 Ok(RelationalAST::Pair {
                     left_ast: Box::new(left),
                     right_ast: Box::new(right),

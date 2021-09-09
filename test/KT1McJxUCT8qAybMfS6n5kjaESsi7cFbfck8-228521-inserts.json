@@ -71,6 +71,10 @@
                 name: "metadata_ipfs_hash",
                 value: String("QmSQL1yJrQbpQnWnbvo3Syzhh2w6NiBmxExFGwbS2dJ6nw"),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(90985),
+            ),
         ],
     ),
     (
@@ -108,6 +112,10 @@
             (
                 name: "metadata_ipfs_hash",
                 value: String("QmSQL1yJrQbpQnWnbvo3Syzhh2w6NiBmxExFGwbS2dJ6nw"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(90985),
             ),
         ],
     ),
@@ -228,8 +236,12 @@
                 value: String("tz1azKk3gBJRjW11JAh8J1CBP1tF2NUu5yJ3"),
             ),
             (
-                name: "noname",
+                name: "noname_0",
                 value: String("storage.liquidity_provider_map.bet"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(90986),
             ),
         ],
     ),
@@ -254,8 +266,12 @@
                 value: String("tz1VA8Y5qDr2yR5kVLhhWd9mkGB1kx7qBrPx"),
             ),
             (
-                name: "noname",
+                name: "noname_0",
                 value: String("storage.liquidity_provider_map.bet"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(90986),
             ),
         ],
     ),

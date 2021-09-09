@@ -1,5 +1,6 @@
 use crate::sql::table::Table;
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;
@@ -16,31 +17,77 @@ impl Default for TableBuilder {
 
 impl TableBuilder {
     pub(crate) fn new() -> Self {
-        Self {
+        let mut res = Self {
             tables: TableMap::new(),
-        }
+        };
+        res.add_column(
+            true,
+            &RelationalEntry {
+                table_name: "storage".to_string(),
+                column_name: "deleted".to_string(),
+                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                value: None,
+                is_index: false,
+            },
+        );
+        res
     }
 
-    fn add_column(&mut self, rel_entry: &RelationalEntry) {
-        let mut table = self.get_table(rel_entry.table_name.clone());
+    fn add_column(&mut self, is_keyword: bool, rel_entry: &RelationalEntry) {
+        let mut table = self.get_table(&rel_entry.table_name);
         if rel_entry.is_index {
-            table.add_index(rel_entry);
+            table.add_index(
+                is_keyword,
+                &rel_entry.column_name,
+                &rel_entry.column_type,
+            );
         } else {
-            table.add_column(rel_entry);
+            table.add_column(
+                is_keyword,
+                &rel_entry.column_name,
+                &rel_entry.column_type,
+            );
         }
         self.store_table(table);
     }
 
-    fn get_table(&self, name: String) -> Table {
-        match self.tables.get(&name) {
+    fn touch_table(&mut self, name: &str) {
+        self.store_table(self.get_table(name))
+    }
+
+    fn get_table(&self, name: &str) -> Table {
+        match self.tables.get(name) {
             Some(x) => x.clone(),
-            None => Table::new(name),
+            None => {
+                let mut t = Table::new(name.to_string());
+                t.add_index(
+                    true,
+                    &"tx_context_id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
+                t.add_column(
+                    true,
+                    &"id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
+                t
+            }
         }
     }
 
     fn store_table(&mut self, table: Table) {
         self.tables
             .insert(table.name.clone(), table);
+    }
+
+    fn touch_bigmap_clears_table(&mut self) {
+        let mut t = self.get_table("bigmap_clears");
+        t.add_index(
+            true,
+            "bigmap_id",
+            &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+        );
+        self.store_table(t);
     }
 
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
@@ -66,9 +113,21 @@ impl TableBuilder {
             } => {
                 self.populate(key_ast);
                 self.populate(value_ast);
-                let mut t = self.get_table(table.clone());
+                let mut t = self.get_table(table);
                 t.tracks_changes();
+                t.add_column(
+                    true,
+                    &"deleted".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                );
+                t.add_index(
+                    true,
+                    &"bigmap_id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
                 self.store_table(t);
+
+                self.touch_bigmap_clears_table();
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {
@@ -78,22 +137,29 @@ impl TableBuilder {
             } => {
                 self.populate(elems_ast);
                 if !elems_unique {
-                    let mut t = self.get_table(table.clone());
+                    let mut t = self.get_table(table);
                     t.no_uniqueness();
                     self.store_table(t);
                 }
             }
             RelationalAST::OrEnumeration {
                 or_unfold,
+                left_table,
                 left_ast,
+                right_table,
                 right_ast,
-                ..
             } => {
-                self.add_column(or_unfold);
+                self.add_column(false, or_unfold);
+
+                self.touch_table(left_table);
+                self.touch_table(right_table);
+
                 self.populate(left_ast);
                 self.populate(right_ast);
             }
-            RelationalAST::Leaf { rel_entry } => self.add_column(rel_entry),
+            RelationalAST::Leaf { rel_entry } => {
+                self.add_column(false, rel_entry)
+            }
         }
     }
 }

@@ -2,16 +2,18 @@ use anyhow::{anyhow, Context, Result};
 use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
 use crate::config::ContractID;
+use crate::debug;
 use crate::octez::block::{Block, LevelMeta};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
-use crate::relational::RelationalAST;
+use crate::relational::{Noname, RelationalAST};
 use crate::sql::db::DBClient;
 use crate::sql::insert::{InsertKey, Inserts};
 use crate::storage_structure::relational;
@@ -29,7 +31,45 @@ pub struct Executor {
     node_cli: NodeClient,
     dbcli: DBClient,
 
-    contracts: HashMap<ContractID, RelationalAST>,
+    contracts: HashMap<ContractID, (RelationalAST, Option<u32>)>,
+    all_contracts: bool,
+
+    // Everything below this level has nothing to do with what we are indexing
+    level_floor: LevelFloor,
+}
+
+#[derive(Clone)]
+struct LevelFloor {
+    f: Arc<Mutex<u32>>,
+}
+
+impl LevelFloor {
+    pub fn set(&self, floor: u32) -> Result<()> {
+        let mut level_floor = self
+            .f
+            .lock()
+            .map_err(|_| {
+                Err::<(), anyhow::Error>(anyhow!(
+                    "failed to lock level_floor mutex"
+                ))
+            })
+            .unwrap();
+        *level_floor = floor;
+        Ok(())
+    }
+
+    pub fn get(&self) -> Result<u32> {
+        let level_floor = self
+            .f
+            .lock()
+            .map_err(|_| {
+                Err::<(), anyhow::Error>(anyhow!(
+                    "failed to lock level_floor mutex"
+                ))
+            })
+            .unwrap();
+        Ok(*level_floor)
+    }
 }
 
 impl Executor {
@@ -38,35 +78,78 @@ impl Executor {
             node_cli,
             dbcli,
             contracts: HashMap::new(),
+            all_contracts: false,
+            level_floor: LevelFloor {
+                f: Arc::new(Mutex::new(0)),
+            },
         }
     }
 
+    fn update_level_floor(&mut self) -> Result<()> {
+        if self.all_contracts {
+            return Ok(());
+        }
+
+        let mut floor = 0;
+        if !self.all_contracts {
+            floor = self
+                .contracts
+                .values()
+                .map(|(_, lfloor)| lfloor.unwrap_or(0_u32))
+                .min()
+                .unwrap_or(0);
+        }
+
+        self.level_floor.set(floor)
+    }
+
+    pub fn index_all_contracts(&mut self) {
+        self.all_contracts = true
+    }
+
     pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
-        // init by grabbing the contract data.
-        info!(
+        debug!(
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let storage_def = &self
-            .node_cli
-            .get_contract_storage_definition(&contract_id.address, None)?;
-        let type_ast = typing::storage_ast_from_json(storage_def)
-            .with_context(|| {
-                "failed to derive a storage type from the storage definition"
-            })?;
-        info!("storage definition retrieved, and type derived");
-
-        // Build the internal representation from the storage defition
-        let ctx = relational::Context::init();
-        let mut indexes = relational::Indexes::new();
-        let rel_ast =
-            relational::build_relational_ast(&ctx, &type_ast, &mut indexes)
-                .with_context(|| {
-                    "failed to build a relational AST from the storage type"
-                })?;
-
+        let rel_ast = get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+        let contract_floor = self
+            .dbcli
+            .get_origination(contract_id)?;
         self.contracts
-            .insert(contract_id.clone(), rel_ast);
+            .insert(contract_id.clone(), (rel_ast, contract_floor));
+        Ok(())
+    }
+
+    pub fn add_missing_contracts(&mut self, block: &Block) -> Result<()> {
+        let contracts: Vec<ContractID> = block
+            .active_contracts()
+            .iter()
+            .map(|address| ContractID {
+                name: address.clone(),
+                address: address.clone(),
+            })
+            .filter(|contract_id| !self.contracts.contains_key(contract_id))
+            .collect();
+
+        if !contracts.is_empty() {
+            info!(
+                "level {}, analyzing contracts: {:#?}..",
+                block.header.level,
+                contracts
+                    .iter()
+                    .map(|x| &x.address)
+                    .collect::<Vec<&String>>()
+            );
+        }
+
+        for contract_id in &contracts {
+            self.add_contract(contract_id)?;
+            self.dbcli.create_contract_schema(
+                contract_id,
+                &self.contracts[contract_id].0,
+            )?;
+        }
         Ok(())
     }
 
@@ -75,7 +158,7 @@ impl Executor {
         for (contract_id, rel_ast) in &self.contracts {
             if self
                 .dbcli
-                .create_contract_schema(contract_id, rel_ast)?
+                .create_contract_schema(contract_id, &rel_ast.0)?
             {
                 new_contracts.push(contract_id.clone());
             }
@@ -87,7 +170,9 @@ impl Executor {
         &self,
         contract_id: &ContractID,
     ) -> Option<&RelationalAST> {
-        self.contracts.get(contract_id)
+        self.contracts
+            .get(contract_id)
+            .map(|x| &x.0)
     }
 
     pub fn exec_continuous(&mut self) -> Result<()> {
@@ -109,24 +194,36 @@ impl Executor {
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
                 Some(head) => Ok(head),
-                None => Err(anyhow!(
-                    "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
-                )),
-            }?;
-            debug!("db: {} chain: {}", db_head._level, chain_head._level);
-            match chain_head._level.cmp(&db_head._level) {
-                Ordering::Greater => {
-                    for level in (db_head._level + 1)..=chain_head._level {
+                None => {
+                    if self.all_contracts {
                         Self::print_status(
+                            chain_head.level,
+                            &self.exec_level(
+                                chain_head.level,
+                                &mut storage_processor,
+                            )?,
+                        );
+                        continue;
+                    }
+                    Err(anyhow!(
+                    "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
+                ))
+                }
+            }?;
+            debug!("db: {} chain: {}", db_head.level, chain_head.level);
+            match chain_head.level.cmp(&db_head.level) {
+                Ordering::Greater => {
+                    for level in (db_head.level + 1)..=chain_head.level {
+                        Self::print_status(
+                            level,
                             &self.exec_level(level, &mut storage_processor)?,
                         );
                     }
                     continue;
                 }
                 Ordering::Less => {
-                    return Err(anyhow!(
-                        "More levels in DB than chain, bailing!"
-                    ))
+                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    continue;
                 }
                 Ordering::Equal => {
                     // they are equal, so we will just check that the hashes match.
@@ -152,8 +249,13 @@ impl Executor {
         num_getters: usize,
         levels: Vec<u32>,
     ) -> Result<()> {
+        let level_floor = self.level_floor.clone();
+        let have_floor = !self.all_contracts;
         self.exec_parallel(num_getters, move |height_chan| {
             for l in levels {
+                if have_floor && l < level_floor.get().unwrap() {
+                    continue;
+                }
                 height_chan.send(l).unwrap();
             }
         })
@@ -161,7 +263,7 @@ impl Executor {
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
         loop {
-            let latest_level = self.node_cli.head()?._level;
+            let latest_level = self.node_cli.head()?.level;
 
             let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
                 self.contracts
@@ -224,25 +326,27 @@ impl Executor {
     ) -> Result<()> {
         let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
-            let (level, block) = *b;
-            Self::print_status(&self.exec_for_block(
-                &level,
-                &block,
-                &mut storage_processor,
-            )?);
+            let (meta, block) = *b;
+            Self::print_status(
+                meta.level,
+                &self.exec_for_block(&meta, &block, &mut storage_processor)?,
+            );
         }
 
         Ok(())
     }
 
-    fn print_status(contract_results: &[SaveLevelResult]) {
+    fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
         let mut contract_statuses: String = contract_results
             .iter()
             .filter_map(|c| match c.tx_count {
                 0 => None,
-                1 => Some(format!("1 tx for {}", c.contract_id.name)),
+                1 => Some(format!(
+                    "\n\t1 contract call for {}",
+                    c.contract_id.name
+                )),
                 _ => Some(format!(
-                    "{} txs for {}",
+                    "\n\t{} contract calls for {}",
                     c.tx_count, c.contract_id.name
                 )),
             })
@@ -251,7 +355,7 @@ impl Executor {
         if contract_statuses.is_empty() {
             contract_statuses = "0 txs for us".to_string();
         }
-        info!("level {}: {}", contract_results[0].level, contract_statuses);
+        info!("level {}: {}", level, contract_statuses);
     }
 
     fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
@@ -269,7 +373,7 @@ impl Executor {
         level_height: u32,
         storage_processor: &mut StorageProcessor,
     ) -> Result<Vec<SaveLevelResult>> {
-        let (_json, level, block) = self
+        let (_json, meta, block) = self
             .node_cli
             .level_json(level_height)
             .with_context(|| {
@@ -279,7 +383,7 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&level, &block, storage_processor)
+        self.exec_for_block(&meta, &block, storage_processor)
     }
 
     fn exec_for_block(
@@ -288,6 +392,9 @@ impl Executor {
         block: &Block,
         storage_processor: &mut StorageProcessor,
     ) -> Result<Vec<SaveLevelResult>> {
+        if self.all_contracts {
+            self.add_missing_contracts(block)?;
+        }
         let mut contract_results: Vec<SaveLevelResult> = vec![];
 
         let mut tx = self.dbcli.transaction()?;
@@ -301,30 +408,50 @@ impl Executor {
                 block,
                 storage_processor,
                 &contract_id,
-                &rel_ast,
+                &rel_ast.0,
             )?);
         }
         tx.commit()?;
+        for cres in &contract_results {
+            if cres.is_origination {
+                self.update_contract_floor(&cres.contract_id, cres.level)?;
+            }
+        }
         Ok(contract_results)
+    }
+
+    fn update_contract_floor(
+        &mut self,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        let (rel_ast, _) = self
+            .contracts
+            .get(contract_id)
+            .unwrap()
+            .clone();
+        self.contracts
+            .insert(contract_id.clone(), (rel_ast, Some(level)));
+        self.update_level_floor()
     }
 
     fn exec_for_block_contract(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         block: &Block,
         storage_processor: &mut StorageProcessor,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
         if block.has_contract_origination(&contract_id.address) {
-            Self::mark_level_contract_origination(tx, level, contract_id)
+            Self::mark_level_contract_origination(tx, meta, contract_id)
             .with_context(|| {
                 format!(
                     "execute for level={} failed: could not mark level as contract origination in db",
-                    level._level)
+                    meta.level)
             })?;
             return Ok(SaveLevelResult {
-                level: level._level,
+                level: meta.level,
                 contract_id: contract_id.clone(),
                 is_origination: true,
                 tx_count: 0,
@@ -332,15 +459,15 @@ impl Executor {
         }
 
         if !block.is_contract_active(&contract_id.address) {
-            Self::mark_level_empty(tx, level, contract_id)
+            Self::mark_level_empty(tx, meta, contract_id)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not mark level as empty in db",
-                    level._level, contract_id.name)
+                    meta.level, contract_id.name)
             })?;
 
             return Ok(SaveLevelResult {
-                level: level._level,
+                level: meta.level,
                 contract_id: contract_id.clone(),
                 is_origination: false,
                 tx_count: 0,
@@ -352,14 +479,14 @@ impl Executor {
                 .with_context(|| {
                     format!(
                         "execute failed (level={}, contract={}): could not process block",
-                        level._level, contract_id.name,
+                        meta.level, contract_id.name,
                     )
                 })?;
         let tx_count = tx_contexts.len() as u32;
 
         Self::save_level_processed_contract(
 	    tx,
-                level,
+                meta,
                 contract_id,
                 &inserts,
                 tx_contexts,
@@ -368,11 +495,11 @@ impl Executor {
             .with_context(|| {
                 format!(
                 "execute failed (level={}, contract={}): could not save processed block",
-                level._level, contract_id.name,
+                meta.level, contract_id.name,
             )
             })?;
         Ok(SaveLevelResult {
-            level: level._level,
+            level: meta.level,
             contract_id: contract_id.clone(),
             is_origination: false,
             tx_count,
@@ -381,35 +508,35 @@ impl Executor {
 
     fn mark_level_contract_origination(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, level._level)?;
-        DBClient::save_contract_level(tx, contract_id, level._level)?;
-        DBClient::set_origination(tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
+        DBClient::save_contract_level(tx, contract_id, meta.level)?;
+        DBClient::set_origination(tx, contract_id, meta.level)?;
         Ok(())
     }
 
     fn mark_level_empty(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, level._level)?;
-        DBClient::save_contract_level(tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
+        DBClient::save_contract_level(tx, contract_id, meta.level)?;
         Ok(())
     }
 
     fn save_level_processed_contract(
         tx: &mut Transaction,
-        level: &LevelMeta,
+        meta: &LevelMeta,
         contract_id: &ContractID,
         inserts: &Inserts,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, level._level)?;
-        DBClient::save_contract_level(tx, contract_id, level._level)?;
+        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
+        DBClient::save_contract_level(tx, contract_id, meta.level)?;
 
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
         let mut keys = inserts
@@ -428,6 +555,42 @@ impl Executor {
         DBClient::set_max_id(tx, next_id)?;
         Ok(())
     }
+}
+
+pub(crate) fn get_rel_ast(
+    node_cli: &mut NodeClient,
+    contract_address: &str,
+) -> Result<RelationalAST> {
+    let storage_def =
+        &node_cli.get_contract_storage_definition(contract_address, None)?;
+    debug!("storage_def: {:#?}", storage_def);
+    let type_ast =
+        typing::storage_ast_from_json(storage_def).with_context(|| {
+            "failed to derive a storage type from the storage definition"
+        })?;
+    debug!("storage definition retrieved, and type derived");
+    debug!("type_ast: {:#?}", type_ast);
+
+    debug!(
+        "storage_def: {}, type_ast: {}",
+        debug::pp_depth(6, &storage_def),
+        debug::pp_depth(6, &type_ast),
+    );
+
+    // Build the internal representation from the storage defition
+    let ctx = relational::Context::init();
+    let mut indexes = relational::Indexes::new();
+    let rel_ast = relational::build_relational_ast(
+        &ctx,
+        &type_ast,
+        &mut indexes,
+        &mut Noname::new(),
+    )
+    .with_context(|| {
+        "failed to build a relational AST from the storage type"
+    })?;
+    debug!("rel_ast: {:#?}", rel_ast);
+    Ok(rel_ast)
 }
 
 fn stdout_is_tty() -> bool {
@@ -463,8 +626,13 @@ fn test_generate() {
     let context = Context::init();
 
     use crate::relational::Indexes;
-    let rel_ast =
-        build_relational_ast(&context, &type_ast, &mut Indexes::new()).unwrap();
+    let rel_ast = build_relational_ast(
+        &context,
+        &type_ast,
+        &mut Indexes::new(),
+        &mut Noname::new(),
+    )
+    .unwrap();
     println!("{:#?}", rel_ast);
     let generator = PostgresqlGenerator::new(&ContractID {
         name: "testcontract".to_string(),
@@ -526,13 +694,18 @@ fn test_block() {
         json: &JsonValue,
         indexes: &mut Indexes,
     ) -> Result<RelationalAST> {
-        let storage_definition = json["code"][1]["args"][0].clone();
+        let storage_definition = json["code"]
+            .members()
+            .find(|x| x["prim"] == "storage")
+            .unwrap_or(&JsonValue::Null)["args"][0]
+            .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
         let rel_ast = build_relational_ast(
             &crate::relational::Context::init(),
             &type_ast,
             indexes,
+            &mut Noname::new(),
         )
         .unwrap();
         Ok(rel_ast)
@@ -544,7 +717,7 @@ fn test_block() {
         levels: Vec<u32>,
     }
 
-    let contracts: [Contract; 4] = [
+    let contracts: Vec<Contract> = vec![
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
@@ -574,6 +747,24 @@ fn test_block() {
             // Hic et Nunc hDAO contract (has "set" type in storage)
             id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
             levels: vec![1443112],
+        },
+        Contract {
+            // Has a set,list and map. map has >1 keys
+            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
+            levels: vec![50503],
+        },
+        Contract {
+            // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
+            id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
+            levels: vec![1588744],
+        },
+        Contract {
+            id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
+            levels: vec![1676122],
+        },
+        Contract {
+            id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
+            levels: vec![1678750],
         },
     ];
 

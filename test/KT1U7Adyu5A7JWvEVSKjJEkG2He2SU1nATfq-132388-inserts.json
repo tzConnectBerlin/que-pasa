@@ -1,15 +1,15 @@
 {
     (
         table_name: "storage",
-        id: 228,
+        id: 238,
     ): (
         table_name: "storage",
-        id: 228,
+        id: 238,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(227),
+                value: Int(237),
             ),
             (
                 name: "deleted",
@@ -31,15 +31,15 @@
     ),
     (
         table_name: "storage.questions",
-        id: 234,
+        id: 244,
     ): (
         table_name: "storage.questions",
-        id: 234,
+        id: 244,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(227),
+                value: Int(237),
             ),
             (
                 name: "idx_string_0",
@@ -89,19 +89,23 @@
                 name: "owner",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
+            (
+                name: "bigmap_id",
+                value: Int(48012),
+            ),
         ],
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 235,
+        id: 246,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 235,
-        fk_id: Some(234),
+        id: 246,
+        fk_id: Some(244),
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(227),
+                value: Int(237),
             ),
             (
                 name: "idx_address_1",

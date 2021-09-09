@@ -1,8 +1,11 @@
+use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
+
+use crate::contract_denylist::is_contract_denylisted;
 
 #[derive(Clone, Debug)]
 pub struct LevelMeta {
-    pub _level: u32,
+    pub level: u32,
     pub hash: Option<String>,
     pub baked_at: Option<DateTime<Utc>>,
 }
@@ -31,8 +34,12 @@ impl Block {
         self.operations.clone()
     }
 
-    pub(crate) fn is_contract_active(&self, contract_id: &str) -> bool {
-        let destination = Some(contract_id.to_string());
+    pub(crate) fn is_contract_active(&self, contract_address: &str) -> bool {
+        if is_contract_denylisted(contract_address) {
+            return false;
+        }
+
+        let destination = Some(contract_address.to_string());
         for operations in &self.operations {
             for operation in operations {
                 for content in &operation.contents {
@@ -53,7 +60,10 @@ impl Block {
         false
     }
 
-    pub(crate) fn has_contract_origination(&self, contract_id: &str) -> bool {
+    pub(crate) fn has_contract_origination(
+        &self,
+        contract_address: &str,
+    ) -> bool {
         self.operations.iter().any(|ops| {
             ops.iter().any(|op| {
                 op.contents.iter().any(|content| {
@@ -65,12 +75,42 @@ impl Block {
                             op_res
                                 .originated_contracts
                                 .iter()
-                                .any(|c| c == contract_id)
+                                .any(|c| c == contract_address)
                         })
                 })
             })
         })
     }
+
+    pub(crate) fn active_contracts(&self) -> Vec<String> {
+        let mut res: Vec<String> = vec![];
+        for operations in &self.operations {
+            for operation in operations {
+                for content in &operation.contents {
+                    if let Some(address) = &content.destination {
+                        res.push(address.clone());
+                    }
+                    for result in &content
+                        .metadata
+                        .internal_operation_results
+                    {
+                        if let Some(address) = &result.destination {
+                            res.push(address.clone())
+                        }
+                    }
+                }
+            }
+        }
+        res.iter()
+            .filter(|address| is_contract(address))
+            .unique()
+            .cloned()
+            .collect()
+    }
+}
+
+fn is_contract(address: &str) -> bool {
+    address.starts_with("KT1") && !is_contract_denylisted(address)
 }
 
 #[derive(
@@ -586,6 +626,7 @@ pub struct InternalOperationResult {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct Parameters {
+    #[serde(default)]
     pub entrypoint: String,
     pub value: Option<serde_json::Value>,
 }

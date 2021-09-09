@@ -5,7 +5,6 @@ contracts:
 - name: "pmm_old"
   address: "KT18sHKbZtXhXtnf6ZrHEW9VgEe2eCvRr2CS"
 
-
 # HEN
 #contracts:
 #- name: "hen_dao"

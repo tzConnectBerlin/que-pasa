@@ -1,3 +1,4 @@
+use crate::debug;
 use crate::octez::block;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
@@ -151,6 +152,7 @@ impl StorageProcessor {
     ) -> Result<(Inserts, Vec<TxContext>)> {
         self.inserts.clear();
         self.tx_contexts.clear();
+        self.big_map_map.clear();
 
         let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
         let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
@@ -168,14 +170,14 @@ impl StorageProcessor {
                     operation_number,
                     operation,
                     contract_id,
-                )?);
+                ));
                 big_map_diffs.extend(self.get_big_map_diffs_from_operation(
                     block.header.level,
                     operation_group_number,
                     operation_number,
                     operation,
                     contract_id,
-                )?);
+                ));
             }
         }
 
@@ -230,7 +232,7 @@ impl StorageProcessor {
         operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
-    ) -> Result<Vec<(TxContext, block::BigMapDiff)>> {
+    ) -> Vec<(TxContext, block::BigMapDiff)> {
         let c_dest = Some(contract_id.to_string());
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
 
@@ -313,7 +315,7 @@ impl StorageProcessor {
                 }
             }
         }
-        Ok(result)
+        result
     }
 
     fn get_storage_from_operation(
@@ -323,7 +325,7 @@ impl StorageProcessor {
         operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
-    ) -> Result<Vec<(TxContext, ::serde_json::Value)>> {
+    ) -> Vec<(TxContext, ::serde_json::Value)> {
         let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
 
         let c_dest = Some(contract_id.to_string());
@@ -353,10 +355,10 @@ impl StorageProcessor {
                                 storage.clone(),
                             ));
                         } else {
-                            return Err(anyhow!(
-                                "no storage found! tx_context={:#?}",
+                            info!(
+                                "ignoring contract call; no storage update. tx_context={:#?}",
                                 tx_context
-                            ));
+                            );
                         }
                     }
                     for (internal_number, internal_op) in content
@@ -388,17 +390,17 @@ impl StorageProcessor {
                                     storage.clone(),
                                 ));
                             } else {
-                                return Err(anyhow!(
-                                    "no storage found! tx_context={:#?}",
+                                info!(
+                                    "ignoring contract call; no storage update. tx_context={:#?}",
                                     tx_context
-                                ));
+                                );
                             }
                         }
                     }
                 }
             }
         }
-        Ok(results)
+        results
     }
 
     fn unfold_value(
@@ -407,7 +409,9 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
     ) -> parser::Value {
         match rel_ast {
-            RelationalAST::List { .. } => {
+            RelationalAST::List { .. }
+            | RelationalAST::Map { .. }
+            | RelationalAST::BigMap { .. } => {
                 // do not unfold list
                 v.clone()
             }
@@ -422,6 +426,11 @@ impl StorageProcessor {
         v: &parser::Value,
         rel_ast: &RelationalAST,
     ) -> Result<RelationalEntry> {
+        debug!(
+            "resolve_or: v={}, rel_ast={}",
+            debug::pp_depth(2, v),
+            debug::pp_depth(2, rel_ast)
+        );
         match &self.unfold_value(v, rel_ast) {
             parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
@@ -498,6 +507,10 @@ impl StorageProcessor {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
                         return Ok(());
+                        // return Err(anyhow!(
+                        //     "no big map content found {:?}",
+                        //     diff
+                        // ))
                     }
                 };
                 must_match_rel!(
@@ -538,13 +551,46 @@ impl StorageProcessor {
                                 tx_context,
                             )?,
                         };
+                        self.sql_add_cell(
+                            ctx,
+                            &table,
+                            &"bigmap_id".to_string(),
+                            insert::Value::Int(big_map_id as i32),
+                            tx_context,
+                        );
                         Ok(())
                     }
                 )
             }
+            "remove" => {
+                let big_map_id: u32 = match &diff.big_map {
+                    Some(id) => id.parse()?,
+                    None => {
+                        return Err(anyhow!(
+                            "no big map id found in diff {:?}",
+                            diff
+                        ))
+                    }
+                };
+
+                let ctx =
+                    &ProcessStorageContext::new(self.id_generator.get_id());
+                self.sql_add_cell(
+                    ctx,
+                    &"bigmap_clears".to_string(),
+                    &"bigmap_id".to_string(),
+                    insert::Value::Int(big_map_id as i32),
+                    tx_context,
+                );
+                Ok(())
+            }
             "alloc" => Ok(()),
             "copy" => Ok(()),
-            action => Err(anyhow!("big_map action unknown: action={}", action)),
+            action => Err(anyhow!(
+                "big_map action unknown: action={}, diff={:#?}",
+                action,
+                diff
+            )),
         }
     }
 
@@ -577,9 +623,14 @@ impl StorageProcessor {
         &mut self,
         ctx: &ProcessStorageContext,
         current_table: Option<String>,
+        tx_context: &TxContext,
     ) -> ProcessStorageContext {
         if let Some(table_name) = current_table {
             if ctx.last_table != Some(table_name.clone()) {
+                if let Some(last_table) = &ctx.last_table {
+                    self.sql_touch_insert(&ctx.clone(), last_table, tx_context);
+                }
+
                 return ctx
                     .with_last_table(table_name)
                     .with_fk_id(ctx.id)
@@ -596,6 +647,11 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
+        debug!(
+            "value: {}, rel_ast: {}",
+            debug::pp_depth(3, value),
+            debug::pp_depth(3, rel_ast)
+        );
         let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {
@@ -629,10 +685,10 @@ impl StorageProcessor {
             _ => {}
         };
 
-        let ctx = &self.update_context(ctx, rel_ast.table_entry());
+        let ctx = &self.update_context(ctx, rel_ast.table_entry(), tx_context);
 
         match v {
-            parser::Value::Elt(keys, values) => must_match_rel!(
+            parser::Value::Elt(key, value) => must_match_rel!(
                 rel_ast,
                 RelationalAST::Map {
                     key_ast,
@@ -641,10 +697,10 @@ impl StorageProcessor {
                 },
                 {
                     self.process_storage_value_internal(
-                        ctx, keys, key_ast, tx_context,
+                        ctx, key, key_ast, tx_context,
                     )?;
                     self.process_storage_value_internal(
-                        ctx, values, value_ast, tx_context,
+                        ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
                 }
@@ -658,10 +714,10 @@ impl StorageProcessor {
                 },
                 {
                     self.process_storage_value_internal(
-                        ctx, keys, key_ast, tx_context,
+                        ctx, key, key_ast, tx_context,
                     )?;
                     self.process_storage_value_internal(
-                        ctx, values, value_ast, tx_context,
+                        ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
                 }
@@ -675,8 +731,11 @@ impl StorageProcessor {
                         ..
                     },
                     {
-                        let ctx =
-                            &self.update_context(ctx, Some(left_table.clone()));
+                        let ctx = &self.update_context(
+                            ctx,
+                            Some(left_table.clone()),
+                            tx_context,
+                        );
                         self.process_storage_value_internal(
                             ctx, left, left_ast, tx_context,
                         )?;
@@ -693,8 +752,11 @@ impl StorageProcessor {
                         ..
                     },
                     {
-                        let ctx = &self
-                            .update_context(ctx, Some(right_table.clone()));
+                        let ctx = &self.update_context(
+                            ctx,
+                            Some(right_table.clone()),
+                            tx_context,
+                        );
                         self.process_storage_value_internal(
                             ctx, right, right_ast, tx_context,
                         )?;
@@ -702,24 +764,50 @@ impl StorageProcessor {
                     }
                 )
             }
-            parser::Value::List(l) => {
-                must_match_rel!(
-                    rel_ast,
-                    RelationalAST::List { elems_ast, .. },
-                    {
-                        for element in l {
-                            let id = self.id_generator.get_id();
-                            self.process_storage_value_internal(
-                                &ctx.with_id(id),
-                                element,
-                                elems_ast,
-                                tx_context,
-                            )?;
-                        }
-                        Ok(())
+            parser::Value::List(l) => must_match_rel!(
+                rel_ast,
+                RelationalAST::List { elems_ast, .. },
+                {
+                    for element in l {
+                        let id = self.id_generator.get_id();
+                        self.process_storage_value_internal(
+                            &ctx.with_id(id),
+                            element,
+                            elems_ast,
+                            tx_context,
+                        )?;
                     }
-                )
-            }
+                    Ok(())
+                }
+            )
+            .or(must_match_rel!(rel_ast, RelationalAST::Map { .. }, {
+                for element in l {
+                    let id = self.id_generator.get_id();
+                    self.process_storage_value_internal(
+                        &ctx.with_id(id),
+                        element,
+                        rel_ast,
+                        tx_context,
+                    )?;
+                }
+                Ok(())
+            }))
+            .or(must_match_rel!(
+                rel_ast,
+                RelationalAST::BigMap { .. },
+                {
+                    for element in l {
+                        let id = self.id_generator.get_id();
+                        self.process_storage_value_internal(
+                            &ctx.with_id(id),
+                            element,
+                            rel_ast,
+                            tx_context,
+                        )?;
+                    }
+                    Ok(())
+                }
+            )),
             parser::Value::Pair(left, right) => must_match_rel!(
                 rel_ast,
                 RelationalAST::Pair {
@@ -845,9 +933,7 @@ impl StorageProcessor {
                     parser::Value::Bytes(bs) =>
                     // sometimes we get bytes where we expected an address.
                     {
-                        Ok(insert::Value::String(
-                            parser::decode_address(bs).unwrap(),
-                        ))
+                        Ok(insert::Value::String(parser::decode_address(bs)?))
                     }
                     parser::Value::Address(addr) => {
                         Ok(insert::Value::String(addr.clone()))
@@ -884,7 +970,7 @@ impl StorageProcessor {
                     "storage2sql_value: failed to match type with value"
                 )),
             },
-            SimpleExprTy::Int | SimpleExprTy::Mutez | SimpleExprTy::Nat => {
+            SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
                 match v {
                     parser::Value::Int(i)
                     | parser::Value::Mutez(i)
@@ -912,6 +998,36 @@ impl StorageProcessor {
             .insert(bigmap_id, (fk, rel_ast));
     }
 
+    fn sql_touch_insert(
+        &mut self,
+        ctx: &ProcessStorageContext,
+        table_name: &str,
+        tx_context: &TxContext,
+    ) -> Insert {
+        match self.get_insert(table_name, ctx.id, ctx.fk_id) {
+            Some(x) => x,
+            None => {
+                let value = Insert {
+                    table_name: table_name.to_string(),
+                    id: ctx.id,
+                    fk_id: ctx.fk_id,
+                    columns: vec![Column {
+                        name: "tx_context_id".to_string(),
+                        value: insert::Value::Int(tx_context.id.unwrap() as i32),
+                    }],
+                };
+                self.inserts.insert(
+                    InsertKey {
+                        table_name: table_name.to_string(),
+                        id: ctx.id,
+                    },
+                    value.clone(),
+                );
+                value
+            }
+        }
+    }
+
     fn sql_add_cell(
         &mut self,
         ctx: &ProcessStorageContext,
@@ -920,22 +1036,15 @@ impl StorageProcessor {
         value: insert::Value,
         tx_context: &TxContext,
     ) {
-        let mut insert = match self.get_insert(table_name, ctx.id, ctx.fk_id) {
-            Some(x) => x,
-            None => Insert {
-                table_name: table_name.to_string(),
-                id: ctx.id,
-                fk_id: ctx.fk_id,
-                columns: vec![Column {
-                    name: "tx_context_id".to_string(),
-                    value: insert::Value::Int(tx_context.id.unwrap() as i32),
-                }],
-            },
+        let mut insert = self.sql_touch_insert(ctx, table_name, tx_context);
+        let name = match column_name {
+            "id" => ".id".to_string(),
+            "tx_context_id" => ".tx_context_id".to_string(),
+            s => s.to_string(),
         };
-        insert.columns.push(Column {
-            name: column_name.to_string(),
-            value,
-        });
+        insert
+            .columns
+            .push(Column { name, value });
 
         self.inserts.insert(
             InsertKey {

@@ -1,0 +1,2234 @@
+{
+    (
+        table_name: "storage",
+        id: 2,
+    ): (
+        table_name: "storage",
+        id: 2,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "deleted",
+                value: Bool(false),
+            ),
+            (
+                name: "roles_owner",
+                value: String("tz1UanonKsn9xEoSRTwKNmfhvCUC3wcj6NJb"),
+            ),
+            (
+                name: "rewardProxy",
+                value: String("KT1BwxoxUJEnGcrWtfz2CiCZ19KN1xiN7dNF"),
+            ),
+            (
+                name: "paused",
+                value: Bool(false),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles",
+        id: 6,
+    ): (
+        table_name: "storage.puzzles",
+        id: 6,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_nat_0",
+                value: Numeric(Some("6")),
+            ),
+            (
+                name: "solver_timestamp_4",
+                value: Timestamp("2021-03-08T17:13:24Z"),
+            ),
+            (
+                name: "solver_address_3",
+                value: String("tz1L9g4SaPvg5uwZbCvEwbySu2hgwLb3qSGJ"),
+            ),
+            (
+                name: "rewards_h",
+                value: String("afbda72bc5ca82bc61d800fcc8fdfa4f059d95e58879795863b34525ded88fce"),
+            ),
+            (
+                name: "rewards",
+                value: Numeric(Some("1000")),
+            ),
+            (
+                name: "questions",
+                value: Numeric(Some("9")),
+            ),
+            (
+                name: ".id",
+                value: Numeric(Some("6")),
+            ),
+            (
+                name: "author",
+                value: String("tz1UanonKsn9xEoSRTwKNmfhvCUC3wcj6NJb"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(633),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 99,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 99,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1ikQN6GZtYr11oXmTi3AB8Y7WsjmT5nSNc"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("93")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 98,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 98,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1iGzTV7fnKJtFgGUSf1zntivMNyo9hvXhn"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("56")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 97,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 97,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1iE7UAcMPWyp5unpTmyd45KbKpjsPCFSJZ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("52")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 96,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 96,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1iAorRSromM8dCMpmjtFYcSLanb3B2NjfA"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("58")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 95,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 95,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1iA4w6VSerpUwwJpSdQZRfWLpPZpQTyohi"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("9")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 94,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 94,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1hxM1JhQeWn1cHP4L2s48NeJKaN44iy47y"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("92")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 93,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 93,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1hYc8FKJSztPJb8a9b4V4yQBGtk9t1FkEj"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("44")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 92,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 92,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1hUajeVgQKMnwE6pr3cPJugMu3oa4srQR1"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("53")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 91,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 91,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1ge7TGTS3aF1JS14dGBUicxjvbmfPCjk5N"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("36")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 90,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 90,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1fSDQhTd3nrEXE6XMLkyrUb9bxTVx6qqmd"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("95")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 9,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 9,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1L9g4SaPvg5uwZbCvEwbySu2hgwLb3qSGJ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 89,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 89,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1fRe14MfJQ1eFMcgyQoAPWdUSFi5NMsCvD"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("51")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 88,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 88,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1epV5Ee8W6HVnKLCuf6GLEeP2VVvCdM94B"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("67")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 87,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 87,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1eo17yiFDiCmcWmtT1u8328JWB5puZQor4"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("2")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 86,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 86,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1emAMf2k32NKaYo8xoX2QQTjuPk9R2HHyq"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("31")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 85,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 85,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1ed8v6roaD6EsZKs4U48RaixbMWS1pzXz3"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("82")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 84,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 84,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1eWeMQzEkif2ZQMQccFCyxVzdFCzca6YCN"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("25")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 83,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 83,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1eJHRv1W8DYJjtusHSh1c1juRjhKZFV7LQ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("97")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 82,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 82,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1eHsZ3KJthCxWKC6ApNa4GtqUiMHdDFjoj"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("62")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 81,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 81,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1e5b7RDRhmUWsiXur9MhyRBBTpCoNeUuwa"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("8")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 80,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 80,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1dcnPGDg7ovjjcsuY8L2wBzRyEa1RE3gcA"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("88")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 8,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 8,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1L2ThyAYn5xsMrHR9XKat7QRVN3FRpDfmT"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("35")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 79,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 79,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1dFUWKzTZDMJYonE7ArL6YX8xHyowSQned"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("18")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 78,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 78,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1dF8t6is7F6JXqEknYCAkVAkh46czysySw"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("73")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 77,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 77,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1cpQWk2Eq7mEiZLfSPmBr6P49p7i22S8AL"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("14")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 76,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 76,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1chqGj9zraSbY7FfCgv6Cfe5CMK8yvJBhq"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("81")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 75,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 75,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1cZG2bLirJM4uJq6aJeG6zS2RpHNDgywLj"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("28")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 74,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 74,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1cLyeFM5TUC9XmRaYQKg8X5cguxSFhHq8F"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("79")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 73,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 73,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1cFmLNpFXNdoYbZMPynEg985YkPaZJTNTs"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("47")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 72,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 72,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1bxnm4UrKDq1kR8qfxYvnW6Czjhv1yRqPK"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("19")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 71,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 71,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1bnrzooHBYaudGy19C3VcQqw57NF39rE8w"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("85")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 70,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 70,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1bPQsQNXLvvhpQLfsrHoKpxEH3a8dQfSVf"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("50")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 69,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 69,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1bHj4Tp9R775iLNSRyxdjJvefVVx9xXK63"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("80")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 68,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 68,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1bG3UovUrjkkgQk4kHbGZRXp922G4BQTCm"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("30")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 67,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 67,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1aRvKVTRuqCBgiRccfPMx8KiQUAEqUAMab"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("57")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 66,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 66,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1ZyMFG8MmWLzExb8edjsfPHbh1W7Xa6tAV"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("48")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 65,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 65,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1ZiXTyAAWeDAehQxQmRPBpf2iY6n1X6sSv"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("5")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 64,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 64,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Za1qBuH2fv9tWhAeG7Qhr6fohj6oXXbxe"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("90")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 63,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 63,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1ZGQMpGAunZCB6fbGM2PSsM4HPEyMqdWnk"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("61")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 62,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 62,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Z53SaDWM7VuSqYwZv7NfU3t7RyvEz4oFU"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("11")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 61,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 61,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1YwQR2mtdMAdtoG6U5b672mZEmVdrLTfNp"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("32")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 60,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 60,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1YaFytHvEggUeY93gQXspwUC9AJDasbwY6"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("40")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 59,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 59,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1YZN1GPcN5jZMvYFBCWTpHveX2ftwgSfoB"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("49")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 58,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 58,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1YR1xrSJcrRxyiP3t2XjDMeR7HQd7Ftx7E"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("42")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 57,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 57,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1YGh8YWxu2stsAeQiKyt4bJs9AG3PxQ3GZ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("20")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 56,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 56,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Y7ambkGa1sEx117fHM2sqBH5D7KNaVWcy"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("94")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 55,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 55,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1XwT7cC7UnvMi4GooA3qUNEA22cPcUXxLp"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("6")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 54,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 54,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1XvPTy5B15Sojatz3TMWRk3WRznM3h9xR8"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("22")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 53,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 53,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1XpLwrtgBTUJTtoaU7bmVn5cm3je5p1kwE"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("75")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 52,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 52,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1XoN1H41UipiijXrS68unMqeZJdXA3xs1J"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("13")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 51,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 51,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1XkVizMVPHtK9V96uf5PbyzkwMaYeJTteV"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("71")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 50,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 50,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Xgjx2mDDiUdWjPgyYM2SNMzHNK9w2YnvZ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("7")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 49,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 49,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1XW2MZsyboc3c4AzLbY8CgdATARACTGEAT"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("87")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 48,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 48,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1X8vhcVg9tR9FR3ToXWpTawy4qp4YfeqBz"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("55")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 47,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 47,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Wmiq6ViUHjUmApdx7LGyvPWS1yc5hX8PK"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("21")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 46,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 46,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1WjLSWrdHDkm5HdWYSRPZdY46zs5MM4L3i"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("34")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 45,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 45,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1WUu4hgHNRZaGuJbMJJtwbbWsAaCYcPBWM"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("70")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 44,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 44,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1WPgxRkoyxXXXjCU5QWrCjrop5yqiGBcJ3"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("65")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 43,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 43,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1WHYvtTV1ghp8Yz2RDCe4vyTXt839kxQyH"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("89")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 42,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 42,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1VvyKPVzKfXDcQ1bVAqBKZnVPR8qYZK5Aa"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("15")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 41,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 41,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1UtvctS3cWbxeYMNkvZi8yPg6pXWTNBTtj"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("74")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 40,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 40,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1UrhQMPfjK1Q4Mk1uG5BaZMYw7vVv4nxmv"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("43")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 39,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 39,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1UojvPJw2twTxQhJewd3cAbCbqiBoxfq1c"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("16")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 38,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 38,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1UnDUACFmHCpSBD88mqcxhQYTNoKvMg8Pp"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("54")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 37,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 37,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1UAMTDUhH6RDc2fCkCF9Y5FTg1KKv7YnHc"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("72")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 36,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 36,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1TsYShHxotZD7VZyA7nvjfFRZwjodkfdr3"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("86")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 35,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 35,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Tc3tyZdm4krbxufzEXStuzSo4ckf499a1"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("37")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 34,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 34,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1TRP63YJW9dWxL1M139eMBwv51X4oXY6Vc"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("26")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 33,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 33,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1TH4TdBtFrH3Ajo4xden9o1nvcVrPmWMKt"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("41")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 32,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 32,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Sv2XMQNxcAqyqyyv42FHjf3EGwJ3Godj1"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("45")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 31,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 31,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1SiUx3H1PQrD1E5zfkCXepALMCbA3it2RX"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("4")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 30,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 30,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Ra4zkxQpN8h6gREin8f2ne5a6BqTwYNos"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("3")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 29,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 29,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1QxaW23dRzkSafg1CKEFcokPZ6xcci4J6x"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("10")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 28,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 28,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Qoo5HAWVjyMZaLJ8TanA1dBMxsKaEVAu6"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("46")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 27,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 27,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1QnmkMdxaRhwsBnK49RTxUx6XSwZhbdu2A"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("12")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 26,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 26,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1QadHR3EvfdT6kHG9g92yUHqu1rRShYBtU"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("69")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 25,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 25,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1QMjzbw5Yoi2zPqUeg2yuv5GZdmXjhh9mr"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("23")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 24,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 24,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1QGWNVbSJZdt2pvXENmbeDHLR6DfhN2WDF"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("24")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 23,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 23,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1PhRwYjxKnGU1ve15jNeBHw1EuH9ybm7MG"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("76")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 22,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 22,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1Pgf54iVX6kAQPqaNTiaWJYWawkfZGC5cW"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("29")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 21,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 21,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1PJ5D3zU9RhaiNTyj1EMeek3XS5hoeuKjj"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("68")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 20,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 20,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1P7LT36ZnP2iKYSjNF2Za2Tiuj1b7EPP2G"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("64")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 19,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 19,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1NWKsQtMZd6qQBvUvKmMLyRuo5yqVX9ugv"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("78")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 18,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 18,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1NL4QHRfh2RBb2bfXjo8QbMMLt2TDfcVp9"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("96")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 17,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 17,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1NBVnhsRgZ9C38QA8ptB2wdJNGanTGZD3S"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("63")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 16,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 16,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1N2tca6ewf7q4T4GwyYnMccuMpkzBfkS5Q"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("60")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 15,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 15,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1MS3h6gztqR1Rn8GZhbAZKf2QijB7kauv9"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("33")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 14,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 14,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1MA5pw3oX6k8tdb5rhMkkgw25DyWwMy2WZ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("91")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 13,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 13,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1LrHmTsBE1WXnBmscZXCBLL6iDF7Qpuf9y"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("84")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 12,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 12,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1LqZQvji4T3oWfNkW7k2RFtjFbZtqJrdLk"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("39")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 11,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 11,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1LaPHiKa6s64rHX6CnvJEE2afZwHZa5suG"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("59")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 104,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 104,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz2X8pc43fTwS6p8erjSNp269JT3wQt9J2h2"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("38")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 103,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 103,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz2Kmr94zwyb9SmfcwCeBXY4Ye5NjvDi3qhv"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("66")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 102,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 102,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz2AAVTWARQ1twBJBm9yidrS714v9SyaZr7P"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("27")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 101,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 101,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz28L8AsLjgZ1EhZwCowgNYonV2ZhoVWG8qJ"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("17")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 100,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 100,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1iwS4f1Vy1D5bRBP1otzPE5MByw2dJ8a1s"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("83")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 10,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 10,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_address_1",
+                value: String("tz1LGEUSxGeg7sLJVCRphGEXHCaEgeCYZ8pB"),
+            ),
+            (
+                name: "nat_2",
+                value: Numeric(Some("77")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.author",
+        id: 4,
+    ): (
+        table_name: "storage.author",
+        id: 4,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: Int(1),
+            ),
+            (
+                name: "idx_roles_address_5",
+                value: String("tz1UanonKsn9xEoSRTwKNmfhvCUC3wcj6NJb"),
+            ),
+        ],
+    ),
+}

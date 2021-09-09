@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Result};
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use serde_yaml;
 use std::fs;
 
 #[derive(Clone, Default, Debug)]
 pub struct Config {
     pub contracts: Vec<ContractID>,
+    pub all_contracts: bool,
     pub database_url: String,
     pub ssl: bool,
     pub ca_cert: Option<String>,
@@ -43,7 +44,22 @@ pub fn init_config() -> Result<Config> {
                 .long("contract-settings")
                 .value_name("CONTRACT_SETTINGS")
                 .help("path to the settings yaml (for contract settings)")
-                .takes_value(true),
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("contracts")
+                .long("contracts")
+                .value_name("CONTRACTS")
+                .help("set of additional contract settings (in syntax: <name>=<address>)")
+                .multiple(true)
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("index_all_contracts")
+                .long("index-all-contracts")
+                .value_name("INDEX_ALL_CONTRACTS")
+                .help("index *all* contracts")
+                .takes_value(false)
         )
         .arg(
             Arg::with_name("database_url")
@@ -66,12 +82,6 @@ pub fn init_config() -> Result<Config> {
                 .help("CA Cert for SSL postgres connection")
                 .takes_value(true))
         .arg(
-            Arg::with_name("generate_sql")
-                .short("g")
-                .long("generate-sql")
-                .help("Generate SQL")
-                .takes_value(false))
-        .arg(
             Arg::with_name("node_url")
                 .short("n")
                 .long("node-url")
@@ -82,7 +92,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("network")
                 .long("network")
                 .value_name("NETWORK")
-                .help("Name of the Tezos network to target (eg 'main', 'granadanet', ..)")
+                .help("For better-call.dev: name of the Tezos network to target (eg 'mainnet', 'granadanet', ..)")
                 .takes_value(true))
         .arg(
             Arg::with_name("bcd_url")
@@ -94,7 +104,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("workers_cap")
                 .long("workers-cap")
                 .value_name("WORKERS_CAP")
-                .help("max number of workers used to concurrently fetch block data from the node (only applies during bootstrap)")
+                .help("max number of workers used to concurrently fetch block data from the node (enables fast bootstrap)")
                 .takes_value(true),
         )
         .arg(
@@ -110,44 +120,45 @@ pub fn init_config() -> Result<Config> {
                 .short("i")
                 .long("init")
                 .value_name("INIT")
-                .help("If present, clear the DB out, load the levels, and set the in-between levels as already loaded")
+                .help("If set, clear the DB out and recreate global tables")
                 .takes_value(false),
-        )
-        .subcommand(
-            SubCommand::with_name("generate-sql")
-                .about("Generated table definitions")
-                .version("0.0"),
         )
         .get_matches();
 
-    let fpath = matches
+    let maybe_fpath = matches
         .value_of("contract_settings")
         .map_or_else(
             || std::env::var("CONTRACT_SETTINGS"),
             |s| Ok(s.to_string()),
         )
-        .unwrap();
-    config.contracts = parse_contract_settings_file(fpath).unwrap();
-
-    config.generate_sql = match matches.subcommand() {
-        ("generate-sql", _) => true,
-        _ => matches.is_present("generate_sql"),
-    };
-
-    if !config.generate_sql {
-        config.database_url = match matches
-            .value_of("database_url")
-            .map_or_else(|| std::env::var("DATABASE_URL"), |s| Ok(s.to_string()))
-        {
-            Ok(x) => x,
-            Err(_) => {
-                return Err(anyhow!(
-                    "Database URL must be set either on the command line or in the environment"
-                ))
-            }
-        };
-        println!("db url: \"{}\"", config.database_url);
+        .ok();
+    if let Some(fpath) = maybe_fpath {
+        config.contracts = parse_contract_settings_file(fpath).unwrap();
     }
+    if matches.is_present("contracts") {
+        config.contracts.extend(
+	    matches.values_of("contracts").unwrap().map(|s| {
+		match s.split_once("=") {
+		    Some((name, address)) => ContractID {
+			name: name.to_string(),
+			address: address.to_string(),
+		    },
+		    None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
+		}
+	    }).collect::<Vec<ContractID>>(),
+	);
+    }
+
+    config.database_url = match matches
+            .value_of("database_url")
+            .map_or_else(|| std::env::var("DATABASE_URL"), |s| Ok(s.to_string())) {
+        Ok(x) => x,
+        Err(_) => {
+            return Err(anyhow!(
+                "Database URL must be set either on the command line or in the environment"
+            ))
+        }
+    };
 
     if matches.is_present("ssl") {
         config.ssl = true;
@@ -160,6 +171,7 @@ pub fn init_config() -> Result<Config> {
     }
 
     config.init = matches.is_present("init");
+    config.all_contracts = matches.is_present("index_all_contracts");
 
     config.levels = matches
         .value_of("levels")
@@ -178,6 +190,8 @@ pub fn init_config() -> Result<Config> {
     };
     config.bcd_url = matches
         .value_of("bcd_url")
+        .map_or_else(|| std::env::var("BCD_URL"), |s| Ok(s.to_string()))
+        .ok()
         .map(String::from);
     config.network = matches
         .value_of("network")
