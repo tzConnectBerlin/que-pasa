@@ -9,5 +9,5 @@ docker run \
     -p $PGPORT:5432 \
     -e POSTGRES_PASSWORD=$PGPASS \
     -e POSTGRES_USER=$PGUSER \
-    -e POSTGRES_DB=tezos \
+    -e POSTGRES_DB=$PGDATABASE \
     postgres "$@"

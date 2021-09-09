@@ -4,14 +4,16 @@
   "description": "node project to start postgraphile with plugin",
   "main": "index.js",
   "scripts": {
-    "start": "postgraphile -c 'postgres://newby:foobar@localhost:5432/pm_new' -o -w -j -S -L --append-plugins @graphile-contrib/pg-order-by-related,@graphile-contrib/pg-simplify-inflector,postgraphile-plugin-connection-filter --disable-default-mutations --enhance-graphiql --extended-errors hint,detail,errcode --enable-query-batching --legacy-relations omit --port 5001"
+    "start": "postgraphile -c 'postgres://quepasa:quepasa@localhost:5432/tezos' -o -w -j --skip-plugins graphile-build-pg:PgNodeAliasPostGraphile --append-plugins `pwd`/multiple.js,@graphile-contrib/pg-order-by-related,@graphile-contrib/pg-simplify-inflector,postgraphile-plugin-connection-filter --disable-default-mutations --enhance-graphiql --extended-errors hint,detail,errcode --enable-query-batching --legacy-relations omit --port 5001"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@graphile-contrib/pg-order-by-related": "^1.0.0-beta.6",
     "@graphile-contrib/pg-simplify-inflector": "^6.1.0",
+    "graphile-utils": "^4.12.1",
+    "lodash": "^4.17.21",
     "postgraphile": "^4.11.0",
-    "postgraphile-plugin-connection-filter": "^2.2.1",
-    "@graphile-contrib/pg-order-by-related": "^1.0.0-beta.6"
+    "postgraphile-plugin-connection-filter": "^2.2.1"
   }
 }
