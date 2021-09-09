@@ -3,6 +3,10 @@ use chrono::{DateTime, Utc};
 
 use crate::contract_denylist::is_contract_denylisted;
 
+const LIQUIDITY_BAKING_LEVEL: u32 = 1589247;
+const LIQUIDITY_BAKING: &str = "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5";
+const LIQUIDITY_BAKING_TOKEN: &str = "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo";
+
 #[derive(Clone, Debug)]
 pub struct LevelMeta {
     pub level: u32,
@@ -57,13 +61,25 @@ impl Block {
                 }
             }
         }
-        false
+        is_implicit_active(self.header.level, contract_address)
     }
 
     pub(crate) fn has_contract_origination(
         &self,
         contract_address: &str,
     ) -> bool {
+        // liquidity baking has an implicit contract creation event in this block
+        let liquidity_baking =
+            "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5".to_string();
+        let liquidity_baking_token =
+            "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo".to_string();
+        if self.header.level == 1589247
+            && (contract_address == liquidity_baking
+                || contract_address == liquidity_baking_token)
+        {
+            return true;
+        }
+
         self.operations.iter().any(|ops| {
             ops.iter().any(|op| {
                 op.contents.iter().any(|content| {
@@ -101,12 +117,23 @@ impl Block {
                 }
             }
         }
+        if self.header.level == LIQUIDITY_BAKING_LEVEL {
+            res.push(LIQUIDITY_BAKING.to_string());
+            res.push(LIQUIDITY_BAKING_TOKEN.to_string());
+        }
         res.iter()
             .filter(|address| is_contract(address))
             .unique()
             .cloned()
             .collect()
     }
+}
+
+fn is_implicit_active(level: u32, contract_address: &str) -> bool {
+    // liquidity baking has 2 implicit contract creation events in the block prior to Granada's activation block
+    level == LIQUIDITY_BAKING_LEVEL
+        && (contract_address == LIQUIDITY_BAKING
+            || contract_address == LIQUIDITY_BAKING_TOKEN)
 }
 
 fn is_contract(address: &str) -> bool {
