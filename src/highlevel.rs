@@ -552,7 +552,7 @@ pub(crate) fn get_rel_ast(
 ) -> Result<RelationalAST> {
     let storage_def =
         &node_cli.get_contract_storage_definition(contract_address, None)?;
-    println!("storage_def: {:#?}", storage_def);
+    debug!("storage_def: {:#?}", storage_def);
     let type_ast =
         typing::storage_ast_from_json(storage_def).with_context(|| {
             "failed to derive a storage type from the storage definition"
@@ -560,7 +560,7 @@ pub(crate) fn get_rel_ast(
     debug!("storage definition retrieved, and type derived");
     debug!("type_ast: {:#?}", type_ast);
 
-    println!(
+    debug!(
         "storage_def: {}, type_ast: {}",
         debug::pp_depth(6, &storage_def),
         debug::pp_depth(6, &type_ast),
@@ -578,7 +578,7 @@ pub(crate) fn get_rel_ast(
     .with_context(|| {
         "failed to build a relational AST from the storage type"
     })?;
-    println!("rel_ast: {:#?}", rel_ast);
+    debug!("rel_ast: {:#?}", rel_ast);
     Ok(rel_ast)
 }
 
