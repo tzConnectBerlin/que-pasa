@@ -236,7 +236,7 @@
                 value: String("tz1azKk3gBJRjW11JAh8J1CBP1tF2NUu5yJ3"),
             ),
             (
-                name: "noname",
+                name: "noname_0",
                 value: String("storage.liquidity_provider_map.bet"),
             ),
             (
@@ -266,7 +266,7 @@
                 value: String("tz1VA8Y5qDr2yR5kVLhhWd9mkGB1kx7qBrPx"),
             ),
             (
-                name: "noname",
+                name: "noname_0",
                 value: String("storage.liquidity_provider_map.bet"),
             ),
             (

@@ -186,7 +186,7 @@ pub(crate) fn build_relational_ast(
     indexes: &mut Indexes,
     noname: &mut Noname,
 ) -> Result<RelationalAST> {
-    let name = match &ele.name {
+    let mut name = || match &ele.name {
         Some(x) => x.clone(),
         None => noname.next(),
     };
@@ -204,7 +204,8 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::List(elems_unique, elems_type) => {
-                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+                let ctx =
+                    &ctx.start_table(get_table_name(indexes, Some(name())));
                 let elems_ast = match elems_unique {
                     true => build_index(ctx, elems_type, indexes, noname)?,
                     false => {
@@ -218,7 +219,8 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::BigMap(key_type, value_type) => {
-                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+                let ctx =
+                    &ctx.start_table(get_table_name(indexes, Some(name())));
                 let key_ast = build_index(ctx, key_type, indexes, noname)?;
                 let value_ast =
                     build_relational_ast(ctx, value_type, indexes, noname)?;
@@ -229,7 +231,8 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::Map(key_type, value_type) => {
-                let ctx = &ctx.start_table(get_table_name(indexes, Some(name)));
+                let ctx =
+                    &ctx.start_table(get_table_name(indexes, Some(name())));
                 let key_ast = build_index(ctx, key_type, indexes, noname)?;
                 let value_ast =
                     build_relational_ast(ctx, value_type, indexes, noname)?;
@@ -251,7 +254,7 @@ pub(crate) fn build_relational_ast(
                 })
             }
             ComplexExprTy::OrEnumeration(_, _) => {
-                Ok(build_enumeration_or(&ctx, ele, &name, indexes, noname)?.0)
+                Ok(build_enumeration_or(&ctx, ele, &name(), indexes, noname)?.0)
             }
         },
         ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
