@@ -207,7 +207,7 @@ impl PostgresqlGenerator {
         &self,
         table: &Table,
     ) -> Result<String> {
-        if table.name == "storage" || table.name == "bigmap_clears" {
+        if table.name == "bigmap_clears" {
             return Ok("".to_string());
         }
         if table.contains_snapshots() {

@@ -113,7 +113,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
         sorted_tables.reverse();
 
         for (_name, table) in sorted_tables {
-            if table.name != "storage" && table.name != "bigmap_clears" {
+            if table.name != "bigmap_clears" {
                 tx.simple_query(
                     format!(
                         r#"

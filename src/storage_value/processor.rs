@@ -603,13 +603,6 @@ impl StorageProcessor {
         tx_context: &TxContext,
     ) -> Result<()> {
         let ctx = &ProcessStorageContext::new(self.id_generator.get_id());
-        self.sql_add_cell(
-            ctx,
-            &"storage".to_string(),
-            &"deleted".to_string(),
-            insert::Value::Bool(false),
-            tx_context,
-        );
         self.process_storage_value_internal(
             &ctx.with_last_table("storage".to_string()),
             &value.unfold_list(),

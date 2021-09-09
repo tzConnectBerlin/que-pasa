@@ -20,16 +20,7 @@ impl TableBuilder {
         let mut res = Self {
             tables: TableMap::new(),
         };
-        res.add_column(
-            true,
-            &RelationalEntry {
-                table_name: "storage".to_string(),
-                column_name: "deleted".to_string(),
-                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-                value: None,
-                is_index: false,
-            },
-        );
+        res.touch_table("storage");
         res
     }
 
