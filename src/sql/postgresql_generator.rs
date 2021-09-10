@@ -228,7 +228,7 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
-      ON  ctx.id = t.tx_context_id
+      ON ctx.id = t.tx_context_id
     JOIN levels level_meta
       ON level_meta.level = ctx.level
     ORDER BY
