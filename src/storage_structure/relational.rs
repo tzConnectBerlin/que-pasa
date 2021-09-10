@@ -78,16 +78,20 @@ impl Context {
     }
 
     pub(crate) fn apply_prefix(&self, name: &str, is_index: bool) -> String {
-        let initial = format!(
+        let mut res = format!(
             "{}{}{}",
             self.prefix,
             if self.prefix.is_empty() { "" } else { "_" },
             name,
         );
         if is_index {
-            return format!("idx_{}", initial);
+            return format!("idx_{}", res);
         }
-        initial
+        if res == "level" || res == "level_timestamp" {
+            // always reserve these column names for the _live and _ordered view defintion
+            res = format!(".{}", res);
+        }
+        res
     }
 
     pub(crate) fn name(
