@@ -223,6 +223,8 @@ impl PostgresqlGenerator {
             r#"
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
+        ctx.level as level,
+        level_meta.baked_at as level_timestamp
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
@@ -233,6 +235,8 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
             FROM "{contract_schema}"."{table}" t_
             JOIN tx_contexts ctx ON t_.tx_context_id = ctx.id
       )
+    JOIN levels level_meta
+      ON level_meta.level = ctx.level
 );
 
 CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
@@ -245,18 +249,22 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
+        ctx.level as level,
+        level_meta.baked_at as level_timestamp
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
+    JOIN levels level_meta
+      ON level_meta.level = ctx.level
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
             columns = columns
                 .iter()
-                .map(|c| format!("t.{}", c))
-                .join(", "),
+                .map(|c| format!(", t.{}", c))
+                .join(""),
         ))
     }
 
@@ -273,13 +281,19 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
             r#"
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
+        level,
+        level_timestamp
         {columns}
     FROM (
         SELECT DISTINCT ON({indices})
+            ctx.level as level,
+            level_meta.baked_at as level_timestamp,
             t.*
         FROM "{contract_schema}"."{table}" t
         JOIN tx_contexts ctx
           ON ctx.id = t.tx_context_id
+        JOIN levels level_meta
+          ON level_meta.level = ctx.level
         WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
         ORDER BY
             {indices},
@@ -302,12 +316,14 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
-        t.deleted,
+        ctx.level as level,
+        level_meta.baked_at as level_timestamp,
+        t.deleted
         {columns}
     FROM (
         SELECT
             t.tx_context_id,
-            t.deleted,
+            t.deleted
             {columns}
         FROM "{contract_schema}"."{table}" t
         WHERE t.deleted
@@ -317,7 +333,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
 
         SELECT
             clr.tx_context_id,
-            'true' as deleted,
+            'true' as deleted
             {columns}
         FROM "{contract_schema}"."{table}" t
         JOIN "{contract_schema}".bigmap_clears clr
@@ -326,14 +342,16 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
     ) t  -- t with bigmap clears unfolded
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
+    JOIN levels level_meta
+      ON level_meta.level = ctx.level
 );
 "#,
             contract_schema = self.contract_id.name,
             table = table.name,
             columns = columns
                 .iter()
-                .map(|c| format!("t.{}", c))
-                .join(", "),
+                .map(|c| format!(", t.{}", c))
+                .join(""),
             indices = indices
                 .iter()
                 .map(|c| format!("t.{}", c))
