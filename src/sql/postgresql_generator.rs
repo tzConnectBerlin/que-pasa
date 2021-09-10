@@ -229,14 +229,15 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
       ON  ctx.id = t.tx_context_id
-      AND ctx.level = (
-            SELECT
-                MAX(ctx.level) AS level
-            FROM "{contract_schema}"."{table}" t_
-            JOIN tx_contexts ctx ON t_.tx_context_id = ctx.id
-      )
     JOIN levels level_meta
       ON level_meta.level = ctx.level
+    ORDER BY
+        ctx.level DESC,
+        ctx.operation_group_number DESC,
+        ctx.operation_number DESC,
+        ctx.content_number DESC,
+        COALESCE(ctx.internal_number, -1) DESC
+    LIMIT 1
 );
 
 CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
