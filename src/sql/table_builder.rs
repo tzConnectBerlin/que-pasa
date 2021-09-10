@@ -78,6 +78,11 @@ impl TableBuilder {
             "bigmap_id",
             &ExprTy::SimpleExprTy(SimpleExprTy::Int),
         );
+        t.add_index(
+            true,
+            "action",
+            &ExprTy::SimpleExprTy(SimpleExprTy::String),
+        );
         self.store_table(t);
     }
 

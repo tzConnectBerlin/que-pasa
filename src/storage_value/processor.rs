@@ -494,7 +494,10 @@ impl StorageProcessor {
         match diff.action.as_str() {
             "update" => {
                 let big_map_id: u32 = match &diff.big_map {
-                    Some(id) => id.parse()?,
+                    Some(id) => {
+                        println!("id is: {}", id);
+                        id.parse()?
+                    }
                     None => {
                         return Err(anyhow!(
                             "no big map id found in diff {:?}",
