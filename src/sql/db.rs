@@ -237,7 +237,7 @@ VALUES ( {v_refs} )"#,
             v_names = v_names,
             v_refs = v_refs,
         );
-        debug!(
+        println!(
             "qry: {}, values: {:?}",
             qry,
             columns

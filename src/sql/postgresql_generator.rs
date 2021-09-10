@@ -32,6 +32,14 @@ impl PostgresqlGenerator {
             "bigmap_id" => {
                 return Some("bigmap_id INTEGER NOT NULL".to_string())
             }
+            "bigmap_id_source" => {
+                return Some("bigmap_id_source INTEGER NOT NULL".to_string())
+            }
+            "bigmap_id_destination" => {
+                return Some(
+                    "bigmap_id_destination INTEGER NOT NULL".to_string(),
+                )
+            }
             _ => {}
         }
 

@@ -125,7 +125,7 @@ impl IdGenerator {
     }
 }
 
-type BigMapMap = std::collections::HashMap<u32, (u32, RelationalAST)>;
+type BigMapMap = std::collections::HashMap<i32, (u32, RelationalAST)>;
 
 pub(crate) struct StorageProcessor {
     big_map_map: BigMapMap,
@@ -493,7 +493,7 @@ impl StorageProcessor {
     ) -> Result<()> {
         match diff.action.as_str() {
             "update" => {
-                let big_map_id: u32 = match &diff.big_map {
+                let big_map_id: i32 = match &diff.big_map {
                     Some(id) => {
                         println!("id is: {}", id);
                         id.parse()?
@@ -566,29 +566,67 @@ impl StorageProcessor {
                 )
             }
             "remove" => {
-                let big_map_id: u32 = match &diff.big_map {
-                    Some(id) => id.parse()?,
-                    None => {
-                        return Err(anyhow!(
-                            "no big map id found in diff {:?}",
-                            diff
-                        ))
-                    }
-                };
-
                 let ctx =
                     &ProcessStorageContext::new(self.id_generator.get_id());
                 self.sql_add_cell(
                     ctx,
                     &"bigmap_clears".to_string(),
                     &"bigmap_id".to_string(),
-                    insert::Value::Int(big_map_id as i32),
+                    insert::Value::Int(
+                        diff.big_map
+                            .clone()
+                            .ok_or_else(|| {
+                                anyhow!(
+                                    "no big map id found in diff {:?}",
+                                    diff
+                                )
+                            })?
+                            .parse()?,
+                    ),
+                    tx_context,
+                );
+                Ok(())
+            }
+            "copy" => {
+                let ctx =
+                    &ProcessStorageContext::new(self.id_generator.get_id());
+                self.sql_add_cell(
+                    ctx,
+                    &"bigmap_copies".to_string(),
+                    &"bigmap_id_source".to_string(),
+                    insert::Value::Int(
+                        diff.source_big_map
+                            .clone()
+                            .ok_or_else(|| {
+                                anyhow!(
+                                    "no big map id found in diff {:?}",
+                                    diff
+                                )
+                            })?
+                            .parse()?,
+                    ),
+                    tx_context,
+                );
+                self.sql_add_cell(
+                    ctx,
+                    &"bigmap_copies".to_string(),
+                    &"bigmap_id_destination".to_string(),
+                    insert::Value::Int(
+                        diff.destination_big_map
+                            .clone()
+                            .ok_or_else(|| {
+                                anyhow!(
+                                    "no big map id found in diff {:?}",
+                                    diff
+                                )
+                            })?
+                            .parse()?,
+                    ),
                     tx_context,
                 );
                 Ok(())
             }
             "alloc" => Ok(()),
-            "copy" => Ok(()),
             action => Err(anyhow!(
                 "big_map action unknown: action={}, diff={:#?}",
                 action,
@@ -859,7 +897,7 @@ impl StorageProcessor {
                     RelationalAST::BigMap { .. } => {
                         if let parser::Value::Int(i) = value {
                             self.save_bigmap_location(
-                                i.to_u32().unwrap(),
+                                i.to_i32().unwrap(),
                                 ctx.id,
                                 rel_ast.clone(),
                             );
@@ -986,7 +1024,7 @@ impl StorageProcessor {
 
     fn save_bigmap_location(
         &mut self,
-        bigmap_id: u32,
+        bigmap_id: i32,
         fk: u32,
         rel_ast: RelationalAST,
     ) {
