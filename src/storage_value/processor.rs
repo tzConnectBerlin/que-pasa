@@ -901,7 +901,9 @@ impl StorageProcessor {
                     RelationalAST::BigMap { .. } => {
                         if let parser::Value::Int(i) = value {
                             self.save_bigmap_location(
-                                i.to_i32().unwrap(),
+                                i.to_i32().ok_or_else(|| {
+                                    anyhow!("failed to translate bigmap id ({}) into i32", i)
+                                })?,
                                 ctx.id,
                                 rel_ast.clone(),
                             );
