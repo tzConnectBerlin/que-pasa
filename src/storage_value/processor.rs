@@ -588,7 +588,8 @@ impl StorageProcessor {
                 Ok(())
             }
             "copy" => {
-                Err(anyhow!("bigmap 'copy' action not supported yet"))
+                Ok(())
+                // Err(anyhow!("bigmap 'copy' action not supported yet"))
 
                 /*
                         let ctx =

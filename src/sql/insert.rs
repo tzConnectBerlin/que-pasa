@@ -1,7 +1,10 @@
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use pg_bigdecimal::PgNumeric;
 use postgres::types::BorrowToSql;
 use std::collections::BTreeMap;
+
+use crate::sql::postgresql_generator::PostgresqlGenerator;
 
 #[derive(
     Ord, PartialOrd, Clone, Debug, Eq, PartialEq, Serialize, Deserialize,
@@ -65,6 +68,31 @@ pub struct Insert {
 }
 
 impl Insert {
+    pub fn get_columns(&self) -> Result<Vec<Column>> {
+        let mut res = self.columns.clone();
+
+        res.push(Column {
+            name: "id".to_string(),
+            value: Value::Int(self.id as i32),
+        });
+        if let Some(fk_id) = self.fk_id {
+            let parent_name = PostgresqlGenerator::parent_name(
+                &self.table_name,
+            )
+            .ok_or_else(|| {
+                anyhow!(
+                    "
+                failed to get parent name from table={}",
+                    self.table_name
+                )
+            })?;
+            res.push(Column {
+                name: format!("{}_id", parent_name),
+                value: Value::Int(fk_id as i32),
+            });
+        }
+        Ok(res)
+    }
     #[cfg(test)]
     pub fn get_column(&self, name: &str) -> Option<&Column> {
         self.columns

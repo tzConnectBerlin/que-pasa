@@ -15,7 +15,7 @@ use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::{Noname, RelationalAST};
 use crate::sql::db::DBClient;
-use crate::sql::insert::{InsertKey, Inserts};
+use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
 use crate::storage_value::processor::{StorageProcessor, TxContext};
@@ -397,6 +397,8 @@ impl Executor {
         }
         let mut contract_results: Vec<SaveLevelResult> = vec![];
 
+        info!("processing level {}", level.level);
+
         let mut tx = self.dbcli.transaction()?;
         DBClient::delete_level(&mut tx, level)?;
         DBClient::save_level(&mut tx, level)?;
@@ -488,7 +490,7 @@ impl Executor {
 	    tx,
                 meta,
                 contract_id,
-                &inserts,
+                inserts,
                 tx_contexts,
                 (storage_processor.get_id_value() + 1) as i32,
             )
@@ -531,7 +533,7 @@ impl Executor {
         tx: &mut Transaction,
         meta: &LevelMeta,
         contract_id: &ContractID,
-        inserts: &Inserts,
+        inserts: Inserts,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
@@ -539,19 +541,13 @@ impl Executor {
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
 
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
-        let mut keys = inserts
-            .keys()
-            .collect::<Vec<&InsertKey>>();
-        keys.sort_by_key(|a| a.id);
-        for key in keys.iter() {
-            DBClient::apply_insert(
-                tx,
-                contract_id,
-                inserts
-                    .get(key)
-                    .ok_or_else(|| anyhow!("no insert for key"))?,
-            )?;
-        }
+        DBClient::apply_inserts(
+            tx,
+            contract_id,
+            &inserts
+                .into_values()
+                .collect::<Vec<Insert>>(),
+        )?;
         DBClient::set_max_id(tx, next_id)?;
         Ok(())
     }

@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Result};
+use itertools::Itertools;
+use std::collections::HashMap;
 
 use native_tls::{Certificate, TlsConnector};
+use postgres::types::BorrowToSql;
 use postgres::{Client, NoTls, Transaction};
 use postgres_native_tls::MakeTlsConnector;
 use std::fs;
@@ -10,7 +13,7 @@ use chrono::{DateTime, Utc};
 use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
 use crate::octez::node::NodeClient;
-use crate::sql::insert::{Column, Insert, Value};
+use crate::sql::insert::{Column, Insert, Inserts, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
@@ -21,6 +24,8 @@ pub struct DBClient {
 }
 
 impl DBClient {
+    const INSERT_BATCH_SIZE: usize = 100;
+
     pub(crate) fn connect(
         url: &str,
         ssl: bool,
@@ -158,64 +163,139 @@ WHERE name = $1
     }
 
     pub(crate) fn save_tx_contexts(
-        transaction: &mut Transaction,
-        tx_context_map: &[TxContext],
+        tx: &mut Transaction,
+        tx_contexts: &[TxContext],
     ) -> Result<()> {
-        let stmt = transaction.prepare("
-INSERT INTO
-tx_contexts(id, level, contract, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES
-($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")?;
-        for tx_context in tx_context_map {
-            transaction.execute(
-                &stmt,
-                &[
-                    &(tx_context
+        struct TxContextPG {
+            id: i32,
+            pub level: i32,
+            pub contract: String,
+            pub operation_hash: String,
+            pub operation_group_number: i32,
+            pub operation_number: i32,
+            pub content_number: i32,
+            pub internal_number: Option<i32>,
+            pub source: Option<String>,
+            pub destination: Option<String>,
+            pub entrypoint: Option<String>,
+        }
+        for chunk in tx_contexts.chunks(Self::INSERT_BATCH_SIZE) {
+            let tx_contexts_pg: Vec<TxContextPG> = chunk
+                .iter()
+                .map(|tx_context| TxContextPG {
+                    id: tx_context
                         .id
-                        .ok_or_else(|| anyhow!("Missing ID on TxContext"))?
-                        as i32),
-                    &(tx_context.level as i32),
-                    &tx_context.contract,
-                    &(tx_context.operation_group_number as i32),
-                    &(tx_context.operation_number as i32),
-                    &(tx_context.content_number as i32),
-                    &(tx_context
+                        .ok_or_else(|| anyhow!("Missing ID on TxContext"))
+                        .unwrap() as i32,
+                    level: tx_context.level as i32,
+                    contract: tx_context.contract.clone(),
+                    operation_group_number: tx_context.operation_group_number
+                        as i32,
+                    operation_number: tx_context.operation_number as i32,
+                    content_number: tx_context.content_number as i32,
+                    internal_number: tx_context
                         .internal_number
-                        .map(|n| n as i32)),
-                    &tx_context.operation_hash,
-                    &tx_context.source,
-                    &tx_context.destination,
-                    &tx_context.entrypoint,
-                ],
-            )?;
+                        .map(|n| n as i32),
+                    operation_hash: tx_context.operation_hash.clone(),
+                    source: tx_context.source.clone(),
+                    destination: tx_context.destination.clone(),
+                    entrypoint: tx_context.entrypoint.clone(),
+                })
+                .collect();
+
+            let num_columns = 11;
+            let v_refs = (1..(num_columns * chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+
+            let values: Vec<&dyn postgres::types::ToSql> = tx_contexts_pg
+                .iter()
+                .flat_map(|tx_context| {
+                    [
+                        tx_context.id.borrow_to_sql(),
+                        tx_context.level.borrow_to_sql(),
+                        tx_context.contract.borrow_to_sql(),
+                        tx_context
+                            .operation_group_number
+                            .borrow_to_sql(),
+                        tx_context
+                            .operation_number
+                            .borrow_to_sql(),
+                        tx_context
+                            .content_number
+                            .borrow_to_sql(),
+                        tx_context
+                            .internal_number
+                            .borrow_to_sql(),
+                        tx_context
+                            .operation_hash
+                            .borrow_to_sql(),
+                        tx_context.source.borrow_to_sql(),
+                        tx_context.destination.borrow_to_sql(),
+                        tx_context.entrypoint.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            let stmt = tx.prepare(&format!("
+INSERT INTO
+tx_contexts(id, level, contract, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES ( {} )", v_refs))?;
+            tx.query_raw(&stmt, values)?;
+        }
+
+        // for tx_context in tx_context_map {
+        //     transaction.execute(&stmt)?;
+        // }
+        Ok(())
+    }
+
+    pub(crate) fn apply_inserts(
+        tx: &mut postgres::Transaction,
+        contract_id: &ContractID,
+        inserts: &[Insert],
+    ) -> Result<()> {
+        let mut table_grouped: HashMap<(String, Vec<String>), Vec<Insert>> =
+            HashMap::new();
+        for insert in inserts {
+            let key = &(
+                insert.table_name.clone(),
+                insert
+                    .columns
+                    .iter()
+                    .map(|col| col.name.clone())
+                    .collect::<Vec<String>>(),
+            );
+            if !table_grouped.contains_key(key) {
+                table_grouped.insert(key.clone(), vec![]);
+            }
+            table_grouped
+                .get_mut(key)
+                .unwrap()
+                .push(insert.clone());
+        }
+        let mut keys: Vec<&(String, Vec<String>)> =
+            table_grouped.keys().collect();
+        keys.sort();
+        for k in keys {
+            let table_inserts = table_grouped.get(k).unwrap();
+            for chunk in table_inserts.chunks(Self::INSERT_BATCH_SIZE) {
+                Self::apply_inserts_for_table(tx, contract_id, chunk)?;
+            }
         }
         Ok(())
     }
 
-    pub(crate) fn apply_insert(
+    pub(crate) fn apply_inserts_for_table(
         tx: &mut postgres::Transaction,
         contract_id: &ContractID,
-        insert: &Insert,
+        inserts: &[Insert],
     ) -> Result<()> {
-        let mut columns = insert.columns.clone();
-        columns.push(Column {
-            name: "id".to_string(),
-            value: Value::Int(insert.id as i32),
-        });
-        if let Some(fk_id) = insert.fk_id {
-            let parent_name =
-                PostgresqlGenerator::parent_name(&insert.table_name)
-                    .ok_or_else(|| {
-                        anyhow!(
-                            "
-                failed to get parent name from table={}",
-                            insert.table_name
-                        )
-                    })?;
-            columns.push(Column {
-                name: format!("{}_id", parent_name),
-                value: Value::Int(fk_id as i32),
-            });
-        }
+        let meta = &inserts[0];
+
+        let columns = inserts[0].get_columns()?;
 
         let v_names: String = columns
             .iter()
@@ -223,36 +303,47 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
             .collect::<Vec<String>>()
             .join(", ");
 
-        let v_refs = (1..columns.len() + 1)
+        let v_refs = (1..(columns.len() * inserts.len()) + 1)
             .map(|i| format!("${}", i.to_string()))
             .collect::<Vec<String>>()
-            .join(", ");
+            .chunks(columns.len())
+            .map(|x| x.join(", "))
+            .join("), (");
 
         let qry = format!(
             r#"
 INSERT INTO "{contract_schema}"."{table}" ( {v_names} )
 VALUES ( {v_refs} )"#,
             contract_schema = contract_id.name,
-            table = insert.table_name,
+            table = meta.table_name,
             v_names = v_names,
             v_refs = v_refs,
         );
+        let stmt = tx.prepare(qry.as_str())?;
+
+        let all_columns: Vec<Column> = inserts
+            .iter()
+            .map(|insert| insert.get_columns())
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .flatten()
+            .cloned()
+            .collect();
+
         debug!(
-            "qry: {}, values: {:?}",
+            "qry: {}, values: {:#?}",
             qry,
-            columns
+            all_columns
                 .iter()
                 .cloned()
                 .map(|x| x.value)
                 .collect::<Vec<Value>>()
         );
-        let stmt = tx.prepare(qry.as_str())?;
 
-        let values: Vec<&dyn postgres::types::ToSql> = columns
+        let values: Vec<&dyn postgres::types::ToSql> = all_columns
             .iter()
             .map(|x| x.value.borrow_to_sql())
             .collect();
-
         tx.query_raw(&stmt, values)?;
         Ok(())
     }
