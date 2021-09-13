@@ -89,7 +89,7 @@ It is possible to only process the blocks relevant to the setup. For this to wor
 ### Tables
 The main table in each indexed contract's DB schema is `storage`; all other tables have a prefix which indicates where they are in the contract storage. For instance a map called `foo` in the main storage will live in a table called `storage.foo`, with a foreign key constraint, `storage_id` pointing back to the storage row which relates to it. Deeper levels of nesting will go on, and on.
 
-All tables have a `tx_context_id` field, which enables searching the database for its state at any time, while also making simple queries much more complicated. See below for some SQL queries which return the current state of the database, and are suitable for creating views.
+All tables have a `tx_context_id` field, which enables searching the database for its state at any time, while also making simple queries much more complicated. See the definitions for the `_live` and `_ordered` views for insights on how to create custom queries on the tables directly.
 
 Variant records come in two varieties. The simplest are those which are simply one or another `unit` types, with different annotations. These become text fields in the database. The other type are true variant records, they become subsidiary tables, as maps and big maps are, with a text field in the parent table indicating which form of the record is present.
 
