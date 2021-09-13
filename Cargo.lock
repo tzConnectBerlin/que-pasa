@@ -1264,6 +1264,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "que-pasa"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "atty",
+ "backoff",
+ "backtrace",
+ "bs58",
+ "chrono",
+ "clap",
+ "curl",
+ "dotenv",
+ "env_logger",
+ "flume",
+ "hex",
+ "indicatif",
+ "itertools",
+ "json",
+ "lazy_static",
+ "log",
+ "native-tls",
+ "num",
+ "pg_bigdecimal",
+ "postgres",
+ "postgres-native-tls",
+ "pretty_assertions",
+ "regex",
+ "reqwest",
+ "ron",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml",
+ "spinners",
+ "termion",
+]
+
+[[package]]
 name = "quote"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1593,44 +1631,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75adad84ee84b521fb2cca2d4fd0f1dab1d8d026bda3c5bea4ca63b5f9f9293c"
 dependencies = [
  "lock_api",
-]
-
-[[package]]
-name = "storage2sql"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "atty",
- "backoff",
- "backtrace",
- "bs58",
- "chrono",
- "clap",
- "curl",
- "dotenv",
- "env_logger",
- "flume",
- "hex",
- "indicatif",
- "itertools",
- "json",
- "lazy_static",
- "log",
- "native-tls",
- "num",
- "pg_bigdecimal",
- "postgres",
- "postgres-native-tls",
- "pretty_assertions",
- "regex",
- "reqwest",
- "ron",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_yaml",
- "spinners",
- "termion",
 ]
 
 [[package]]

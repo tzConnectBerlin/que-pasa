@@ -1,12 +1,10 @@
 [package]
-name = "storage2sql"
+name = "que-pasa"
 version = "0.1.0"
-authors = ["John Newby <john@newby.org>"]
+authors = ["Rick Klomp <rick.klomp@tzconnect.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[build-dependencies] # <-- We added this and everything after!
+[build-dependencies]
 
 [dev-dependencies]
 pretty_assertions = "*"

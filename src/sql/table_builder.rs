@@ -71,7 +71,7 @@ impl TableBuilder {
             .insert(table.name.clone(), table);
     }
 
-    fn touch_bigmap_clears_table(&mut self) {
+    fn touch_bigmap_meta_tables(&mut self) {
         let mut t = self.get_table("bigmap_clears");
         t.add_index(
             true,
@@ -79,6 +79,21 @@ impl TableBuilder {
             &ExprTy::SimpleExprTy(SimpleExprTy::Int),
         );
         self.store_table(t);
+
+        /*
+            let mut t = self.get_table("bigmap_copies");
+            t.add_index(
+                true,
+                "bigmap_id_source",
+                &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+            );
+            t.add_index(
+                true,
+                "bigmap_id_destination",
+                &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+            );
+            self.store_table(t);
+        */
     }
 
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
@@ -118,7 +133,7 @@ impl TableBuilder {
                 );
                 self.store_table(t);
 
-                self.touch_bigmap_clears_table();
+                self.touch_bigmap_meta_tables();
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {

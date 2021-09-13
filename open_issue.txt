@@ -1,0 +1,7 @@
+Caused by:
+    0: process_block: process big_map diff failed (tx_context=TxContext { id: Some(1229453), level: 150139
+5, contract: "KT1PvEyN1xCFCgorN92QCfYjw3axS6jawCiJ", operation_hash: "opLcoQbZP5hzdC9vw7v7CTCasVdCZaJxLJPu
+V92xuMmefHXqoJD", operation_group_number: 3, operation_number: 3, content_number: 1, internal_number: None
+, source: Some("tz1L8VQ3oi6fCbddWYxCoL1ckjFK7wBHdT48"), destination: Some("KT1PvEyN1xCFCgorN92QCfYjw3axS6j
+awCiJ"), entrypoint: Some("launchExchange") })
+

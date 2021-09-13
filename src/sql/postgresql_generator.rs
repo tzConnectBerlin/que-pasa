@@ -32,6 +32,14 @@ impl PostgresqlGenerator {
             "bigmap_id" => {
                 return Some("bigmap_id INTEGER NOT NULL".to_string())
             }
+            "bigmap_id_source" => {
+                return Some("bigmap_id_source INTEGER NOT NULL".to_string())
+            }
+            "bigmap_id_destination" => {
+                return Some(
+                    "bigmap_id_destination INTEGER NOT NULL".to_string(),
+                )
+            }
             _ => {}
         }
 
@@ -228,7 +236,7 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
-      ON  ctx.id = t.tx_context_id
+      ON ctx.id = t.tx_context_id
     JOIN levels level_meta
       ON level_meta.level = ctx.level
     ORDER BY

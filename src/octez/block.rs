@@ -471,6 +471,10 @@ pub struct BigMapDiff {
     pub action: String,
     #[serde(rename = "big_map")]
     pub big_map: Option<String>,
+    #[serde(rename = "source_big_map")]
+    pub source_big_map: Option<String>,
+    #[serde(rename = "destination_big_map")]
+    pub destination_big_map: Option<String>,
     #[serde(rename = "key_hash")]
     pub key_hash: Option<String>,
     pub key: Option<serde_json::Value>,
