@@ -21,7 +21,7 @@ Forks are automatically detected. When detected, indexed data belonging to the o
 Make sure all dependencies are present on your machine:
 - Rust's build system `cargo` is required.
 
-Then clone our repository, and run `cargo install` anywhere inside it.
+Then clone our repository, and run `cargo install --path .` inside its root directory.
 
 Following subsections give exact installation command sequences for specific operating systems.
 
