@@ -20,5 +20,7 @@ fn init_denylist() -> HashMap<String, ()> {
     // see eg:
     //  https://better-call.dev/mainnet/opg/opNPz4UwVgKvFkUeLDczz7yZhPYyj5VBnptqgQgfPj6Ux6yUzHa/contents
     m.insert("KT1FHAtLjG6S6tfjmrDeEySVLeP8a16T4Ngr".to_string(), ());
+    // Following contracts use bigmap copy actions
+    m.insert("KT1Jr5t9UvGiqkvvsuUbPJHaYx24NzdUwNW9".to_string(), ());
     m
 }

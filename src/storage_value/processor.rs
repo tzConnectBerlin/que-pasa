@@ -495,7 +495,7 @@ impl StorageProcessor {
             "update" => {
                 let big_map_id: i32 = match &diff.big_map {
                     Some(id) => {
-                        println!("id is: {}", id);
+                        debug!("id is: {}", id);
                         id.parse()?
                     }
                     None => {
@@ -588,43 +588,47 @@ impl StorageProcessor {
                 Ok(())
             }
             "copy" => {
-                let ctx =
-                    &ProcessStorageContext::new(self.id_generator.get_id());
-                self.sql_add_cell(
-                    ctx,
-                    &"bigmap_copies".to_string(),
-                    &"bigmap_id_source".to_string(),
-                    insert::Value::Int(
-                        diff.source_big_map
-                            .clone()
-                            .ok_or_else(|| {
-                                anyhow!(
-                                    "no big map id found in diff {:?}",
-                                    diff
-                                )
-                            })?
-                            .parse()?,
-                    ),
-                    tx_context,
-                );
-                self.sql_add_cell(
-                    ctx,
-                    &"bigmap_copies".to_string(),
-                    &"bigmap_id_destination".to_string(),
-                    insert::Value::Int(
-                        diff.destination_big_map
-                            .clone()
-                            .ok_or_else(|| {
-                                anyhow!(
-                                    "no big map id found in diff {:?}",
-                                    diff
-                                )
-                            })?
-                            .parse()?,
-                    ),
-                    tx_context,
-                );
-                Ok(())
+                Err(anyhow!("bigmap 'copy' action not supported yet"))
+
+                /*
+                        let ctx =
+                            &ProcessStorageContext::new(self.id_generator.get_id());
+                        self.sql_add_cell(
+                            ctx,
+                            &"bigmap_copies".to_string(),
+                            &"bigmap_id_source".to_string(),
+                            insert::Value::Int(
+                                diff.source_big_map
+                                    .clone()
+                                    .ok_or_else(|| {
+                                        anyhow!(
+                                            "no big map id found in diff {:?}",
+                                            diff
+                                        )
+                                    })?
+                                    .parse()?,
+                            ),
+                            tx_context,
+                        );
+                        self.sql_add_cell(
+                            ctx,
+                            &"bigmap_copies".to_string(),
+                            &"bigmap_id_destination".to_string(),
+                            insert::Value::Int(
+                                diff.destination_big_map
+                                    .clone()
+                                    .ok_or_else(|| {
+                                        anyhow!(
+                                            "no big map id found in diff {:?}",
+                                            diff
+                                        )
+                                    })?
+                                    .parse()?,
+                            ),
+                            tx_context,
+                        );
+                        Ok(())
+                */
             }
             "alloc" => Ok(()),
             action => Err(anyhow!(

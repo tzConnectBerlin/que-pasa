@@ -2,7 +2,7 @@
 
 This repo contains the baby indexer, an indexer for dApps. It indexes only the contracts you want it to index. It reads the contract's storage definition and generates SQL DDL for a SQL representation of the tables, which it then populates.
 
-Currently the indexer works with PostgreSQL 12.
+Currently the indexer works with PostgreSQL (we have been running with PostgreSQL 12 and 13).
 
 ## Detailed overview
 
@@ -42,9 +42,9 @@ Required settings:
 - Which contracts to index (for more info see "Contracts settings" section)
 
 Once those have been set:
-1). First, setup the database by running with `--init`. This will create a set of global tables (tables that are shared between each indexed contracts).
-2). An initial sync is now required (processing of all relevant blocks up til now). This can be done by processing every block from head until contracts origination, though it will require fetching all blocks in this range (including blocks that are irrelevant to the setup). For the alternative fast sync see section "Fast sync".
-4). Now we're synced. Any subsequent runs will run in a continuous mode, where we wait for new blocks to arrive and process them when they do.
+1. First, setup the database by running with `--init`. This will create a set of global tables (tables that are shared between each indexed contracts).
+2. An initial sync is now required (processing of all relevant blocks up til now). This can be done by processing every block from head until contracts origination, though it will require fetching all blocks in this range (including blocks that are irrelevant to the setup). For the alternative fast sync see section "Fast sync".
+3. Now we're synced. Any subsequent runs will run in a continuous mode, where we wait for new blocks to arrive and process them when they do.
 
 ### Database settings
 
@@ -94,3 +94,8 @@ All tables have a `tx_context_id` field, which enables searching the database fo
 Variant records come in two varieties. The simplest are those which are simply one or another `unit` types, with different annotations. These become text fields in the database. The other type are true variant records, they become subsidiary tables, as maps and big maps are, with a text field in the parent table indicating which form of the record is present.
 
 Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed. If the most recent version of the map for the keys you specify has this flag set, there is no row.
+
+# Limitations
+
+- Generated table names can become quite long. Some contracts may be impeded by name length limitations of the underlying database system. For example, PostgreSQL's default setup only allows table names of up to 63 characters.
+- We're not sure yet whether we need to support the bigmap `copy` action. This depends on what the causes and implications of this action are. Pending clarification we have decided to error on occurance (therefore, for now this tool does not support contracts that perform this bigmap action).

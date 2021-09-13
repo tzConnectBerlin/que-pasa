@@ -80,18 +80,20 @@ impl TableBuilder {
         );
         self.store_table(t);
 
-        let mut t = self.get_table("bigmap_copies");
-        t.add_index(
-            true,
-            "bigmap_id_source",
-            &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-        );
-        t.add_index(
-            true,
-            "bigmap_id_destination",
-            &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-        );
-        self.store_table(t);
+        /*
+            let mut t = self.get_table("bigmap_copies");
+            t.add_index(
+                true,
+                "bigmap_id_source",
+                &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+            );
+            t.add_index(
+                true,
+                "bigmap_id_destination",
+                &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+            );
+            self.store_table(t);
+        */
     }
 
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
