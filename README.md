@@ -10,7 +10,9 @@ In short, Que Pasa translates the marketplace contract in:
 
 ![](https://i.imgur.com/Reb4NR2.png)
 
-Where, for example, table "storage" has the following columns: ![](https://i.imgur.com/6Adw1Cp.png)
+Where, for example, table "storage" has the following columns: 
+
+![](https://i.imgur.com/6Adw1Cp.png)
 
 Currently the indexer works with PostgreSQL (we have been running with PostgreSQL 12 and 13).
 
