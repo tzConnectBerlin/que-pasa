@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
 use crate::octez::node::NodeClient;
-use crate::sql::insert::{Column, Insert, Inserts, Value};
+use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
@@ -180,6 +180,17 @@ WHERE name = $1
             pub entrypoint: Option<String>,
         }
         for chunk in tx_contexts.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 11;
+            let v_refs = (1..(num_columns * chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!("
+INSERT INTO
+tx_contexts(id, level, contract, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES ( {} )", v_refs))?;
+
             let tx_contexts_pg: Vec<TxContextPG> = chunk
                 .iter()
                 .map(|tx_context| TxContextPG {
@@ -202,15 +213,6 @@ WHERE name = $1
                     entrypoint: tx_context.entrypoint.clone(),
                 })
                 .collect();
-
-            let num_columns = 11;
-            let v_refs = (1..(num_columns * chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
-                .collect::<Vec<String>>()
-                .chunks(num_columns)
-                .map(|x| x.join(", "))
-                .join("), (");
-
             let values: Vec<&dyn postgres::types::ToSql> = tx_contexts_pg
                 .iter()
                 .flat_map(|tx_context| {
@@ -240,15 +242,9 @@ WHERE name = $1
                 })
                 .collect();
 
-            let stmt = tx.prepare(&format!("
-INSERT INTO
-tx_contexts(id, level, contract, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES ( {} )", v_refs))?;
             tx.query_raw(&stmt, values)?;
         }
 
-        // for tx_context in tx_context_map {
-        //     transaction.execute(&stmt)?;
-        // }
         Ok(())
     }
 

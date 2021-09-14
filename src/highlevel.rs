@@ -121,29 +121,11 @@ impl Executor {
         Ok(())
     }
 
-    pub fn add_missing_contracts(&mut self, block: &Block) -> Result<()> {
-        let contracts: Vec<ContractID> = block
-            .active_contracts()
-            .iter()
-            .map(|address| ContractID {
-                name: address.clone(),
-                address: address.clone(),
-            })
-            .filter(|contract_id| !self.contracts.contains_key(contract_id))
-            .collect();
-
-        if !contracts.is_empty() {
-            info!(
-                "level {}, analyzing contracts: {:#?}..",
-                block.header.level,
-                contracts
-                    .iter()
-                    .map(|x| &x.address)
-                    .collect::<Vec<&String>>()
-            );
-        }
-
-        for contract_id in &contracts {
+    pub fn add_missing_contracts(
+        &mut self,
+        contracts: &[&ContractID],
+    ) -> Result<()> {
+        for contract_id in contracts {
             self.add_contract(contract_id)?;
             self.dbcli.create_contract_schema(
                 contract_id,
@@ -180,17 +162,7 @@ impl Executor {
         // in the db
 
         let mut storage_processor = self.get_storage_processor()?;
-        let is_tty = stdout_is_tty();
-
         loop {
-            let _spinner;
-
-            if is_tty {
-                _spinner =
-                    spinners::Spinner::new(spinners::Spinners::Line, "".into());
-                //print!("Waiting for first block");
-            }
-
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
                 Some(head) => Ok(head),
@@ -392,9 +364,38 @@ impl Executor {
         block: &Block,
         storage_processor: &mut StorageProcessor,
     ) -> Result<Vec<SaveLevelResult>> {
-        if self.all_contracts {
-            self.add_missing_contracts(block)?;
-        }
+        let process_contracts = if self.all_contracts {
+            let active_contracts: Vec<ContractID> = block
+                .active_contracts()
+                .iter()
+                .map(|address| ContractID {
+                    name: address.clone(),
+                    address: address.clone(),
+                })
+                .collect();
+            let new_contracts: Vec<&ContractID> = active_contracts
+                .iter()
+                .filter(|contract_id| !self.contracts.contains_key(contract_id))
+                .collect();
+
+            if !new_contracts.is_empty() {
+                info!(
+                    "level {}, analyzing contracts: {:#?}..",
+                    block.header.level,
+                    new_contracts
+                        .iter()
+                        .map(|x| &x.address)
+                        .collect::<Vec<&String>>()
+                );
+                self.add_missing_contracts(&new_contracts)?;
+            }
+            active_contracts
+        } else {
+            self.contracts
+                .keys()
+                .cloned()
+                .collect::<Vec<ContractID>>()
+        };
         let mut contract_results: Vec<SaveLevelResult> = vec![];
 
         info!("processing level {}", level.level);
@@ -403,14 +404,15 @@ impl Executor {
         DBClient::delete_level(&mut tx, level)?;
         DBClient::save_level(&mut tx, level)?;
 
-        for (contract_id, rel_ast) in self.contracts.clone() {
+        for contract_id in &process_contracts {
+            let (rel_ast, _) = &self.contracts[contract_id];
             contract_results.push(Self::exec_for_block_contract(
                 &mut tx,
                 level,
                 block,
                 storage_processor,
-                &contract_id,
-                &rel_ast.0,
+                contract_id,
+                rel_ast,
             )?);
         }
         tx.commit()?;
@@ -587,10 +589,6 @@ pub(crate) fn get_rel_ast(
     })?;
     debug!("rel_ast: {:#?}", rel_ast);
     Ok(rel_ast)
-}
-
-fn stdout_is_tty() -> bool {
-    atty::is(atty::Stream::Stdout)
 }
 
 /// Load from the ../test directory, only for testing
