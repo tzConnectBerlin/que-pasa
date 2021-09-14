@@ -2,6 +2,16 @@
 
 This repo contains the baby indexer, an indexer for dApps. It indexes only the contracts you want it to index. It reads the contract's storage definition and generates SQL DDL for a SQL representation of the tables, which it then populates.
 
+In short, Que Pasa translates the marketplace contract in: 
+
+![](https://i.imgur.com/VhnGtss.png)
+
+, into a database schema with following tables:
+
+![](https://i.imgur.com/Reb4NR2.png)
+
+Where, for example, table "storage" has the following columns: ![](https://i.imgur.com/6Adw1Cp.png)
+
 Currently the indexer works with PostgreSQL (we have been running with PostgreSQL 12 and 13).
 
 ## Detailed overview
