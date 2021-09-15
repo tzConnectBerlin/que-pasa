@@ -44,12 +44,39 @@ impl Value {
             _ => self.clone(),
         }
     }
+
+    pub fn unpair_elts(&self) -> Result<Value> {
+        match self {
+            Value::Pair(l, rest) => {
+                if let Value::Elt { .. } = **l {
+                    let rest = (**rest).clone();
+                    let rest_unpaired = match rest {
+                        Value::Elt { .. } => Ok(vec![rest]),
+                        Value::Pair { .. } => {
+                            if let Value::List(rest_unpaired) =
+                                rest.unpair_elts()?
+                            {
+                                Ok(rest_unpaired)
+			    } else {
+				Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)"))
+			    }
+                        },
+			_ => Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)")),
+                    }?;
+                    let mut xs = vec![(**l).clone()];
+                    xs.extend(rest_unpaired);
+                    Ok(Value::List(xs))
+                } else {
+                    Ok(self.clone())
+                }
+            }
+            _ => Ok(self.clone()),
+        }
+    }
 }
 
-pub(crate) fn parse(storage_json: String) -> Result<Value> {
-    let json_parsed = &json::parse(&storage_json)
-        .with_context(|| "failed to parse storage data into json")?;
-    let lexed = lex(json_parsed);
+pub(crate) fn parse_json(storage_json: &JsonValue) -> Result<Value> {
+    let lexed = lex(storage_json);
     parse_lexed(&lexed)
         .with_context(|| "failed to parse storage json into Value")
 }

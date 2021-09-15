@@ -326,7 +326,7 @@ VALUES ( {v_refs} )"#,
             .cloned()
             .collect();
 
-        debug!(
+        println!(
             "qry: {}, values: {:#?}",
             qry,
             all_columns

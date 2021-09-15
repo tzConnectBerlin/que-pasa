@@ -100,6 +100,23 @@ impl NodeClient {
         .map_err(|e| anyhow!(e))
     }
 
+    pub(crate) fn get_contract_storage(
+        &self,
+        contract_id: &str,
+        level: u32,
+    ) -> Result<JsonValue> {
+        self.load(&format!(
+            "blocks/{}/context/contracts/{}/storage",
+            level, contract_id
+        ))
+        .with_context(|| {
+            format!(
+                "failed to get storage for contract='{}', level={}",
+                contract_id, level
+            )
+        })
+    }
+
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {
         let fixedoffset = chrono::DateTime::parse_from_rfc3339(rfc3339)?;
         Ok(fixedoffset.with_timezone(&Utc))

@@ -335,8 +335,6 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
             t.deleted
             {columns}
         FROM "{contract_schema}"."{table}" t
-        WHERE t.deleted
-           OR t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
 
         UNION ALL
 
@@ -347,7 +345,18 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
         FROM "{contract_schema}"."{table}" t
         JOIN "{contract_schema}".bigmap_clears clr
           ON t.bigmap_id = clr.bigmap_id
-        WHERE NOT t.deleted
+        WHERE 'false' = (
+            SELECT last_value(deleted) over (order by
+                ctx_.level,
+                ctx_.operation_group_number,
+                ctx_.operation_number,
+                ctx_.content_number,
+                COALESCE(ctx_.internal_number, -1)) as latest
+            FROM "{contract_schema}"."{table}" t_
+            JOIN tx_contexts ctx_ ON ctx_.id = t_.tx_context_id
+            WHERE t_.bigmap_id = t.bigmap_id
+              AND {indices_check}
+        )
     ) t  -- t with bigmap clears unfolded
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
@@ -365,6 +374,10 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 .iter()
                 .map(|c| format!("t.{}", c))
                 .join(", "),
+            indices_check = indices
+                .iter()
+                .map(|c| format!("t.{} = t_.{}", c, c))
+                .join(" AND ")
         ))
     }
 

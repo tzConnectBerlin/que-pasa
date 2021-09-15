@@ -337,7 +337,7 @@ impl Executor {
             .with_context(|| {
                 "could not initialize storage processor from the db state"
             })?;
-        Ok(StorageProcessor::new(id as u32))
+        Ok(StorageProcessor::new(id as u32, self.node_cli.clone()))
     }
 
     fn exec_level(
@@ -447,22 +447,10 @@ impl Executor {
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
-        if block.has_contract_origination(&contract_id.address) {
-            Self::mark_level_contract_origination(tx, meta, contract_id)
-            .with_context(|| {
-                format!(
-                    "execute for level={} failed: could not mark level as contract origination in db",
-                    meta.level)
-            })?;
-            return Ok(SaveLevelResult {
-                level: meta.level,
-                contract_id: contract_id.clone(),
-                is_origination: true,
-                tx_count: 0,
-            });
-        }
+        let is_origination =
+            block.has_contract_origination(&contract_id.address);
 
-        if !block.is_contract_active(&contract_id.address) {
+        if !is_origination && !block.is_contract_active(&contract_id.address) {
             Self::mark_level_empty(tx, meta, contract_id)
             .with_context(|| {
                 format!(
@@ -502,10 +490,18 @@ impl Executor {
                 meta.level, contract_id.name,
             )
             })?;
+        if is_origination {
+            Self::mark_level_contract_origination(tx, meta, contract_id)
+            .with_context(|| {
+                format!(
+                    "execute for level={} failed: could not mark level as contract origination in db",
+                    meta.level)
+            })?;
+        }
         Ok(SaveLevelResult {
             level: meta.level,
             contract_id: contract_id.clone(),
-            is_origination: false,
+            is_origination,
             tx_count,
         })
     }
@@ -515,8 +511,6 @@ impl Executor {
         meta: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
-        DBClient::save_contract_level(tx, contract_id, meta.level)?;
         DBClient::set_origination(tx, contract_id, meta.level)?;
         Ok(())
     }

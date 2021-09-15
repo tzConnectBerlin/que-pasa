@@ -1,5 +1,6 @@
 use crate::debug;
 use crate::octez::block;
+use crate::octez::node::NodeClient;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
@@ -132,15 +133,17 @@ pub(crate) struct StorageProcessor {
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
+    node_cli: NodeClient,
 }
 
 impl StorageProcessor {
-    pub(crate) fn new(initial_id: u32) -> Self {
+    pub(crate) fn new(initial_id: u32, node_cli: NodeClient) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
+            node_cli,
         }
     }
 
@@ -154,7 +157,7 @@ impl StorageProcessor {
         self.tx_contexts.clear();
         self.big_map_map.clear();
 
-        let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
+        let mut storages: Vec<(TxContext, parser::Value)> = vec![];
         let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
         let operations = block.operations();
 
@@ -170,7 +173,7 @@ impl StorageProcessor {
                     operation_number,
                     operation,
                     contract_id,
-                ));
+                )?);
                 big_map_diffs.extend(self.get_big_map_diffs_from_operation(
                     block.header.level,
                     operation_group_number,
@@ -181,11 +184,8 @@ impl StorageProcessor {
             }
         }
 
-        for (tx_context, store) in &storages {
-            let storage_json = serde_json::to_string(store)?;
-            let parsed_storage = parser::parse(storage_json)?;
-
-            self.process_storage_value(&parsed_storage, rel_ast, tx_context)
+        for (tx_context, parsed_storage) in &storages {
+            self.process_storage_value(parsed_storage, rel_ast, tx_context)
                 .with_context(|| {
                     format!(
                         "process_block: process storage value failed (tx_context={:?})",
@@ -236,9 +236,11 @@ impl StorageProcessor {
         let c_dest = Some(contract_id.to_string());
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
 
+        let optimize = false;
+
         for (content_number, content) in operation.contents.iter().enumerate() {
             if let Some(operation_result) = &content.metadata.operation_result {
-                if content.destination == c_dest {
+                if !optimize || content.destination == c_dest {
                     if let Some(big_map_diffs) = &operation_result.big_map_diff
                     {
                         result.extend(big_map_diffs.iter().map(
@@ -325,8 +327,8 @@ impl StorageProcessor {
         operation_number: usize,
         operation: &block::Operation,
         contract_id: &str,
-    ) -> Vec<(TxContext, ::serde_json::Value)> {
-        let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
+    ) -> Result<Vec<(TxContext, parser::Value)>> {
+        let mut results: Vec<(TxContext, parser::Value)> = vec![];
 
         let c_dest = Some(contract_id.to_string());
         for (content_number, content) in operation.contents.iter().enumerate() {
@@ -352,7 +354,7 @@ impl StorageProcessor {
                         if let Some(storage) = &operation_result.storage {
                             results.push((
                                 self.tx_context(tx_context),
-                                storage.clone(),
+                                parser::parse_lexed(&serde2json!(storage))?,
                             ));
                         } else {
                             info!(
@@ -361,6 +363,35 @@ impl StorageProcessor {
                             );
                         }
                     }
+                    if operation_result
+                        .originated_contracts
+                        .iter()
+                        .any(|c| c == contract_id)
+                    {
+                        let tx_context = TxContext {
+                            id: None,
+                            level,
+                            contract: contract_id.to_string(),
+                            operation_hash: operation.hash.clone(),
+                            operation_group_number,
+                            operation_number,
+                            content_number,
+                            internal_number: None,
+                            source: content.source.clone(),
+                            destination: content.destination.clone(),
+                            entrypoint: content
+                                .parameters
+                                .clone()
+                                .map(|p| p.entrypoint),
+                        };
+                        let storage = parser::parse_json(
+                            &self
+                                .node_cli
+                                .get_contract_storage(contract_id, level)?,
+                        )?;
+                        results.push((self.tx_context(tx_context), storage));
+                    }
+
                     for (internal_number, internal_op) in content
                         .metadata
                         .internal_operation_results
@@ -387,7 +418,7 @@ impl StorageProcessor {
                             if let Some(storage) = &internal_op.result.storage {
                                 results.push((
                                     self.tx_context(tx_context),
-                                    storage.clone(),
+                                    parser::parse_lexed(&serde2json!(storage))?,
                                 ));
                             } else {
                                 info!(
@@ -400,22 +431,23 @@ impl StorageProcessor {
                 }
             }
         }
-        results
+        Ok(results)
     }
 
     fn unfold_value(
         &self,
         v: &parser::Value,
         rel_ast: &RelationalAST,
-    ) -> parser::Value {
+    ) -> Result<parser::Value> {
         match rel_ast {
-            RelationalAST::List { .. }
-            | RelationalAST::Map { .. }
-            | RelationalAST::BigMap { .. } => {
-                // do not unfold list
-                v.clone()
+            RelationalAST::Map { .. } | RelationalAST::BigMap { .. } => {
+                v.unpair_elts()
             }
-            _ => v.unfold_list(),
+            RelationalAST::List { .. } => {
+                // do not unfold list
+                Ok(v.clone())
+            }
+            _ => Ok(v.unfold_list()),
         }
     }
 
@@ -431,7 +463,7 @@ impl StorageProcessor {
             debug::pp_depth(2, v),
             debug::pp_depth(2, rel_ast)
         );
-        match &self.unfold_value(v, rel_ast) {
+        match &self.unfold_value(v, rel_ast)? {
             parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
                 RelationalAST::OrEnumeration {
@@ -588,6 +620,7 @@ impl StorageProcessor {
                 Ok(())
             }
             "copy" => {
+                println!("copy: {:#?}", diff,);
                 Ok(())
                 // Err(anyhow!("bigmap 'copy' action not supported yet"))
 
@@ -631,7 +664,11 @@ impl StorageProcessor {
                         Ok(())
                 */
             }
-            "alloc" => Ok(()),
+            "alloc" => {
+                println!("alloc: {:#?}", diff,);
+
+                Ok(())
+            }
             action => Err(anyhow!(
                 "big_map action unknown: action={}, diff={:#?}",
                 action,
@@ -686,12 +723,12 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        debug!(
+        let v = &self.unfold_value(value, rel_ast)?;
+        println!(
             "value: {}, rel_ast: {}",
-            debug::pp_depth(3, value),
+            debug::pp_depth(3, v),
             debug::pp_depth(3, rel_ast)
         );
-        let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {
                 if let ExprTy::SimpleExprTy(SimpleExprTy::Stop) =
