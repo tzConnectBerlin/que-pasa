@@ -78,7 +78,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn numeric(&self, name: &str) -> String {
-        format!("{} NUMERIC(64) NULL", name)
+        format!("{} NUMERIC NULL", name)
     }
 
     pub(crate) fn string(&self, name: &str) -> String {
