@@ -75,7 +75,7 @@ fn main() {
 
     if CONFIG.init {
         println!(
-            "Initialising--all data in DB will be destroyed. \
+            "Initialising--all data in DB related to set-up contracts will be destroyed. \
             Interrupt within 5 seconds to abort"
         );
         thread::sleep(std::time::Duration::from_millis(5000));

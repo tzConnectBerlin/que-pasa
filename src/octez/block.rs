@@ -47,15 +47,22 @@ impl Block {
         for operations in &self.operations {
             for operation in operations {
                 for content in &operation.contents {
-                    if content.destination == destination {
-                        return true;
-                    }
-                    for result in &content
-                        .metadata
-                        .internal_operation_results
+                    if let Some(operation_result) =
+                        &content.metadata.operation_result
                     {
-                        if result.destination == destination {
+                        if operation_result.status != "applied" {
+                            continue;
+                        }
+                        if content.destination == destination {
                             return true;
+                        }
+                        for result in &content
+                            .metadata
+                            .internal_operation_results
+                        {
+                            if result.destination == destination {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -103,15 +110,22 @@ impl Block {
         for operations in &self.operations {
             for operation in operations {
                 for content in &operation.contents {
-                    if let Some(address) = &content.destination {
-                        res.push(address.clone());
-                    }
-                    for result in &content
-                        .metadata
-                        .internal_operation_results
+                    if let Some(operation_result) =
+                        &content.metadata.operation_result
                     {
-                        if let Some(address) = &result.destination {
-                            res.push(address.clone())
+                        if operation_result.status != "applied" {
+                            continue;
+                        }
+                        if let Some(address) = &content.destination {
+                            res.push(address.clone());
+                        }
+                        for result in &content
+                            .metadata
+                            .internal_operation_results
+                        {
+                            if let Some(address) = &result.destination {
+                                res.push(address.clone())
+                            }
                         }
                     }
                 }

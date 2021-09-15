@@ -11,4 +11,6 @@ while true; do
         --bcd-url https://api.better-call.dev/v1 \
         --network granadanet \
         2>&1 | tee $CONTRACT_ID.$TIMESTAMP.log
+
+    sleep 10s
 done
