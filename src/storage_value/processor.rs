@@ -236,7 +236,7 @@ impl StorageProcessor {
         let c_dest = Some(contract_id.to_string());
         let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
 
-        let optimize = false;
+        let optimize = true;
 
         for (content_number, content) in operation.contents.iter().enumerate() {
             if let Some(operation_result) = &content.metadata.operation_result {
@@ -277,7 +277,7 @@ impl StorageProcessor {
                     .iter()
                     .enumerate()
                 {
-                    if internal_op.destination == c_dest {
+                    if !optimize || internal_op.destination == c_dest {
                         if let Some(big_map_diffs) =
                             &internal_op.result.big_map_diff
                         {
