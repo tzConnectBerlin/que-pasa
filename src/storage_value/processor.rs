@@ -620,7 +620,7 @@ impl StorageProcessor {
                 Ok(())
             }
             "copy" => {
-                println!("copy: {:#?}", diff,);
+                debug!("copy: {:#?}", diff,);
                 Ok(())
                 // Err(anyhow!("bigmap 'copy' action not supported yet"))
 
@@ -665,7 +665,7 @@ impl StorageProcessor {
                 */
             }
             "alloc" => {
-                println!("alloc: {:#?}", diff,);
+                debug!("alloc: {:#?}", diff,);
 
                 Ok(())
             }
@@ -724,7 +724,7 @@ impl StorageProcessor {
         tx_context: &TxContext,
     ) -> Result<()> {
         let v = &self.unfold_value(value, rel_ast)?;
-        println!(
+        debug!(
             "value: {}, rel_ast: {}",
             debug::pp_depth(3, v),
             debug::pp_depth(3, rel_ast)
