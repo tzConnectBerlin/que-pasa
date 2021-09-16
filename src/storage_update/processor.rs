@@ -12,6 +12,8 @@ use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 
+use std::cmp::Ordering;
+
 macro_rules! serde2json {
     ($serde:expr) => {
         json::parse(&serde_json::to_string(&$serde)?)?
@@ -105,8 +107,46 @@ impl PartialEq for TxContext {
             && self.entrypoint == other.entrypoint
     }
 }
+impl PartialOrd for TxContext {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let res = self.level.cmp(&other.level);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .operation_group_number
+            .cmp(&other.operation_group_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .operation_number
+            .cmp(&other.operation_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .content_number
+            .cmp(&other.content_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .internal_number
+            .cmp(&other.internal_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        None
+    }
+}
 
 impl Eq for TxContext {}
+impl Ord for TxContext {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
 
 pub(crate) type TxContextMap = HashMap<TxContext, TxContext>;
 

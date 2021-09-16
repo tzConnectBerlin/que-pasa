@@ -30,6 +30,7 @@ pub mod highlevel;
 pub mod octez;
 pub mod sql;
 pub mod storage_structure;
+pub mod storage_update;
 pub mod storage_value;
 
 use anyhow::Context;
