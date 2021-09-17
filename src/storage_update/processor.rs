@@ -137,7 +137,7 @@ impl PartialOrd for TxContext {
         if res != Ordering::Equal {
             return Some(res);
         }
-        None
+        Some(Ordering::Equal)
     }
 }
 
