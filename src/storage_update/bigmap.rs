@@ -178,7 +178,11 @@ impl IntraBlockBigmapDiffsProcessor {
                             // Probably does not happen, but just to be sure this branch is included.
                             // If it does happen, we don't want to pick up updates from before the Clear, so
                             // stop recursing here for this dependent bigmap
-                            clear_targets.push(*bigmap);
+                            if *bigmap != bigmap_target {
+                                clear_targets.push(*bigmap);
+                            } else {
+                                res.push(op.clone());
+                            }
                         }
                     };
                 }
@@ -395,7 +399,7 @@ fn test_normalizer() {
             exp_ops: vec![op_update(0, 3), op_update(0, 4)],
         },
         TestCase {
-            name: "update before a clear of target bitmap are omitted"
+            name: "update before a clear of target bitmap are not omitted"
                 .to_string(),
 
             tx_bigmap_ops: vec![(
@@ -412,7 +416,13 @@ fn test_normalizer() {
             normalize_bigmap: 0,
 
             exp_deps: vec![],
-            exp_ops: vec![op_update(0, 3), op_update(0, 4)],
+            exp_ops: vec![
+                op_update(0, 1),
+                op_update(0, 2),
+                Op::Clear { bigmap: 0 },
+                op_update(0, 3),
+                op_update(0, 4),
+            ],
         },
     ];
     for tc in testcases {
