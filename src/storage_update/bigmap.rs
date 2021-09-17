@@ -202,6 +202,22 @@ impl IntraBlockBigmapDiffsProcessor {
         res.reverse();
         (deps, res)
     }
+
+    pub(crate) fn get_tx_context_owned_bigmaps(
+        &self,
+        tx_context: &TxContext,
+    ) -> Vec<i32> {
+        let mut res: Vec<i32> = vec![];
+
+        // owned bigmaps always have a positive integer identifier
+        for op in &self.tx_bigmap_ops[tx_context] {
+            let bigmap = op.get_bigmap();
+            if bigmap >= 0 {
+                res.push(bigmap);
+            }
+        }
+        res
+    }
 }
 
 #[test]
