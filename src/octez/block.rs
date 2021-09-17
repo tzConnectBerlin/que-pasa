@@ -131,7 +131,10 @@ impl Block {
         mut f: F,
     ) -> anyhow::Result<Vec<O>>
     where
-        F: FnMut(TxContext, Option<&OperationResult>) -> anyhow::Result<O>,
+        F: FnMut(
+            TxContext,
+            Option<&OperationResult>,
+        ) -> anyhow::Result<Option<O>>,
     {
         let mut res: Vec<O> = vec![];
         for (operation_group_number, operation_group) in
@@ -151,7 +154,7 @@ impl Block {
                         }
                         if let Some(dest_addr) = &content.destination {
                             if is_contract(dest_addr) {
-                                res.push(f(
+                                let fres = f(
                                     TxContext {
                                         id: None,
                                         level: self.header.level,
@@ -171,7 +174,10 @@ impl Block {
                                             .map(|p| p.entrypoint),
                                     },
                                     Some(operation_result),
-                                )?);
+                                )?;
+                                if let Some(elem) = fres {
+                                    res.push(elem);
+                                }
 
                                 for (internal_number, internal_op) in content
                                     .metadata
@@ -180,10 +186,10 @@ impl Block {
                                     .enumerate()
                                 {
                                     if let Some(internal_dest_addr) =
-                                        &content.destination
+                                        &internal_op.destination
                                     {
                                         if is_contract(internal_dest_addr) {
-                                            res.push(f(
+                                            let fres = f(
                                                 TxContext {
                                                     id: None,
                                                     level: self.header.level,
@@ -213,7 +219,10 @@ impl Block {
                                                         .map(|p| p.entrypoint),
                                                 },
                                                 Some(&internal_op.result),
-                                            )?);
+                                            )?;
+                                            if let Some(elem) = fres {
+                                                res.push(elem);
+                                            }
                                         }
                                     }
                                 }
@@ -221,7 +230,7 @@ impl Block {
                         }
 
                         for contract in &operation_result.originated_contracts {
-                            res.push(f(
+                            let fres = f(
                                 TxContext {
                                     id: None,
                                     level: self.header.level,
@@ -239,7 +248,10 @@ impl Block {
                                         .map(|p| p.entrypoint),
                                 },
                                 None,
-                            )?);
+                            )?;
+                            if let Some(elem) = fres {
+                                res.push(elem);
+                            }
                         }
                     }
                 }

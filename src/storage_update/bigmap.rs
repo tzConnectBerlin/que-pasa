@@ -11,7 +11,7 @@ pub enum Op {
     Update {
         bigmap: i32,
         key: serde_json::Value,
-        value: Option<serde_json::Value>, // if None: delete key
+        value: Option<serde_json::Value>, // if None: it means remove key in bigmap
     },
     Clear {
         bigmap: i32,
@@ -102,16 +102,16 @@ impl IntraBlockBigmapDiffsProcessor {
             .map_tx_contexts(|tx_context, op_res| match op_res {
                 Some(op_res) => {
                     if op_res.big_map_diff.is_none() {
-                        Ok((tx_context, vec![]))
+                        Ok(Some((tx_context, vec![])))
                     } else {
                         let mut ops: Vec<Op> = vec![];
                         for op in op_res.big_map_diff.as_ref().unwrap() {
                             ops.push(Op::from_raw(op)?);
                         }
-                        Ok((tx_context, ops))
+                        Ok(Some((tx_context, ops)))
                     }
                 }
-                None => panic!(""),
+                None => Ok(None),
             })
             .unwrap();
         for (tx_context, ops) in tx_bigmap_ops {
@@ -211,16 +211,18 @@ impl IntraBlockBigmapDiffsProcessor {
         &self,
         tx_context: &TxContext,
     ) -> Vec<i32> {
-        let mut res: Vec<i32> = vec![];
+        let mut res: HashMap<i32, ()> = HashMap::new();
 
         // owned bigmaps always have a positive integer identifier
         for op in &self.tx_bigmap_ops[tx_context] {
             let bigmap = op.get_bigmap();
             if bigmap >= 0 {
-                res.push(bigmap);
+                res.insert(bigmap, ());
             }
         }
-        res
+        res.keys()
+            .copied()
+            .collect::<Vec<i32>>()
     }
 }
 
@@ -371,7 +373,9 @@ fn test_normalizer() {
                 op_update(0, 4),
             ],
         },
-        // what follows are test cases about scenarios that probably are impossible in the Tezos blockchain context, but just in case testing that we deal with them in a sensible way:
+        // what follows are test cases about scenarios that probably
+        // are impossible in the Tezos blockchain context, but just in
+        // case.. testing that we deal with them in a sensible way:
         TestCase {
             name: "copy: updates before a clear are omitted".to_string(),
 
@@ -399,7 +403,7 @@ fn test_normalizer() {
             exp_ops: vec![op_update(0, 3), op_update(0, 4)],
         },
         TestCase {
-            name: "update before a clear of target bitmap are not omitted"
+            name: "updates before a clear of target bitmap are not omitted"
                 .to_string(),
 
             tx_bigmap_ops: vec![(

@@ -330,7 +330,9 @@ impl Executor {
         info!("level {}: {}", level, contract_statuses);
     }
 
-    fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
+    fn get_storage_processor(
+        &mut self,
+    ) -> Result<StorageProcessor<NodeClient>> {
         let id = self
             .dbcli
             .get_max_id()
@@ -343,7 +345,7 @@ impl Executor {
     fn exec_level(
         &mut self,
         level_height: u32,
-        storage_processor: &mut StorageProcessor,
+        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -362,7 +364,7 @@ impl Executor {
         &mut self,
         level: &LevelMeta,
         block: &Block,
-        storage_processor: &mut StorageProcessor,
+        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
@@ -443,7 +445,7 @@ impl Executor {
         tx: &mut Transaction,
         meta: &LevelMeta,
         block: &Block,
-        storage_processor: &mut StorageProcessor,
+        storage_processor: &mut StorageProcessor<NodeClient>,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
@@ -662,7 +664,6 @@ fn test_generate() {
     }
 }
 
-/*
 #[test]
 fn test_block() {
     // this tests the generated table structures against known good ones.
@@ -710,10 +711,10 @@ fn test_block() {
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
-                132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211,
-                132219, 132222, 132240, 132242, 132259, 132262, 132278, 132282,
-                132285, 132298, 132300, 132367, 132383, 132384, 132388, 132390,
-                135501, 138208, 149127,
+                132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219,
+                132222, 132240, 132242, 132259, 132262, 132278, 132282, 132285,
+                132298, 132300, 132367, 132383, 132384, 132388, 132390, 135501,
+                138208, 149127,
             ],
         },
         Contract {
@@ -759,8 +760,23 @@ fn test_block() {
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {
-            let mut res: Vec<insert::Value> = tables[&insert.table_name]
+            let mut sort_on = tables[&insert.table_name]
                 .indices
+                .clone();
+            sort_on.extend(
+                tables[&insert.table_name]
+                    .columns
+                    .keys()
+                    .filter(|col| {
+                        !tables[&insert.table_name]
+                            .indices
+                            .iter()
+                            .any(|idx| idx == *col)
+                    })
+                    .cloned()
+                    .collect::<Vec<String>>(),
+            );
+            let mut res: Vec<insert::Value> = sort_on
                 .iter()
                 .map(|idx| {
                     insert
@@ -773,10 +789,22 @@ fn test_block() {
         });
     }
 
+    struct DummyStorageGetter {}
+    impl crate::octez::node::StorageGetter for DummyStorageGetter {
+        fn get_contract_storage(
+            &self,
+            contract_id: &str,
+            level: u32,
+        ) -> Result<JsonValue> {
+            Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
+        }
+    }
+
     let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
     for contract in &contracts {
-        let mut storage_processor = StorageProcessor::new(1);
+        let mut storage_processor =
+            StorageProcessor::new(1, DummyStorageGetter {});
 
         // verify that the test case is sane
         let mut unique_levels = contract.levels.clone();
@@ -846,7 +874,6 @@ fn test_block() {
     }
     assert_eq!(expected, results);
 }
-*/
 
 #[test]
 fn test_get_origination_operations_from_block() {

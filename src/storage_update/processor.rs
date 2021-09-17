@@ -1,7 +1,7 @@
 use crate::debug;
 use crate::octez::block;
 use crate::octez::block::TxContext;
-use crate::octez::node::NodeClient;
+use crate::octez::node::StorageGetter;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
@@ -82,16 +82,22 @@ impl IdGenerator {
 
 type BigMapMap = std::collections::HashMap<i32, (u32, RelationalAST)>;
 
-pub(crate) struct StorageProcessor {
+pub(crate) struct StorageProcessor<NodeCli>
+where
+    NodeCli: StorageGetter,
+{
     big_map_map: BigMapMap,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
-    node_cli: NodeClient,
+    node_cli: NodeCli,
 }
 
-impl StorageProcessor {
-    pub(crate) fn new(initial_id: u32, node_cli: NodeClient) -> Self {
+impl<NodeCli> StorageProcessor<NodeCli>
+where
+    NodeCli: StorageGetter,
+{
+    pub(crate) fn new(initial_id: u32, node_cli: NodeCli) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
             inserts: Inserts::new(),
@@ -111,38 +117,45 @@ impl StorageProcessor {
         self.tx_contexts.clear();
         self.big_map_map.clear();
 
+        println!("processing block {}", block.header.level);
+
         let storages: Vec<(TxContext, parser::Value)> =
-            block.map_tx_contexts(|tx_context, op_res| match op_res {
-                Some(op_res) => {
-                    if let Some(storage) = &op_res.storage {
-                        Ok((
-                            tx_context,
-                            parser::parse_lexed(&serde2json!(storage))?,
-                        ))
-                    } else {
-                        Err(anyhow!(
+            block.map_tx_contexts(|tx_context, op_res| {
+                println!("tx_context: {:#?}", tx_context);
+                if tx_context.contract != contract_id {
+                    return Ok(None);
+                }
+
+                match op_res {
+                    Some(op_res) => {
+                        if let Some(storage) = &op_res.storage {
+                            Ok(Some((
+                                tx_context,
+                                parser::parse_lexed(&serde2json!(storage))?,
+                            )))
+                        } else {
+                            Err(anyhow!(
 			    "bad contract call: no storage update. tx_context={:#?}",
 			    tx_context
 			))
+                        }
                     }
-                }
-                None => {
-                    let storage = parser::parse_json(
-                        &self.node_cli.get_contract_storage(
-                            contract_id,
-                            tx_context.level,
-                        )?,
-                    )?;
-                    Ok((self.tx_context(tx_context), storage))
+                    None => {
+                        let storage = parser::parse_json(
+                            &self.node_cli.get_contract_storage(
+                                contract_id,
+                                tx_context.level,
+                            )?,
+                        )?;
+                        Ok(Some((self.tx_context(tx_context), storage)))
+                    }
                 }
             })?;
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
 
         for (tx_context, parsed_storage) in &storages {
-            if tx_context.contract != contract_id {
-                continue;
-            }
+            println!("processing: {:#?}", tx_context);
             let tx_context = &self.tx_context(tx_context.clone());
             self.process_storage_value(parsed_storage, rel_ast, tx_context)
                 .with_context(|| {
@@ -616,7 +629,8 @@ impl StorageProcessor {
                             Ok(())
                         } else {
                             Err(anyhow!(
-                                "found big map with non-int id: {:?}",
+                                "found big map with non-int id ({:?}): {:?}",
+                                value,
                                 rel_ast
                             ))
                         }
