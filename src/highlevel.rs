@@ -10,7 +10,7 @@ use pretty_assertions::assert_eq;
 
 use crate::config::ContractID;
 use crate::debug;
-use crate::octez::block::{Block, LevelMeta};
+use crate::octez::block::{Block, LevelMeta, TxContext};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::{Noname, RelationalAST};
@@ -18,7 +18,7 @@ use crate::sql::db::DBClient;
 use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
-use crate::storage_update::processor::{StorageProcessor, TxContext};
+use crate::storage_update::processor::StorageProcessor;
 
 pub struct SaveLevelResult {
     pub level: u32,

@@ -1,5 +1,7 @@
 use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 use crate::contract_denylist::is_contract_denylisted;
 
@@ -33,9 +35,217 @@ pub struct Block {
     pub operations: Vec<Vec<Operation>>,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct TxContext {
+    pub id: Option<u32>,
+    pub level: u32,
+    pub contract: String,
+    pub operation_hash: String,
+    pub operation_group_number: usize,
+    pub operation_number: usize,
+    pub content_number: usize,
+    pub internal_number: Option<usize>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub entrypoint: Option<String>,
+}
+
+impl Hash for TxContext {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.level.hash(state);
+        self.contract.hash(state);
+        self.operation_hash.hash(state);
+        self.operation_group_number.hash(state);
+        self.operation_number.hash(state);
+        self.content_number.hash(state);
+        self.internal_number.hash(state);
+        self.source.hash(state);
+        self.destination.hash(state);
+        self.entrypoint.hash(state);
+    }
+}
+
+// Manual impl PartialEq in order to exclude the <id> field
+impl PartialEq for TxContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.level == other.level
+            && self.contract == other.contract
+            && self.operation_hash == other.operation_hash
+            && self.operation_group_number == other.operation_group_number
+            && self.operation_number == other.operation_number
+            && self.content_number == other.content_number
+            && self.internal_number == other.internal_number
+            && self.source == other.source
+            && self.destination == other.destination
+            && self.entrypoint == other.entrypoint
+    }
+}
+impl PartialOrd for TxContext {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let res = self.level.cmp(&other.level);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .operation_group_number
+            .cmp(&other.operation_group_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .operation_number
+            .cmp(&other.operation_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .content_number
+            .cmp(&other.content_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .internal_number
+            .cmp(&other.internal_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        Some(Ordering::Equal)
+    }
+}
+
+impl Eq for TxContext {}
+impl Ord for TxContext {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 impl Block {
     pub(crate) fn operations(&self) -> Vec<Vec<Operation>> {
         self.operations.clone()
+    }
+
+    pub(crate) fn map_tx_contexts<F, O>(
+        &self,
+        mut f: F,
+    ) -> anyhow::Result<Vec<O>>
+    where
+        F: FnMut(TxContext, Option<&OperationResult>) -> anyhow::Result<O>,
+    {
+        let mut res: Vec<O> = vec![];
+        for (operation_group_number, operation_group) in
+            self.operations().iter().enumerate()
+        {
+            for (operation_number, operation) in
+                operation_group.iter().enumerate()
+            {
+                for (content_number, content) in
+                    operation.contents.iter().enumerate()
+                {
+                    if let Some(operation_result) =
+                        &content.metadata.operation_result
+                    {
+                        if operation_result.status != "applied" {
+                            continue;
+                        }
+                        if let Some(dest_addr) = &content.destination {
+                            if is_contract(dest_addr) {
+                                res.push(f(
+                                    TxContext {
+                                        id: None,
+                                        level: self.header.level,
+                                        contract: dest_addr.clone(),
+                                        operation_hash: operation.hash.clone(),
+                                        operation_group_number,
+                                        operation_number,
+                                        content_number,
+                                        internal_number: None,
+                                        source: content.source.clone(),
+                                        destination: content
+                                            .destination
+                                            .clone(),
+                                        entrypoint: content
+                                            .parameters
+                                            .clone()
+                                            .map(|p| p.entrypoint),
+                                    },
+                                    Some(operation_result),
+                                )?);
+
+                                for (internal_number, internal_op) in content
+                                    .metadata
+                                    .internal_operation_results
+                                    .iter()
+                                    .enumerate()
+                                {
+                                    if let Some(internal_dest_addr) =
+                                        &content.destination
+                                    {
+                                        if is_contract(internal_dest_addr) {
+                                            res.push(f(
+                                                TxContext {
+                                                    id: None,
+                                                    level: self.header.level,
+                                                    contract:
+                                                        internal_dest_addr
+                                                            .to_string(),
+                                                    operation_hash: operation
+                                                        .hash
+                                                        .clone(),
+                                                    operation_group_number,
+                                                    operation_number,
+                                                    content_number,
+                                                    internal_number: Some(
+                                                        internal_number,
+                                                    ),
+                                                    source: Some(
+                                                        internal_op
+                                                            .source
+                                                            .clone(),
+                                                    ),
+                                                    destination: internal_op
+                                                        .destination
+                                                        .clone(),
+                                                    entrypoint: internal_op
+                                                        .parameters
+                                                        .clone()
+                                                        .map(|p| p.entrypoint),
+                                                },
+                                                Some(&internal_op.result),
+                                            )?);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        for contract in &operation_result.originated_contracts {
+                            res.push(f(
+                                TxContext {
+                                    id: None,
+                                    level: self.header.level,
+                                    contract: contract.clone(),
+                                    operation_hash: operation.hash.clone(),
+                                    operation_group_number,
+                                    operation_number,
+                                    content_number,
+                                    internal_number: None,
+                                    source: content.source.clone(),
+                                    destination: content.destination.clone(),
+                                    entrypoint: content
+                                        .parameters
+                                        .clone()
+                                        .map(|p| p.entrypoint),
+                                },
+                                None,
+                            )?);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(res)
     }
 
     pub(crate) fn is_contract_active(&self, contract_address: &str) -> bool {

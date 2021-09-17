@@ -1,18 +1,17 @@
 use crate::debug;
 use crate::octez::block;
+use crate::octez::block::TxContext;
 use crate::octez::node::NodeClient;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
 use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
 use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-
-use std::cmp::Ordering;
 
 macro_rules! serde2json {
     ($serde:expr) => {
@@ -59,92 +58,6 @@ impl ProcessStorageContext {
         let mut c = self.clone();
         c.last_table = Some(last_table);
         c
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct TxContext {
-    pub id: Option<u32>,
-    pub level: u32,
-    pub contract: String,
-    pub operation_hash: String,
-    pub operation_group_number: usize,
-    pub operation_number: usize,
-    pub content_number: usize,
-    pub internal_number: Option<usize>,
-    pub source: Option<String>,
-    pub destination: Option<String>,
-    pub entrypoint: Option<String>,
-}
-
-impl Hash for TxContext {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.level.hash(state);
-        self.contract.hash(state);
-        self.operation_hash.hash(state);
-        self.operation_group_number.hash(state);
-        self.operation_number.hash(state);
-        self.content_number.hash(state);
-        self.internal_number.hash(state);
-        self.source.hash(state);
-        self.destination.hash(state);
-        self.entrypoint.hash(state);
-    }
-}
-
-// Manual impl PartialEq in order to exclude the <id> field
-impl PartialEq for TxContext {
-    fn eq(&self, other: &Self) -> bool {
-        self.level == other.level
-            && self.contract == other.contract
-            && self.operation_hash == other.operation_hash
-            && self.operation_group_number == other.operation_group_number
-            && self.operation_number == other.operation_number
-            && self.content_number == other.content_number
-            && self.internal_number == other.internal_number
-            && self.source == other.source
-            && self.destination == other.destination
-            && self.entrypoint == other.entrypoint
-    }
-}
-impl PartialOrd for TxContext {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let res = self.level.cmp(&other.level);
-        if res != Ordering::Equal {
-            return Some(res);
-        }
-        let res = self
-            .operation_group_number
-            .cmp(&other.operation_group_number);
-        if res != Ordering::Equal {
-            return Some(res);
-        }
-        let res = self
-            .operation_number
-            .cmp(&other.operation_number);
-        if res != Ordering::Equal {
-            return Some(res);
-        }
-        let res = self
-            .content_number
-            .cmp(&other.content_number);
-        if res != Ordering::Equal {
-            return Some(res);
-        }
-        let res = self
-            .internal_number
-            .cmp(&other.internal_number);
-        if res != Ordering::Equal {
-            return Some(res);
-        }
-        Some(Ordering::Equal)
-    }
-}
-
-impl Eq for TxContext {}
-impl Ord for TxContext {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap()
     }
 }
 
@@ -197,32 +110,33 @@ impl StorageProcessor {
         self.tx_contexts.clear();
         self.big_map_map.clear();
 
-        let mut storages: Vec<(TxContext, parser::Value)> = vec![];
-        let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
-        let operations = block.operations();
+        let mut storages: Vec<(TxContext, parser::Value)> = block
+            .map_tx_contexts(|tx_context, op_res| match op_res {
+                Some(op_res) => {
+                    if let Some(storage) = &op_res.storage {
+                        Ok((
+                            self.tx_context(tx_context),
+                            parser::parse_lexed(&serde2json!(storage))?,
+                        ))
+                    } else {
+                        Err(anyhow!(
+			    "bad contract call: no storage update. tx_context={:#?}",
+			    tx_context
+			))
+                    }
+                }
+                None => {
+                    let storage = parser::parse_json(
+                        &self.node_cli.get_contract_storage(
+                            contract_id,
+                            tx_context.level,
+                        )?,
+                    )?;
+                    Ok((self.tx_context(tx_context), storage))
+                }
+            })?;
 
-        for (operation_group_number, operation_group) in
-            operations.iter().enumerate()
-        {
-            for (operation_number, operation) in
-                operation_group.iter().enumerate()
-            {
-                storages.extend(self.get_storage_from_operation(
-                    block.header.level,
-                    operation_group_number,
-                    operation_number,
-                    operation,
-                    contract_id,
-                )?);
-                big_map_diffs.extend(self.get_big_map_diffs_from_operation(
-                    block.header.level,
-                    operation_group_number,
-                    operation_number,
-                    operation,
-                    contract_id,
-                ));
-            }
-        }
+        let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
 
         for (tx_context, parsed_storage) in &storages {
             self.process_storage_value(parsed_storage, rel_ast, tx_context)
@@ -231,13 +145,6 @@ impl StorageProcessor {
                         "process_block: process storage value failed (tx_context={:?})",
                         tx_context
                     )
-                })?;
-        }
-
-        for (tx_content, diff) in &big_map_diffs {
-            self.process_big_map_diff(diff, tx_content)
-                .with_context(|| {
-                    format!("process_block: process big_map diff failed (tx_context={:?})", tx_content)
                 })?;
         }
 
@@ -665,43 +572,43 @@ impl StorageProcessor {
                 // Err(anyhow!("bigmap 'copy' action not supported yet"))
 
                 /*
-                        let ctx =
-                            &ProcessStorageContext::new(self.id_generator.get_id());
-                        self.sql_add_cell(
-                            ctx,
-                            &"bigmap_copies".to_string(),
-                            &"bigmap_id_source".to_string(),
-                            insert::Value::Int(
-                                diff.source_big_map
-                                    .clone()
-                                    .ok_or_else(|| {
-                                        anyhow!(
-                                            "no big map id found in diff {:?}",
-                                            diff
-                                        )
-                                    })?
-                                    .parse()?,
-                            ),
-                            tx_context,
-                        );
-                        self.sql_add_cell(
-                            ctx,
-                            &"bigmap_copies".to_string(),
-                            &"bigmap_id_destination".to_string(),
-                            insert::Value::Int(
-                                diff.destination_big_map
-                                    .clone()
-                                    .ok_or_else(|| {
-                                        anyhow!(
-                                            "no big map id found in diff {:?}",
-                                            diff
-                                        )
-                                    })?
-                                    .parse()?,
-                            ),
-                            tx_context,
-                        );
-                        Ok(())
+                            let ctx =
+                                &ProcessStorageContext::new(self.id_generator.get_id());
+                            self.sql_add_cell(
+                                ctx,
+                                &"bigmap_copies".to_string(),
+                                &"bigmap_id_source".to_string(),
+                                insert::Value::Int(
+                                    diff.source_big_map
+                                        .clone()
+                                        .ok_or_else(|| {
+                                            anyhow!(
+                                                "no big map id found in diff {:?}",
+                                                diff
+                                            )
+                                        })?
+                                        .parse()?,
+                                ),
+                                tx_context,
+                            );
+                            self.sql_add_cell(
+                                ctx,
+                                &"bigmap_copies".to_string(),
+                                &"bigmap_id_destination".to_string(),
+                                insert::Value::Int(
+                                    diff.destination_big_map
+                                        .clone()
+                                        .ok_or_else(|| {
+                                            anyhow!(
+                                                "no big map id found in diff {:?}",
+                                                diff
+                                            )
+                                        })?
+                                        .parse()?,
+                                ),
+                                tx_context,
+                            );
+                            Ok(())
                 */
             }
             "alloc" => {

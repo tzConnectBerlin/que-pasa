@@ -12,12 +12,12 @@ use chrono::{DateTime, Utc};
 
 use crate::config::ContractID;
 use crate::octez::block::LevelMeta;
+use crate::octez::block::TxContext;
 use crate::octez::node::NodeClient;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
-use crate::storage_update::processor::TxContext;
 
 pub struct DBClient {
     dbconn: postgres::Client,
