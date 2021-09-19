@@ -15,10 +15,10 @@
     ),
     (
         table_name: "storage.market_map",
-        id: 137,
+        id: 135,
     ): (
         table_name: "storage.market_map",
-        id: 137,
+        id: 135,
         fk_id: None,
         columns: [
             (
@@ -57,11 +57,11 @@
     ),
     (
         table_name: "storage.market_map.fa12",
-        id: 139,
+        id: 137,
     ): (
         table_name: "storage.market_map.fa12",
-        id: 139,
-        fk_id: Some(137),
+        id: 137,
+        fk_id: Some(135),
         columns: [
             (
                 name: "tx_context_id",
@@ -75,11 +75,11 @@
     ),
     (
         table_name: "storage.market_map.auctionRunning",
-        id: 138,
+        id: 136,
     ): (
         table_name: "storage.market_map.auctionRunning",
-        id: 138,
-        fk_id: Some(137),
+        id: 136,
+        fk_id: Some(135),
         columns: [
             (
                 name: "tx_context_id",
@@ -105,10 +105,10 @@
     ),
     (
         table_name: "storage.liquidity_provider_map",
-        id: 135,
+        id: 138,
     ): (
         table_name: "storage.liquidity_provider_map",
-        id: 135,
+        id: 138,
         fk_id: None,
         columns: [
             (
@@ -135,11 +135,11 @@
     ),
     (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 136,
+        id: 139,
     ): (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 136,
-        fk_id: Some(135),
+        id: 139,
+        fk_id: Some(138),
         columns: [
             (
                 name: "tx_context_id",

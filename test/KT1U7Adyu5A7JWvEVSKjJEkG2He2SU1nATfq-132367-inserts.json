@@ -27,10 +27,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 200,
+        id: 203,
     ): (
         table_name: "storage.token_total_supply",
-        id: 200,
+        id: 203,
         fk_id: None,
         columns: [
             (
@@ -53,10 +53,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 199,
+        id: 202,
     ): (
         table_name: "storage.token_total_supply",
-        id: 199,
+        id: 202,
         fk_id: None,
         columns: [
             (
@@ -79,10 +79,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 198,
+        id: 201,
     ): (
         table_name: "storage.token_total_supply",
-        id: 198,
+        id: 201,
         fk_id: None,
         columns: [
             (
@@ -105,10 +105,10 @@
     ),
     (
         table_name: "storage.questions",
-        id: 201,
+        id: 198,
     ): (
         table_name: "storage.questions",
-        id: 201,
+        id: 198,
         fk_id: None,
         columns: [
             (
@@ -167,11 +167,11 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 203,
+        id: 200,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 203,
-        fk_id: Some(201),
+        id: 200,
+        fk_id: Some(198),
         columns: [
             (
                 name: "tx_context_id",

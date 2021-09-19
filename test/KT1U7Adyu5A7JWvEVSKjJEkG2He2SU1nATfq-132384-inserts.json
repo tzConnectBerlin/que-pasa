@@ -27,10 +27,10 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 230,
+        id: 236,
     ): (
         table_name: "storage.token_total_supply",
-        id: 230,
+        id: 236,
         fk_id: None,
         columns: [
             (
@@ -53,10 +53,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 235,
+        id: 234,
     ): (
         table_name: "storage.ledger",
-        id: 235,
+        id: 234,
         fk_id: None,
         columns: [
             (
@@ -83,10 +83,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 233,
+        id: 232,
     ): (
         table_name: "storage.ledger",
-        id: 233,
+        id: 232,
         fk_id: None,
         columns: [
             (
@@ -113,10 +113,10 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 231,
+        id: 230,
     ): (
         table_name: "storage.ledger",
-        id: 231,
+        id: 230,
         fk_id: None,
         columns: [
             (

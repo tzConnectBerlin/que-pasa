@@ -121,7 +121,6 @@ where
 
         let storages: Vec<(TxContext, parser::Value)> =
             block.map_tx_contexts(|tx_context, op_res| {
-                println!("tx_context: {:#?}", tx_context);
                 if tx_context.contract != contract_id {
                     return Ok(None);
                 }
@@ -130,7 +129,7 @@ where
                     Some(op_res) => {
                         if let Some(storage) = &op_res.storage {
                             Ok(Some((
-                                tx_context,
+                                self.tx_context(tx_context),
                                 parser::parse_lexed(&serde2json!(storage))?,
                             )))
                         } else {
@@ -165,7 +164,9 @@ where
                     )
                 })?;
 
-            for bigmap in diffs.get_tx_context_owned_bigmaps(tx_context) {
+            let mut bigmaps = diffs.get_tx_context_owned_bigmaps(tx_context);
+            bigmaps.sort();
+            for bigmap in bigmaps {
                 let (_deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
                 for op in &ops {
                     self.process_bigmap_op(op, tx_context)?;
