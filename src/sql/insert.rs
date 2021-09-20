@@ -93,7 +93,15 @@ impl Insert {
         }
         Ok(res)
     }
-    #[cfg(test)]
+
+    pub fn get_bigmap_id(&self) -> Option<Result<i32>> {
+        self.get_column("bigmap_id")
+            .map(|column| match column.value {
+                Value::Int(i) => Ok(i),
+                _ => Err(anyhow!("bigmap_id column does not have i32 value")),
+            })
+    }
+
     pub fn get_column(&self, name: &str) -> Option<&Column> {
         self.columns
             .iter()

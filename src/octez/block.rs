@@ -133,7 +133,8 @@ impl Block {
     where
         F: FnMut(
             TxContext,
-            Option<&OperationResult>,
+            bool,
+            &OperationResult,
         ) -> anyhow::Result<Option<O>>,
     {
         let mut res: Vec<O> = vec![];
@@ -173,7 +174,8 @@ impl Block {
                                             .clone()
                                             .map(|p| p.entrypoint),
                                     },
-                                    Some(operation_result),
+                                    false,
+                                    operation_result,
                                 )?;
                                 if let Some(elem) = fres {
                                     res.push(elem);
@@ -218,7 +220,8 @@ impl Block {
                                                         .clone()
                                                         .map(|p| p.entrypoint),
                                                 },
-                                                Some(&internal_op.result),
+                                                false,
+                                                &internal_op.result,
                                             )?;
                                             if let Some(elem) = fres {
                                                 res.push(elem);
@@ -247,7 +250,8 @@ impl Block {
                                         .clone()
                                         .map(|p| p.entrypoint),
                                 },
-                                None,
+                                true,
+                                operation_result,
                             )?;
                             if let Some(elem) = fres {
                                 res.push(elem);

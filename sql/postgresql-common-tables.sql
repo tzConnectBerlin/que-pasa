@@ -46,3 +46,16 @@ CREATE UNIQUE INDEX ON tx_contexts(
     operation_number,
     content_number,
     coalesce(internal_number, -1));
+
+CREATE TABLE bigmap_deps(
+    tx_context_id INTEGER NOT NULL,
+
+    source_contract TEXT NOT NULL,
+    source_bigmap INTEGER NOT NULL,
+
+    dest_schema TEXT NOT NULL,
+    dest_table TEXT NOT NULL,
+    dest_bigmap INTEGER NOT NULL,
+
+    FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
+);

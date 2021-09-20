@@ -84,6 +84,10 @@ VALUES ($1, $2)",
                 format!(
                     r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
+CREATE TABLE "{contract_schema}".bigmap_tables (
+    bigmap_id INTEGER PRIMARY KEY,
+    "table" TEXT NOT NULL
+);
 "#,
                     contract_schema = contract_id.name
                 )
@@ -160,6 +164,63 @@ WHERE name = $1
             &[&contract_id.name],
         )?;
         Ok(res.is_some())
+    }
+
+    fn get_contract_schema(
+        tx: &mut Transaction,
+        contract_address: &str,
+    ) -> Result<Option<String>> {
+        let res = tx.query_opt(
+            "
+SELECT
+    name
+FROM contracts
+WHERE address = $1
+",
+            &[&contract_address],
+        )?;
+        Ok(res.map(|row| row.get(0)))
+    }
+
+    fn get_bigmap_table(
+        tx: &mut Transaction,
+        contract_name: &str,
+        bigmap_id: i32,
+    ) -> Result<Option<String>> {
+        let res = tx.query_opt(
+            format!(
+                r#"
+SELECT
+    "table"
+FROM "{contract_name}".bigmap_tables
+WHERE bigmap_id = $1
+"#,
+                contract_name = contract_name
+            )
+            .as_str(),
+            &[&bigmap_id],
+        )?;
+        Ok(res.map(|row| row.get(0)))
+    }
+
+    fn get_table_columns(
+        tx: &mut Transaction,
+        contract_name: &str,
+        table_name: &str,
+    ) -> Result<Vec<String>> {
+        let rows = tx.query(
+            "
+SELECT column_name
+FROM information_schema.columns
+WHERE table_schema = $1
+  AND table_name = $2
+",
+            &[&contract_name, &table_name],
+        )?;
+        Ok(rows
+            .into_iter()
+            .map(|row| row.get(0))
+            .collect())
     }
 
     pub(crate) fn save_tx_contexts(
@@ -248,6 +309,137 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
         Ok(())
     }
 
+    pub(crate) fn apply_bigmap_deps(
+        tx: &mut postgres::Transaction,
+        contract_id: &ContractID,
+        bigmap_deps: &[(TxContext, String, i32, String, i32)],
+    ) -> Result<()> {
+        for (
+            tx_context,
+            src_contract,
+            src_bigmap_id,
+            dest_table,
+            dest_bigmap_id,
+        ) in bigmap_deps
+        {
+            let ctx = format!("{}", tx_context.id.unwrap());
+            let src_id = format!("{}", src_bigmap_id);
+            let dest_id = format!("{}", dest_bigmap_id);
+            tx.execute(
+                "
+INSERT INTO bigmap_deps(
+    tx_context_id, source_contract, source_bigmap, dest_schema, dest_table, dest_bigmap
+)
+SELECT
+    *
+FROM (
+    SELECT
+        x.ctx::integer as tx_context_id,
+        COALESCE(c.address, x.src_contract)::text as source_contract,
+        x.src_bigmap::integer,
+        x.dest_schema::text,
+        x.dest_table::text,
+        x.dest_bigmap::integer
+    FROM (VALUES ($1, $2, $3, $4, $5, $6)) x(ctx, src_contract, src_bigmap, dest_schema, dest_table, dest_bigmap)
+    LEFT JOIN contracts c
+      ON c.address = x.src_contract
+) q
+",
+                &[
+		    &ctx,
+                    src_contract,
+                    &src_id,
+                    &contract_id.name,
+		    dest_table,
+		    &dest_id,
+                ],
+            )?;
+
+            if let Some(src_schema) =
+                Self::get_contract_schema(tx, src_contract)?
+            {
+                if let Some(src_table) =
+                    Self::get_bigmap_table(tx, &src_schema, *src_bigmap_id)?
+                {
+                    let columns: Vec<String> =
+                        Self::get_table_columns(tx, &src_schema, &src_table)?
+                            .into_iter()
+                            .filter(|x| {
+                                x != "bigmap_id" && x != "tx_context_id"
+                            })
+                            .collect();
+                    let columns_: Vec<String> = columns
+                        .clone()
+                        .iter()
+                        .map(|x| format!(r#"src."{}""#, x))
+                        .collect();
+                    let qry = format!(
+                        r#"
+INSERT INTO "{dest_schema}"."{dest_table}" (
+   bigmap_id, tx_context_id, {columns}
+)
+SELECT
+    bigmap_id::integer,
+    tx_context_id::integer,
+    {columns_}
+FROM (
+    SELECT
+        $1 as bigmap_id,
+        $2 as tx_context_id,
+        {columns_}
+    FROM "{src_schema}"."{src_table}" as src
+    JOIN tx_contexts ctx
+      ON ctx.id = src.tx_context_id
+    WHERE ctx.level < $3
+) src
+"#,
+                        src_schema = src_schema,
+                        src_table = src_table,
+                        dest_schema = contract_id.name,
+                        dest_table = dest_table,
+                        columns = columns.join(", "),
+                        columns_ = columns_.join(", ")
+                    );
+                    println!("qry: {}", &qry);
+                    let bigmap_id = format!("{}", dest_bigmap_id);
+                    let tx_context_id = format!("{}", tx_context.id.unwrap());
+                    tx.execute(
+                        qry.as_str(),
+                        &[
+                            &bigmap_id,
+                            &tx_context_id,
+                            &(tx_context.level as i32),
+                        ],
+                    )?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn save_bigmap_table_locations(
+        tx: &mut postgres::Transaction,
+        contract_id: &ContractID,
+        bigmap_locs: &[(i32, String)],
+    ) -> Result<()> {
+        for (bigmap_id, table) in bigmap_locs {
+            tx.execute(
+                format!(
+                    r#"
+INSERT INTO "{contract_schema}".bigmap_tables (
+    "table", bigmap_id
+) VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+"#,
+                    contract_schema = contract_id.name
+                )
+                .as_str(),
+                &[table, bigmap_id],
+            )?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn apply_inserts(
         tx: &mut postgres::Transaction,
         contract_id: &ContractID,
@@ -280,6 +472,81 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
             for chunk in table_inserts.chunks(Self::INSERT_BATCH_SIZE) {
                 Self::apply_inserts_for_table(tx, contract_id, chunk)?;
             }
+        }
+        Self::populate_depending_bigmaps(tx, contract_id, inserts)?;
+        Ok(())
+    }
+
+    pub(crate) fn populate_depending_bigmaps(
+        tx: &mut postgres::Transaction,
+        contract_id: &ContractID,
+        inserts: &[Insert],
+    ) -> Result<()> {
+        let bigmap_inserts: Result<Vec<(i32, &Insert)>> = inserts
+            .iter()
+            .filter_map(|insert| {
+                insert
+                    .get_bigmap_id()
+                    .map(|res_id| res_id.map(|id| (id, insert)))
+            })
+            .collect();
+        let bigmap_inserts = bigmap_inserts?;
+
+        let mut bigmap_ids: HashMap<i32, ()> = HashMap::new();
+        for (bigmap_id, _) in &bigmap_inserts {
+            bigmap_ids.insert(*bigmap_id, ());
+        }
+
+        for row in tx.query(
+            "
+SELECT
+    source_bigmap,
+    dest_schema,
+    dest_table,
+    dest_bigmap
+FROM bigmap_deps
+WHERE source_contract = $1
+  AND source_bigmap::text IN ($2)",
+            &[
+                &contract_id.address,
+                &bigmap_ids
+                    .keys()
+                    .map(|k| format!("'{}'", k))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ],
+        )? {
+            let src_bigmap: i32 = row.get(0);
+            let dest_schema: String = row.get(1);
+            let dest_table: String = row.get(2);
+            let dest_bigmap: i32 = row.get(3);
+
+            let mut dep_inserts: Vec<Insert> = vec![];
+            for (bigmap_id, insert) in &bigmap_inserts {
+                if *bigmap_id != src_bigmap {
+                    continue;
+                }
+                let mut dep_insert = (*insert).clone();
+                dep_insert.columns = dep_insert
+                    .columns
+                    .into_iter()
+                    .filter(|col| col.name != "bigmap_id")
+                    .collect();
+                dep_insert.columns.push(Column {
+                    name: "bigmap_id".to_string(),
+                    value: Value::Int(dest_bigmap),
+                });
+                dep_insert.table_name = dest_table.clone();
+                dep_inserts.push(dep_insert);
+            }
+            Self::apply_inserts(
+                tx,
+                &ContractID {
+                    name: dest_schema,
+                    address: "".to_string(),
+                },
+                &dep_inserts,
+            )?;
         }
         Ok(())
     }

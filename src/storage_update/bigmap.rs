@@ -39,9 +39,9 @@ impl Op {
         }
     }
 
-    pub fn from_raw(raw: &BigMapDiff) -> Result<Self> {
+    pub fn from_raw(raw: &BigMapDiff) -> Result<Option<Self>> {
         match raw.action.as_str() {
-            "update" => Ok(Op::Update {
+            "update" => Ok(Some(Op::Update {
                 bigmap: raw
                     .big_map
                     .clone()
@@ -57,8 +57,8 @@ impl Op {
                         anyhow!("no key in big map update {:?}", raw)
                     })?,
                 value: raw.value.clone(),
-            }),
-            "copy" => Ok(Op::Copy {
+            })),
+            "copy" => Ok(Some(Op::Copy {
                 bigmap: raw
                     .destination_big_map
                     .clone()
@@ -73,8 +73,8 @@ impl Op {
                         anyhow!("no big map id found in diff {:?}", raw)
                     })?
                     .parse()?,
-            }),
-            "remove" => Ok(Op::Clear {
+            })),
+            "remove" => Ok(Some(Op::Clear {
                 bigmap: raw
                     .big_map
                     .clone()
@@ -82,7 +82,8 @@ impl Op {
                         anyhow!("no big map id found in diff {:?}", raw)
                     })?
                     .parse()?,
-            }),
+            })),
+            "alloc" => Ok(None),
             _ => Err(anyhow!("unsupported bigmap diff action {}", raw.action)),
         }
     }
@@ -99,19 +100,19 @@ impl IntraBlockBigmapDiffsProcessor {
         };
 
         let tx_bigmap_ops = block
-            .map_tx_contexts(|tx_context, op_res| match op_res {
-                Some(op_res) => {
-                    if op_res.big_map_diff.is_none() {
-                        Ok(Some((tx_context, vec![])))
-                    } else {
-                        let mut ops: Vec<Op> = vec![];
-                        for op in op_res.big_map_diff.as_ref().unwrap() {
-                            ops.push(Op::from_raw(op)?);
+            .map_tx_contexts(|tx_context, _is_origination, op_res| {
+                if op_res.big_map_diff.is_none() {
+                    Ok(Some((tx_context, vec![])))
+                } else {
+                    let mut ops: Vec<Op> = vec![];
+                    for op in op_res.big_map_diff.as_ref().unwrap() {
+                        if let Some(op_parsed) = Op::from_raw(op)? {
+                            ops.push(op_parsed);
                         }
-                        Ok(Some((tx_context, ops)))
                     }
+                    println!("{:#?}: {:#?}", tx_context, ops);
+                    Ok(Some((tx_context, ops)))
                 }
-                None => Ok(None),
             })
             .unwrap();
         for (tx_context, ops) in tx_bigmap_ops {
@@ -169,8 +170,12 @@ impl IntraBlockBigmapDiffsProcessor {
                             op_.set_bigmap(bigmap_target);
                             res.push(op_);
                         }
-                        Op::Copy { source, .. } => {
+                        Op::Copy { source, bigmap } => {
                             deps.push((*source, tx_context.clone()));
+                            deps = deps
+                                .into_iter()
+                                .filter(|(d, _)| d != bigmap)
+                                .collect();
 
                             targets.push(*source);
                         }
@@ -307,7 +312,7 @@ fn test_normalizer() {
             exp_ops: vec![op_update(0, 1), op_update(0, 2)],
         },
         TestCase {
-            name: "nested copy".to_string(),
+            name: "nested copy, only nested source is in exp_deps".to_string(),
 
             tx_bigmap_ops: vec![(
                 tx_context(1),
@@ -327,8 +332,41 @@ fn test_normalizer() {
             normalize_tx_context: tx_context(1),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(5, tx_context(1)), (10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1))],
             exp_ops: vec![op_update(0, 1), op_update(0, 2)],
+        },
+        TestCase {
+            name: "nested copy (complex)".to_string(),
+
+            tx_bigmap_ops: vec![(
+                tx_context(1),
+                vec![
+                    op_update(10, 1),
+                    Op::Copy {
+                        bigmap: 5,
+                        source: 10,
+                    },
+                    op_update(5, 2),
+                    Op::Copy {
+                        bigmap: 0,
+                        source: 5,
+                    },
+                    Op::Copy {
+                        bigmap: 0,
+                        source: 5,
+                    },
+                ],
+            )],
+            normalize_tx_context: tx_context(1),
+            normalize_bigmap: 0,
+
+            exp_deps: vec![(10, tx_context(1)), (10, tx_context(1))],
+            exp_ops: vec![
+                op_update(0, 1),
+                op_update(0, 1),
+                op_update(0, 2),
+                op_update(0, 2),
+            ],
         },
         TestCase {
             name: "copy takes from prior tx_contexts too, target does not"

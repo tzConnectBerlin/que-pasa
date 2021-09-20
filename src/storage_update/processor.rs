@@ -112,7 +112,11 @@ where
         block: &block::Block,
         contract_id: &str,
         rel_ast: &RelationalAST,
-    ) -> Result<(Inserts, Vec<TxContext>)> {
+    ) -> Result<(
+        Inserts,
+        Vec<(TxContext, String, i32, String, i32)>,
+        Vec<TxContext>,
+    )> {
         self.inserts.clear();
         self.tx_contexts.clear();
         self.big_map_map.clear();
@@ -120,39 +124,35 @@ where
         println!("processing block {}", block.header.level);
 
         let storages: Vec<(TxContext, parser::Value)> =
-            block.map_tx_contexts(|tx_context, op_res| {
+            block.map_tx_contexts(|tx_context, is_origination, op_res| {
                 if tx_context.contract != contract_id {
                     return Ok(None);
                 }
 
-                match op_res {
-                    Some(op_res) => {
-                        if let Some(storage) = &op_res.storage {
-                            Ok(Some((
-                                self.tx_context(tx_context),
-                                parser::parse_lexed(&serde2json!(storage))?,
-                            )))
-                        } else {
-                            Err(anyhow!(
+                if is_origination {
+                    let storage = parser::parse_json(
+                        &self.node_cli.get_contract_storage(
+                            contract_id,
+                            tx_context.level,
+                        )?,
+                    )?;
+                    Ok(Some((self.tx_context(tx_context), storage)))
+                } else if let Some(storage) = &op_res.storage {
+                    Ok(Some((
+                        self.tx_context(tx_context),
+                        parser::parse_lexed(&serde2json!(storage))?,
+                    )))
+                } else {
+                    Err(anyhow!(
 			    "bad contract call: no storage update. tx_context={:#?}",
 			    tx_context
 			))
-                        }
-                    }
-                    None => {
-                        let storage = parser::parse_json(
-                            &self.node_cli.get_contract_storage(
-                                contract_id,
-                                tx_context.level,
-                            )?,
-                        )?;
-                        Ok(Some((self.tx_context(tx_context), storage)))
-                    }
                 }
             })?;
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
-
+        let mut bigmap_copies: Vec<(TxContext, String, i32, String, i32)> =
+            vec![];
         for (tx_context, parsed_storage) in &storages {
             println!("processing: {:#?}", tx_context);
             let tx_context = &self.tx_context(tx_context.clone());
@@ -165,9 +165,25 @@ where
                 })?;
 
             let mut bigmaps = diffs.get_tx_context_owned_bigmaps(tx_context);
-            bigmaps.sort();
+            bigmaps.sort_unstable();
             for bigmap in bigmaps {
-                let (_deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                if self.big_map_map.contains_key(&bigmap) {
+                    let (_fk, rel_ast) = &self.big_map_map[&bigmap];
+                    for (src_bigmap, src_context) in deps {
+                        let dest_bigmap = bigmap;
+                        let dest_table = rel_ast
+                            .table_entry()
+                            .ok_or_else(|| anyhow!("bigmap copy dest rel_ast has unexpected type"))?;
+                        bigmap_copies.push((
+                            tx_context.clone(),
+                            src_context.contract.clone(),
+                            src_bigmap,
+                            dest_table,
+                            dest_bigmap,
+                        ));
+                    }
+                }
                 for op in &ops {
                     self.process_bigmap_op(op, tx_context)?;
                 }
@@ -176,11 +192,26 @@ where
 
         Ok((
             self.inserts.clone(),
+            bigmap_copies,
             self.tx_contexts
                 .keys()
                 .cloned()
                 .collect(),
         ))
+    }
+
+    pub(crate) fn get_bigmap_tables(&self) -> Result<Vec<(i32, String)>> {
+        let mut res: Vec<(i32, String)> = vec![];
+
+        for (bigmap_id, (_fk, rel_ast)) in &self.big_map_map {
+            res.push((
+                *bigmap_id,
+                rel_ast
+                    .table_entry()
+                    .ok_or_else(|| anyhow!("table name missing"))?,
+            ))
+        }
+        Ok(res)
     }
 
     pub(crate) fn get_id_value(&self) -> u32 {

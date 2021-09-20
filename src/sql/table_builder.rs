@@ -21,6 +21,28 @@ impl TableBuilder {
             tables: TableMap::new(),
         };
         res.touch_table("storage");
+        /*
+            res.add_column(
+                true,
+                &RelationalEntry {
+                    table_name: "bigmap_tables".to_string(),
+                    column_name: "table".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                },
+            );
+            res.add_column(
+                true,
+                &RelationalEntry {
+                    table_name: "bigmap_tables".to_string(),
+                    column_name: "bigmap_id".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                    value: None,
+                    is_index: true,
+                },
+            );
+        */
         res
     }
 
@@ -79,21 +101,6 @@ impl TableBuilder {
             &ExprTy::SimpleExprTy(SimpleExprTy::Int),
         );
         self.store_table(t);
-
-        /*
-            let mut t = self.get_table("bigmap_copies");
-            t.add_index(
-                true,
-                "bigmap_id_source",
-                &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-            );
-            t.add_index(
-                true,
-                "bigmap_id_destination",
-                &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-            );
-            self.store_table(t);
-        */
     }
 
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {

@@ -468,7 +468,7 @@ impl Executor {
             });
         }
 
-        let (inserts, tx_contexts) = storage_processor
+        let (inserts, bigmap_copies, tx_contexts) = storage_processor
                 .process_block(block, &contract_id.address, rel_ast)
                 .with_context(|| {
                     format!(
@@ -483,6 +483,7 @@ impl Executor {
                 meta,
                 contract_id,
                 inserts,
+	        bigmap_copies,
                 tx_contexts,
                 (storage_processor.get_id_value() + 1) as i32,
             )
@@ -492,6 +493,10 @@ impl Executor {
                 meta.level, contract_id.name,
             )
             })?;
+
+        let bigmap_tables = storage_processor.get_bigmap_tables()?;
+        DBClient::save_bigmap_table_locations(tx, contract_id, &bigmap_tables)?;
+
         if is_origination {
             Self::mark_level_contract_origination(tx, meta, contract_id)
             .with_context(|| {
@@ -532,6 +537,7 @@ impl Executor {
         meta: &LevelMeta,
         contract_id: &ContractID,
         inserts: Inserts,
+        bigmap_copies: Vec<(TxContext, String, i32, String, i32)>,
         tx_contexts: Vec<TxContext>,
         next_id: i32,
     ) -> Result<()> {
@@ -546,6 +552,7 @@ impl Executor {
                 .into_values()
                 .collect::<Vec<Insert>>(),
         )?;
+        DBClient::apply_bigmap_deps(tx, contract_id, &bigmap_copies)?;
         DBClient::set_max_id(tx, next_id)?;
         Ok(())
     }
@@ -834,7 +841,7 @@ fn test_block() {
             )))
             .unwrap();
 
-            let (inserts, _) = storage_processor
+            let (inserts, _, _) = storage_processor
                 .process_block(&block, contract.id, &rel_ast)
                 .unwrap();
 
