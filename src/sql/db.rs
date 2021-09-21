@@ -3,7 +3,9 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 use native_tls::{Certificate, TlsConnector};
-use postgres::types::BorrowToSql;
+use postgres::fallible_iterator::FallibleIterator;
+use postgres::row::Row;
+use postgres::types::{BorrowToSql, ToSql};
 use postgres::{Client, NoTls, Transaction};
 use postgres_native_tls::MakeTlsConnector;
 use std::fs;
@@ -497,48 +499,88 @@ ON CONFLICT DO NOTHING
             bigmap_ids.insert(*bigmap_id, ());
         }
 
-        for row in tx.query(
-            "
+        let bigmap_refs = (0..bigmap_ids.len())
+            .map(|i| format!("${}", (i + 2).to_string()))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let mut args = vec![contract_id.address.borrow_to_sql()];
+        args.extend::<Vec<&dyn ToSql>>(
+            bigmap_ids
+                .keys()
+                .map(|k| k.borrow_to_sql())
+                .collect(),
+        );
+
+        let mut rows: Vec<Row> = vec![];
+        {
+            let mut it = tx.query_raw(
+                format!(
+                    "
 SELECT
+    tx_context_id,
     source_bigmap,
     dest_schema,
     dest_table,
     dest_bigmap
 FROM bigmap_deps
 WHERE source_contract = $1
-  AND source_bigmap::text IN ($2)",
-            &[
-                &contract_id.address,
-                &bigmap_ids
-                    .keys()
-                    .map(|k| format!("'{}'", k))
-                    .collect::<Vec<String>>()
-                    .join(", "),
-            ],
-        )? {
-            let src_bigmap: i32 = row.get(0);
-            let dest_schema: String = row.get(1);
-            let dest_table: String = row.get(2);
-            let dest_bigmap: i32 = row.get(3);
+  AND source_bigmap IN ({bigmap_refs})",
+                    bigmap_refs = bigmap_refs
+                )
+                .as_str(),
+                args,
+                /*
+                    &[
+                        &contract_id.address,
+                        &bigmap_ids.keys().collect::<Vec<i32>>(), /*
+                                                                          .map(|k| format!("{}", k))
+                                                                          .collect::<Vec<String>>()
+                                                                          .join(", "),
+                                                                  */
+                    ],
+                */
+            )?;
+
+            while let Some(row) = it.next()? {
+                rows.push(row);
+            }
+        }
+        for row in rows {
+            let ctx_id_at_copy: i32 = row.get(0);
+            let src_bigmap: i32 = row.get(1);
+            let dest_schema: String = row.get(2);
+            let dest_table: String = row.get(3);
+            let dest_bigmap: i32 = row.get(4);
 
             let mut dep_inserts: Vec<Insert> = vec![];
             for (bigmap_id, insert) in &bigmap_inserts {
                 if *bigmap_id != src_bigmap {
+                    println!("dep insert, {} != {}", bigmap_id, src_bigmap);
                     continue;
                 }
                 let mut dep_insert = (*insert).clone();
                 dep_insert.columns = dep_insert
                     .columns
                     .into_iter()
-                    .filter(|col| col.name != "bigmap_id")
+                    .filter(|col| {
+                        col.name != "bigmap_id" && col.name != "tx_context_id"
+                    })
                     .collect();
                 dep_insert.columns.push(Column {
                     name: "bigmap_id".to_string(),
                     value: Value::Int(dest_bigmap),
                 });
+                dep_insert.columns.push(Column {
+                    name: "tx_context_id".to_string(),
+                    value: Value::Int(ctx_id_at_copy),
+                });
                 dep_insert.table_name = dest_table.clone();
                 dep_inserts.push(dep_insert);
             }
+
+            println!("dep inserts: {:#?}", dep_inserts);
+
             Self::apply_inserts(
                 tx,
                 &ContractID {
