@@ -547,6 +547,7 @@ impl Executor {
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
         DBClient::apply_inserts(
             tx,
+            meta.level as i32,
             contract_id,
             &inserts
                 .into_values()

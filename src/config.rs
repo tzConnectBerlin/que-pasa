@@ -238,7 +238,7 @@ fn range(arg: &str) -> Vec<u32> {
         }
     }
     result.sort_unstable();
-    result.reverse();
+    //result.reverse();
     result
 }
 

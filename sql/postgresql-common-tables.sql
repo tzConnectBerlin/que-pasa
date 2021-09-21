@@ -59,3 +59,18 @@ CREATE TABLE bigmap_deps(
 
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
 );
+
+
+CREATE TABLE bigmap_copied_rows(
+    src_contract TEXT NOT NULL,
+
+    src_tx_context_id INTEGER NOT NULL,
+    dest_tx_context_id INTEGER NOT NULL,
+
+    dest_schema TEXT NOT NULL,
+    dest_table TEXT NOT NULL,
+    dest_row_id INTEGER NOT NULL,
+
+    FOREIGN KEY (src_tx_context_id) REFERENCES tx_contexts(id),
+    FOREIGN KEY (dest_tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
+);
