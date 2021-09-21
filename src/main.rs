@@ -88,15 +88,29 @@ fn main() {
         return;
     }
 
+    let deps = dbcli
+        .get_config_deps(&CONFIG.contracts)
+        .unwrap();
+
     let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
     let num_getters = CONFIG.workers_cap;
     if CONFIG.all_contracts {
         executor.index_all_contracts();
     } else {
-        assert_contracts_ok(&CONFIG.contracts);
-        info!("running for contracts: {:#?}", CONFIG.contracts);
+        let mut contracts: Vec<ContractID> = CONFIG.contracts.clone();
+        contracts.extend(
+            deps.into_iter()
+                .map(|addr| ContractID {
+                    name: addr.clone(),
+                    address: addr,
+                })
+                .collect::<Vec<ContractID>>(),
+        );
+        let contracts = contracts;
+        assert_contracts_ok(&contracts);
+        info!("running for contracts: {:#?}", contracts);
 
-        for contract_id in &CONFIG.contracts {
+        for contract_id in &contracts {
             executor
                 .add_contract(contract_id)
                 .unwrap();

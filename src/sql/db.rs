@@ -352,14 +352,14 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
             tx.execute(
                 "
 INSERT INTO bigmap_deps(
-    tx_context_id, source_contract, source_bigmap, dest_schema, dest_table, dest_bigmap
+    tx_context_id, src_contract, src_bigmap, dest_schema, dest_table, dest_bigmap
 )
 SELECT
     *
 FROM (
     SELECT
         x.ctx::integer as tx_context_id,
-        COALESCE(c.address, x.src_contract)::text as source_contract,
+        COALESCE(c.address, x.src_contract)::text as src_contract,
         x.src_bigmap::integer,
         x.dest_schema::text,
         x.dest_table::text,
@@ -616,16 +616,16 @@ ON CONFLICT DO NOTHING
                     "
 SELECT
     tx_context_id,
-    source_bigmap,
+    src_bigmap,
     dest_schema,
     dest_table,
     dest_bigmap
 FROM bigmap_deps dep
 JOIN tx_contexts ctx
   ON ctx.id = dep.tx_context_id
-WHERE source_contract = $1
+WHERE src_contract = $1
   AND ctx.level < $2
-  AND source_bigmap IN ({bigmap_refs})",
+  AND src_bigmap IN ({bigmap_refs})",
                     bigmap_refs = bigmap_refs
                 )
                 .as_str(),
@@ -752,6 +752,41 @@ FROM
             )?;
         }
         Ok(())
+    }
+
+    pub(crate) fn get_config_deps(
+        &mut self,
+        config: &[ContractID],
+    ) -> Result<Vec<String>> {
+        let v_refs = (0..config.len())
+            .map(|i| format!("${}", (i + 1).to_string()))
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        let mut it = self.dbconn.query_raw(
+            format!(
+                "
+SELECT
+    src_contract
+FROM bigmap_deps
+WHERE dest_schema IN ({})
+",
+                v_refs
+            )
+            .as_str(),
+            config
+                .iter()
+                .map(|c| c.name.borrow_to_sql())
+                .collect::<Vec<&dyn ToSql>>(),
+        )?;
+        let mut res: Vec<String> = vec![];
+        while let Some(row) = it.next()? {
+            res.push(row.get(0));
+        }
+        Ok(res
+            .into_iter()
+            .filter(|dep| !config.iter().any(|c| c.address == *dep))
+            .collect())
     }
 
     pub(crate) fn apply_inserts_for_table(

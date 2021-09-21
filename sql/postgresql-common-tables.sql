@@ -8,7 +8,9 @@ CREATE UNIQUE INDEX levels_hash ON levels(hash);
 
 CREATE TABLE contracts (
     name TEXT PRIMARY KEY,
-    address VARCHAR(100) NOT NULL
+    address VARCHAR(100) NOT NULL,
+
+    UNIQUE(address)
 );
 
 CREATE TABLE contract_levels (
@@ -50,8 +52,8 @@ CREATE UNIQUE INDEX ON tx_contexts(
 CREATE TABLE bigmap_deps(
     tx_context_id INTEGER NOT NULL,
 
-    source_contract TEXT NOT NULL,
-    source_bigmap INTEGER NOT NULL,
+    src_contract TEXT NOT NULL,
+    src_bigmap INTEGER NOT NULL,
 
     dest_schema TEXT NOT NULL,
     dest_table TEXT NOT NULL,
