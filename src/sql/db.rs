@@ -417,8 +417,7 @@ FROM (
     JOIN tx_contexts ctx
       ON ctx.id = src.tx_context_id
     WHERE ctx.level < $3
-) src
-"#,
+) src"#,
                         src_schema = src_schema,
                         src_table = src_table,
                         src_columns = src_columns
