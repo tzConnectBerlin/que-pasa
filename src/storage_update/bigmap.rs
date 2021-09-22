@@ -110,7 +110,6 @@ impl IntraBlockBigmapDiffsProcessor {
                             ops.push(op_parsed);
                         }
                     }
-                    println!("{:#?}: {:#?}", tx_context, ops);
                     Ok(Some((tx_context, ops)))
                 }
             })
