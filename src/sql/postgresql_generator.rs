@@ -298,33 +298,48 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
             ctx.level as level,
             level_meta.baked_at as level_timestamp,
             t.*
-        FROM "{contract_schema}"."{table}" t
+        FROM (
+            SELECT
+                t.*
+            FROM "{contract_schema}"."{table}" t
+            WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
+              AND t.id NOT IN (SELECT dest_row_id FROM bigmap_copied_rows)
 
+            UNION ALL
+
+            SELECT
+                *
+            FROM (
+                SELECT DISTINCT ON({indices})
+                    t.*
+                FROM "{contract_schema}"."{table}" t
+                JOIN bigmap_copied_rows cpy
+                  ON cpy.dest_row_id = t.id
+                JOIN tx_contexts src_ctx
+                  ON src_ctx.id = cpy.src_tx_context_id
+                WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
+                ORDER BY
+                    {indices},
+                    src_ctx.level DESC,
+                    src_ctx.operation_group_number DESC,
+                    src_ctx.operation_number DESC,
+                    src_ctx.content_number DESC,
+                    COALESCE(src_ctx.internal_number, -1) DESC
+            ) q
+            WHERE NOT q.deleted
+        ) t
         JOIN tx_contexts ctx
           ON ctx.id = t.tx_context_id
         JOIN levels level_meta
           ON level_meta.level = ctx.level
 
-        LEFT JOIN bigmap_copied_rows cpy
-          ON cpy.dest_row_id = t.id
-        LEFT JOIN tx_contexts src_ctx
-          ON src_ctx.id = cpy.src_tx_context_id
-
-        WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
         ORDER BY
             {indices},
-
             ctx.level DESC,
             ctx.operation_group_number DESC,
             ctx.operation_number DESC,
             ctx.content_number DESC,
             COALESCE(ctx.internal_number, -1) DESC
-
-            COALESCE(src_ctx.level, -1) DESC,
-            COALESCE(src_ctx.operation_group_number, -1) DESC,
-            COALESCE(src_ctx.operation_number, -1) DESC,
-            COALESCE(src_ctx.content_number, -1) DESC,
-            COALESCE(src_ctx.internal_number, -1) DESC
     ) t
     where not t.deleted
 );
@@ -349,6 +364,31 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
             t.deleted
             {columns}
         FROM "{contract_schema}"."{table}" t
+        WHERE t.id NOT IN (SELECT dest_row_id FROM bigmap_copied_rows)
+
+        UNION ALL
+
+        SELECT
+            *
+        FROM (
+            SELECT DISTINCT ON({indices})
+                t.tx_context_id,
+                t.deleted
+                {columns}
+            FROM "{contract_schema}"."{table}" t
+            JOIN bigmap_copied_rows cpy
+              ON cpy.dest_row_id = t.id
+            JOIN tx_contexts src_ctx
+              ON src_ctx.id = cpy.src_tx_context_id
+            ORDER BY
+                {indices},
+                src_ctx.level DESC,
+                src_ctx.operation_group_number DESC,
+                src_ctx.operation_number DESC,
+                src_ctx.content_number DESC,
+                COALESCE(src_ctx.internal_number, -1) DESC
+        ) q
+        WHERE NOT q.deleted
 
         UNION ALL
 
