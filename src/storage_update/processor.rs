@@ -121,8 +121,6 @@ where
         self.tx_contexts.clear();
         self.big_map_map.clear();
 
-        println!("processing block {}", block.header.level);
-
         let storages: Vec<(TxContext, parser::Value)> =
             block.map_tx_contexts(|tx_context, is_origination, op_res| {
                 if tx_context.contract != contract_id {
