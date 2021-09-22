@@ -154,7 +154,6 @@ where
         let mut bigmap_copies: Vec<(TxContext, String, i32, String, i32)> =
             vec![];
         for (tx_context, parsed_storage) in &storages {
-            println!("processing: {:#?}", tx_context);
             let tx_context = &self.tx_context(tx_context.clone());
             self.process_storage_value(parsed_storage, rel_ast, tx_context)
                 .with_context(|| {

@@ -436,7 +436,6 @@ FROM (
                         dest_table = dest_table,
                         dest_columns = dest_columns.join(", "),
                     );
-                    println!("qry: {}", &qry);
                     let bigmap_id = format!("{}", dest_bigmap_id);
                     let tx_context_id = format!("{}", tx_context.id.unwrap());
                     tx.execute(
@@ -589,6 +588,9 @@ ON CONFLICT DO NOTHING
             })
             .collect();
         let bigmap_inserts = bigmap_inserts?;
+        if bigmap_inserts.is_empty() {
+            return Ok(());
+        }
 
         let mut bigmap_ids: HashMap<i32, ()> = HashMap::new();
         for (bigmap_id, _) in &bigmap_inserts {
@@ -648,7 +650,6 @@ WHERE src_contract = $1
             let mut ids: Vec<(i32, i32)> = vec![];
             for (bigmap_id, insert) in &bigmap_inserts {
                 if *bigmap_id != src_bigmap {
-                    println!("dep insert, {} != {}", bigmap_id, src_bigmap);
                     continue;
                 }
 
@@ -697,8 +698,6 @@ WHERE src_contract = $1
                 dep_insert.table_name = dest_table.clone();
                 dep_inserts.push(dep_insert);
             }
-
-            println!("dep inserts: {:#?}", dep_inserts);
 
             Self::apply_inserts(
                 tx,
@@ -758,6 +757,9 @@ FROM
         &mut self,
         config: &[ContractID],
     ) -> Result<Vec<String>> {
+        if config.is_empty() {
+            return Ok(vec![]);
+        }
         let v_refs = (0..config.len())
             .map(|i| format!("${}", (i + 1).to_string()))
             .collect::<Vec<String>>()

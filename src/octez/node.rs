@@ -4,6 +4,7 @@ use backoff::{retry, Error, ExponentialBackoff};
 use chrono::{DateTime, Utc};
 use curl::easy::Easy;
 use json::JsonValue;
+use serde::Deserialize;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -45,13 +46,12 @@ impl NodeClient {
             .with_context(|| {
                 format!("failed to get level_json for level={}", level)
             })?;
-        let block: Block = serde_json::from_str(&resp.to_string())
-            .with_context(|| {
-                format!(
-                    "failed to parse level_json into Block for level={}",
-                    level
-                )
-            })?;
+        let resp_data = resp.to_string();
+
+        let mut deserializer = serde_json::Deserializer::from_str(&resp_data);
+        deserializer.disable_recursion_limit();
+        let block: Block = Block::deserialize(&mut deserializer)?;
+
         let meta = LevelMeta {
             level: block.header.level as u32,
             hash: Some(block.hash.clone()),
