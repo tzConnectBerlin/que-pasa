@@ -18,6 +18,7 @@ use crate::sql::db::DBClient;
 use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
+use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
 use crate::storage_update::processor::StorageProcessor;
 
 pub struct SaveLevelResult {
@@ -406,12 +407,14 @@ impl Executor {
         DBClient::delete_level(&mut tx, level)?;
         DBClient::save_level(&mut tx, level)?;
 
+        let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
         for contract_id in &process_contracts {
             let (rel_ast, _) = &self.contracts[contract_id];
             contract_results.push(Self::exec_for_block_contract(
                 &mut tx,
                 level,
                 block,
+                &diffs,
                 storage_processor,
                 contract_id,
                 rel_ast,
@@ -445,6 +448,7 @@ impl Executor {
         tx: &mut Transaction,
         meta: &LevelMeta,
         block: &Block,
+        diffs: &IntraBlockBigmapDiffsProcessor,
         storage_processor: &mut StorageProcessor<NodeClient>,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
@@ -469,7 +473,7 @@ impl Executor {
         }
 
         let (inserts, bigmap_copies, tx_contexts) = storage_processor
-                .process_block(block, &contract_id.address, rel_ast)
+                .process_block(block, diffs, &contract_id.address, rel_ast)
                 .with_context(|| {
                     format!(
                         "execute failed (level={}, contract={}): could not process block",
@@ -842,8 +846,9 @@ fn test_block() {
             )))
             .unwrap();
 
+            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
             let (inserts, _, _) = storage_processor
-                .process_block(&block, contract.id, &rel_ast)
+                .process_block(&block, &diffs, contract.id, &rel_ast)
                 .unwrap();
 
             let filename =

@@ -108,10 +108,6 @@ VALUES ($1, $2)",
                 format!(
                     r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
-CREATE TABLE "{contract_schema}".bigmap_tables (
-    bigmap_id INTEGER PRIMARY KEY,
-    "table" TEXT NOT NULL
-);
 "#,
                     contract_schema = contract_id.name
                 )
@@ -212,17 +208,14 @@ WHERE address = $1
         bigmap_id: i32,
     ) -> Result<Option<String>> {
         let res = tx.query_opt(
-            format!(
-                r#"
+            r#"
 SELECT
     "table"
-FROM "{contract_name}".bigmap_tables
-WHERE bigmap_id = $1
+FROM bigmap_tables
+WHERE contract = $1
+  AND bigmap_id = $2
 "#,
-                contract_name = contract_name
-            )
-            .as_str(),
-            &[&bigmap_id],
+            &[&contract_name, &bigmap_id],
         )?;
         Ok(res.map(|row| row.get(0)))
     }
@@ -519,17 +512,13 @@ FROM
     ) -> Result<()> {
         for (bigmap_id, table) in bigmap_locs {
             tx.execute(
-                format!(
-                    r#"
-INSERT INTO "{contract_schema}".bigmap_tables (
-    "table", bigmap_id
-) VALUES ($1, $2)
+                r#"
+INSERT INTO bigmap_tables (
+    contract, "table", bigmap_id
+) VALUES ($1, $2, $3)
 ON CONFLICT DO NOTHING
 "#,
-                    contract_schema = contract_id.name
-                )
-                .as_str(),
-                &[table, bigmap_id],
+                &[&contract_id.name, table, bigmap_id],
             )?;
         }
         Ok(())
@@ -886,6 +875,9 @@ WHERE table_schema = 'public'
         }
         tx.simple_query(
             "
+DROP TABLE IF EXISTS bigmap_copied_rows;
+DROP TABLE IF EXISTS bigmap_deps;
+DROP TABLE IF EXISTS bigmap_tables;
 DROP TABLE IF EXISTS tx_contexts;
 DROP TABLE IF EXISTS max_id;
 DROP TABLE IF EXISTS contract_levels;

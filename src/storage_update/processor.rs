@@ -110,6 +110,7 @@ where
     pub(crate) fn process_block(
         &mut self,
         block: &block::Block,
+        diffs: &IntraBlockBigmapDiffsProcessor,
         contract_id: &str,
         rel_ast: &RelationalAST,
     ) -> Result<(
@@ -148,7 +149,6 @@ where
                 }
             })?;
 
-        let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
         let mut bigmap_copies: Vec<(TxContext, String, i32, String, i32)> =
             vec![];
         for (tx_context, parsed_storage) in &storages {
