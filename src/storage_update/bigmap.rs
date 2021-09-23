@@ -230,6 +230,33 @@ impl IntraBlockBigmapDiffsProcessor {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct BigmapCopy {
+    pub tx_context: TxContext,
+    pub src_contract: String,
+    pub src_bigmap: i32,
+    pub dest_table: String,
+    pub dest_bigmap: i32,
+}
+
+impl BigmapCopy {
+    pub(crate) fn new(
+        tx_context: TxContext,
+        src_contract: String,
+        src_bigmap: i32,
+        dest_table: String,
+        dest_bigmap: i32,
+    ) -> Self {
+        Self {
+            tx_context,
+            src_contract,
+            src_bigmap,
+            dest_table,
+            dest_bigmap,
+        }
+    }
+}
+
 #[test]
 fn test_normalizer() {
     fn tx_context(level: u32) -> TxContext {

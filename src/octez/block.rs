@@ -40,7 +40,7 @@ pub struct Block {
 
 #[derive(Clone, Debug)]
 pub(crate) struct TxContext {
-    pub id: Option<u32>,
+    pub id: Option<i64>,
     pub level: u32,
     pub contract: String,
     pub operation_hash: String,

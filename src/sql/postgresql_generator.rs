@@ -20,9 +20,9 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_sql(&self, column: &Column) -> Option<String> {
         match column.name.as_str() {
-            "id" => return Some("id SERIAL PRIMARY KEY".to_string()),
+            "id" => return Some("id BIGSERIAL PRIMARY KEY".to_string()),
             "tx_context_id" => {
-                return Some("tx_context_id INTEGER NOT NULL".to_string())
+                return Some("tx_context_id BIGINT NOT NULL".to_string())
             }
             "deleted" => {
                 return Some(
@@ -31,14 +31,6 @@ impl PostgresqlGenerator {
             }
             "bigmap_id" => {
                 return Some("bigmap_id INTEGER NOT NULL".to_string())
-            }
-            "bigmap_id_source" => {
-                return Some("bigmap_id_source INTEGER NOT NULL".to_string())
-            }
-            "bigmap_id_destination" => {
-                return Some(
-                    "bigmap_id_destination INTEGER NOT NULL".to_string(),
-                )
             }
             _ => {}
         }

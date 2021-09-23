@@ -7,7 +7,9 @@ use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use crate::storage_update::bigmap;
-use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
+use crate::storage_update::bigmap::{
+    BigmapCopy, IntraBlockBigmapDiffsProcessor,
+};
 use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
@@ -34,23 +36,23 @@ macro_rules! must_match_rel {
 #[derive(Clone, Debug)]
 pub struct ProcessStorageContext {
     pub last_table: Option<String>,
-    pub id: u32,
-    pub fk_id: Option<u32>,
+    pub id: i64,
+    pub fk_id: Option<i64>,
 }
 impl ProcessStorageContext {
-    pub fn new(id: u32) -> ProcessStorageContext {
+    pub fn new(id: i64) -> ProcessStorageContext {
         ProcessStorageContext {
             id,
             last_table: None,
             fk_id: None,
         }
     }
-    pub fn with_id(&self, id: u32) -> Self {
+    pub fn with_id(&self, id: i64) -> Self {
         let mut c = self.clone();
         c.id = id;
         c
     }
-    pub fn with_fk_id(&self, fk_id: u32) -> Self {
+    pub fn with_fk_id(&self, fk_id: i64) -> Self {
         let mut c = self.clone();
         c.fk_id = Some(fk_id);
         c
@@ -65,22 +67,22 @@ impl ProcessStorageContext {
 pub(crate) type TxContextMap = HashMap<TxContext, TxContext>;
 
 pub struct IdGenerator {
-    id: u32,
+    id: i64,
 }
 
 impl IdGenerator {
-    pub(crate) fn new(initial_value: u32) -> Self {
+    pub(crate) fn new(initial_value: i64) -> Self {
         Self { id: initial_value }
     }
 
-    pub(crate) fn get_id(&mut self) -> u32 {
+    pub(crate) fn get_id(&mut self) -> i64 {
         let old_id = self.id;
         self.id += 1;
         old_id
     }
 }
 
-type BigMapMap = std::collections::HashMap<i32, (u32, RelationalAST)>;
+type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
 
 pub(crate) struct StorageProcessor<NodeCli>
 where
@@ -97,7 +99,7 @@ impl<NodeCli> StorageProcessor<NodeCli>
 where
     NodeCli: StorageGetter,
 {
-    pub(crate) fn new(initial_id: u32, node_cli: NodeCli) -> Self {
+    pub(crate) fn new(initial_id: i64, node_cli: NodeCli) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
             inserts: Inserts::new(),
@@ -113,11 +115,7 @@ where
         diffs: &IntraBlockBigmapDiffsProcessor,
         contract_id: &str,
         rel_ast: &RelationalAST,
-    ) -> Result<(
-        Inserts,
-        Vec<(TxContext, String, i32, String, i32)>,
-        Vec<TxContext>,
-    )> {
+    ) -> Result<(Inserts, Vec<BigmapCopy>, Vec<TxContext>)> {
         self.inserts.clear();
         self.tx_contexts.clear();
         self.big_map_map.clear();
@@ -149,8 +147,7 @@ where
                 }
             })?;
 
-        let mut bigmap_copies: Vec<(TxContext, String, i32, String, i32)> =
-            vec![];
+        let mut bigmap_copies: Vec<BigmapCopy> = vec![];
         for (tx_context, parsed_storage) in &storages {
             let tx_context = &self.tx_context(tx_context.clone());
             self.process_storage_value(parsed_storage, rel_ast, tx_context)
@@ -172,7 +169,7 @@ where
                         let dest_table = rel_ast
                             .table_entry()
                             .ok_or_else(|| anyhow!("bigmap copy dest rel_ast has unexpected type"))?;
-                        bigmap_copies.push((
+                        bigmap_copies.push(BigmapCopy::new(
                             tx_context.clone(),
                             src_context.contract.clone(),
                             src_bigmap,
@@ -211,7 +208,7 @@ where
         Ok(res)
     }
 
-    pub(crate) fn get_id_value(&self) -> u32 {
+    pub(crate) fn get_id_value(&self) -> i64 {
         self.id_generator.id
     }
 
@@ -781,7 +778,7 @@ where
     fn save_bigmap_location(
         &mut self,
         bigmap_id: i32,
-        fk: u32,
+        fk: i64,
         rel_ast: RelationalAST,
     ) {
         self.big_map_map
@@ -803,7 +800,7 @@ where
                     fk_id: ctx.fk_id,
                     columns: vec![Column {
                         name: "tx_context_id".to_string(),
-                        value: insert::Value::Int(tx_context.id.unwrap() as i32),
+                        value: insert::Value::BigInt(tx_context.id.unwrap()),
                     }],
                 };
                 self.inserts.insert(
@@ -853,8 +850,8 @@ where
     fn get_insert(
         &self,
         table_name: &str,
-        id: u32,
-        fk_id: Option<u32>,
+        id: i64,
+        fk_id: Option<i64>,
     ) -> Option<Insert> {
         self.inserts
             .get(&InsertKey {

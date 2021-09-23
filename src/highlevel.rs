@@ -18,7 +18,9 @@ use crate::sql::db::DBClient;
 use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
-use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
+use crate::storage_update::bigmap::{
+    BigmapCopy, IntraBlockBigmapDiffsProcessor,
+};
 use crate::storage_update::processor::StorageProcessor;
 
 pub struct SaveLevelResult {
@@ -349,7 +351,7 @@ impl Executor {
             .with_context(|| {
                 "could not initialize storage processor from the db state"
             })?;
-        Ok(StorageProcessor::new(id as u32, self.node_cli.clone()))
+        Ok(StorageProcessor::new(id, self.node_cli.clone()))
     }
 
     fn exec_level(
@@ -498,7 +500,7 @@ impl Executor {
                 inserts,
 	        bigmap_copies,
                 tx_contexts,
-                (storage_processor.get_id_value() + 1) as i32,
+                storage_processor.get_id_value() + 1,
             )
             .with_context(|| {
                 format!(
@@ -550,9 +552,9 @@ impl Executor {
         meta: &LevelMeta,
         contract_id: &ContractID,
         inserts: Inserts,
-        bigmap_copies: Vec<(TxContext, String, i32, String, i32)>,
+        bigmap_copies: Vec<BigmapCopy>,
         tx_contexts: Vec<TxContext>,
-        next_id: i32,
+        next_id: i64,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;

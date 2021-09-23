@@ -36,7 +36,7 @@ impl Value {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InsertKey {
     pub table_name: String,
-    pub id: u32,
+    pub id: i64,
 }
 
 impl std::cmp::Ord for InsertKey {
@@ -62,8 +62,8 @@ pub struct Column {
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Insert {
     pub table_name: String,
-    pub id: u32,
-    pub fk_id: Option<u32>,
+    pub id: i64,
+    pub fk_id: Option<i64>,
     pub columns: Vec<Column>,
 }
 
@@ -73,7 +73,7 @@ impl Insert {
 
         res.push(Column {
             name: "id".to_string(),
-            value: Value::Int(self.id as i32),
+            value: Value::BigInt(self.id),
         });
         if let Some(fk_id) = self.fk_id {
             let parent_name = PostgresqlGenerator::parent_name(
@@ -88,7 +88,7 @@ impl Insert {
             })?;
             res.push(Column {
                 name: format!("{}_id", parent_name),
-                value: Value::Int(fk_id as i32),
+                value: Value::BigInt(fk_id),
             });
         }
         Ok(res)

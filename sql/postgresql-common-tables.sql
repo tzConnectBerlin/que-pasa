@@ -21,13 +21,13 @@ CREATE TABLE contract_levels (
 );
 
 CREATE TABLE max_id (
-    max_id INT4
+    max_id BIGINT
 );
 
 INSERT INTO max_id (max_id) VALUES (1);
 
 CREATE TABLE tx_contexts(
-    id INTEGER NOT NULL PRIMARY KEY,
+    id BIGINT NOT NULL PRIMARY KEY,
     level INTEGER NOT NULL REFERENCES levels(level) ON DELETE CASCADE,
     contract TEXT NOT NULL,
     operation_hash VARCHAR(100) NOT NULL,
@@ -67,8 +67,8 @@ CREATE TABLE bigmap_deps(
 CREATE TABLE bigmap_copied_rows(
     src_contract TEXT NOT NULL,
 
-    src_tx_context_id INTEGER NOT NULL,
-    dest_tx_context_id INTEGER NOT NULL,
+    src_tx_context_id BIGINT NOT NULL,
+    dest_tx_context_id BIGINT NOT NULL,
 
     dest_schema TEXT NOT NULL,
     dest_table TEXT NOT NULL,

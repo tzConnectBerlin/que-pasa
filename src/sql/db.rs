@@ -20,6 +20,7 @@ use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
+use crate::storage_update::bigmap::BigmapCopy;
 
 pub struct DBClient {
     dbconn: postgres::Client,
@@ -256,7 +257,7 @@ WHERE table_schema = $1
         tx_contexts: &[TxContext],
     ) -> Result<()> {
         struct TxContextPG {
-            id: i32,
+            id: i64,
             pub level: i32,
             pub contract: String,
             pub operation_hash: String,
@@ -286,7 +287,7 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
                     id: tx_context
                         .id
                         .ok_or_else(|| anyhow!("Missing ID on TxContext"))
-                        .unwrap() as i32,
+                        .unwrap(),
                     level: tx_context.level as i32,
                     contract: tx_context.contract.clone(),
                     operation_group_number: tx_context.operation_group_number
@@ -340,19 +341,12 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
     pub(crate) fn apply_bigmap_deps(
         tx: &mut postgres::Transaction,
         contract_id: &ContractID,
-        bigmap_deps: &[(TxContext, String, i32, String, i32)],
+        bigmap_deps: &[BigmapCopy],
     ) -> Result<()> {
-        for (
-            tx_context,
-            src_contract,
-            src_bigmap_id,
-            dest_table,
-            dest_bigmap_id,
-        ) in bigmap_deps
-        {
-            let ctx = format!("{}", tx_context.id.unwrap());
-            let src_id = format!("{}", src_bigmap_id);
-            let dest_id = format!("{}", dest_bigmap_id);
+        for dep in bigmap_deps {
+            let ctx = format!("{}", dep.tx_context.id.unwrap());
+            let src_id = format!("{}", dep.src_bigmap);
+            let dest_id = format!("{}", dep.dest_bigmap);
             tx.execute(
                 "
 INSERT INTO bigmap_deps(
@@ -375,19 +369,19 @@ FROM (
 ",
                 &[
 		    &ctx,
-                    src_contract,
+                    &dep.src_contract,
                     &src_id,
                     &contract_id.name,
-		    dest_table,
+		    &dep.dest_table,
 		    &dest_id,
                 ],
             )?;
 
             if let Some(src_schema) =
-                Self::get_contract_schema(tx, src_contract)?
+                Self::get_contract_schema(tx, &dep.src_contract)?
             {
                 if let Some(src_table) =
-                    Self::get_bigmap_table(tx, &src_schema, *src_bigmap_id)?
+                    Self::get_bigmap_table(tx, &src_schema, dep.src_bigmap)?
                 {
                     let src_columns: Vec<String> =
                         Self::get_table_columns(tx, &src_schema, &src_table)?
@@ -402,7 +396,7 @@ FROM (
                         &src_schema,
                         &src_table,
                         &contract_id.name,
-                        dest_table,
+                        &dep.dest_table,
                     )?;
 
                     let dest_columns: Vec<String> = src_columns
@@ -436,21 +430,22 @@ FROM (
                             .map(|col| format!(r#"src."{}""#, col))
                             .join(", "),
                         dest_schema = contract_id.name,
-                        dest_table = dest_table,
+                        dest_table = dep.dest_table,
                         dest_columns = dest_columns.join(", "),
                     );
-                    let bigmap_id = format!("{}", dest_bigmap_id);
-                    let tx_context_id = format!("{}", tx_context.id.unwrap());
+                    let bigmap_id = format!("{}", dep.dest_bigmap);
+                    let tx_context_id =
+                        format!("{}", dep.tx_context.id.unwrap());
                     tx.execute(
                         qry.as_str(),
                         &[
                             &bigmap_id,
                             &tx_context_id,
-                            &(tx_context.level as i32),
+                            &(dep.tx_context.level as i32),
                         ],
                     )?;
 
-                    let dest_tx_context_id = tx_context.id.unwrap() as i32;
+                    let dest_tx_context_id = dep.tx_context.id.unwrap();
                     tx.execute(
                         format!(
                             r#"
@@ -480,11 +475,11 @@ FROM
                         )
                         .as_str(),
                         &[
-			    src_contract,
+			    &dep.src_contract,
                             &dest_tx_context_id,
                             &contract_id.name,
-                            &dest_table,
-                            &(tx_context.level as i32),
+                            &dep.dest_table,
+                            &(dep.tx_context.level as i32),
                         ],
                     )?;
                 }
@@ -646,7 +641,7 @@ WHERE src_contract = $1
 
             let mut dep_inserts: Vec<Insert> = vec![];
 
-            let mut ids: Vec<(i32, i32)> = vec![];
+            let mut ids: Vec<(i64, i64)> = vec![];
             for (bigmap_id, insert) in &bigmap_inserts {
                 if *bigmap_id != src_bigmap {
                     continue;
@@ -655,14 +650,14 @@ WHERE src_contract = $1
                 let src_tx_context_id = match insert.get_column("tx_context_id")
                 {
                     Some(v) => match v.value {
-                        Value::Int(i) => Ok(i),
+                        Value::BigInt(i) => Ok(i),
                         _ => Err(anyhow!(
                             "insert has bad tx_context_id value type"
                         )),
                     },
                     None => Err(anyhow!("insert misses tx_context_id field")),
                 }?;
-                ids.push((insert.id as i32, src_tx_context_id));
+                ids.push((insert.id, src_tx_context_id));
 
                 let column_mapping = Self::get_tables_column_mapping(
                     tx,
@@ -983,15 +978,15 @@ ORDER BY 1",
             .collect::<Vec<u32>>())
     }
 
-    pub(crate) fn get_max_id(&mut self) -> Result<i32> {
-        let max_id: i32 = self
+    pub(crate) fn get_max_id(&mut self) -> Result<i64> {
+        let max_id: i64 = self
             .dbconn
             .query("SELECT max_id FROM max_id", &[])?[0]
             .get(0);
         Ok(max_id + 1)
     }
 
-    pub(crate) fn set_max_id(tx: &mut Transaction, max_id: i32) -> Result<()> {
+    pub(crate) fn set_max_id(tx: &mut Transaction, max_id: i64) -> Result<()> {
         let updated = tx.execute(
             "
 UPDATE max_id
