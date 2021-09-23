@@ -99,7 +99,7 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
-            Some(t) => vec![format!(r#""{table}_id" INTEGER"#, table = t)],
+            Some(t) => vec![format!(r#""{table}_id" BIGINT"#, table = t)],
             None => vec![],
         };
         for column in table.get_columns() {
