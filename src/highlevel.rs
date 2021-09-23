@@ -114,7 +114,7 @@ impl Executor {
             contract_id.name
         );
         let rel_ast = get_rel_ast(&mut self.node_cli, &contract_id.address)?;
-        println!("rel_ast: {:#?}", rel_ast);
+        debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
             .get_origination(contract_id)?;
@@ -864,7 +864,6 @@ fn test_block() {
             let p = Path::new(&filename);
 
             use std::fs::File;
-            continue;
             if let Ok(file) = File::open(p) {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
