@@ -21,28 +21,6 @@ impl TableBuilder {
             tables: TableMap::new(),
         };
         res.touch_table("storage");
-        /*
-            res.add_column(
-                true,
-                &RelationalEntry {
-                    table_name: "bigmap_tables".to_string(),
-                    column_name: "table".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
-                    value: None,
-                    is_index: true,
-                },
-            );
-            res.add_column(
-                true,
-                &RelationalEntry {
-                    table_name: "bigmap_tables".to_string(),
-                    column_name: "bigmap_id".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
-                    value: None,
-                    is_index: true,
-                },
-            );
-        */
         res
     }
 

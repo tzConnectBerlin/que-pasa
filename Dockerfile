@@ -4,4 +4,7 @@ WORKDIR /usr/src/que-pasa
 COPY . .
 
 RUN cargo install --path .
-CMD ["source env.example.sh; ~/.cargo/bin/que-pasa"]
+
+ENV PATH "${PATH}:/usr/local/cargo/bin/"
+
+CMD ["que-pasa"]

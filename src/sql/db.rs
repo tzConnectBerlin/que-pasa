@@ -25,28 +25,6 @@ pub struct DBClient {
     dbconn: postgres::Client,
 }
 
-/*
-interface:
-
-get_table_columns(
-     tx: &mut Transaction,
-     contract_name: &str,
-     table_name: &str,
-)
-
-fn apply_bigmap_deps(
-     tx: &mut postgres::Transaction,
-     contract_id: &ContractID,
-     bigmap_deps: &[(TxContext, String, i32, String, i32)],
-) -> Result<()>
-
-fn populate_depending_bigmaps(
-     tx: &mut postgres::Transaction,
-     contract_id: &ContractID,
-     inserts: &[Insert],
-) -> Result<()>
-*/
-
 impl DBClient {
     const INSERT_BATCH_SIZE: usize = 100;
 
