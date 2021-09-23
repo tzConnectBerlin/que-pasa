@@ -38,11 +38,11 @@
                 value: Int(272),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("24")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("0")),
             ),
             (
@@ -64,11 +64,11 @@
                 value: Int(272),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("23")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("0")),
             ),
             (
@@ -90,11 +90,11 @@
                 value: Int(272),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("22")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("0")),
             ),
             (
@@ -116,7 +116,7 @@
                 value: Int(272),
             ),
             (
-                name: "idx_string_0",
+                name: "idx_string",
                 value: String("QmeW2A4nNKLaEyq7JiaUhuv2MX2VTWgK3q7EX15ErqWbxu"),
             ),
             (
@@ -178,7 +178,7 @@
                 value: Int(272),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

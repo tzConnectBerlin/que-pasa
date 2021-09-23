@@ -38,11 +38,11 @@
                 value: Int(204),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("15")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("109890109890109890109")),
             ),
             (
@@ -64,11 +64,11 @@
                 value: Int(204),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("14")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("100000000000000000000")),
             ),
             (
@@ -90,11 +90,11 @@
                 value: Int(204),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("13")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("9890109890109890109")),
             ),
             (
@@ -116,7 +116,7 @@
                 value: Int(204),
             ),
             (
-                name: "idx_string_0",
+                name: "idx_string",
                 value: String("QmUCGwUZZ9pRszpTv38jviF9QKPZR6KRofvZqxtokL2YYx"),
             ),
             (
@@ -152,7 +152,7 @@
                 value: Timestamp("2021-03-31T09:47:00Z"),
             ),
             (
-                name: "state",
+                name: "state_1",
                 value: String("questionAuctionWithdrawOpen"),
             ),
             (
@@ -178,7 +178,7 @@
                 value: Int(204),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -208,11 +208,11 @@
                 value: Int(204),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("15")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -238,11 +238,11 @@
                 value: Int(204),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("14")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -268,11 +268,11 @@
                 value: Int(204),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("13")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (

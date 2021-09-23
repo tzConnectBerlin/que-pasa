@@ -26,7 +26,7 @@
                 value: Int(104),
             ),
             (
-                name: "idx_markets_nat_4",
+                name: "idx_markets_nat",
                 value: Numeric(Some("60019725")),
             ),
             (
@@ -124,7 +124,7 @@
                 value: String("tz1VA8Y5qDr2yR5kVLhhWd9mkGB1kx7qBrPx"),
             ),
             (
-                name: "noname_0",
+                name: "noname",
                 value: String("storage.liquidity_provider_map.bet"),
             ),
             (

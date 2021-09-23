@@ -38,11 +38,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_5",
+                name: "idx_address",
                 value: String("tz1bZ8vsMAXmaWEV7FRnyhcuUs2fYMaQ6Hkk"),
             ),
             (
-                name: "address_6",
+                name: "address",
                 value: String("KT1N1xUhaQiE6U3ysmaca364is8cf7rYCFbR"),
             ),
             (
@@ -64,7 +64,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_7",
+                name: "idx_nat",
                 value: Numeric(Some("2")),
             ),
             (
@@ -72,7 +72,7 @@
                 value: Numeric(Some("50")),
             ),
             (
-                name: "flat_tokenType",
+                name: "flat_tokenType_1",
                 value: String("fa2"),
             ),
             (
@@ -84,7 +84,7 @@
                 value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
             ),
             (
-                name: "flat_nat_8",
+                name: "flat_nat",
                 value: Numeric(Some("1000000000000")),
             ),
         ],
@@ -102,7 +102,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_7",
+                name: "idx_nat",
                 value: Numeric(Some("1")),
             ),
             (
@@ -110,7 +110,7 @@
                 value: Numeric(Some("100")),
             ),
             (
-                name: "flat_tokenType",
+                name: "flat_tokenType_1",
                 value: String("fa2"),
             ),
             (
@@ -122,7 +122,7 @@
                 value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
             ),
             (
-                name: "flat_nat_8",
+                name: "flat_nat",
                 value: Numeric(Some("100000000000")),
             ),
         ],
@@ -140,7 +140,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_7",
+                name: "idx_nat",
                 value: Numeric(Some("0")),
             ),
             (
@@ -148,7 +148,7 @@
                 value: Numeric(Some("150")),
             ),
             (
-                name: "flat_tokenType",
+                name: "flat_tokenType_1",
                 value: String("fa2"),
             ),
             (
@@ -160,7 +160,7 @@
                 value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
             ),
             (
-                name: "flat_nat_8",
+                name: "flat_nat",
                 value: Numeric(Some("10000000000")),
             ),
         ],
@@ -178,7 +178,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1codeYURj5z49HKX9zmLHms2vJN2qDjrtt"),
             ),
         ],
@@ -196,7 +196,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1ZZZPNqHprYjJzxXS6HfucYKKgHZUsVu1z"),
             ),
         ],
@@ -214,7 +214,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1XDESSqDpZdCmqKt127EYwBwHkEgCHBjFS"),
             ),
         ],
@@ -232,7 +232,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1WaUrTPocfZfBZzKh6crZzC8rjbS2XNNxt"),
             ),
         ],
@@ -250,7 +250,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1NqD9SfhiUxuwfNHYBRn4yqH2EmKrQrsoJ"),
             ),
         ],
@@ -268,7 +268,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1Kewu2GSEQXePDr3geEgcHCzgibjoTye3S"),
             ),
         ],
@@ -286,7 +286,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_9",
+                name: "idx_address",
                 value: String("tz1hD63wN8p9V8o5ARU7wA7RKAQvBAwkeTr7"),
             ),
         ],
@@ -304,11 +304,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_4",
+                name: "idx_address",
                 value: String("tz1bZ8vsMAXmaWEV7FRnyhcuUs2fYMaQ6Hkk"),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("281")),
             ),
             (
@@ -342,7 +342,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_2",
+                name: "idx_nat",
                 value: Numeric(Some("281")),
             ),
             (
@@ -382,7 +382,7 @@
                 value: Numeric(Some("300000000000")),
             ),
             (
-                name: "rewardToken_tokenType",
+                name: "rewardToken_tokenType_1",
                 value: String("fa2"),
             ),
             (
@@ -398,7 +398,7 @@
                 value: Numeric(Some("1621375625")),
             ),
             (
-                name: "poolToken_tokenType",
+                name: "poolToken_tokenType_1",
                 value: String("fa2"),
             ),
             (

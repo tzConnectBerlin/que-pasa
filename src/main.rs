@@ -119,6 +119,10 @@ fn main() {
             .create_contract_schemas()
             .unwrap();
 
+        if CONFIG.recreate_views {
+            executor.recreate_views().unwrap();
+        }
+
         if !CONFIG.levels.is_empty() {
             executor
                 .exec_levels(num_getters, CONFIG.levels.clone())

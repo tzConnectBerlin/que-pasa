@@ -127,6 +127,39 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
         Ok(false)
     }
 
+    pub(crate) fn recreate_contract_views(
+        &mut self,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) -> Result<()> {
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let generator = PostgresqlGenerator::new(contract_id);
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+
+        let mut tx = self.transaction()?;
+        for (_, table) in sorted_tables {
+            tx.simple_query(
+                format!(
+                    r#"
+DROP VIEW "{contract_schema}"."{table}_ordered";
+DROP VIEW "{contract_schema}"."{table}_live";
+"#,
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                )
+                .as_str(),
+            )?;
+            let views_def = generator.create_view_definition(table)?;
+
+            tx.simple_query(views_def.as_str())?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     pub(crate) fn delete_contract_schema(
         tx: &mut Transaction,
         contract_id: &ContractID,

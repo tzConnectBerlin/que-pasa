@@ -30,7 +30,7 @@
                 value: Int(25),
             ),
             (
-                name: "idx_lambda_repository_string_0",
+                name: "idx_lambda_repository_string",
                 value: String("auction_withdraw_endpoint"),
             ),
             (

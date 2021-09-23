@@ -30,7 +30,7 @@
                 value: Int(33),
             ),
             (
-                name: "idx_lambda_repository_string_0",
+                name: "idx_lambda_repository_string",
                 value: String("auction_bet_endpoint"),
             ),
             (

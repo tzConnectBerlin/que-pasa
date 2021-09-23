@@ -38,15 +38,15 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_0",
+                name: "idx_nat",
                 value: Numeric(Some("6")),
             ),
             (
-                name: "solver_timestamp_4",
+                name: "solver_timestamp",
                 value: Timestamp("2021-03-08T17:13:24Z"),
             ),
             (
-                name: "solver_address_3",
+                name: "solver_address",
                 value: String("tz1L9g4SaPvg5uwZbCvEwbySu2hgwLb3qSGJ"),
             ),
             (
@@ -88,11 +88,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1ikQN6GZtYr11oXmTi3AB8Y7WsjmT5nSNc"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("93")),
             ),
         ],
@@ -110,11 +110,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1iGzTV7fnKJtFgGUSf1zntivMNyo9hvXhn"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("56")),
             ),
         ],
@@ -132,11 +132,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1iE7UAcMPWyp5unpTmyd45KbKpjsPCFSJZ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("52")),
             ),
         ],
@@ -154,11 +154,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1iAorRSromM8dCMpmjtFYcSLanb3B2NjfA"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("58")),
             ),
         ],
@@ -176,11 +176,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1iA4w6VSerpUwwJpSdQZRfWLpPZpQTyohi"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("9")),
             ),
         ],
@@ -198,11 +198,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1hxM1JhQeWn1cHP4L2s48NeJKaN44iy47y"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("92")),
             ),
         ],
@@ -220,11 +220,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1hYc8FKJSztPJb8a9b4V4yQBGtk9t1FkEj"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("44")),
             ),
         ],
@@ -242,11 +242,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1hUajeVgQKMnwE6pr3cPJugMu3oa4srQR1"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("53")),
             ),
         ],
@@ -264,11 +264,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1ge7TGTS3aF1JS14dGBUicxjvbmfPCjk5N"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("36")),
             ),
         ],
@@ -286,11 +286,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1fSDQhTd3nrEXE6XMLkyrUb9bxTVx6qqmd"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("95")),
             ),
         ],
@@ -308,11 +308,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1L9g4SaPvg5uwZbCvEwbySu2hgwLb3qSGJ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -330,11 +330,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1fRe14MfJQ1eFMcgyQoAPWdUSFi5NMsCvD"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("51")),
             ),
         ],
@@ -352,11 +352,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1epV5Ee8W6HVnKLCuf6GLEeP2VVvCdM94B"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("67")),
             ),
         ],
@@ -374,11 +374,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1eo17yiFDiCmcWmtT1u8328JWB5puZQor4"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("2")),
             ),
         ],
@@ -396,11 +396,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1emAMf2k32NKaYo8xoX2QQTjuPk9R2HHyq"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("31")),
             ),
         ],
@@ -418,11 +418,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1ed8v6roaD6EsZKs4U48RaixbMWS1pzXz3"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("82")),
             ),
         ],
@@ -440,11 +440,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1eWeMQzEkif2ZQMQccFCyxVzdFCzca6YCN"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("25")),
             ),
         ],
@@ -462,11 +462,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1eJHRv1W8DYJjtusHSh1c1juRjhKZFV7LQ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("97")),
             ),
         ],
@@ -484,11 +484,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1eHsZ3KJthCxWKC6ApNa4GtqUiMHdDFjoj"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("62")),
             ),
         ],
@@ -506,11 +506,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1e5b7RDRhmUWsiXur9MhyRBBTpCoNeUuwa"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("8")),
             ),
         ],
@@ -528,11 +528,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1dcnPGDg7ovjjcsuY8L2wBzRyEa1RE3gcA"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("88")),
             ),
         ],
@@ -550,11 +550,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1L2ThyAYn5xsMrHR9XKat7QRVN3FRpDfmT"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("35")),
             ),
         ],
@@ -572,11 +572,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1dFUWKzTZDMJYonE7ArL6YX8xHyowSQned"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("18")),
             ),
         ],
@@ -594,11 +594,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1dF8t6is7F6JXqEknYCAkVAkh46czysySw"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("73")),
             ),
         ],
@@ -616,11 +616,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1cpQWk2Eq7mEiZLfSPmBr6P49p7i22S8AL"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("14")),
             ),
         ],
@@ -638,11 +638,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1chqGj9zraSbY7FfCgv6Cfe5CMK8yvJBhq"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("81")),
             ),
         ],
@@ -660,11 +660,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1cZG2bLirJM4uJq6aJeG6zS2RpHNDgywLj"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("28")),
             ),
         ],
@@ -682,11 +682,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1cLyeFM5TUC9XmRaYQKg8X5cguxSFhHq8F"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("79")),
             ),
         ],
@@ -704,11 +704,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1cFmLNpFXNdoYbZMPynEg985YkPaZJTNTs"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("47")),
             ),
         ],
@@ -726,11 +726,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1bxnm4UrKDq1kR8qfxYvnW6Czjhv1yRqPK"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("19")),
             ),
         ],
@@ -748,11 +748,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1bnrzooHBYaudGy19C3VcQqw57NF39rE8w"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("85")),
             ),
         ],
@@ -770,11 +770,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1bPQsQNXLvvhpQLfsrHoKpxEH3a8dQfSVf"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("50")),
             ),
         ],
@@ -792,11 +792,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1bHj4Tp9R775iLNSRyxdjJvefVVx9xXK63"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("80")),
             ),
         ],
@@ -814,11 +814,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1bG3UovUrjkkgQk4kHbGZRXp922G4BQTCm"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("30")),
             ),
         ],
@@ -836,11 +836,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1aRvKVTRuqCBgiRccfPMx8KiQUAEqUAMab"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("57")),
             ),
         ],
@@ -858,11 +858,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1ZyMFG8MmWLzExb8edjsfPHbh1W7Xa6tAV"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("48")),
             ),
         ],
@@ -880,11 +880,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1ZiXTyAAWeDAehQxQmRPBpf2iY6n1X6sSv"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -902,11 +902,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Za1qBuH2fv9tWhAeG7Qhr6fohj6oXXbxe"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("90")),
             ),
         ],
@@ -924,11 +924,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1ZGQMpGAunZCB6fbGM2PSsM4HPEyMqdWnk"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("61")),
             ),
         ],
@@ -946,11 +946,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Z53SaDWM7VuSqYwZv7NfU3t7RyvEz4oFU"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("11")),
             ),
         ],
@@ -968,11 +968,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1YwQR2mtdMAdtoG6U5b672mZEmVdrLTfNp"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("32")),
             ),
         ],
@@ -990,11 +990,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1YaFytHvEggUeY93gQXspwUC9AJDasbwY6"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("40")),
             ),
         ],
@@ -1012,11 +1012,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1YZN1GPcN5jZMvYFBCWTpHveX2ftwgSfoB"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("49")),
             ),
         ],
@@ -1034,11 +1034,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1YR1xrSJcrRxyiP3t2XjDMeR7HQd7Ftx7E"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("42")),
             ),
         ],
@@ -1056,11 +1056,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1YGh8YWxu2stsAeQiKyt4bJs9AG3PxQ3GZ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("20")),
             ),
         ],
@@ -1078,11 +1078,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Y7ambkGa1sEx117fHM2sqBH5D7KNaVWcy"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("94")),
             ),
         ],
@@ -1100,11 +1100,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1XwT7cC7UnvMi4GooA3qUNEA22cPcUXxLp"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("6")),
             ),
         ],
@@ -1122,11 +1122,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1XvPTy5B15Sojatz3TMWRk3WRznM3h9xR8"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("22")),
             ),
         ],
@@ -1144,11 +1144,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1XpLwrtgBTUJTtoaU7bmVn5cm3je5p1kwE"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("75")),
             ),
         ],
@@ -1166,11 +1166,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1XoN1H41UipiijXrS68unMqeZJdXA3xs1J"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("13")),
             ),
         ],
@@ -1188,11 +1188,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1XkVizMVPHtK9V96uf5PbyzkwMaYeJTteV"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("71")),
             ),
         ],
@@ -1210,11 +1210,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Xgjx2mDDiUdWjPgyYM2SNMzHNK9w2YnvZ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("7")),
             ),
         ],
@@ -1232,11 +1232,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1XW2MZsyboc3c4AzLbY8CgdATARACTGEAT"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("87")),
             ),
         ],
@@ -1254,11 +1254,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1X8vhcVg9tR9FR3ToXWpTawy4qp4YfeqBz"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("55")),
             ),
         ],
@@ -1276,11 +1276,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Wmiq6ViUHjUmApdx7LGyvPWS1yc5hX8PK"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("21")),
             ),
         ],
@@ -1298,11 +1298,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1WjLSWrdHDkm5HdWYSRPZdY46zs5MM4L3i"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("34")),
             ),
         ],
@@ -1320,11 +1320,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1WUu4hgHNRZaGuJbMJJtwbbWsAaCYcPBWM"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("70")),
             ),
         ],
@@ -1342,11 +1342,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1WPgxRkoyxXXXjCU5QWrCjrop5yqiGBcJ3"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("65")),
             ),
         ],
@@ -1364,11 +1364,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1WHYvtTV1ghp8Yz2RDCe4vyTXt839kxQyH"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("89")),
             ),
         ],
@@ -1386,11 +1386,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1VvyKPVzKfXDcQ1bVAqBKZnVPR8qYZK5Aa"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("15")),
             ),
         ],
@@ -1408,11 +1408,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1UtvctS3cWbxeYMNkvZi8yPg6pXWTNBTtj"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("74")),
             ),
         ],
@@ -1430,11 +1430,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1UrhQMPfjK1Q4Mk1uG5BaZMYw7vVv4nxmv"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("43")),
             ),
         ],
@@ -1452,11 +1452,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1UojvPJw2twTxQhJewd3cAbCbqiBoxfq1c"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("16")),
             ),
         ],
@@ -1474,11 +1474,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1UnDUACFmHCpSBD88mqcxhQYTNoKvMg8Pp"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("54")),
             ),
         ],
@@ -1496,11 +1496,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1UAMTDUhH6RDc2fCkCF9Y5FTg1KKv7YnHc"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("72")),
             ),
         ],
@@ -1518,11 +1518,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1TsYShHxotZD7VZyA7nvjfFRZwjodkfdr3"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("86")),
             ),
         ],
@@ -1540,11 +1540,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Tc3tyZdm4krbxufzEXStuzSo4ckf499a1"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("37")),
             ),
         ],
@@ -1562,11 +1562,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1TRP63YJW9dWxL1M139eMBwv51X4oXY6Vc"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("26")),
             ),
         ],
@@ -1584,11 +1584,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1TH4TdBtFrH3Ajo4xden9o1nvcVrPmWMKt"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("41")),
             ),
         ],
@@ -1606,11 +1606,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Sv2XMQNxcAqyqyyv42FHjf3EGwJ3Godj1"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("45")),
             ),
         ],
@@ -1628,11 +1628,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1SiUx3H1PQrD1E5zfkCXepALMCbA3it2RX"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("4")),
             ),
         ],
@@ -1650,11 +1650,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Ra4zkxQpN8h6gREin8f2ne5a6BqTwYNos"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("3")),
             ),
         ],
@@ -1672,11 +1672,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1QxaW23dRzkSafg1CKEFcokPZ6xcci4J6x"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("10")),
             ),
         ],
@@ -1694,11 +1694,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Qoo5HAWVjyMZaLJ8TanA1dBMxsKaEVAu6"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("46")),
             ),
         ],
@@ -1716,11 +1716,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1QnmkMdxaRhwsBnK49RTxUx6XSwZhbdu2A"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("12")),
             ),
         ],
@@ -1738,11 +1738,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1QadHR3EvfdT6kHG9g92yUHqu1rRShYBtU"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("69")),
             ),
         ],
@@ -1760,11 +1760,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1QMjzbw5Yoi2zPqUeg2yuv5GZdmXjhh9mr"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("23")),
             ),
         ],
@@ -1782,11 +1782,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1QGWNVbSJZdt2pvXENmbeDHLR6DfhN2WDF"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("24")),
             ),
         ],
@@ -1804,11 +1804,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1PhRwYjxKnGU1ve15jNeBHw1EuH9ybm7MG"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("76")),
             ),
         ],
@@ -1826,11 +1826,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1Pgf54iVX6kAQPqaNTiaWJYWawkfZGC5cW"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("29")),
             ),
         ],
@@ -1848,11 +1848,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1PJ5D3zU9RhaiNTyj1EMeek3XS5hoeuKjj"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("68")),
             ),
         ],
@@ -1870,11 +1870,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1P7LT36ZnP2iKYSjNF2Za2Tiuj1b7EPP2G"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("64")),
             ),
         ],
@@ -1892,11 +1892,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1NWKsQtMZd6qQBvUvKmMLyRuo5yqVX9ugv"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("78")),
             ),
         ],
@@ -1914,11 +1914,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1NL4QHRfh2RBb2bfXjo8QbMMLt2TDfcVp9"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("96")),
             ),
         ],
@@ -1936,11 +1936,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1NBVnhsRgZ9C38QA8ptB2wdJNGanTGZD3S"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("63")),
             ),
         ],
@@ -1958,11 +1958,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1N2tca6ewf7q4T4GwyYnMccuMpkzBfkS5Q"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("60")),
             ),
         ],
@@ -1980,11 +1980,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1MS3h6gztqR1Rn8GZhbAZKf2QijB7kauv9"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("33")),
             ),
         ],
@@ -2002,11 +2002,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1MA5pw3oX6k8tdb5rhMkkgw25DyWwMy2WZ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("91")),
             ),
         ],
@@ -2024,11 +2024,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1LrHmTsBE1WXnBmscZXCBLL6iDF7Qpuf9y"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("84")),
             ),
         ],
@@ -2046,11 +2046,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1LqZQvji4T3oWfNkW7k2RFtjFbZtqJrdLk"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("39")),
             ),
         ],
@@ -2068,11 +2068,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1LaPHiKa6s64rHX6CnvJEE2afZwHZa5suG"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("59")),
             ),
         ],
@@ -2090,11 +2090,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz2X8pc43fTwS6p8erjSNp269JT3wQt9J2h2"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("38")),
             ),
         ],
@@ -2112,11 +2112,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz2Kmr94zwyb9SmfcwCeBXY4Ye5NjvDi3qhv"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("66")),
             ),
         ],
@@ -2134,11 +2134,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz2AAVTWARQ1twBJBm9yidrS714v9SyaZr7P"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("27")),
             ),
         ],
@@ -2156,11 +2156,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz28L8AsLjgZ1EhZwCowgNYonV2ZhoVWG8qJ"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("17")),
             ),
         ],
@@ -2178,11 +2178,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1iwS4f1Vy1D5bRBP1otzPE5MByw2dJ8a1s"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("83")),
             ),
         ],
@@ -2200,11 +2200,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1LGEUSxGeg7sLJVCRphGEXHCaEgeCYZ8pB"),
             ),
             (
-                name: "nat_2",
+                name: "nat",
                 value: Numeric(Some("77")),
             ),
         ],
@@ -2222,7 +2222,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_roles_address_5",
+                name: "idx_roles_address",
                 value: String("tz1UanonKsn9xEoSRTwKNmfhvCUC3wcj6NJb"),
             ),
         ],

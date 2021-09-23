@@ -120,7 +120,7 @@
                 value: Int(1),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-05T17:57:10Z"),
             ),
         ],
@@ -138,7 +138,7 @@
                 value: Int(1),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-08T16:40:04Z"),
             ),
         ],
@@ -156,7 +156,7 @@
                 value: Int(1),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-08T22:41:04Z"),
             ),
         ],
@@ -174,7 +174,7 @@
                 value: Int(1),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-09T04:24:14Z"),
             ),
         ],
@@ -192,7 +192,7 @@
                 value: Int(1),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-09T10:46:34Z"),
             ),
         ],
@@ -210,7 +210,7 @@
                 value: Int(2),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-05T17:32:30Z"),
             ),
         ],
@@ -228,7 +228,7 @@
                 value: Int(2),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-05T17:57:10Z"),
             ),
         ],
@@ -246,7 +246,7 @@
                 value: Int(2),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-08T16:40:04Z"),
             ),
         ],
@@ -264,7 +264,7 @@
                 value: Int(2),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-08T22:41:04Z"),
             ),
         ],
@@ -282,7 +282,7 @@
                 value: Int(2),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-09T04:24:14Z"),
             ),
         ],
@@ -300,7 +300,7 @@
                 value: Int(2),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-09T10:46:34Z"),
             ),
         ],
@@ -318,7 +318,7 @@
                 value: Int(1),
             ),
             (
-                name: "timestamp_6",
+                name: "timestamp",
                 value: Timestamp("2021-09-05T17:32:30Z"),
             ),
         ],
@@ -504,11 +504,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
@@ -526,11 +526,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -548,11 +548,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -570,11 +570,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("261103")),
             ),
         ],
@@ -592,11 +592,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
@@ -614,11 +614,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -636,11 +636,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -658,11 +658,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("261103")),
             ),
         ],
@@ -680,11 +680,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -702,11 +702,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("20")),
             ),
         ],
@@ -724,11 +724,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -746,11 +746,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("279362")),
             ),
         ],
@@ -768,11 +768,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
@@ -790,11 +790,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -812,11 +812,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -834,11 +834,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("194318")),
             ),
         ],
@@ -856,11 +856,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
@@ -878,11 +878,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -900,11 +900,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -922,11 +922,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("157583")),
             ),
         ],
@@ -944,11 +944,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
@@ -966,11 +966,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -988,11 +988,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1010,11 +1010,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("261103")),
             ),
         ],
@@ -1032,11 +1032,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("500")),
             ),
         ],
@@ -1054,11 +1054,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
@@ -1076,11 +1076,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -1098,11 +1098,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1120,11 +1120,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("261103")),
             ),
         ],
@@ -1142,11 +1142,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -1164,11 +1164,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("20")),
             ),
         ],
@@ -1186,11 +1186,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -1208,11 +1208,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1230,11 +1230,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("279362")),
             ),
         ],
@@ -1252,11 +1252,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
@@ -1274,11 +1274,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
@@ -1296,11 +1296,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1318,11 +1318,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("194318")),
             ),
         ],
@@ -1340,11 +1340,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1362,11 +1362,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
@@ -1384,11 +1384,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -1406,11 +1406,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1428,11 +1428,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("157583")),
             ),
         ],
@@ -1450,11 +1450,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("500")),
             ),
         ],
@@ -1472,11 +1472,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -1494,11 +1494,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("feature_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
@@ -1516,11 +1516,11 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("90295")),
             ),
         ],
@@ -1538,11 +1538,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_4",
+                name: "idx_string",
                 value: String("bunny_id"),
             ),
             (
-                name: "int_5",
+                name: "int",
                 value: Numeric(Some("90295")),
             ),
         ],
@@ -1560,7 +1560,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198603")),
             ),
         ],
@@ -1578,7 +1578,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198601")),
             ),
         ],
@@ -1596,7 +1596,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198594")),
             ),
         ],
@@ -1614,7 +1614,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198590")),
             ),
         ],
@@ -1632,7 +1632,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198586")),
             ),
         ],
@@ -1650,7 +1650,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198580")),
             ),
         ],
@@ -1668,7 +1668,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198549")),
             ),
         ],
@@ -1686,7 +1686,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198536")),
             ),
         ],
@@ -1704,7 +1704,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198528")),
             ),
         ],
@@ -1722,7 +1722,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198523")),
             ),
         ],
@@ -1740,7 +1740,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198520")),
             ),
         ],
@@ -1758,7 +1758,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198515")),
             ),
         ],
@@ -1776,7 +1776,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("4")),
             ),
         ],
@@ -1794,7 +1794,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198629")),
             ),
         ],
@@ -1812,7 +1812,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198623")),
             ),
         ],
@@ -1830,7 +1830,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198618")),
             ),
         ],
@@ -1848,7 +1848,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198610")),
             ),
         ],
@@ -1866,7 +1866,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198608")),
             ),
         ],
@@ -1884,7 +1884,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198606")),
             ),
         ],
@@ -1902,7 +1902,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198603")),
             ),
         ],
@@ -1920,7 +1920,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198601")),
             ),
         ],
@@ -1938,7 +1938,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198594")),
             ),
         ],
@@ -1956,7 +1956,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198590")),
             ),
         ],
@@ -1974,7 +1974,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198586")),
             ),
         ],
@@ -1992,7 +1992,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198580")),
             ),
         ],
@@ -2010,7 +2010,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198549")),
             ),
         ],
@@ -2028,7 +2028,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198536")),
             ),
         ],
@@ -2046,7 +2046,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198528")),
             ),
         ],
@@ -2064,7 +2064,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198523")),
             ),
         ],
@@ -2082,7 +2082,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198520")),
             ),
         ],
@@ -2100,7 +2100,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198515")),
             ),
         ],
@@ -2118,7 +2118,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("4")),
             ),
         ],
@@ -2136,7 +2136,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198629")),
             ),
         ],
@@ -2154,7 +2154,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198623")),
             ),
         ],
@@ -2172,7 +2172,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198618")),
             ),
         ],
@@ -2190,7 +2190,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198610")),
             ),
         ],
@@ -2208,7 +2208,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198608")),
             ),
         ],
@@ -2226,16 +2226,16 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("198606")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 99,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 99,
         fk_id: Some(97),
         columns: [
@@ -2244,20 +2244,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("12")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 96,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 96,
         fk_id: Some(93),
         columns: [
@@ -2266,20 +2266,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 95,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 95,
         fk_id: Some(93),
         columns: [
@@ -2288,20 +2288,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("11")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 92,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 92,
         fk_id: Some(89),
         columns: [
@@ -2310,20 +2310,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 91,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 91,
         fk_id: Some(89),
         columns: [
@@ -2332,20 +2332,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 88,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 88,
         fk_id: Some(85),
         columns: [
@@ -2354,20 +2354,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 87,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 87,
         fk_id: Some(85),
         columns: [
@@ -2376,20 +2376,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 84,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 84,
         fk_id: Some(81),
         columns: [
@@ -2398,20 +2398,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("20")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 83,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 83,
         fk_id: Some(81),
         columns: [
@@ -2420,20 +2420,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("4")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 80,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 80,
         fk_id: Some(77),
         columns: [
@@ -2442,20 +2442,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 79,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 79,
         fk_id: Some(77),
         columns: [
@@ -2464,20 +2464,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("7")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 76,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 76,
         fk_id: Some(73),
         columns: [
@@ -2486,20 +2486,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 75,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 75,
         fk_id: Some(73),
         columns: [
@@ -2508,20 +2508,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("20")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 72,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 72,
         fk_id: Some(69),
         columns: [
@@ -2530,20 +2530,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 71,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 71,
         fk_id: Some(69),
         columns: [
@@ -2552,20 +2552,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 68,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 68,
         fk_id: Some(65),
         columns: [
@@ -2574,20 +2574,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("3")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 67,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 67,
         fk_id: Some(65),
         columns: [
@@ -2596,20 +2596,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("3")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 64,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 64,
         fk_id: Some(61),
         columns: [
@@ -2618,20 +2618,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("500")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 63,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 63,
         fk_id: Some(61),
         columns: [
@@ -2640,20 +2640,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 60,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 60,
         fk_id: Some(57),
         columns: [
@@ -2662,20 +2662,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 59,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 59,
         fk_id: Some(57),
         columns: [
@@ -2684,20 +2684,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 56,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 56,
         fk_id: Some(53),
         columns: [
@@ -2706,20 +2706,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("100")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 55,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 55,
         fk_id: Some(53),
         columns: [
@@ -2728,20 +2728,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 52,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 52,
         fk_id: Some(49),
         columns: [
@@ -2750,20 +2750,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("100")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 51,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 51,
         fk_id: Some(49),
         columns: [
@@ -2772,20 +2772,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 250,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 250,
         fk_id: Some(247),
         columns: [
@@ -2794,20 +2794,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 249,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 249,
         fk_id: Some(247),
         columns: [
@@ -2816,20 +2816,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("52")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 246,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 246,
         fk_id: Some(243),
         columns: [
@@ -2838,20 +2838,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 245,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 245,
         fk_id: Some(243),
         columns: [
@@ -2860,20 +2860,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("51")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 242,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 242,
         fk_id: Some(239),
         columns: [
@@ -2882,20 +2882,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 241,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 241,
         fk_id: Some(239),
         columns: [
@@ -2904,20 +2904,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("50")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 238,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 238,
         fk_id: Some(235),
         columns: [
@@ -2926,20 +2926,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 237,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 237,
         fk_id: Some(235),
         columns: [
@@ -2948,20 +2948,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("2")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 234,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 234,
         fk_id: Some(231),
         columns: [
@@ -2970,20 +2970,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 233,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 233,
         fk_id: Some(231),
         columns: [
@@ -2992,20 +2992,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("14")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 230,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 230,
         fk_id: Some(227),
         columns: [
@@ -3014,20 +3014,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 229,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 229,
         fk_id: Some(227),
         columns: [
@@ -3036,20 +3036,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("13")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 226,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 226,
         fk_id: Some(223),
         columns: [
@@ -3058,20 +3058,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 225,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 225,
         fk_id: Some(223),
         columns: [
@@ -3080,20 +3080,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("12")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 222,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 222,
         fk_id: Some(219),
         columns: [
@@ -3102,20 +3102,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 221,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 221,
         fk_id: Some(219),
         columns: [
@@ -3124,20 +3124,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("11")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 218,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 218,
         fk_id: Some(215),
         columns: [
@@ -3146,20 +3146,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 217,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 217,
         fk_id: Some(215),
         columns: [
@@ -3168,20 +3168,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 214,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 214,
         fk_id: Some(211),
         columns: [
@@ -3190,20 +3190,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 213,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 213,
         fk_id: Some(211),
         columns: [
@@ -3212,20 +3212,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 210,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 210,
         fk_id: Some(207),
         columns: [
@@ -3234,20 +3234,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("20")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 209,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 209,
         fk_id: Some(207),
         columns: [
@@ -3256,20 +3256,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("4")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 206,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 206,
         fk_id: Some(203),
         columns: [
@@ -3278,20 +3278,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 205,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 205,
         fk_id: Some(203),
         columns: [
@@ -3300,20 +3300,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("7")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 202,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 202,
         fk_id: Some(199),
         columns: [
@@ -3322,20 +3322,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 201,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 201,
         fk_id: Some(199),
         columns: [
@@ -3344,20 +3344,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("20")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 198,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 198,
         fk_id: Some(195),
         columns: [
@@ -3366,20 +3366,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("10")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 197,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 197,
         fk_id: Some(195),
         columns: [
@@ -3388,20 +3388,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("5")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 194,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 194,
         fk_id: Some(191),
         columns: [
@@ -3410,20 +3410,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("3")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 193,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 193,
         fk_id: Some(191),
         columns: [
@@ -3432,20 +3432,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("3")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 190,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 190,
         fk_id: Some(187),
         columns: [
@@ -3454,20 +3454,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("500")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 189,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 189,
         fk_id: Some(187),
         columns: [
@@ -3476,20 +3476,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 186,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 186,
         fk_id: Some(183),
         columns: [
@@ -3498,20 +3498,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("250")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 185,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 185,
         fk_id: Some(183),
         columns: [
@@ -3520,20 +3520,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 182,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 182,
         fk_id: Some(179),
         columns: [
@@ -3542,20 +3542,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("100")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 181,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 181,
         fk_id: Some(179),
         columns: [
@@ -3564,20 +3564,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 178,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 178,
         fk_id: Some(175),
         columns: [
@@ -3586,20 +3586,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("100")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 177,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 177,
         fk_id: Some(175),
         columns: [
@@ -3608,20 +3608,20 @@
                 value: Int(2),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 124,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 124,
         fk_id: Some(121),
         columns: [
@@ -3630,20 +3630,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 123,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 123,
         fk_id: Some(121),
         columns: [
@@ -3652,20 +3652,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("52")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 120,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 120,
         fk_id: Some(117),
         columns: [
@@ -3674,20 +3674,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 119,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 119,
         fk_id: Some(117),
         columns: [
@@ -3696,20 +3696,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("51")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 116,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 116,
         fk_id: Some(113),
         columns: [
@@ -3718,20 +3718,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 115,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 115,
         fk_id: Some(113),
         columns: [
@@ -3740,20 +3740,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("50")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 112,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 112,
         fk_id: Some(109),
         columns: [
@@ -3762,20 +3762,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("0")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 111,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 111,
         fk_id: Some(109),
         columns: [
@@ -3784,20 +3784,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("2")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 108,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 108,
         fk_id: Some(105),
         columns: [
@@ -3806,20 +3806,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 107,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 107,
         fk_id: Some(105),
         columns: [
@@ -3828,20 +3828,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("14")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 104,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 104,
         fk_id: Some(101),
         columns: [
@@ -3850,20 +3850,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 103,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 103,
         fk_id: Some(101),
         columns: [
@@ -3872,20 +3872,20 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("type"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("13")),
             ),
         ],
     ),
     (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 100,
     ): (
-        table_name: "storage.consumables.noname_0",
+        table_name: "storage.consumables.noname",
         id: 100,
         fk_id: Some(97),
         columns: [
@@ -3894,11 +3894,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_string_2",
+                name: "idx_string",
                 value: String("value"),
             ),
             (
-                name: "int_3",
+                name: "int",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -3916,7 +3916,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1hD7VdzRpWG3nmYpCyW2gNc8mQNs3TCgxu"),
             ),
             (
@@ -3946,7 +3946,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1anXcLR9C6gjs8FLAB5ZuZnLB3MUepByEE"),
             ),
             (
@@ -3976,7 +3976,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1RnCGSjMafWbx6WioVAyw8wxSDTz7parWU"),
             ),
             (
@@ -4006,7 +4006,7 @@
                 value: Int(2),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1QuM3jQiaX4PBDk3tcfA3n8mZ6P7ib9SUz"),
             ),
             (
@@ -4036,7 +4036,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1anXcLR9C6gjs8FLAB5ZuZnLB3MUepByEE"),
             ),
             (
@@ -4066,7 +4066,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1RnCGSjMafWbx6WioVAyw8wxSDTz7parWU"),
             ),
             (
@@ -4096,7 +4096,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_address_0",
+                name: "idx_address",
                 value: String("tz1QuM3jQiaX4PBDk3tcfA3n8mZ6P7ib9SUz"),
             ),
             (

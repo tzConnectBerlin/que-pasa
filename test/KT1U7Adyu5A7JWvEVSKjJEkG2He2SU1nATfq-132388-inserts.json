@@ -38,7 +38,7 @@
                 value: Int(237),
             ),
             (
-                name: "idx_string_0",
+                name: "idx_string",
                 value: String("QmUCGwUZZ9pRszpTv38jviF9QKPZR6KRofvZqxtokL2YYx"),
             ),
             (
@@ -78,7 +78,7 @@
                 value: Timestamp("2021-03-31T09:47:00Z"),
             ),
             (
-                name: "state",
+                name: "state_2",
                 value: String("questionMarketClosed"),
             ),
             (
@@ -104,7 +104,7 @@
                 value: Int(237),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

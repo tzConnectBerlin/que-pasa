@@ -30,7 +30,7 @@
                 value: Int(49),
             ),
             (
-                name: "idx_lambda_repository_string_0",
+                name: "idx_lambda_repository_string",
                 value: String("swap_swap_tokens_endpoint"),
             ),
             (

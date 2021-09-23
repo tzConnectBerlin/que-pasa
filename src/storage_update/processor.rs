@@ -434,7 +434,7 @@ where
         tx_context: &TxContext,
     ) -> Result<()> {
         let v = &self.unfold_value(value, rel_ast)?;
-        debug!(
+        println!(
             "value: {}, rel_ast: {}",
             debug::pp_depth(3, v),
             debug::pp_depth(3, rel_ast)
@@ -825,6 +825,9 @@ where
         value: insert::Value,
         tx_context: &TxContext,
     ) {
+        if table_name == "storage.operators" && column_name == "idx_owner" {
+            println!("add: {:#?} {:#?}", ctx, value);
+        }
         let mut insert = self.sql_touch_insert(ctx, table_name, tx_context);
         let name = match column_name {
             "id" => ".id".to_string(),

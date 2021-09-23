@@ -26,7 +26,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("3")),
             ),
         ],
@@ -44,7 +44,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("2")),
             ),
         ],
@@ -62,7 +62,7 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -80,11 +80,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("2")),
             ),
             (
-                name: "mutez_2",
+                name: "mutez",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -102,11 +102,11 @@
                 value: Int(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("1")),
             ),
             (
-                name: "mutez_2",
+                name: "mutez",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -124,7 +124,7 @@
                 value: Int(1),
             ),
             (
-                name: "nat_0",
+                name: "nat",
                 value: Numeric(Some("1")),
             ),
         ],
