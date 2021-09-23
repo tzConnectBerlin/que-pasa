@@ -232,7 +232,8 @@ impl PostgresqlGenerator {
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         ctx.level as level,
-        level_meta.baked_at as level_timestamp
+        level_meta.baked_at as level_timestamp,
+        t.id
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
@@ -259,7 +260,8 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
         ctx.level as level,
-        level_meta.baked_at as level_timestamp
+        level_meta.baked_at as level_timestamp,
+        t.id
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
@@ -291,7 +293,8 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         level,
-        level_timestamp
+        level_timestamp,
+        t.id
         {columns}
     FROM (
         SELECT DISTINCT ON({indices})
@@ -327,12 +330,14 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
         ) AS ordering,
         ctx.level as level,
         level_meta.baked_at as level_timestamp,
-        t.deleted
+        t.deleted,
+        t.id
         {columns}
     FROM (
         SELECT
             t.tx_context_id,
-            t.deleted
+            t.deleted,
+            t.id
             {columns}
         FROM "{contract_schema}"."{table}" t
         WHERE t.deleted
@@ -342,7 +347,8 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
 
         SELECT
             clr.tx_context_id,
-            'true' as deleted
+            'true' as deleted,
+            t.id
             {columns}
         FROM "{contract_schema}"."{table}" t
         JOIN "{contract_schema}".bigmap_clears clr
