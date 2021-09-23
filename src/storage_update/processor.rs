@@ -724,7 +724,8 @@ where
                     {
                         Ok(insert::Value::String(parser::decode_address(bs)?))
                     }
-                    parser::Value::Address(addr) => {
+                    parser::Value::Address(addr)
+                    | parser::Value::String(addr) => {
                         Ok(insert::Value::String(addr.clone()))
                     }
                     _ => Err(anyhow!(
