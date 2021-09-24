@@ -110,12 +110,14 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
         JOIN "{contract_schema}".bigmap_clears clr
           ON t.bigmap_id = clr.bigmap_id
         WHERE 'false' = (
-            SELECT DISTINCT last_value(deleted) over (order by
-                ctx_.level,
-                ctx_.operation_group_number,
-                ctx_.operation_number,
-                ctx_.content_number,
-                COALESCE(ctx_.internal_number, -1)) as latest
+            SELECT DISTINCT last_value(deleted) over (
+	    	ORDER BY
+                    ctx_.level,
+                    ctx_.operation_group_number,
+                    ctx_.operation_number,
+                    ctx_.content_number,
+                    COALESCE(ctx_.internal_number, -1)
+		ROWS BETWEEN UNBOUNDED PRECEEDING AND UNBOUNDED FOLLOWING) as latest
             FROM "{contract_schema}"."{table}" t_
             JOIN tx_contexts ctx_ ON ctx_.id = t_.tx_context_id
             WHERE t_.bigmap_id = t.bigmap_id
