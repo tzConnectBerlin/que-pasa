@@ -190,6 +190,9 @@ impl Block {
                                     .iter()
                                     .enumerate()
                                 {
+                                    if internal_op.result.status != "applied" {
+                                        continue;
+                                    }
                                     if let Some(internal_dest_addr) =
                                         &internal_op.destination
                                     {
@@ -229,6 +232,42 @@ impl Block {
                                             if let Some(elem) = fres {
                                                 res.push(elem);
                                             }
+                                        }
+                                    }
+
+                                    for contract in
+                                        &internal_op.result.originated_contracts
+                                    {
+                                        let fres = f(
+                                            TxContext {
+                                                id: None,
+                                                level: self.header.level,
+                                                contract: contract.clone(),
+                                                operation_hash: operation
+                                                    .hash
+                                                    .clone(),
+                                                operation_group_number,
+                                                operation_number,
+                                                content_number,
+                                                internal_number: Some(
+                                                    internal_number,
+                                                ),
+                                                source: Some(
+                                                    internal_op.source.clone(),
+                                                ),
+                                                destination: internal_op
+                                                    .destination
+                                                    .clone(),
+                                                entrypoint: internal_op
+                                                    .parameters
+                                                    .clone()
+                                                    .map(|p| p.entrypoint),
+                                            },
+                                            true,
+                                            &internal_op.result,
+                                        )?;
+                                        if let Some(elem) = fres {
+                                            res.push(elem);
                                         }
                                     }
                                 }
@@ -316,22 +355,19 @@ impl Block {
             return true;
         }
 
-        self.operations.iter().any(|ops| {
-            ops.iter().any(|op| {
-                op.contents.iter().any(|content| {
-                    content
-                        .metadata
-                        .operation_result
-                        .iter()
-                        .any(|op_res| {
-                            op_res
-                                .originated_contracts
-                                .iter()
-                                .any(|c| c == contract_address)
-                        })
-                })
-            })
+        self.contract_originations()
+            .iter()
+            .any(|c| c == contract_address)
+    }
+
+    fn contract_originations(&self) -> Vec<String> {
+        self.map_tx_contexts(|tx_context, is_origination, _op_res| {
+            if !is_origination {
+                return Ok(None);
+            }
+            Ok(Some(tx_context.contract))
         })
+        .unwrap()
     }
 
     pub(crate) fn active_contracts(&self) -> Vec<String> {
@@ -353,9 +389,15 @@ impl Block {
                             .internal_operation_results
                         {
                             if let Some(address) = &result.destination {
-                                res.push(address.clone())
+                                res.push(address.clone());
                             }
                         }
+
+                        res.extend(
+                            operation_result
+                                .originated_contracts
+                                .clone(),
+                        );
                     }
                 }
             }

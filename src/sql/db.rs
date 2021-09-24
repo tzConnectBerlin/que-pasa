@@ -633,7 +633,7 @@ WHERE src_contract = $1
             }
         }
         for row in rows {
-            let ctx_id_at_copy: i32 = row.get(0);
+            let ctx_id_at_copy: i64 = row.get(0);
             let src_bigmap: i32 = row.get(1);
             let dest_schema: String = row.get(2);
             let dest_table: String = row.get(3);
@@ -687,7 +687,7 @@ WHERE src_contract = $1
                 });
                 dep_insert.columns.push(Column {
                     name: "tx_context_id".to_string(),
-                    value: Value::Int(ctx_id_at_copy),
+                    value: Value::BigInt(ctx_id_at_copy),
                 });
                 dep_insert.table_name = dest_table.clone();
                 dep_inserts.push(dep_insert);
@@ -704,7 +704,7 @@ WHERE src_contract = $1
             )?;
 
             let v_refs = (0..(ids.len() * 2))
-                .map(|i| format!("${}::integer", (i + 5).to_string()))
+                .map(|i| format!("${}::bigint", (i + 5).to_string()))
                 .collect::<Vec<String>>()
                 .chunks(2)
                 .map(|x| x.join(", "))
@@ -720,9 +720,8 @@ WHERE src_contract = $1
                 args.push(src_tx_context_id.borrow_to_sql());
             }
 
-            tx.query_raw(
-                format!(
-                    r#"
+            let qry = format!(
+                r#"
 INSERT INTO bigmap_copied_rows (
     src_contract, src_tx_context_id, dest_tx_context_id, dest_schema, dest_table, dest_row_id
 )
@@ -738,11 +737,9 @@ FROM
     VALUES ({})
 ) q(id, src_tx_context_id)
 "#,
-                    v_refs
-                )
-                .as_str(),
-                args,
-            )?;
+                v_refs
+            );
+            tx.query_raw(qry.as_str(), args)?;
         }
         Ok(())
     }
@@ -762,7 +759,7 @@ FROM
         let mut it = self.dbconn.query_raw(
             format!(
                 "
-SELECT
+SELECT DISTINCT
     src_contract
 FROM bigmap_deps
 WHERE dest_schema IN ({})
