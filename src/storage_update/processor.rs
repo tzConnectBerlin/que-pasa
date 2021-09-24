@@ -234,7 +234,7 @@ where
             }
             RelationalAST::List { .. } => {
                 // do not unfold list
-                Ok(v.clone())
+                v.unpair_list()
             }
             _ => Ok(v.unfold_list()),
         }
