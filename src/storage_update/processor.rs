@@ -693,24 +693,16 @@ where
     ) -> Result<insert::Value> {
         debug!("t: {:#?}, v: {:#?}", t, v);
         match t {
-            SimpleExprTy::String => {
-                if let parser::Value::String(s) = v {
+            SimpleExprTy::Bytes
+            | SimpleExprTy::KeyHash
+            | SimpleExprTy::String => match v {
+                parser::Value::Bytes(s) | parser::Value::String(s) => {
                     Ok(insert::Value::String(s.clone()))
-                } else {
-                    Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    ))
                 }
-            }
-            SimpleExprTy::KeyHash => {
-                if let parser::Value::Bytes(bs) = v {
-                    Ok(insert::Value::String(bs.clone()))
-                } else {
-                    Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    ))
-                }
-            }
+                _ => Err(anyhow!(
+                    "storage2sql_value: failed to match type with value"
+                )),
+            },
             SimpleExprTy::Timestamp => {
                 Ok(insert::Value::Timestamp(parser::parse_date(v)?))
             }
@@ -733,15 +725,6 @@ where
             SimpleExprTy::Bool => {
                 if let parser::Value::Bool(b) = v {
                     Ok(insert::Value::Bool(*b))
-                } else {
-                    Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    ))
-                }
-            }
-            SimpleExprTy::Bytes => {
-                if let parser::Value::Bytes(bs) = v {
-                    Ok(insert::Value::String(bs.clone()))
                 } else {
                     Err(anyhow!(
                         "storage2sql_value: failed to match type with value"
