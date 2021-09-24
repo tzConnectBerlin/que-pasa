@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(201),
+                value: BigInt(201),
             ),
         ],
     ),
@@ -23,7 +23,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(200),
+                value: BigInt(200),
             ),
         ],
     ),
@@ -37,7 +37,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(201),
+                value: BigInt(201),
             ),
             (
                 name: "idx_markets_nat",
@@ -79,7 +79,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(200),
+                value: BigInt(200),
             ),
             (
                 name: "idx_markets_nat",
@@ -121,7 +121,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(201),
+                value: BigInt(201),
             ),
             (
                 name: "metadata_fa12",
@@ -139,7 +139,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(200),
+                value: BigInt(200),
             ),
             (
                 name: "metadata_fa12",
@@ -157,7 +157,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(201),
+                value: BigInt(201),
             ),
             (
                 name: "auctionRunning_uniswap_contribution",
@@ -187,7 +187,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(200),
+                value: BigInt(200),
             ),
             (
                 name: "auctionRunning_uniswap_contribution",
@@ -217,7 +217,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(201),
+                value: BigInt(201),
             ),
             (
                 name: "idx_markets_market_id",
@@ -247,7 +247,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(200),
+                value: BigInt(200),
             ),
             (
                 name: "idx_markets_market_id",
@@ -277,7 +277,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(201),
+                value: BigInt(201),
             ),
             (
                 name: "bet_quantity",
@@ -299,7 +299,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(200),
+                value: BigInt(200),
             ),
             (
                 name: "bet_quantity",

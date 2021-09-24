@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "stablecoin",
@@ -35,7 +35,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -61,7 +61,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -87,7 +87,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -113,7 +113,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_string",
@@ -175,7 +175,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_address",
@@ -205,7 +205,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -235,7 +235,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -265,7 +265,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -295,7 +295,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",
@@ -325,7 +325,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(69),
+                value: BigInt(69),
             ),
             (
                 name: "idx_tokens_nat",

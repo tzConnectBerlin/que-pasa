@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
                 name: "stablecoin",
@@ -35,7 +35,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
                 name: "idx_tokens_nat",
@@ -61,7 +61,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
                 name: "idx_tokens_nat",
@@ -91,7 +91,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
                 name: "idx_tokens_nat",

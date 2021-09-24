@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(49),
+                value: BigInt(49),
             ),
             (
                 name: "lambda_repository_creator",
@@ -27,7 +27,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(49),
+                value: BigInt(49),
             ),
             (
                 name: "idx_lambda_repository_string",

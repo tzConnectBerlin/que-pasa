@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
         ],
     ),
@@ -23,7 +23,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
                 name: "idx_markets_nat",
@@ -65,7 +65,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
                 name: "metadata_fa12",
@@ -83,7 +83,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
                 name: "auctionRunning_uniswap_contribution",
@@ -113,7 +113,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
                 name: "idx_markets_market_id",
@@ -143,7 +143,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
                 name: "bet_quantity",

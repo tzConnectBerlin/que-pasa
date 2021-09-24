@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
         ],
     ),
@@ -23,7 +23,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
                 name: "idx_nat",
@@ -41,7 +41,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
                 name: "idx_nat",
@@ -59,7 +59,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
                 name: "idx_nat",
@@ -77,7 +77,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
                 name: "idx_nat",
@@ -99,7 +99,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
                 name: "idx_nat",
@@ -121,7 +121,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
                 name: "nat",
