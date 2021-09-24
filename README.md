@@ -98,4 +98,3 @@ Big map updates are stored independently of the rest of the storage, as one woul
 # Limitations
 
 - Generated table names can become quite long. Some contracts may be impeded by name length limitations of the underlying database system. For example, PostgreSQL's default setup only allows table names of up to 63 characters.
-- We're not sure yet whether we need to support the bigmap `copy` action. This depends on what the causes and implications of this action are. Pending clarification we have decided to error on occurance (therefore, for now this tool does not support contracts that perform this bigmap action).
