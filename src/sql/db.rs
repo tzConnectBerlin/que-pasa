@@ -971,6 +971,8 @@ ORDER BY 1",
                 rows.push(row.get(0));
             }
         }
+        rows.sort_unstable();
+        rows.dedup();
         rows.reverse();
         Ok(rows
             .iter()
