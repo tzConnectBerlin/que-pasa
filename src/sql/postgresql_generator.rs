@@ -251,10 +251,6 @@ impl PostgresqlGenerator {
                 .iter()
                 .map(|c| format!("t.{}", c))
                 .join(", "),
-            indices_check = indices
-                .iter()
-                .map(|c| format!("t.{} = t_.{}", c, c))
-                .join(" AND ")
         ))
     }
 
