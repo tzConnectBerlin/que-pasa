@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(223),
+                value: BigInt(223),
             ),
             (
                 name: "stablecoin",
@@ -27,22 +27,22 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 230,
+        id: 236,
     ): (
         table_name: "storage.token_total_supply",
-        id: 230,
+        id: 236,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(223),
+                value: BigInt(223),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("13")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("109890109890109890109")),
             ),
             (
@@ -53,22 +53,22 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 235,
+        id: 234,
     ): (
         table_name: "storage.ledger",
-        id: 235,
+        id: 234,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(223),
+                value: BigInt(223),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("15")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -83,22 +83,22 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 233,
+        id: 232,
     ): (
         table_name: "storage.ledger",
-        id: 233,
+        id: 232,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(223),
+                value: BigInt(223),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("15")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -113,22 +113,22 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 231,
+        id: 230,
     ): (
         table_name: "storage.ledger",
-        id: 231,
+        id: 230,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(223),
+                value: BigInt(223),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("13")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

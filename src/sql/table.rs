@@ -14,6 +14,7 @@ pub struct Table {
     pub name: String,
     pub indices: Vec<String>,
     pub columns: HashMap<String, Column>,
+    keys: Vec<String>,
     unique: bool,
     snapshots: bool,
 }
@@ -24,6 +25,7 @@ impl Table {
             name,
             indices: vec![],
             columns: HashMap::new(),
+            keys: vec![],
             unique: true,
             snapshots: true,
         }
@@ -60,6 +62,17 @@ impl Table {
                 *name = non_keyword_name;
             } else {
                 other.name = non_keyword_name.clone();
+                let i = self
+                    .keys
+                    .iter()
+                    .position(|k| k == name)
+                    .unwrap();
+                if !self.columns.contains_key(name) {
+                    self.keys.push(non_keyword_name.clone());
+                    if let Some(existing) = self.keys.get_mut(i) {
+                        *existing = non_keyword_name.clone();
+                    }
+                }
                 self.columns
                     .insert(non_keyword_name, other);
             }
@@ -81,6 +94,9 @@ impl Table {
 
         match column_type {
             ExprTy::SimpleExprTy(e) => {
+                if !self.columns.contains_key(&name) {
+                    self.keys.push(name.clone());
+                }
                 self.columns.insert(
                     name.clone(),
                     Column {
@@ -92,6 +108,9 @@ impl Table {
             }
             ExprTy::ComplexExprTy(ce) => match ce {
                 ComplexExprTy::OrEnumeration(_, _) => {
+                    if !self.columns.contains_key(&name) {
+                        self.keys.push(name.clone());
+                    }
                     self.columns.insert(
                         name.clone(),
                         Column {
@@ -123,7 +142,10 @@ impl Table {
 
         match column_type {
             ExprTy::SimpleExprTy(e) => {
-                self.indices.push(name.clone());
+                if !self.columns.contains_key(&name) {
+                    self.indices.push(name.clone());
+                    self.keys.push(name.clone());
+                }
                 self.columns.insert(
                     name.clone(),
                     Column {
@@ -140,6 +162,10 @@ impl Table {
     }
 
     pub(crate) fn get_columns(&self) -> Vec<&Column> {
-        self.columns.values().collect()
+        let mut res: Vec<&Column> = vec![];
+        for k in &self.keys {
+            res.push(&self.columns[k]);
+        }
+        res
     }
 }

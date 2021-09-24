@@ -22,8 +22,6 @@ extern crate ron;
 #[macro_use]
 extern crate serde;
 extern crate serde_json;
-extern crate spinners;
-extern crate termion;
 
 pub mod config;
 pub mod contract_denylist;
@@ -32,6 +30,7 @@ pub mod highlevel;
 pub mod octez;
 pub mod sql;
 pub mod storage_structure;
+pub mod storage_update;
 pub mod storage_value;
 
 use anyhow::Context;
@@ -77,7 +76,7 @@ fn main() {
 
     if CONFIG.init {
         println!(
-            "Initialising--all data in DB will be destroyed. \
+            "Initialising--all data in DB related to set-up contracts will be destroyed. \
             Interrupt within 5 seconds to abort"
         );
         thread::sleep(std::time::Duration::from_millis(5000));
@@ -89,15 +88,29 @@ fn main() {
         return;
     }
 
+    let deps = dbcli
+        .get_config_deps(&CONFIG.contracts)
+        .unwrap();
+
     let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
     let num_getters = CONFIG.workers_cap;
     if CONFIG.all_contracts {
         executor.index_all_contracts();
     } else {
-        assert_contracts_ok(&CONFIG.contracts);
-        info!("running for contracts: {:#?}", CONFIG.contracts);
+        let mut contracts: Vec<ContractID> = CONFIG.contracts.clone();
+        contracts.extend(
+            deps.into_iter()
+                .map(|addr| ContractID {
+                    name: addr.clone(),
+                    address: addr,
+                })
+                .collect::<Vec<ContractID>>(),
+        );
+        let contracts = contracts;
+        assert_contracts_ok(&contracts);
+        info!("running for contracts: {:#?}", contracts);
 
-        for contract_id in &CONFIG.contracts {
+        for contract_id in &contracts {
             executor
                 .add_contract(contract_id)
                 .unwrap();
@@ -105,6 +118,10 @@ fn main() {
         let new_contracts = executor
             .create_contract_schemas()
             .unwrap();
+
+        if CONFIG.recreate_views {
+            executor.recreate_views().unwrap();
+        }
 
         if !CONFIG.levels.is_empty() {
             executor

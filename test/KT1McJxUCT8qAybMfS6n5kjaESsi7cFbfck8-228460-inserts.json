@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(9),
+                value: BigInt(9),
             ),
             (
                 name: "lambda_repository_creator",
@@ -27,10 +27,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(9),
+                value: BigInt(9),
             ),
             (
-                name: "idx_lambda_repository_string_0",
+                name: "idx_lambda_repository_string",
                 value: String("market_resolve_endpoint"),
             ),
             (

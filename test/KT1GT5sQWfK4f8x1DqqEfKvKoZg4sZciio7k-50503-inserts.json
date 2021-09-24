@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
         ],
     ),
@@ -23,10 +23,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("3")),
             ),
         ],
@@ -41,10 +41,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("2")),
             ),
         ],
@@ -59,10 +59,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
-                name: "idx_nat_3",
+                name: "idx_nat",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -77,14 +77,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("2")),
             ),
             (
-                name: "mutez_2",
+                name: "mutez",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -99,14 +99,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
-                name: "idx_nat_1",
+                name: "idx_nat",
                 value: Numeric(Some("1")),
             ),
             (
-                name: "mutez_2",
+                name: "mutez",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -121,10 +121,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(1),
+                value: BigInt(1),
             ),
             (
-                name: "nat_0",
+                name: "nat",
                 value: Numeric(Some("1")),
             ),
         ],

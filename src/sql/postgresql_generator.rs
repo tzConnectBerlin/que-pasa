@@ -20,9 +20,9 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_sql(&self, column: &Column) -> Option<String> {
         match column.name.as_str() {
-            "id" => return Some("id SERIAL PRIMARY KEY".to_string()),
+            "id" => return Some("id BIGSERIAL PRIMARY KEY".to_string()),
             "tx_context_id" => {
-                return Some("tx_context_id INTEGER NOT NULL".to_string())
+                return Some("tx_context_id BIGINT NOT NULL".to_string())
             }
             "deleted" => {
                 return Some(
@@ -31,14 +31,6 @@ impl PostgresqlGenerator {
             }
             "bigmap_id" => {
                 return Some("bigmap_id INTEGER NOT NULL".to_string())
-            }
-            "bigmap_id_source" => {
-                return Some("bigmap_id_source INTEGER NOT NULL".to_string())
-            }
-            "bigmap_id_destination" => {
-                return Some(
-                    "bigmap_id_destination INTEGER NOT NULL".to_string(),
-                )
             }
             _ => {}
         }
@@ -78,7 +70,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn numeric(&self, name: &str) -> String {
-        format!("{} NUMERIC(64) NULL", name)
+        format!("{} NUMERIC NULL", name)
     }
 
     pub(crate) fn string(&self, name: &str) -> String {
@@ -107,7 +99,7 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::parent_name(&table.name) {
-            Some(t) => vec![format!(r#""{table}_id" INTEGER"#, table = t)],
+            Some(t) => vec![format!(r#""{table}_id" BIGINT"#, table = t)],
             None => vec![],
         };
         for column in table.get_columns() {
@@ -162,7 +154,7 @@ impl PostgresqlGenerator {
             false => "",
         };
         format!(
-            "CREATE {unique} INDEX ON \"{contract_schema}\".\"{table}\"({columns});\n",
+            r#"CREATE {unique} INDEX "{table}_uniq" ON "{contract_schema}"."{table}"({columns});"#,
             unique = uniqueness_constraint,
             contract_schema = self.contract_id.name,
             table = table.name,
@@ -228,48 +220,7 @@ impl PostgresqlGenerator {
     fn create_views_for_snapshot_table(&self, table: &Table) -> Result<String> {
         let columns: Vec<String> = self.table_sql_columns(table, false);
         Ok(format!(
-            r#"
-CREATE VIEW "{contract_schema}"."{table}_live" AS (
-    SELECT
-        ctx.level as level,
-        level_meta.baked_at as level_timestamp,
-        t.id
-        {columns}
-    FROM "{contract_schema}"."{table}" t
-    JOIN tx_contexts ctx
-      ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
-      ON level_meta.level = ctx.level
-    ORDER BY
-        ctx.level DESC,
-        ctx.operation_group_number DESC,
-        ctx.operation_number DESC,
-        ctx.content_number DESC,
-        COALESCE(ctx.internal_number, -1) DESC
-    LIMIT 1
-);
-
-CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
-    SELECT
-        ROW_NUMBER() OVER (
-            ORDER BY
-                ctx.level,
-                ctx.operation_group_number,
-                ctx.operation_number,
-                ctx.content_number,
-                COALESCE(ctx.internal_number, -1)
-        ) AS ordering,
-        ctx.level as level,
-        level_meta.baked_at as level_timestamp,
-        t.id
-        {columns}
-    FROM "{contract_schema}"."{table}" t
-    JOIN tx_contexts ctx
-      ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
-      ON level_meta.level = ctx.level
-);
-"#,
+            include_str!("../../sql/postgresql-snapshot-table-views.sql"),
             contract_schema = self.contract_id.name,
             table = table.name,
             columns = columns
@@ -289,78 +240,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
             .collect();
 
         Ok(format!(
-            r#"
-CREATE VIEW "{contract_schema}"."{table}_live" AS (
-    SELECT
-        level,
-        level_timestamp,
-        t.id
-        {columns}
-    FROM (
-        SELECT DISTINCT ON({indices})
-            ctx.level as level,
-            level_meta.baked_at as level_timestamp,
-            t.*
-        FROM "{contract_schema}"."{table}" t
-        JOIN tx_contexts ctx
-          ON ctx.id = t.tx_context_id
-        JOIN levels level_meta
-          ON level_meta.level = ctx.level
-        WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
-        ORDER BY
-            {indices},
-            ctx.level DESC,
-            ctx.operation_group_number DESC,
-            ctx.operation_number DESC,
-            ctx.content_number DESC,
-            COALESCE(ctx.internal_number, -1) DESC
-    ) t
-    where not t.deleted
-);
-
-CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
-    SELECT
-        ROW_NUMBER() OVER (
-            ORDER BY
-                ctx.level,
-                ctx.operation_group_number,
-                ctx.operation_number,
-                ctx.content_number,
-                COALESCE(ctx.internal_number, -1)
-        ) AS ordering,
-        ctx.level as level,
-        level_meta.baked_at as level_timestamp,
-        t.deleted,
-        t.id
-        {columns}
-    FROM (
-        SELECT
-            t.tx_context_id,
-            t.deleted,
-            t.id
-            {columns}
-        FROM "{contract_schema}"."{table}" t
-        WHERE t.deleted
-           OR t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
-
-        UNION ALL
-
-        SELECT
-            clr.tx_context_id,
-            'true' as deleted,
-            t.id
-            {columns}
-        FROM "{contract_schema}"."{table}" t
-        JOIN "{contract_schema}".bigmap_clears clr
-          ON t.bigmap_id = clr.bigmap_id
-        WHERE NOT t.deleted
-    ) t  -- t with bigmap clears unfolded
-    JOIN tx_contexts ctx
-      ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
-      ON level_meta.level = ctx.level
-);
-"#,
+            include_str!("../../sql/postgresql-changes-table-views.sql"),
             contract_schema = self.contract_id.name,
             table = table.name,
             columns = columns

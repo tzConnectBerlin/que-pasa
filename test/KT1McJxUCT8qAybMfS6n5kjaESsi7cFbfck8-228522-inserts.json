@@ -9,24 +9,24 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(224),
+                value: BigInt(224),
             ),
         ],
     ),
     (
         table_name: "storage.market_map",
-        id: 233,
+        id: 231,
     ): (
         table_name: "storage.market_map",
-        id: 233,
+        id: 231,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(224),
+                value: BigInt(224),
             ),
             (
-                name: "idx_markets_nat_4",
+                name: "idx_markets_nat",
                 value: Numeric(Some("82195281")),
             ),
             (
@@ -57,15 +57,15 @@
     ),
     (
         table_name: "storage.market_map.fa12",
-        id: 235,
+        id: 233,
     ): (
         table_name: "storage.market_map.fa12",
-        id: 235,
-        fk_id: Some(233),
+        id: 233,
+        fk_id: Some(231),
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(224),
+                value: BigInt(224),
             ),
             (
                 name: "metadata_fa12",
@@ -75,15 +75,15 @@
     ),
     (
         table_name: "storage.market_map.auctionRunning",
-        id: 234,
+        id: 232,
     ): (
         table_name: "storage.market_map.auctionRunning",
-        id: 234,
-        fk_id: Some(233),
+        id: 232,
+        fk_id: Some(231),
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(224),
+                value: BigInt(224),
             ),
             (
                 name: "auctionRunning_uniswap_contribution",
@@ -105,15 +105,15 @@
     ),
     (
         table_name: "storage.liquidity_provider_map",
-        id: 231,
+        id: 234,
     ): (
         table_name: "storage.liquidity_provider_map",
-        id: 231,
+        id: 234,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(224),
+                value: BigInt(224),
             ),
             (
                 name: "idx_markets_market_id",
@@ -124,7 +124,7 @@
                 value: String("tz1VWU45MQ7nxu5PGgWxgDePemev6bUDNGZ2"),
             ),
             (
-                name: "noname_0",
+                name: "noname",
                 value: String("storage.liquidity_provider_map.bet"),
             ),
             (
@@ -135,15 +135,15 @@
     ),
     (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 232,
+        id: 235,
     ): (
         table_name: "storage.liquidity_provider_map.bet",
-        id: 232,
-        fk_id: Some(231),
+        id: 235,
+        fk_id: Some(234),
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(224),
+                value: BigInt(224),
             ),
             (
                 name: "bet_quantity",

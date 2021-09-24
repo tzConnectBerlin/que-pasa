@@ -10,15 +10,18 @@ use pretty_assertions::assert_eq;
 
 use crate::config::ContractID;
 use crate::debug;
-use crate::octez::block::{Block, LevelMeta};
+use crate::octez::block::{Block, LevelMeta, TxContext};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
-use crate::relational::{Noname, RelationalAST};
+use crate::relational::RelationalAST;
 use crate::sql::db::DBClient;
-use crate::sql::insert::{InsertKey, Inserts};
+use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
-use crate::storage_value::processor::{StorageProcessor, TxContext};
+use crate::storage_update::bigmap::{
+    BigmapCopy, IntraBlockBigmapDiffsProcessor,
+};
+use crate::storage_update::processor::StorageProcessor;
 
 pub struct SaveLevelResult {
     pub level: u32,
@@ -113,6 +116,7 @@ impl Executor {
             contract_id.name
         );
         let rel_ast = get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+        debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
             .get_origination(contract_id)?;
@@ -121,29 +125,11 @@ impl Executor {
         Ok(())
     }
 
-    pub fn add_missing_contracts(&mut self, block: &Block) -> Result<()> {
-        let contracts: Vec<ContractID> = block
-            .active_contracts()
-            .iter()
-            .map(|address| ContractID {
-                name: address.clone(),
-                address: address.clone(),
-            })
-            .filter(|contract_id| !self.contracts.contains_key(contract_id))
-            .collect();
-
-        if !contracts.is_empty() {
-            info!(
-                "level {}, analyzing contracts: {:#?}..",
-                block.header.level,
-                contracts
-                    .iter()
-                    .map(|x| &x.address)
-                    .collect::<Vec<&String>>()
-            );
-        }
-
-        for contract_id in &contracts {
+    pub fn add_missing_contracts(
+        &mut self,
+        contracts: &[&ContractID],
+    ) -> Result<()> {
+        for contract_id in contracts {
             self.add_contract(contract_id)?;
             self.dbcli.create_contract_schema(
                 contract_id,
@@ -166,6 +152,14 @@ impl Executor {
         Ok(new_contracts)
     }
 
+    pub fn recreate_views(&mut self) -> Result<()> {
+        for (contract_id, rel_ast) in &self.contracts {
+            self.dbcli
+                .recreate_contract_views(contract_id, &rel_ast.0)?;
+        }
+        Ok(())
+    }
+
     pub fn get_contract_rel_ast(
         &self,
         contract_id: &ContractID,
@@ -180,17 +174,7 @@ impl Executor {
         // in the db
 
         let mut storage_processor = self.get_storage_processor()?;
-        let is_tty = stdout_is_tty();
-
         loop {
-            let _spinner;
-
-            if is_tty {
-                _spinner =
-                    spinners::Spinner::new(spinners::Spinners::Line, "".into());
-                //print!("Waiting for first block");
-            }
-
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
                 Some(head) => Ok(head),
@@ -358,20 +342,22 @@ impl Executor {
         info!("level {}: {}", level, contract_statuses);
     }
 
-    fn get_storage_processor(&mut self) -> Result<StorageProcessor> {
+    fn get_storage_processor(
+        &mut self,
+    ) -> Result<StorageProcessor<NodeClient>> {
         let id = self
             .dbcli
             .get_max_id()
             .with_context(|| {
                 "could not initialize storage processor from the db state"
             })?;
-        Ok(StorageProcessor::new(id as u32))
+        Ok(StorageProcessor::new(id, self.node_cli.clone()))
     }
 
     fn exec_level(
         &mut self,
         level_height: u32,
-        storage_processor: &mut StorageProcessor,
+        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -390,25 +376,59 @@ impl Executor {
         &mut self,
         level: &LevelMeta,
         block: &Block,
-        storage_processor: &mut StorageProcessor,
+        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
-        if self.all_contracts {
-            self.add_missing_contracts(block)?;
-        }
+        let process_contracts = if self.all_contracts {
+            let active_contracts: Vec<ContractID> = block
+                .active_contracts()
+                .iter()
+                .map(|address| ContractID {
+                    name: address.clone(),
+                    address: address.clone(),
+                })
+                .collect();
+            let new_contracts: Vec<&ContractID> = active_contracts
+                .iter()
+                .filter(|contract_id| !self.contracts.contains_key(contract_id))
+                .collect();
+
+            if !new_contracts.is_empty() {
+                info!(
+                    "level {}, analyzing contracts: {:#?}..",
+                    block.header.level,
+                    new_contracts
+                        .iter()
+                        .map(|x| &x.address)
+                        .collect::<Vec<&String>>()
+                );
+                self.add_missing_contracts(&new_contracts)?;
+            }
+            active_contracts
+        } else {
+            self.contracts
+                .keys()
+                .cloned()
+                .collect::<Vec<ContractID>>()
+        };
         let mut contract_results: Vec<SaveLevelResult> = vec![];
+
+        info!("processing level {}", level.level);
 
         let mut tx = self.dbcli.transaction()?;
         DBClient::delete_level(&mut tx, level)?;
         DBClient::save_level(&mut tx, level)?;
 
-        for (contract_id, rel_ast) in self.contracts.clone() {
+        let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
+        for contract_id in &process_contracts {
+            let (rel_ast, _) = &self.contracts[contract_id];
             contract_results.push(Self::exec_for_block_contract(
                 &mut tx,
                 level,
                 block,
+                &diffs,
                 storage_processor,
-                &contract_id,
-                &rel_ast.0,
+                contract_id,
+                rel_ast,
             )?);
         }
         tx.commit()?;
@@ -439,26 +459,15 @@ impl Executor {
         tx: &mut Transaction,
         meta: &LevelMeta,
         block: &Block,
-        storage_processor: &mut StorageProcessor,
+        diffs: &IntraBlockBigmapDiffsProcessor,
+        storage_processor: &mut StorageProcessor<NodeClient>,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
-        if block.has_contract_origination(&contract_id.address) {
-            Self::mark_level_contract_origination(tx, meta, contract_id)
-            .with_context(|| {
-                format!(
-                    "execute for level={} failed: could not mark level as contract origination in db",
-                    meta.level)
-            })?;
-            return Ok(SaveLevelResult {
-                level: meta.level,
-                contract_id: contract_id.clone(),
-                is_origination: true,
-                tx_count: 0,
-            });
-        }
+        let is_origination =
+            block.has_contract_origination(&contract_id.address);
 
-        if !block.is_contract_active(&contract_id.address) {
+        if !is_origination && !block.is_contract_active(&contract_id.address) {
             Self::mark_level_empty(tx, meta, contract_id)
             .with_context(|| {
                 format!(
@@ -474,8 +483,8 @@ impl Executor {
             });
         }
 
-        let (inserts, tx_contexts) = storage_processor
-                .process_block(block, &contract_id.address, rel_ast)
+        let (inserts, bigmap_copies, tx_contexts) = storage_processor
+                .process_block(block, diffs, &contract_id.address, rel_ast)
                 .with_context(|| {
                     format!(
                         "execute failed (level={}, contract={}): could not process block",
@@ -488,9 +497,10 @@ impl Executor {
 	    tx,
                 meta,
                 contract_id,
-                &inserts,
+                inserts,
+	        bigmap_copies,
                 tx_contexts,
-                (storage_processor.get_id_value() + 1) as i32,
+                storage_processor.get_id_value() + 1,
             )
             .with_context(|| {
                 format!(
@@ -498,10 +508,22 @@ impl Executor {
                 meta.level, contract_id.name,
             )
             })?;
+
+        let bigmap_tables = storage_processor.get_bigmap_tables()?;
+        DBClient::save_bigmap_table_locations(tx, contract_id, &bigmap_tables)?;
+
+        if is_origination {
+            Self::mark_level_contract_origination(tx, meta, contract_id)
+            .with_context(|| {
+                format!(
+                    "execute for level={} failed: could not mark level as contract origination in db",
+                    meta.level)
+            })?;
+        }
         Ok(SaveLevelResult {
             level: meta.level,
             contract_id: contract_id.clone(),
-            is_origination: false,
+            is_origination,
             tx_count,
         })
     }
@@ -511,8 +533,6 @@ impl Executor {
         meta: &LevelMeta,
         contract_id: &ContractID,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
-        DBClient::save_contract_level(tx, contract_id, meta.level)?;
         DBClient::set_origination(tx, contract_id, meta.level)?;
         Ok(())
     }
@@ -531,27 +551,24 @@ impl Executor {
         tx: &mut Transaction,
         meta: &LevelMeta,
         contract_id: &ContractID,
-        inserts: &Inserts,
+        inserts: Inserts,
+        bigmap_copies: Vec<BigmapCopy>,
         tx_contexts: Vec<TxContext>,
-        next_id: i32,
+        next_id: i64,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
 
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
-        let mut keys = inserts
-            .keys()
-            .collect::<Vec<&InsertKey>>();
-        keys.sort_by_key(|a| a.id);
-        for key in keys.iter() {
-            DBClient::apply_insert(
-                tx,
-                contract_id,
-                inserts
-                    .get(key)
-                    .ok_or_else(|| anyhow!("no insert for key"))?,
-            )?;
-        }
+        DBClient::apply_inserts(
+            tx,
+            meta.level as i32,
+            contract_id,
+            &inserts
+                .into_values()
+                .collect::<Vec<Insert>>(),
+        )?;
+        DBClient::apply_bigmap_deps(tx, contract_id, &bigmap_copies)?;
         DBClient::set_max_id(tx, next_id)?;
         Ok(())
     }
@@ -579,22 +596,13 @@ pub(crate) fn get_rel_ast(
 
     // Build the internal representation from the storage defition
     let ctx = relational::Context::init();
-    let mut indexes = relational::Indexes::new();
-    let rel_ast = relational::build_relational_ast(
-        &ctx,
-        &type_ast,
-        &mut indexes,
-        &mut Noname::new(),
-    )
-    .with_context(|| {
-        "failed to build a relational AST from the storage type"
-    })?;
+    let rel_ast = relational::ASTBuilder::new()
+        .build_relational_ast(&ctx, &type_ast)
+        .with_context(|| {
+            "failed to build a relational AST from the storage type"
+        })?;
     debug!("rel_ast: {:#?}", rel_ast);
     Ok(rel_ast)
-}
-
-fn stdout_is_tty() -> bool {
-    atty::is(atty::Stream::Stdout)
 }
 
 /// Load from the ../test directory, only for testing
@@ -607,7 +615,7 @@ fn load_test(name: &str) -> String {
 #[test]
 fn test_generate() {
     use crate::sql::postgresql_generator::PostgresqlGenerator;
-    use crate::storage_structure::relational::build_relational_ast;
+    use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
 
     use std::fs::File;
@@ -625,14 +633,9 @@ fn test_generate() {
     use crate::relational::Context;
     let context = Context::init();
 
-    use crate::relational::Indexes;
-    let rel_ast = build_relational_ast(
-        &context,
-        &type_ast,
-        &mut Indexes::new(),
-        &mut Noname::new(),
-    )
-    .unwrap();
+    let rel_ast = ASTBuilder::new()
+        .build_relational_ast(&context, &type_ast)
+        .unwrap();
     println!("{:#?}", rel_ast);
     let generator = PostgresqlGenerator::new(&ContractID {
         name: "testcontract".to_string(),
@@ -683,17 +686,14 @@ fn test_block() {
     use crate::sql::insert;
     use crate::sql::insert::Insert;
     use crate::sql::table_builder::{TableBuilder, TableMap};
-    use crate::storage_structure::relational::{build_relational_ast, Indexes};
+    use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
     use json::JsonValue;
     use ron::ser::{to_string_pretty, PrettyConfig};
 
     env_logger::init();
 
-    fn get_rel_ast_from_script_json(
-        json: &JsonValue,
-        indexes: &mut Indexes,
-    ) -> Result<RelationalAST> {
+    fn get_rel_ast_from_script_json(json: &JsonValue) -> Result<RelationalAST> {
         let storage_definition = json["code"]
             .members()
             .find(|x| x["prim"] == "storage")
@@ -701,13 +701,12 @@ fn test_block() {
             .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
-        let rel_ast = build_relational_ast(
-            &crate::relational::Context::init(),
-            &type_ast,
-            indexes,
-            &mut Noname::new(),
-        )
-        .unwrap();
+        let rel_ast = ASTBuilder::new()
+            .build_relational_ast(
+                &crate::relational::Context::init(),
+                &type_ast,
+            )
+            .unwrap();
         Ok(rel_ast)
     }
 
@@ -721,10 +720,10 @@ fn test_block() {
         Contract {
             id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
             levels: vec![
-                132343, 123318, 123327, 123339, 128201, 132091, 132201, 132211,
-                132219, 132222, 132240, 132242, 132259, 132262, 132278, 132282,
-                132285, 132298, 132300, 132367, 132383, 132384, 132388, 132390,
-                135501, 138208, 149127,
+                132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219,
+                132222, 132240, 132242, 132259, 132262, 132278, 132282, 132285,
+                132298, 132300, 132367, 132383, 132384, 132388, 132390, 135501,
+                138208, 149127,
             ],
         },
         Contract {
@@ -770,8 +769,23 @@ fn test_block() {
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {
-            let mut res: Vec<insert::Value> = tables[&insert.table_name]
+            let mut sort_on = tables[&insert.table_name]
                 .indices
+                .clone();
+            sort_on.extend(
+                tables[&insert.table_name]
+                    .columns
+                    .keys()
+                    .filter(|col| {
+                        !tables[&insert.table_name]
+                            .indices
+                            .iter()
+                            .any(|idx| idx == *col)
+                    })
+                    .cloned()
+                    .collect::<Vec<String>>(),
+            );
+            let mut res: Vec<insert::Value> = sort_on
                 .iter()
                 .map(|idx| {
                     insert
@@ -784,10 +798,22 @@ fn test_block() {
         });
     }
 
+    struct DummyStorageGetter {}
+    impl crate::octez::node::StorageGetter for DummyStorageGetter {
+        fn get_contract_storage(
+            &self,
+            _contract_id: &str,
+            _level: u32,
+        ) -> Result<JsonValue> {
+            Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
+        }
+    }
+
     let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
     for contract in &contracts {
-        let mut storage_processor = StorageProcessor::new(1);
+        let mut storage_processor =
+            StorageProcessor::new(1, DummyStorageGetter {});
 
         // verify that the test case is sane
         let mut unique_levels = contract.levels.clone();
@@ -798,9 +824,7 @@ fn test_block() {
         let script_json =
             json::parse(&load_test(&format!("test/{}.script", contract.id)))
                 .unwrap();
-        let rel_ast =
-            get_rel_ast_from_script_json(&script_json, &mut Indexes::new())
-                .unwrap();
+        let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
 
         // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
@@ -817,8 +841,9 @@ fn test_block() {
             )))
             .unwrap();
 
-            let (inserts, _) = storage_processor
-                .process_block(&block, contract.id, &rel_ast)
+            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
+            let (inserts, _, _) = storage_processor
+                .process_block(&block, &diffs, contract.id, &rel_ast)
                 .unwrap();
 
             let filename =

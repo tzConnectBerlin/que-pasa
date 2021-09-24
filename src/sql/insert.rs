@@ -1,7 +1,10 @@
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use pg_bigdecimal::PgNumeric;
 use postgres::types::BorrowToSql;
 use std::collections::BTreeMap;
+
+use crate::sql::postgresql_generator::PostgresqlGenerator;
 
 #[derive(
     Ord, PartialOrd, Clone, Debug, Eq, PartialEq, Serialize, Deserialize,
@@ -33,7 +36,7 @@ impl Value {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InsertKey {
     pub table_name: String,
-    pub id: u32,
+    pub id: i64,
 }
 
 impl std::cmp::Ord for InsertKey {
@@ -59,13 +62,46 @@ pub struct Column {
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Insert {
     pub table_name: String,
-    pub id: u32,
-    pub fk_id: Option<u32>,
+    pub id: i64,
+    pub fk_id: Option<i64>,
     pub columns: Vec<Column>,
 }
 
 impl Insert {
-    #[cfg(test)]
+    pub fn get_columns(&self) -> Result<Vec<Column>> {
+        let mut res = self.columns.clone();
+
+        res.push(Column {
+            name: "id".to_string(),
+            value: Value::BigInt(self.id),
+        });
+        if let Some(fk_id) = self.fk_id {
+            let parent_name = PostgresqlGenerator::parent_name(
+                &self.table_name,
+            )
+            .ok_or_else(|| {
+                anyhow!(
+                    "
+                failed to get parent name from table={}",
+                    self.table_name
+                )
+            })?;
+            res.push(Column {
+                name: format!("{}_id", parent_name),
+                value: Value::BigInt(fk_id),
+            });
+        }
+        Ok(res)
+    }
+
+    pub fn get_bigmap_id(&self) -> Option<Result<i32>> {
+        self.get_column("bigmap_id")
+            .map(|column| match column.value {
+                Value::Int(i) => Ok(i),
+                _ => Err(anyhow!("bigmap_id column does not have i32 value")),
+            })
+    }
+
     pub fn get_column(&self, name: &str) -> Option<&Column> {
         self.columns
             .iter()

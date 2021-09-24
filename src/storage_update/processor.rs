@@ -1,15 +1,20 @@
 use crate::debug;
 use crate::octez::block;
+use crate::octez::block::TxContext;
+use crate::octez::node::StorageGetter;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+use crate::storage_update::bigmap;
+use crate::storage_update::bigmap::{
+    BigmapCopy, IntraBlockBigmapDiffsProcessor,
+};
 use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
 use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 
 macro_rules! serde2json {
     ($serde:expr) => {
@@ -31,23 +36,23 @@ macro_rules! must_match_rel {
 #[derive(Clone, Debug)]
 pub struct ProcessStorageContext {
     pub last_table: Option<String>,
-    pub id: u32,
-    pub fk_id: Option<u32>,
+    pub id: i64,
+    pub fk_id: Option<i64>,
 }
 impl ProcessStorageContext {
-    pub fn new(id: u32) -> ProcessStorageContext {
+    pub fn new(id: i64) -> ProcessStorageContext {
         ProcessStorageContext {
             id,
             last_table: None,
             fk_id: None,
         }
     }
-    pub fn with_id(&self, id: u32) -> Self {
+    pub fn with_id(&self, id: i64) -> Self {
         let mut c = self.clone();
         c.id = id;
         c
     }
-    pub fn with_fk_id(&self, fk_id: u32) -> Self {
+    pub fn with_fk_id(&self, fk_id: i64) -> Self {
         let mut c = self.clone();
         c.fk_id = Some(fk_id);
         c
@@ -59,150 +64,129 @@ impl ProcessStorageContext {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct TxContext {
-    pub id: Option<u32>,
-    pub level: u32,
-    pub contract: String,
-    pub operation_hash: String,
-    pub operation_group_number: usize,
-    pub operation_number: usize,
-    pub content_number: usize,
-    pub internal_number: Option<usize>,
-    pub source: Option<String>,
-    pub destination: Option<String>,
-    pub entrypoint: Option<String>,
-}
-
-impl Hash for TxContext {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.level.hash(state);
-        self.contract.hash(state);
-        self.operation_hash.hash(state);
-        self.operation_group_number.hash(state);
-        self.operation_number.hash(state);
-        self.content_number.hash(state);
-        self.internal_number.hash(state);
-        self.source.hash(state);
-        self.destination.hash(state);
-        self.entrypoint.hash(state);
-    }
-}
-
-// Manual impl PartialEq in order to exclude the <id> field
-impl PartialEq for TxContext {
-    fn eq(&self, other: &Self) -> bool {
-        self.level == other.level
-            && self.contract == other.contract
-            && self.operation_hash == other.operation_hash
-            && self.operation_group_number == other.operation_group_number
-            && self.operation_number == other.operation_number
-            && self.content_number == other.content_number
-            && self.internal_number == other.internal_number
-            && self.source == other.source
-            && self.destination == other.destination
-            && self.entrypoint == other.entrypoint
-    }
-}
-
-impl Eq for TxContext {}
-
 pub(crate) type TxContextMap = HashMap<TxContext, TxContext>;
 
 pub struct IdGenerator {
-    id: u32,
+    id: i64,
 }
 
 impl IdGenerator {
-    pub(crate) fn new(initial_value: u32) -> Self {
+    pub(crate) fn new(initial_value: i64) -> Self {
         Self { id: initial_value }
     }
 
-    pub(crate) fn get_id(&mut self) -> u32 {
+    pub(crate) fn get_id(&mut self) -> i64 {
         let old_id = self.id;
         self.id += 1;
         old_id
     }
 }
 
-type BigMapMap = std::collections::HashMap<i32, (u32, RelationalAST)>;
+type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
 
-pub(crate) struct StorageProcessor {
+pub(crate) struct StorageProcessor<NodeCli>
+where
+    NodeCli: StorageGetter,
+{
     big_map_map: BigMapMap,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
+    node_cli: NodeCli,
 }
 
-impl StorageProcessor {
-    pub(crate) fn new(initial_id: u32) -> Self {
+impl<NodeCli> StorageProcessor<NodeCli>
+where
+    NodeCli: StorageGetter,
+{
+    pub(crate) fn new(initial_id: i64, node_cli: NodeCli) -> Self {
         Self {
             big_map_map: BigMapMap::new(),
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
+            node_cli,
         }
     }
 
     pub(crate) fn process_block(
         &mut self,
         block: &block::Block,
+        diffs: &IntraBlockBigmapDiffsProcessor,
         contract_id: &str,
         rel_ast: &RelationalAST,
-    ) -> Result<(Inserts, Vec<TxContext>)> {
+    ) -> Result<(Inserts, Vec<BigmapCopy>, Vec<TxContext>)> {
         self.inserts.clear();
         self.tx_contexts.clear();
         self.big_map_map.clear();
 
-        let mut storages: Vec<(TxContext, serde_json::Value)> = vec![];
-        let mut big_map_diffs: Vec<(TxContext, block::BigMapDiff)> = vec![];
-        let operations = block.operations();
+        let storages: Vec<(TxContext, parser::Value)> =
+            block.map_tx_contexts(|tx_context, is_origination, op_res| {
+                if tx_context.contract != contract_id {
+                    return Ok(None);
+                }
 
-        for (operation_group_number, operation_group) in
-            operations.iter().enumerate()
-        {
-            for (operation_number, operation) in
-                operation_group.iter().enumerate()
-            {
-                storages.extend(self.get_storage_from_operation(
-                    block.header.level,
-                    operation_group_number,
-                    operation_number,
-                    operation,
-                    contract_id,
-                ));
-                big_map_diffs.extend(self.get_big_map_diffs_from_operation(
-                    block.header.level,
-                    operation_group_number,
-                    operation_number,
-                    operation,
-                    contract_id,
-                ));
-            }
-        }
+                if is_origination {
+                    let storage = parser::parse_json(
+                        &self.node_cli.get_contract_storage(
+                            contract_id,
+                            tx_context.level,
+                        )?,
+                    )?;
+                    Ok(Some((self.tx_context(tx_context), storage)))
+                } else if let Some(storage) = &op_res.storage {
+                    Ok(Some((
+                        self.tx_context(tx_context),
+                        parser::parse_lexed(&serde2json!(storage))?,
+                    )))
+                } else {
+                    Err(anyhow!(
+			    "bad contract call: no storage update. tx_context={:#?}",
+			    tx_context
+			))
+                }
+            })?;
 
-        for (tx_context, store) in &storages {
-            let storage_json = serde_json::to_string(store)?;
-            let parsed_storage = parser::parse(storage_json)?;
-
-            self.process_storage_value(&parsed_storage, rel_ast, tx_context)
+        let mut bigmap_copies: Vec<BigmapCopy> = vec![];
+        for (tx_context, parsed_storage) in &storages {
+            let tx_context = &self.tx_context(tx_context.clone());
+            self.process_storage_value(parsed_storage, rel_ast, tx_context)
                 .with_context(|| {
                     format!(
                         "process_block: process storage value failed (tx_context={:?})",
                         tx_context
                     )
                 })?;
-        }
 
-        for (tx_content, diff) in &big_map_diffs {
-            self.process_big_map_diff(diff, tx_content)
-                .with_context(|| {
-                    format!("process_block: process big_map diff failed (tx_context={:?})", tx_content)
-                })?;
+            let mut bigmaps = diffs.get_tx_context_owned_bigmaps(tx_context);
+            bigmaps.sort_unstable();
+            for bigmap in bigmaps {
+                let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                if self.big_map_map.contains_key(&bigmap) {
+                    let (_fk, rel_ast) = &self.big_map_map[&bigmap];
+                    for (src_bigmap, src_context) in deps {
+                        let dest_bigmap = bigmap;
+                        let dest_table = rel_ast
+                            .table_entry()
+                            .ok_or_else(|| anyhow!("bigmap copy dest rel_ast has unexpected type"))?;
+                        bigmap_copies.push(BigmapCopy::new(
+                            tx_context.clone(),
+                            src_context.contract.clone(),
+                            src_bigmap,
+                            dest_table,
+                            dest_bigmap,
+                        ));
+                    }
+                }
+                for op in &ops {
+                    self.process_bigmap_op(op, tx_context)?;
+                }
+            }
         }
 
         Ok((
             self.inserts.clone(),
+            bigmap_copies,
             self.tx_contexts
                 .keys()
                 .cloned()
@@ -210,7 +194,21 @@ impl StorageProcessor {
         ))
     }
 
-    pub(crate) fn get_id_value(&self) -> u32 {
+    pub(crate) fn get_bigmap_tables(&self) -> Result<Vec<(i32, String)>> {
+        let mut res: Vec<(i32, String)> = vec![];
+
+        for (bigmap_id, (_fk, rel_ast)) in &self.big_map_map {
+            res.push((
+                *bigmap_id,
+                rel_ast
+                    .table_entry()
+                    .ok_or_else(|| anyhow!("table name missing"))?,
+            ))
+        }
+        Ok(res)
+    }
+
+    pub(crate) fn get_id_value(&self) -> i64 {
         self.id_generator.id
     }
 
@@ -225,197 +223,20 @@ impl StorageProcessor {
         }
     }
 
-    fn get_big_map_diffs_from_operation(
-        &mut self,
-        level: u32,
-        operation_group_number: usize,
-        operation_number: usize,
-        operation: &block::Operation,
-        contract_id: &str,
-    ) -> Vec<(TxContext, block::BigMapDiff)> {
-        let c_dest = Some(contract_id.to_string());
-        let mut result: Vec<(TxContext, block::BigMapDiff)> = vec![];
-
-        for (content_number, content) in operation.contents.iter().enumerate() {
-            if let Some(operation_result) = &content.metadata.operation_result {
-                if content.destination == c_dest {
-                    if let Some(big_map_diffs) = &operation_result.big_map_diff
-                    {
-                        result.extend(big_map_diffs.iter().map(
-                            |big_map_diff| {
-                                (
-                                    self.tx_context(TxContext {
-                                        id: None,
-                                        level,
-                                        contract: contract_id.to_string(),
-                                        operation_hash: operation.hash.clone(),
-                                        operation_number,
-                                        operation_group_number,
-                                        content_number,
-                                        internal_number: None,
-                                        source: content.source.clone(),
-                                        destination: content
-                                            .destination
-                                            .clone(),
-                                        entrypoint: content
-                                            .parameters
-                                            .clone()
-                                            .map(|p| p.entrypoint),
-                                    }),
-                                    big_map_diff.clone(),
-                                )
-                            },
-                        ));
-                    }
-                }
-
-                for (internal_number, internal_op) in content
-                    .metadata
-                    .internal_operation_results
-                    .iter()
-                    .enumerate()
-                {
-                    if internal_op.destination == c_dest {
-                        if let Some(big_map_diffs) =
-                            &internal_op.result.big_map_diff
-                        {
-                            result.extend(big_map_diffs.iter().map(
-                                |big_map_diff| {
-                                    (
-                                        self.tx_context(TxContext {
-                                            id: None,
-                                            level,
-                                            contract: contract_id.to_string(),
-                                            operation_hash: operation
-                                                .hash
-                                                .clone(),
-                                            operation_group_number,
-                                            operation_number,
-                                            content_number,
-                                            internal_number: Some(
-                                                internal_number,
-                                            ),
-                                            source: Some(
-                                                internal_op.source.clone(),
-                                            ),
-                                            destination: internal_op
-                                                .destination
-                                                .clone(),
-                                            entrypoint: internal_op
-                                                .parameters
-                                                .clone()
-                                                .map(|p| p.entrypoint),
-                                        }),
-                                        big_map_diff.clone(),
-                                    )
-                                },
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-        result
-    }
-
-    fn get_storage_from_operation(
-        &mut self,
-        level: u32,
-        operation_group_number: usize,
-        operation_number: usize,
-        operation: &block::Operation,
-        contract_id: &str,
-    ) -> Vec<(TxContext, ::serde_json::Value)> {
-        let mut results: Vec<(TxContext, serde_json::Value)> = vec![];
-
-        let c_dest = Some(contract_id.to_string());
-        for (content_number, content) in operation.contents.iter().enumerate() {
-            if let Some(operation_result) = &content.metadata.operation_result {
-                if operation_result.status == "applied" {
-                    if content.destination == c_dest {
-                        let tx_context = TxContext {
-                            id: None,
-                            level,
-                            contract: contract_id.to_string(),
-                            operation_hash: operation.hash.clone(),
-                            operation_group_number,
-                            operation_number,
-                            content_number,
-                            internal_number: None,
-                            source: content.source.clone(),
-                            destination: content.destination.clone(),
-                            entrypoint: content
-                                .parameters
-                                .clone()
-                                .map(|p| p.entrypoint),
-                        };
-                        if let Some(storage) = &operation_result.storage {
-                            results.push((
-                                self.tx_context(tx_context),
-                                storage.clone(),
-                            ));
-                        } else {
-                            info!(
-                                "ignoring contract call; no storage update. tx_context={:#?}",
-                                tx_context
-                            );
-                        }
-                    }
-                    for (internal_number, internal_op) in content
-                        .metadata
-                        .internal_operation_results
-                        .iter()
-                        .enumerate()
-                    {
-                        if internal_op.destination == c_dest {
-                            let tx_context = TxContext {
-                                id: None,
-                                level,
-                                contract: contract_id.to_string(),
-                                operation_hash: operation.hash.clone(),
-                                operation_group_number,
-                                operation_number,
-                                content_number,
-                                internal_number: Some(internal_number),
-                                source: Some(internal_op.source.clone()),
-                                destination: internal_op.destination.clone(),
-                                entrypoint: internal_op
-                                    .parameters
-                                    .clone()
-                                    .map(|p| p.entrypoint),
-                            };
-                            if let Some(storage) = &internal_op.result.storage {
-                                results.push((
-                                    self.tx_context(tx_context),
-                                    storage.clone(),
-                                ));
-                            } else {
-                                info!(
-                                    "ignoring contract call; no storage update. tx_context={:#?}",
-                                    tx_context
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        results
-    }
-
     fn unfold_value(
         &self,
         v: &parser::Value,
         rel_ast: &RelationalAST,
-    ) -> parser::Value {
+    ) -> Result<parser::Value> {
         match rel_ast {
-            RelationalAST::List { .. }
-            | RelationalAST::Map { .. }
-            | RelationalAST::BigMap { .. } => {
-                // do not unfold list
-                v.clone()
+            RelationalAST::Map { .. } | RelationalAST::BigMap { .. } => {
+                v.unpair_elts()
             }
-            _ => v.unfold_list(),
+            RelationalAST::List { .. } => {
+                // do not unfold list
+                Ok(v.clone())
+            }
+            _ => Ok(v.unfold_list()),
         }
     }
 
@@ -431,7 +252,7 @@ impl StorageProcessor {
             debug::pp_depth(2, v),
             debug::pp_depth(2, rel_ast)
         );
-        match &self.unfold_value(v, rel_ast) {
+        match &self.unfold_value(v, rel_ast)? {
             parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
                 RelationalAST::OrEnumeration {
@@ -486,27 +307,14 @@ impl StorageProcessor {
         }
     }
 
-    fn process_big_map_diff(
+    fn process_bigmap_op(
         &mut self,
-        diff: &block::BigMapDiff,
+        op: &bigmap::Op,
         tx_context: &TxContext,
     ) -> Result<()> {
-        match diff.action.as_str() {
-            "update" => {
-                let big_map_id: i32 = match &diff.big_map {
-                    Some(id) => {
-                        debug!("id is: {}", id);
-                        id.parse()?
-                    }
-                    None => {
-                        return Err(anyhow!(
-                            "no big map id found in diff {:?}",
-                            diff
-                        ))
-                    }
-                };
-
-                let (_fk, rel_ast) = match self.big_map_map.get(&big_map_id) {
+        match op {
+            bigmap::Op::Update { bigmap, key, value } => {
+                let (_fk, rel_ast) = match self.big_map_map.get(bigmap) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
                         return Ok(());
@@ -530,16 +338,11 @@ impl StorageProcessor {
                         .with_last_table(table.clone());
                         self.process_storage_value_internal(
                             ctx,
-                            &parser::parse_lexed(&serde2json!(&diff
-                                .key
-                                .clone()
-                                .ok_or_else(|| anyhow!(
-                                    "missing key to big map in diff"
-                                ))?))?,
+                            &parser::parse_lexed(&serde2json!(&key))?,
                             &key_ast,
                             tx_context,
                         )?;
-                        match &diff.value {
+                        match &value {
                             None => self.sql_add_cell(
                                 ctx,
                                 &table,
@@ -558,84 +361,26 @@ impl StorageProcessor {
                             ctx,
                             &table,
                             &"bigmap_id".to_string(),
-                            insert::Value::Int(big_map_id as i32),
+                            insert::Value::Int(*bigmap),
                             tx_context,
                         );
                         Ok(())
                     }
                 )
             }
-            "remove" => {
+            bigmap::Op::Clear { bigmap } => {
                 let ctx =
                     &ProcessStorageContext::new(self.id_generator.get_id());
                 self.sql_add_cell(
                     ctx,
                     &"bigmap_clears".to_string(),
                     &"bigmap_id".to_string(),
-                    insert::Value::Int(
-                        diff.big_map
-                            .clone()
-                            .ok_or_else(|| {
-                                anyhow!(
-                                    "no big map id found in diff {:?}",
-                                    diff
-                                )
-                            })?
-                            .parse()?,
-                    ),
+                    insert::Value::Int(*bigmap),
                     tx_context,
                 );
                 Ok(())
             }
-            "copy" => {
-                Err(anyhow!("bigmap 'copy' action not supported yet"))
-
-                /*
-                        let ctx =
-                            &ProcessStorageContext::new(self.id_generator.get_id());
-                        self.sql_add_cell(
-                            ctx,
-                            &"bigmap_copies".to_string(),
-                            &"bigmap_id_source".to_string(),
-                            insert::Value::Int(
-                                diff.source_big_map
-                                    .clone()
-                                    .ok_or_else(|| {
-                                        anyhow!(
-                                            "no big map id found in diff {:?}",
-                                            diff
-                                        )
-                                    })?
-                                    .parse()?,
-                            ),
-                            tx_context,
-                        );
-                        self.sql_add_cell(
-                            ctx,
-                            &"bigmap_copies".to_string(),
-                            &"bigmap_id_destination".to_string(),
-                            insert::Value::Int(
-                                diff.destination_big_map
-                                    .clone()
-                                    .ok_or_else(|| {
-                                        anyhow!(
-                                            "no big map id found in diff {:?}",
-                                            diff
-                                        )
-                                    })?
-                                    .parse()?,
-                            ),
-                            tx_context,
-                        );
-                        Ok(())
-                */
-            }
-            "alloc" => Ok(()),
-            action => Err(anyhow!(
-                "big_map action unknown: action={}, diff={:#?}",
-                action,
-                diff
-            )),
+            _ => Ok(()),
         }
     }
 
@@ -685,12 +430,12 @@ impl StorageProcessor {
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
+        let v = &self.unfold_value(value, rel_ast)?;
         debug!(
             "value: {}, rel_ast: {}",
-            debug::pp_depth(3, value),
+            debug::pp_depth(3, v),
             debug::pp_depth(3, rel_ast)
         );
-        let v = &self.unfold_value(value, rel_ast);
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {
                 if let ExprTy::SimpleExprTy(SimpleExprTy::Stop) =
@@ -910,7 +655,8 @@ impl StorageProcessor {
                             Ok(())
                         } else {
                             Err(anyhow!(
-                                "found big map with non-int id: {:?}",
+                                "found big map with non-int id ({:?}): {:?}",
+                                value,
                                 rel_ast
                             ))
                         }
@@ -947,24 +693,16 @@ impl StorageProcessor {
     ) -> Result<insert::Value> {
         debug!("t: {:#?}, v: {:#?}", t, v);
         match t {
-            SimpleExprTy::String => {
-                if let parser::Value::String(s) = v {
+            SimpleExprTy::Bytes
+            | SimpleExprTy::KeyHash
+            | SimpleExprTy::String => match v {
+                parser::Value::Bytes(s) | parser::Value::String(s) => {
                     Ok(insert::Value::String(s.clone()))
-                } else {
-                    Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    ))
                 }
-            }
-            SimpleExprTy::KeyHash => {
-                if let parser::Value::Bytes(bs) = v {
-                    Ok(insert::Value::String(bs.clone()))
-                } else {
-                    Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    ))
-                }
-            }
+                _ => Err(anyhow!(
+                    "storage2sql_value: failed to match type with value"
+                )),
+            },
             SimpleExprTy::Timestamp => {
                 Ok(insert::Value::Timestamp(parser::parse_date(v)?))
             }
@@ -975,7 +713,8 @@ impl StorageProcessor {
                     {
                         Ok(insert::Value::String(parser::decode_address(bs)?))
                     }
-                    parser::Value::Address(addr) => {
+                    parser::Value::Address(addr)
+                    | parser::Value::String(addr) => {
                         Ok(insert::Value::String(addr.clone()))
                     }
                     _ => Err(anyhow!(
@@ -986,15 +725,6 @@ impl StorageProcessor {
             SimpleExprTy::Bool => {
                 if let parser::Value::Bool(b) = v {
                     Ok(insert::Value::Bool(*b))
-                } else {
-                    Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    ))
-                }
-            }
-            SimpleExprTy::Bytes => {
-                if let parser::Value::Bytes(bs) = v {
-                    Ok(insert::Value::String(bs.clone()))
                 } else {
                     Err(anyhow!(
                         "storage2sql_value: failed to match type with value"
@@ -1031,7 +761,7 @@ impl StorageProcessor {
     fn save_bigmap_location(
         &mut self,
         bigmap_id: i32,
-        fk: u32,
+        fk: i64,
         rel_ast: RelationalAST,
     ) {
         self.big_map_map
@@ -1053,7 +783,7 @@ impl StorageProcessor {
                     fk_id: ctx.fk_id,
                     columns: vec![Column {
                         name: "tx_context_id".to_string(),
-                        value: insert::Value::Int(tx_context.id.unwrap() as i32),
+                        value: insert::Value::BigInt(tx_context.id.unwrap()),
                     }],
                 };
                 self.inserts.insert(
@@ -1103,8 +833,8 @@ impl StorageProcessor {
     fn get_insert(
         &self,
         table_name: &str,
-        id: u32,
-        fk_id: Option<u32>,
+        id: i64,
+        fk_id: Option<i64>,
     ) -> Option<Insert> {
         self.inserts
             .get(&InsertKey {

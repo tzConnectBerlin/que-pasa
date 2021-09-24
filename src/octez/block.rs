@@ -1,5 +1,7 @@
 use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
+use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 use crate::contract_denylist::is_contract_denylisted;
 
@@ -8,6 +10,7 @@ const LIQUIDITY_BAKING: &str = "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5";
 const LIQUIDITY_BAKING_TOKEN: &str = "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo";
 
 #[derive(Clone, Debug)]
+
 pub struct LevelMeta {
     pub level: u32,
     pub hash: Option<String>,
@@ -22,20 +25,285 @@ pub struct LevelMeta {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Block {
-    pub protocol: String,
-    #[serde(rename = "chain_id")]
-    pub chain_id: String,
     pub hash: String,
     pub header: Header,
-    pub metadata: Metadata,
     pub operations: Vec<Vec<Operation>>,
+
+    #[serde(skip)]
+    protocol: String,
+    #[serde(skip)]
+    chain_id: String,
+    #[serde(skip)]
+    metadata: Metadata,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TxContext {
+    pub id: Option<i64>,
+    pub level: u32,
+    pub contract: String,
+    pub operation_hash: String,
+    pub operation_group_number: usize,
+    pub operation_number: usize,
+    pub content_number: usize,
+    pub internal_number: Option<usize>,
+    pub source: Option<String>,
+    pub destination: Option<String>,
+    pub entrypoint: Option<String>,
+}
+
+impl Hash for TxContext {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.level.hash(state);
+        self.contract.hash(state);
+        self.operation_hash.hash(state);
+        self.operation_group_number.hash(state);
+        self.operation_number.hash(state);
+        self.content_number.hash(state);
+        self.internal_number.hash(state);
+        self.source.hash(state);
+        self.destination.hash(state);
+        self.entrypoint.hash(state);
+    }
+}
+
+// Manual impl PartialEq in order to exclude the <id> field
+impl PartialEq for TxContext {
+    fn eq(&self, other: &Self) -> bool {
+        self.level == other.level
+            && self.contract == other.contract
+            && self.operation_hash == other.operation_hash
+            && self.operation_group_number == other.operation_group_number
+            && self.operation_number == other.operation_number
+            && self.content_number == other.content_number
+            && self.internal_number == other.internal_number
+            && self.source == other.source
+            && self.destination == other.destination
+            && self.entrypoint == other.entrypoint
+    }
+}
+impl PartialOrd for TxContext {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let res = self.level.cmp(&other.level);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .operation_group_number
+            .cmp(&other.operation_group_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .operation_number
+            .cmp(&other.operation_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .content_number
+            .cmp(&other.content_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        let res = self
+            .internal_number
+            .cmp(&other.internal_number);
+        if res != Ordering::Equal {
+            return Some(res);
+        }
+        Some(Ordering::Equal)
+    }
+}
+
+impl Eq for TxContext {}
+impl Ord for TxContext {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
 }
 
 impl Block {
     pub(crate) fn operations(&self) -> Vec<Vec<Operation>> {
         self.operations.clone()
+    }
+
+    pub(crate) fn map_tx_contexts<F, O>(
+        &self,
+        mut f: F,
+    ) -> anyhow::Result<Vec<O>>
+    where
+        F: FnMut(
+            TxContext,
+            bool,
+            &OperationResult,
+        ) -> anyhow::Result<Option<O>>,
+    {
+        let mut res: Vec<O> = vec![];
+        for (operation_group_number, operation_group) in
+            self.operations().iter().enumerate()
+        {
+            for (operation_number, operation) in
+                operation_group.iter().enumerate()
+            {
+                for (content_number, content) in
+                    operation.contents.iter().enumerate()
+                {
+                    if let Some(operation_result) =
+                        &content.metadata.operation_result
+                    {
+                        if operation_result.status != "applied" {
+                            continue;
+                        }
+                        if let Some(dest_addr) = &content.destination {
+                            if is_contract(dest_addr) {
+                                let fres = f(
+                                    TxContext {
+                                        id: None,
+                                        level: self.header.level,
+                                        contract: dest_addr.clone(),
+                                        operation_hash: operation.hash.clone(),
+                                        operation_group_number,
+                                        operation_number,
+                                        content_number,
+                                        internal_number: None,
+                                        source: content.source.clone(),
+                                        destination: content
+                                            .destination
+                                            .clone(),
+                                        entrypoint: content
+                                            .parameters
+                                            .clone()
+                                            .map(|p| p.entrypoint),
+                                    },
+                                    false,
+                                    operation_result,
+                                )?;
+                                if let Some(elem) = fres {
+                                    res.push(elem);
+                                }
+
+                                for (internal_number, internal_op) in content
+                                    .metadata
+                                    .internal_operation_results
+                                    .iter()
+                                    .enumerate()
+                                {
+                                    if internal_op.result.status != "applied" {
+                                        continue;
+                                    }
+                                    if let Some(internal_dest_addr) =
+                                        &internal_op.destination
+                                    {
+                                        if is_contract(internal_dest_addr) {
+                                            let fres = f(
+                                                TxContext {
+                                                    id: None,
+                                                    level: self.header.level,
+                                                    contract:
+                                                        internal_dest_addr
+                                                            .to_string(),
+                                                    operation_hash: operation
+                                                        .hash
+                                                        .clone(),
+                                                    operation_group_number,
+                                                    operation_number,
+                                                    content_number,
+                                                    internal_number: Some(
+                                                        internal_number,
+                                                    ),
+                                                    source: Some(
+                                                        internal_op
+                                                            .source
+                                                            .clone(),
+                                                    ),
+                                                    destination: internal_op
+                                                        .destination
+                                                        .clone(),
+                                                    entrypoint: internal_op
+                                                        .parameters
+                                                        .clone()
+                                                        .map(|p| p.entrypoint),
+                                                },
+                                                false,
+                                                &internal_op.result,
+                                            )?;
+                                            if let Some(elem) = fres {
+                                                res.push(elem);
+                                            }
+                                        }
+                                    }
+
+                                    for contract in
+                                        &internal_op.result.originated_contracts
+                                    {
+                                        let fres = f(
+                                            TxContext {
+                                                id: None,
+                                                level: self.header.level,
+                                                contract: contract.clone(),
+                                                operation_hash: operation
+                                                    .hash
+                                                    .clone(),
+                                                operation_group_number,
+                                                operation_number,
+                                                content_number,
+                                                internal_number: Some(
+                                                    internal_number,
+                                                ),
+                                                source: Some(
+                                                    internal_op.source.clone(),
+                                                ),
+                                                destination: internal_op
+                                                    .destination
+                                                    .clone(),
+                                                entrypoint: internal_op
+                                                    .parameters
+                                                    .clone()
+                                                    .map(|p| p.entrypoint),
+                                            },
+                                            true,
+                                            &internal_op.result,
+                                        )?;
+                                        if let Some(elem) = fres {
+                                            res.push(elem);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        for contract in &operation_result.originated_contracts {
+                            let fres = f(
+                                TxContext {
+                                    id: None,
+                                    level: self.header.level,
+                                    contract: contract.clone(),
+                                    operation_hash: operation.hash.clone(),
+                                    operation_group_number,
+                                    operation_number,
+                                    content_number,
+                                    internal_number: None,
+                                    source: content.source.clone(),
+                                    destination: content.destination.clone(),
+                                    entrypoint: content
+                                        .parameters
+                                        .clone()
+                                        .map(|p| p.entrypoint),
+                                },
+                                true,
+                                operation_result,
+                            )?;
+                            if let Some(elem) = fres {
+                                res.push(elem);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(res)
     }
 
     pub(crate) fn is_contract_active(&self, contract_address: &str) -> bool {
@@ -47,15 +315,22 @@ impl Block {
         for operations in &self.operations {
             for operation in operations {
                 for content in &operation.contents {
-                    if content.destination == destination {
-                        return true;
-                    }
-                    for result in &content
-                        .metadata
-                        .internal_operation_results
+                    if let Some(operation_result) =
+                        &content.metadata.operation_result
                     {
-                        if result.destination == destination {
+                        if operation_result.status != "applied" {
+                            continue;
+                        }
+                        if content.destination == destination {
                             return true;
+                        }
+                        for result in &content
+                            .metadata
+                            .internal_operation_results
+                        {
+                            if result.destination == destination {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -80,22 +355,19 @@ impl Block {
             return true;
         }
 
-        self.operations.iter().any(|ops| {
-            ops.iter().any(|op| {
-                op.contents.iter().any(|content| {
-                    content
-                        .metadata
-                        .operation_result
-                        .iter()
-                        .any(|op_res| {
-                            op_res
-                                .originated_contracts
-                                .iter()
-                                .any(|c| c == contract_address)
-                        })
-                })
-            })
+        self.contract_originations()
+            .iter()
+            .any(|c| c == contract_address)
+    }
+
+    fn contract_originations(&self) -> Vec<String> {
+        self.map_tx_contexts(|tx_context, is_origination, _op_res| {
+            if !is_origination {
+                return Ok(None);
+            }
+            Ok(Some(tx_context.contract))
         })
+        .unwrap()
     }
 
     pub(crate) fn active_contracts(&self) -> Vec<String> {
@@ -103,16 +375,29 @@ impl Block {
         for operations in &self.operations {
             for operation in operations {
                 for content in &operation.contents {
-                    if let Some(address) = &content.destination {
-                        res.push(address.clone());
-                    }
-                    for result in &content
-                        .metadata
-                        .internal_operation_results
+                    if let Some(operation_result) =
+                        &content.metadata.operation_result
                     {
-                        if let Some(address) = &result.destination {
-                            res.push(address.clone())
+                        if operation_result.status != "applied" {
+                            continue;
                         }
+                        if let Some(address) = &content.destination {
+                            res.push(address.clone());
+                        }
+                        for result in &content
+                            .metadata
+                            .internal_operation_results
+                        {
+                            if let Some(address) = &result.destination {
+                                res.push(address.clone());
+                            }
+                        }
+
+                        res.extend(
+                            operation_result
+                                .originated_contracts
+                                .clone(),
+                        );
                     }
                 }
             }
@@ -148,22 +433,29 @@ fn is_contract(address: &str) -> bool {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Header {
     pub level: u32,
-    pub proto: i64,
-    pub predecessor: String,
-    pub timestamp: String,
-    #[serde(rename = "validation_pass")]
-    pub validation_pass: i64,
-    #[serde(rename = "operations_hash")]
-    pub operations_hash: String,
-    pub fitness: Vec<String>,
-    pub context: String,
-    pub priority: i64,
-    #[serde(rename = "proof_of_work_nonce")]
-    pub proof_of_work_nonce: String,
-    pub signature: String,
+
+    #[serde(skip)]
+    predecessor: String,
+    #[serde(skip)]
+    timestamp: String,
+    #[serde(skip)]
+    validation_pass: i64,
+    #[serde(skip)]
+    operations_hash: String,
+    #[serde(skip)]
+    fitness: Vec<String>,
+    #[serde(skip)]
+    context: String,
+    #[serde(skip)]
+    priority: i64,
+    #[serde(skip)]
+    proof_of_work_nonce: String,
+    #[serde(skip)]
+    signature: String,
+    #[serde(skip)]
+    proto: i64,
 }
 
 #[derive(
@@ -174,32 +466,20 @@ pub struct Header {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Metadata {
     pub protocol: String,
-    #[serde(rename = "next_protocol")]
     pub next_protocol: String,
-    #[serde(rename = "test_chain_status")]
     pub test_chain_status: TestChainStatus,
-    #[serde(rename = "max_operations_ttl")]
     pub max_operations_ttl: i64,
-    #[serde(rename = "max_operation_data_length")]
     pub max_operation_data_length: i64,
-    #[serde(rename = "max_block_header_length")]
     pub max_block_header_length: i64,
-    #[serde(rename = "max_operation_list_length")]
     pub max_operation_list_length: Vec<MaxOperationListLength>,
     pub baker: String,
-    #[serde(rename = "level_info", default)]
     pub level_info: LevelInfo,
-    #[serde(rename = "voting_period_info", default)]
     pub voting_period_info: VotingPeriodInfo,
-    #[serde(rename = "nonce_hash")]
     pub nonce_hash: ::serde_json::Value,
-    #[serde(rename = "consumed_gas")]
     pub consumed_gas: Option<String>,
     pub deactivated: Vec<::serde_json::Value>,
-    #[serde(rename = "balance_updates")]
     pub balance_updates: Option<Vec<BalanceUpdate>>,
 }
 
@@ -335,15 +615,18 @@ pub struct BalanceUpdate {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Operation {
-    pub protocol: String,
-    #[serde(rename = "chain_id")]
-    pub chain_id: String,
     pub hash: String,
-    pub branch: String,
     pub contents: Vec<Content>,
-    pub signature: Option<String>,
+
+    #[serde(skip)]
+    protocol: String,
+    #[serde(skip)]
+    signature: Option<String>,
+    #[serde(skip)]
+    chain_id: String,
+    #[serde(skip)]
+    branch: String,
 }
 
 #[derive(
@@ -354,24 +637,31 @@ pub struct Operation {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Content {
-    pub kind: String,
-    pub endorsement: Option<Endorsement>,
     pub slot: Option<i64>,
     pub metadata: OperationMetadata,
-    pub source: Option<String>,
-    pub fee: Option<String>,
-    pub counter: Option<String>,
-    #[serde(rename = "gas_limit")]
-    pub gas_limit: Option<String>,
-    #[serde(rename = "storage_limit")]
-    pub storage_limit: Option<String>,
-    pub amount: Option<String>,
     pub destination: Option<String>,
+    pub source: Option<String>,
     pub parameters: Option<Parameters>,
-    pub balance: Option<String>,
-    pub script: Option<Script>,
+
+    #[serde(skip)]
+    kind: String,
+    #[serde(skip)]
+    endorsement: Option<Endorsement>,
+    #[serde(skip)]
+    fee: Option<String>,
+    #[serde(skip)]
+    counter: Option<String>,
+    #[serde(skip)]
+    gas_limit: Option<String>,
+    #[serde(skip)]
+    storage_limit: Option<String>,
+    #[serde(skip)]
+    amount: Option<String>,
+    #[serde(skip)]
+    balance: Option<String>,
+    #[serde(skip)]
+    script: Option<Script>,
 }
 
 #[derive(
@@ -397,7 +687,6 @@ pub struct Endorsement {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Operations {
     pub kind: String,
     pub level: i64,
@@ -411,18 +700,17 @@ pub struct Operations {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct OperationMetadata {
-    #[serde(rename = "balance_updates", default)]
-    pub balance_updates: Vec<BalanceUpdate>,
-    pub delegate: Option<String>,
-    #[serde(default)]
-    pub slots: Vec<i64>,
-    #[serde(rename = "operation_result")]
     pub operation_result: Option<OperationResult>,
-    #[serde(rename = "internal_operation_results")]
     #[serde(default)]
     pub internal_operation_results: Vec<InternalOperationResult>,
+
+    #[serde(skip)]
+    delegate: Option<String>,
+    #[serde(skip)]
+    balance_updates: Vec<BalanceUpdate>,
+    #[serde(skip)]
+    slots: Vec<i64>,
 }
 
 #[derive(
@@ -433,29 +721,26 @@ pub struct OperationMetadata {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct OperationResult {
-    pub status: String,
-    pub storage: Option<::serde_json::Value>,
-    #[serde(rename = "big_map_diff")]
-    pub big_map_diff: Option<Vec<BigMapDiff>>,
-    #[serde(rename = "balance_updates")]
-    #[serde(default)]
-    pub balance_updates: Option<Vec<BalanceUpdate>>,
-    #[serde(rename = "consumed_gas")]
-    pub consumed_gas: Option<String>,
-    #[serde(rename = "consumed_milligas")]
-    pub consumed_milligas: Option<String>,
-    #[serde(rename = "storage_size")]
-    pub storage_size: Option<String>,
-    #[serde(rename = "paid_storage_size_diff")]
-    pub paid_storage_size_diff: Option<String>,
-    #[serde(rename = "lazy_storage_diff")]
-    pub lazy_storage_diff: Option<Vec<serde_json::Value>>,
-    //    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
-    #[serde(rename = "originated_contracts")]
     #[serde(default)]
     pub originated_contracts: Vec<String>,
+    pub status: String,
+    pub storage: Option<::serde_json::Value>,
+    pub big_map_diff: Option<Vec<BigMapDiff>>,
+
+    #[serde(skip)]
+    balance_updates: Option<Vec<BalanceUpdate>>,
+    #[serde(skip)]
+    consumed_gas: Option<String>,
+    #[serde(skip)]
+    consumed_milligas: Option<String>,
+    #[serde(skip)]
+    storage_size: Option<String>,
+    #[serde(skip)]
+    paid_storage_size_diff: Option<String>,
+    #[serde(skip)]
+    lazy_storage_diff: Option<Vec<serde_json::Value>>,
+    //    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
 }
 
 #[derive(
@@ -466,23 +751,20 @@ pub struct OperationResult {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct BigMapDiff {
     pub action: String,
-    #[serde(rename = "big_map")]
     pub big_map: Option<String>,
-    #[serde(rename = "source_big_map")]
     pub source_big_map: Option<String>,
-    #[serde(rename = "destination_big_map")]
     pub destination_big_map: Option<String>,
-    #[serde(rename = "key_hash")]
-    pub key_hash: Option<String>,
     pub key: Option<serde_json::Value>,
     pub value: Option<serde_json::Value>,
-    #[serde(rename = "key_type")]
-    pub key_type: Option<KeyType>,
-    #[serde(rename = "value_type")]
-    pub value_type: Option<ValueType>,
+
+    #[serde(skip)]
+    key_hash: Option<String>,
+    #[serde(skip)]
+    key_type: Option<KeyType>,
+    #[serde(skip)]
+    value_type: Option<ValueType>,
 }
 
 #[derive(
@@ -493,7 +775,6 @@ pub struct BigMapDiff {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Key {
     pub string: Option<String>,
     pub prim: Option<String>,
@@ -509,7 +790,6 @@ pub struct Key {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Arg {
     pub prim: Option<String>,
     pub bytes: Option<String>,
@@ -528,7 +808,6 @@ pub struct Arg {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Value {
     pub string: Option<String>,
     pub prim: Option<String>,
@@ -546,7 +825,6 @@ pub struct Value {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct KeyType {
     pub prim: Option<String>,
 }
@@ -559,7 +837,6 @@ pub struct KeyType {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct ValueType {
     pub prim: Option<String>,
     pub args: Option<Vec<Arg>>,
@@ -573,7 +850,6 @@ pub struct ValueType {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct LazyStorageDiff {
     pub kind: String,
     pub id: String,
@@ -588,13 +864,10 @@ pub struct LazyStorageDiff {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Diff {
     pub action: String,
     pub updates: Vec<Update>,
-    #[serde(rename = "key_type")]
     pub key_type: Option<KeyType>,
-    #[serde(rename = "value_type")]
     pub value_type: Option<ValueType2>,
 }
 
@@ -606,9 +879,7 @@ pub struct Diff {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Update {
-    #[serde(rename = "key_hash")]
     pub key_hash: String,
     pub key: serde_json::Value,
     pub value: Option<serde_json::Value>,
@@ -622,7 +893,6 @@ pub struct Update {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct ValueType2 {
     pub prim: Option<String>,
     pub args: Option<Vec<Arg>>,
@@ -636,7 +906,6 @@ pub struct ValueType2 {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct InternalOperationResult {
     pub kind: String,
     pub source: String,
@@ -655,11 +924,12 @@ pub struct InternalOperationResult {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Parameters {
     #[serde(default)]
     pub entrypoint: String,
-    pub value: Option<serde_json::Value>,
+
+    #[serde(skip)]
+    value: Option<serde_json::Value>,
 }
 
 #[derive(
@@ -670,24 +940,23 @@ pub struct Parameters {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Result {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
-    #[serde(rename = "big_map_diff")]
     pub big_map_diff: Option<Vec<BigMapDiff>>,
-    #[serde(rename = "balance_updates")]
-    pub balance_updates: Option<Vec<BalanceUpdate>>,
-    #[serde(rename = "consumed_gas")]
-    pub consumed_gas: Option<String>,
-    #[serde(rename = "consumed_milligas")]
-    pub consumed_milligas: Option<String>,
-    #[serde(rename = "storage_size")]
-    pub storage_size: Option<String>,
-    #[serde(rename = "paid_storage_size_diff")]
-    pub paid_storage_size_diff: Option<String>,
-    #[serde(rename = "lazy_storage_diff")]
-    pub lazy_storage_diff: Option<Vec<serde_json::Value>>,
+
+    #[serde(skip)]
+    balance_updates: Option<Vec<BalanceUpdate>>,
+    #[serde(skip)]
+    consumed_gas: Option<String>,
+    #[serde(skip)]
+    consumed_milligas: Option<String>,
+    #[serde(skip)]
+    storage_size: Option<String>,
+    #[serde(skip)]
+    paid_storage_size_diff: Option<String>,
+    #[serde(skip)]
+    lazy_storage_diff: Option<Vec<serde_json::Value>>,
 }
 
 #[derive(
@@ -698,7 +967,6 @@ pub struct Result {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Storage {
     pub prim: Option<String>,
     pub args: Vec<Vec<::serde_json::Value>>,
@@ -712,7 +980,6 @@ pub struct Storage {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Script {
     pub code: Vec<Code>,
     pub storage: serde_json::Value,
@@ -726,7 +993,6 @@ pub struct Script {
     serde_derive::Serialize,
     serde_derive::Deserialize,
 )]
-#[serde(rename_all = "camelCase")]
 pub struct Code {
     pub prim: Option<String>,
     pub args: Option<Vec<::serde_json::Value>>,

@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
                 name: "stablecoin",
@@ -35,10 +35,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
-                name: "idx_string_0",
+                name: "idx_string",
                 value: String("QmaQMoz6osCTtnFrgvgGuKJvMt9BP4HpBsScPaYJSrcRi1"),
             ),
             (
@@ -78,7 +78,7 @@
                 value: Timestamp("2021-03-31T08:30:00Z"),
             ),
             (
-                name: "state",
+                name: "state_2",
                 value: String("questionMarketClosed"),
             ),
             (
@@ -101,10 +101,10 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(92),
+                value: BigInt(92),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
                 name: "stablecoin",
@@ -27,22 +27,22 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 186,
+        id: 190,
     ): (
         table_name: "storage.token_total_supply",
-        id: 186,
+        id: 190,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("9")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("7526881720430107526")),
             ),
             (
@@ -53,22 +53,22 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 189,
+        id: 188,
     ): (
         table_name: "storage.ledger",
-        id: 189,
+        id: 188,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("9")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -83,22 +83,22 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 187,
+        id: 186,
     ): (
         table_name: "storage.ledger",
-        id: 187,
+        id: 186,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(179),
+                value: BigInt(179),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("7")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (

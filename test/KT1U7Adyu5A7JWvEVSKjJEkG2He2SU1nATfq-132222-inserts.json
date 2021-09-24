@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(62),
+                value: BigInt(62),
             ),
             (
                 name: "stablecoin",

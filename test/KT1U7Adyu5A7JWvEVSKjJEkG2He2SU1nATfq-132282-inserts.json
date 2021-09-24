@@ -9,7 +9,7 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
                 name: "stablecoin",
@@ -27,22 +27,22 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 148,
+        id: 161,
     ): (
         table_name: "storage.token_total_supply",
-        id: 148,
+        id: 161,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("9")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("107526881720430107526")),
             ),
             (
@@ -53,22 +53,22 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 147,
+        id: 160,
     ): (
         table_name: "storage.token_total_supply",
-        id: 147,
+        id: 160,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("8")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("100000000000000000000")),
             ),
             (
@@ -79,22 +79,22 @@
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 146,
+        id: 159,
     ): (
         table_name: "storage.token_total_supply",
-        id: 146,
+        id: 159,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_10",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("7")),
             ),
             (
-                name: "tokens_nat_11",
+                name: "tokens_nat",
                 value: Numeric(Some("107526881720430107526")),
             ),
             (
@@ -105,18 +105,18 @@
     ),
     (
         table_name: "storage.questions",
-        id: 159,
+        id: 146,
     ): (
         table_name: "storage.questions",
-        id: 159,
+        id: 146,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_string_0",
+                name: "idx_string",
                 value: String("QmeY3QU6Lhr4pS5ZGcp4AarYJwZkt5cAgx9RzRmQ4XiwVe"),
             ),
             (
@@ -152,7 +152,7 @@
                 value: Timestamp("2021-03-31T09:02:00Z"),
             ),
             (
-                name: "state",
+                name: "state_1",
                 value: String("questionAuctionWithdrawOpen"),
             ),
             (
@@ -167,18 +167,18 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 161,
+        id: 148,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 161,
-        fk_id: Some(159),
+        id: 148,
+        fk_id: Some(146),
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_address_1",
+                name: "idx_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -205,14 +205,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("9")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -235,14 +235,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("8")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -265,14 +265,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("7")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
@@ -295,14 +295,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("9")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
@@ -325,14 +325,14 @@
         columns: [
             (
                 name: "tx_context_id",
-                value: Int(139),
+                value: BigInt(139),
             ),
             (
-                name: "idx_tokens_nat_3",
+                name: "idx_tokens_nat",
                 value: Numeric(Some("7")),
             ),
             (
-                name: "idx_tokens_address_2",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
