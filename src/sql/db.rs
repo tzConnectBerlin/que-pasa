@@ -120,6 +120,9 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
         let mut tx = self.transaction()?;
         for (_, table) in sorted_tables {
+            if table.name == "bigmap_clears" {
+                continue;
+            }
             tx.simple_query(
                 format!(
                     r#"
