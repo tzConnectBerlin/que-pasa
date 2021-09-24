@@ -102,27 +102,31 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
 
         UNION ALL
 
-        SELECT
-            clr.tx_context_id,
-            'true' as deleted
-            {columns}
-        FROM "{contract_schema}"."{table}" t
-        JOIN "{contract_schema}".bigmap_clears clr
-          ON t.bigmap_id = clr.bigmap_id
-        WHERE 'false' = (
-            SELECT DISTINCT last_value(deleted) over (
-	    	ORDER BY
-                    ctx_.level,
-                    ctx_.operation_group_number,
-                    ctx_.operation_number,
-                    ctx_.content_number,
-                    COALESCE(ctx_.internal_number, -1)
-		ROWS BETWEEN UNBOUNDED PRECEEDING AND UNBOUNDED FOLLOWING) as latest
-            FROM "{contract_schema}"."{table}" t_
-            JOIN tx_contexts ctx_ ON ctx_.id = t_.tx_context_id
-            WHERE t_.bigmap_id = t.bigmap_id
-              AND {indices_check}
-        )
+	SELECT
+	    tx_context_id,
+	    'true' as deleted
+	    {columns}
+	FROM (
+            SELECT DISTINCT
+                clr.tx_context_id,
+                last_value(deleted) over (
+	    	PARTITION BY ({indices})
+	            ORDER BY
+                        ctx.level,
+                        ctx.operation_group_number,
+                        ctx.operation_number,
+                        ctx.content_number,
+                        COALESCE(ctx.internal_number, -1)
+	    	    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+	        ) as latest_deleted
+                {columns}
+            FROM "{contract_schema}"."{table}" t
+            JOIN "{contract_schema}".bigmap_clears clr
+              ON t.bigmap_id = clr.bigmap_id
+	    JOIN tx_contexts ctx
+	      ON ctx.id = t.tx_context_id
+        ) t
+	WHERE NOT t.latest_deleted
     ) t  -- t with bigmap clears unfolded
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
