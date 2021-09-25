@@ -80,6 +80,13 @@ impl IdGenerator {
         self.id += 1;
         old_id
     }
+
+    pub(crate) fn set(&mut self, id: i64) {
+        if id < self.id {
+            panic!("id counter cannot be changed backwards. attempted to change next id from {} to a lower value {}", self.id, id)
+        }
+        self.id = id;
+    }
 }
 
 type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
@@ -210,6 +217,10 @@ where
 
     pub(crate) fn get_id_value(&self) -> i64 {
         self.id_generator.id
+    }
+
+    pub(crate) fn set_id_value(&mut self, id: i64) {
+        self.id_generator.set(id);
     }
 
     fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {

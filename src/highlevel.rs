@@ -484,6 +484,7 @@ impl Executor {
                 })?;
         let tx_count = tx_contexts.len() as u32;
 
+        let mut id_counter = storage_processor.get_id_value() + 1;
         Self::save_level_processed_contract(
 	    tx,
                 meta,
@@ -491,7 +492,7 @@ impl Executor {
                 inserts,
 	        bigmap_copies,
                 tx_contexts,
-                storage_processor.get_id_value() + 1,
+	        &mut id_counter,
             )
             .with_context(|| {
                 format!(
@@ -499,6 +500,7 @@ impl Executor {
                 meta.level, contract_id.name,
             )
             })?;
+        storage_processor.set_id_value(id_counter);
 
         let bigmap_tables = storage_processor.get_bigmap_tables()?;
         DBClient::save_bigmap_table_locations(tx, contract_id, &bigmap_tables)?;
@@ -545,7 +547,7 @@ impl Executor {
         inserts: Inserts,
         bigmap_copies: Vec<BigmapCopy>,
         tx_contexts: Vec<TxContext>,
-        mut next_id: i64,
+        next_id: &mut i64,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
@@ -558,15 +560,10 @@ impl Executor {
             &inserts
                 .into_values()
                 .collect::<Vec<Insert>>(),
-            &mut next_id,
+            next_id,
         )?;
-        DBClient::apply_bigmap_deps(
-            tx,
-            contract_id,
-            &bigmap_copies,
-            &mut next_id,
-        )?;
-        DBClient::set_max_id(tx, next_id)?;
+        DBClient::apply_bigmap_deps(tx, contract_id, &bigmap_copies, next_id)?;
+        DBClient::set_max_id(tx, *next_id)?;
         Ok(())
     }
 }
