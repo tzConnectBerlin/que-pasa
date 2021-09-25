@@ -173,7 +173,6 @@ impl Executor {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
 
-        let mut storage_processor = self.get_storage_processor()?;
         loop {
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
@@ -182,10 +181,7 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(
-                                chain_head.level,
-                                &mut storage_processor,
-                            )?,
+                            &self.exec_level(chain_head.level)?,
                         );
                         continue;
                     }
@@ -198,10 +194,7 @@ impl Executor {
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
                     for level in (db_head.level + 1)..=chain_head.level {
-                        Self::print_status(
-                            level,
-                            &self.exec_level(level, &mut storage_processor)?,
-                        );
+                        Self::print_status(level, &self.exec_level(level)?);
                     }
                     continue;
                 }
@@ -308,12 +301,11 @@ impl Executor {
         &mut self,
         block_recv: flume::Receiver<Box<(LevelMeta, Block)>>,
     ) -> Result<()> {
-        let mut storage_processor = self.get_storage_processor()?;
         for b in block_recv {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
-                &self.exec_for_block(&meta, &block, &mut storage_processor)?,
+                &self.exec_for_block(&meta, &block)?,
             );
         }
 
@@ -357,7 +349,6 @@ impl Executor {
     fn exec_level(
         &mut self,
         level_height: u32,
-        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -369,14 +360,13 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&meta, &block, storage_processor)
+        self.exec_for_block(&meta, &block)
     }
 
     fn exec_for_block(
         &mut self,
         level: &LevelMeta,
         block: &Block,
-        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
@@ -414,6 +404,7 @@ impl Executor {
 
         info!("processing level {}", level.level);
 
+        let mut storage_processor = self.get_storage_processor()?;
         let mut tx = self.dbcli.transaction()?;
         DBClient::delete_level(&mut tx, level)?;
         DBClient::save_level(&mut tx, level)?;
@@ -426,7 +417,7 @@ impl Executor {
                 level,
                 block,
                 &diffs,
-                storage_processor,
+                &mut storage_processor,
                 contract_id,
                 rel_ast,
             )?);
@@ -554,7 +545,7 @@ impl Executor {
         inserts: Inserts,
         bigmap_copies: Vec<BigmapCopy>,
         tx_contexts: Vec<TxContext>,
-        next_id: i64,
+        mut next_id: i64,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
@@ -567,8 +558,14 @@ impl Executor {
             &inserts
                 .into_values()
                 .collect::<Vec<Insert>>(),
+            &mut next_id,
         )?;
-        DBClient::apply_bigmap_deps(tx, contract_id, &bigmap_copies)?;
+        DBClient::apply_bigmap_deps(
+            tx,
+            contract_id,
+            &bigmap_copies,
+            &mut next_id,
+        )?;
         DBClient::set_max_id(tx, next_id)?;
         Ok(())
     }

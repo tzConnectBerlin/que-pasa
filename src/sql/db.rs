@@ -345,6 +345,7 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
         tx: &mut postgres::Transaction,
         contract_id: &ContractID,
         bigmap_deps: &[BigmapCopy],
+        next_id: &mut i64,
     ) -> Result<()> {
         for dep in bigmap_deps {
             let ctx = format!("{}", dep.tx_context.id.unwrap());
@@ -390,7 +391,9 @@ FROM (
                         Self::get_table_columns(tx, &src_schema, &src_table)?
                             .into_iter()
                             .filter(|x| {
-                                x != "bigmap_id" && x != "tx_context_id"
+                                x != "bigmap_id"
+                                    && x != "tx_context_id"
+                                    && x != "id"
                             })
                             .collect();
 
@@ -409,23 +412,39 @@ FROM (
 
                     let qry = format!(
                         r#"
-INSERT INTO "{dest_schema}"."{dest_table}" (
-   bigmap_id, tx_context_id, {dest_columns}
-)
-SELECT
-    bigmap_id::integer,
-    tx_context_id::integer,
-    {src_columns}
-FROM (
+WITH copy_rows AS (
     SELECT
-        $1 as bigmap_id,
-        $2 as tx_context_id,
+        $1 + row_number() over ()::bigint as id,
+        src.tx_context_id,
         {src_columns}
     FROM "{src_schema}"."{src_table}" as src
     JOIN tx_contexts ctx
       ON ctx.id = src.tx_context_id
-    WHERE ctx.level < $3
-) src"#,
+    WHERE ctx.level < $2
+      AND src.bigmap_id = $3
+), insert_into_dest AS (
+    INSERT INTO "{dest_schema}"."{dest_table}" (
+        bigmap_id, tx_context_id, id, {dest_columns}
+    )
+    SELECT
+        $4,
+        $5,
+        src.id,
+        {src_columns}
+    FROM copy_rows as src
+)
+INSERT INTO bigmap_copied_rows (
+    src_tx_context_id, src_contract, dest_tx_context_id, dest_schema, dest_table, dest_row_id
+)
+SELECT
+    src.tx_context_id,
+    $6,
+    $5,
+    $7,
+    $8,
+    id
+FROM copy_rows src
+RETURNING dest_row_id"#,
                         src_schema = src_schema,
                         src_table = src_table,
                         src_columns = src_columns
@@ -436,55 +455,24 @@ FROM (
                         dest_table = dep.dest_table,
                         dest_columns = dest_columns.join(", "),
                     );
-                    let bigmap_id = format!("{}", dep.dest_bigmap);
-                    let tx_context_id =
-                        format!("{}", dep.tx_context.id.unwrap());
-                    tx.execute(
+                    for row in tx.query(
                         qry.as_str(),
                         &[
-                            &bigmap_id,
-                            &tx_context_id,
+                            next_id,
                             &(dep.tx_context.level as i32),
-                        ],
-                    )?;
-
-                    let dest_tx_context_id = dep.tx_context.id.unwrap();
-                    tx.execute(
-                        format!(
-                            r#"
-INSERT INTO bigmap_copied_rows (
-    src_contract, src_tx_context_id, dest_tx_context_id, dest_schema, dest_table, dest_row_id
-)
-SELECT
-    $1,
-    src_tx_context_id,
-    $2,
-    $3,
-    $4,
-    id
-FROM
-(
-    SELECT
-        ctx.id as src_tx_context_id,
-        src.id
-    FROM "{src_schema}"."{src_table}" as src
-    JOIN tx_contexts ctx
-      ON ctx.id = src.tx_context_id
-    WHERE ctx.level < $5
-) q
-"#,
-                            src_schema = src_schema,
-                            src_table = src_table
-                        )
-                        .as_str(),
-                        &[
-			    &dep.src_contract,
-                            &dest_tx_context_id,
+                            &dep.src_bigmap,
+                            &dep.dest_bigmap,
+                            &dep.tx_context.id,
+                            &dep.src_contract,
                             &contract_id.name,
                             &dep.dest_table,
-                            &(dep.tx_context.level as i32),
                         ],
-                    )?;
+                    )? {
+                        let inserted_id = row.get(0);
+                        if inserted_id > *next_id {
+                            *next_id = inserted_id;
+                        }
+                    }
                 }
             }
         }
@@ -537,6 +525,7 @@ ON CONFLICT DO NOTHING
         level: i32,
         contract_id: &ContractID,
         inserts: &[Insert],
+        next_id: &mut i64,
     ) -> Result<()> {
         let mut table_grouped: HashMap<(String, Vec<String>), Vec<Insert>> =
             HashMap::new();
@@ -566,7 +555,13 @@ ON CONFLICT DO NOTHING
                 Self::apply_inserts_for_table(tx, contract_id, chunk)?;
             }
         }
-        Self::populate_depending_bigmaps(tx, level, contract_id, inserts)?;
+        Self::populate_depending_bigmaps(
+            tx,
+            level,
+            contract_id,
+            inserts,
+            next_id,
+        )?;
         Ok(())
     }
 
@@ -575,6 +570,7 @@ ON CONFLICT DO NOTHING
         level: i32,
         contract_id: &ContractID,
         inserts: &[Insert],
+        next_id: &mut i64,
     ) -> Result<()> {
         let bigmap_inserts: Result<Vec<(i32, &Insert)>> = inserts
             .iter()
@@ -623,7 +619,7 @@ FROM bigmap_deps dep
 JOIN tx_contexts ctx
   ON ctx.id = dep.tx_context_id
 WHERE src_contract = $1
-  AND ctx.level < $2
+  AND ctx.level > $2
   AND src_bigmap IN ({bigmap_refs})",
                     bigmap_refs = bigmap_refs
                 )
@@ -660,8 +656,6 @@ WHERE src_contract = $1
                     },
                     None => Err(anyhow!("insert misses tx_context_id field")),
                 }?;
-                ids.push((insert.id, src_tx_context_id));
-
                 let column_mapping = Self::get_tables_column_mapping(
                     tx,
                     &contract_id.name,
@@ -674,6 +668,7 @@ WHERE src_contract = $1
                 for insert in &insert.columns {
                     if insert.name == "bigmap_id"
                         || insert.name == "tx_context_id"
+                        || insert.name == "id"
                     {
                         continue;
                     }
@@ -683,6 +678,10 @@ WHERE src_contract = $1
                     });
                 }
                 let mut dep_insert = (*insert).clone();
+                *next_id += 1;
+                dep_insert.id = *next_id;
+                dep_insert.table_name = dest_table.clone();
+
                 dep_insert.columns = dep_columns;
                 dep_insert.columns.push(Column {
                     name: "bigmap_id".to_string(),
@@ -692,7 +691,8 @@ WHERE src_contract = $1
                     name: "tx_context_id".to_string(),
                     value: Value::BigInt(ctx_id_at_copy),
                 });
-                dep_insert.table_name = dest_table.clone();
+
+                ids.push((dep_insert.id, src_tx_context_id));
                 dep_inserts.push(dep_insert);
             }
 
@@ -704,6 +704,7 @@ WHERE src_contract = $1
                     address: "".to_string(),
                 },
                 &dep_inserts,
+                next_id,
             )?;
 
             let v_refs = (0..(ids.len() * 2))
@@ -1061,7 +1062,7 @@ RETURNING
         )? {
             let dest_schema: String = row.get(0);
             let dest_table: String = row.get(1);
-            let dest_row_id: i32 = row.get(2);
+            let dest_row_id: i64 = row.get(2);
 
             tx.execute(
                 format!(
