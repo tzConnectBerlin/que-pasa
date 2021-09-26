@@ -172,7 +172,7 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
             "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),
             "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),
             "unit" => Ok(simple_expr!(SimpleExprTy::Unit, annot)),
-            "sapling_state" | "lambda" => {
+            "ticket" | "sapling_state" | "lambda" => {
                 Ok(simple_expr!(SimpleExprTy::Stop, annot))
             }
             "contract" | "signature" => {
