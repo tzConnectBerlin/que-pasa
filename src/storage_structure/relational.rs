@@ -305,7 +305,11 @@ impl ASTBuilder {
                     self.build_enumeration_or(ctx, right_type, column_name)?;
                 let rel_entry = RelationalEntry {
                     table_name: ctx.table_name.clone(),
-                    column_name: column_name.to_string(),
+                    column_name: self.column_name(
+                        ctx,
+                        &ele_set_annot(ele, Some(column_name.to_string())),
+                        false,
+                    ),
                     column_type: ele.expr_type.clone(),
                     is_index: false,
                     value: None,
@@ -338,7 +342,7 @@ impl ASTBuilder {
                 ctx.table_name.clone(),
             )),
             _ => {
-                let ctx = ctx.start_table(ele.name.clone().unwrap());
+                let ctx = self.start_table(ctx, ele);
                 Ok((
                     self.build_relational_ast(&ctx, ele)?,
                     ctx.table_name.clone(),
