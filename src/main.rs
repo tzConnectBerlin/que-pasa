@@ -78,10 +78,10 @@ fn main() {
     let setup_db = CONFIG.reinit || !dbcli.common_tables_exist().unwrap();
     if CONFIG.reinit {
         println!(
-            "Re-initializing -- all data in DB related to set-up contracts will be destroyed. \
-            Interrupt within 5 seconds to abort"
+            "Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
+            Interrupt within 15 seconds to abort"
         );
-        thread::sleep(std::time::Duration::from_millis(5000));
+        thread::sleep(std::time::Duration::from_millis(15000));
         dbcli
             .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
             .with_context(|| "failed to delete the db's content")
