@@ -732,11 +732,10 @@ pub struct BigMapDiff {
     pub big_map: Option<String>,
     pub source_big_map: Option<String>,
     pub destination_big_map: Option<String>,
+    pub key_hash: Option<String>,
     pub key: Option<serde_json::Value>,
     pub value: Option<serde_json::Value>,
 
-    #[serde(skip)]
-    key_hash: Option<String>,
     #[serde(skip)]
     key_type: Option<KeyType>,
     #[serde(skip)]

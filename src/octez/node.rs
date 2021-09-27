@@ -166,6 +166,13 @@ pub(crate) trait StorageGetter {
         contract_id: &str,
         level: u32,
     ) -> Result<JsonValue>;
+
+    fn get_bigmap_value(
+        &self,
+        level: u32,
+        bigmap_id: i32,
+        keyhash: &str,
+    ) -> Result<JsonValue>;
 }
 
 impl StorageGetter for NodeClient {
@@ -182,6 +189,24 @@ impl StorageGetter for NodeClient {
             format!(
                 "failed to get storage for contract='{}', level={}",
                 contract_id, level
+            )
+        })
+    }
+
+    fn get_bigmap_value(
+        &self,
+        level: u32,
+        bigmap_id: i32,
+        keyhash: &str,
+    ) -> Result<JsonValue> {
+        self.load(&format!(
+            "blocks/{}/context/big_map/{}/{}",
+            level, bigmap_id, keyhash,
+        ))
+        .with_context(|| {
+            format!(
+                "failed to get value for bigmap (level={}, bigmap_id={}, keyhash={})",
+                level, bigmap_id, keyhash,
             )
         })
     }

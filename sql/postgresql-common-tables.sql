@@ -51,19 +51,24 @@ CREATE UNIQUE INDEX ON tx_contexts(
     content_number,
     coalesce(internal_number, -1));
 
-CREATE TABLE bigmap_deps(
-    tx_context_id BIGINT NOT NULL,
+CREATE TABLE contract_deps(
+    level INT NOT NULL,
 
     src_contract TEXT NOT NULL,
-    src_bigmap INTEGER NOT NULL,
-
     dest_schema TEXT NOT NULL,
-    dest_table TEXT NOT NULL,
-    dest_bigmap INTEGER NOT NULL,
 
-    FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
+    PRIMARY KEY (level, src_contract, dest_schema)
 );
 
+CREATE TABLE bigmap_keys(
+    bigmap_id INTEGER NOT NULL,
+    tx_context_id BIGINT NOT NULL,
+    keyhash TEXT NOT NULL,
+    key TEXT NOT NULL,
+
+    PRIMARY KEY (bigmap_id, tx_context_id),
+    FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
+);
 
 CREATE TABLE bigmap_copied_rows(
     src_contract TEXT NOT NULL,

@@ -7,9 +7,10 @@ use pretty_assertions::assert_eq;
 use crate::octez::block::{BigMapDiff, Block, TxContext};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Op {
+pub(crate) enum Op {
     Update {
         bigmap: i32,
+        keyhash: String,
         key: serde_json::Value,
         value: Option<serde_json::Value>, // if None: it means remove key in bigmap
     },
@@ -49,6 +50,9 @@ impl Op {
                         anyhow!("no big map id found in diff {:?}", raw)
                     })?
                     .parse()?,
+                keyhash: raw.key_hash.clone().ok_or_else(|| {
+                    anyhow!("no key_hash in big map update {:?}", raw)
+                })?,
                 key: raw
                     .key
                     .as_ref()
@@ -237,33 +241,6 @@ impl IntraBlockBigmapDiffsProcessor {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct BigmapCopy {
-    pub tx_context: TxContext,
-    pub src_contract: String,
-    pub src_bigmap: i32,
-    pub dest_table: String,
-    pub dest_bigmap: i32,
-}
-
-impl BigmapCopy {
-    pub(crate) fn new(
-        tx_context: TxContext,
-        src_contract: String,
-        src_bigmap: i32,
-        dest_table: String,
-        dest_bigmap: i32,
-    ) -> Self {
-        Self {
-            tx_context,
-            src_contract,
-            src_bigmap,
-            dest_table,
-            dest_bigmap,
-        }
-    }
-}
-
 #[test]
 fn test_normalizer() {
     fn tx_context(level: u32) -> TxContext {
@@ -284,6 +261,7 @@ fn test_normalizer() {
     fn op_update(bigmap: i32, ident: i32) -> Op {
         Op::Update {
             bigmap,
+            keyhash: "",
             key: serde_json::Value::String(format!("{}", ident)),
             value: None,
         }
