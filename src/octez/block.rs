@@ -9,6 +9,13 @@ const LIQUIDITY_BAKING_LEVEL: u32 = 1589247;
 const LIQUIDITY_BAKING: &str = "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5";
 const LIQUIDITY_BAKING_TOKEN: &str = "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo";
 
+pub(crate) fn get_implicit_origination_level(contract: &str) -> Option<u32> {
+    if contract == LIQUIDITY_BAKING || contract == LIQUIDITY_BAKING_TOKEN {
+        return Some(LIQUIDITY_BAKING_LEVEL);
+    }
+    None
+}
+
 #[derive(Clone, Debug)]
 
 pub struct LevelMeta {

@@ -918,8 +918,8 @@ SELECT
     $1,
     g.level
 FROM GENERATE_SERIES(
-    (SELECT MIN(level) FROM levels),
-    (SELECT MAX(level) FROM levels)
+    (SELECT MIN(level) FROM contract_levels WHERE contract = $1),
+    (SELECT MAX(level) FROM contract_levels WHERE contract = $1)
 ) AS g(level)
 WHERE g.level NOT IN (
     SELECT level FROM contract_levels WHERE contract = $1

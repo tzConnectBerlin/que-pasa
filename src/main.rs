@@ -46,6 +46,7 @@ use std::thread;
 
 use config::ContractID;
 use contract_denylist::is_contract_denylisted;
+use octez::block::get_implicit_origination_level;
 use storage_structure::relational;
 
 fn main() {
@@ -88,6 +89,7 @@ fn main() {
     }
     if setup_db {
         dbcli.create_common_tables().unwrap();
+        info!("Common tables set up in db");
     }
 
     let deps = dbcli
@@ -149,6 +151,12 @@ fn main() {
                     })
                     .unwrap();
 
+                if let Some(l) =
+                    get_implicit_origination_level(&contract_id.address)
+                {
+                    executor.exec_level(l).unwrap();
+                }
+
                 executor
                     .fill_in_levels(contract_id)
                     .unwrap();
@@ -165,7 +173,7 @@ fn main() {
         return;
     }
 
-    // No args so we will first load missing levels
+    // We will first load missing levels (if any)
     executor
         .exec_missing_levels(num_getters)
         .unwrap();

@@ -374,7 +374,7 @@ impl Executor {
         Ok(StorageProcessor::new(id, self.node_cli.clone()))
     }
 
-    fn exec_level(
+    pub(crate) fn exec_level(
         &mut self,
         level_height: u32,
     ) -> Result<Vec<SaveLevelResult>> {
