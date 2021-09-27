@@ -74,9 +74,10 @@ fn main() {
     .with_context(|| "failed to connect to the db")
     .unwrap();
 
-    if CONFIG.init {
+    let setup_db = CONFIG.reinit || !dbcli.common_tables_exist().unwrap();
+    if CONFIG.reinit {
         println!(
-            "Initialising--all data in DB related to set-up contracts will be destroyed. \
+            "Re-initializing -- all data in DB related to set-up contracts will be destroyed. \
             Interrupt within 5 seconds to abort"
         );
         thread::sleep(std::time::Duration::from_millis(5000));
@@ -84,8 +85,9 @@ fn main() {
             .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
+    }
+    if setup_db {
         dbcli.create_common_tables().unwrap();
-        return;
     }
 
     let deps = dbcli

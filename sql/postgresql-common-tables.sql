@@ -1,6 +1,7 @@
 CREATE TABLE levels (
     level INTEGER PRIMARY KEY,
     hash VARCHAR(60),
+    prev_hash VARCHAR(60),
     baked_at TIMESTAMP WITH TIME ZONE);
 
 CREATE UNIQUE INDEX levels_level ON levels(level);

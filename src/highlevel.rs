@@ -1,9 +1,11 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use thiserror::Error;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -72,6 +74,17 @@ impl LevelFloor {
             })
             .unwrap();
         Ok(*level_floor)
+    }
+}
+
+#[derive(Error, Debug)]
+pub struct BadLevelHash {
+    err: anyhow::Error,
+}
+
+impl fmt::Display for BadLevelHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.err)
     }
 }
 
@@ -194,7 +207,22 @@ impl Executor {
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
                     for level in (db_head.level + 1)..=chain_head.level {
-                        Self::print_status(level, &self.exec_level(level)?);
+                        match self.exec_level(level) {
+                            Ok(res) => Self::print_status(level, &res),
+                            Err(e) => {
+                                if !e.is::<BadLevelHash>() {
+                                    return Err(e);
+                                }
+                                warn!(
+                                    "{}, deleting previous level from database",
+                                    e
+                                );
+                                let mut tx = self.dbcli.transaction()?;
+                                DBClient::delete_level(&mut tx, level - 1)?;
+                                tx.commit()?;
+                                break;
+                            }
+                        }
                     }
                     continue;
                 }
@@ -212,7 +240,7 @@ impl Executor {
                             db_head.hash, chain_head.hash
                         );
                         let mut tx = self.dbcli.transaction()?;
-                        DBClient::delete_level(&mut tx, &db_head)?;
+                        DBClient::delete_level(&mut tx, db_head.level)?;
                         tx.commit()?;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(1500));
@@ -363,11 +391,37 @@ impl Executor {
         self.exec_for_block(&meta, &block)
     }
 
+    fn ensure_level_hash(
+        &mut self,
+        level: u32,
+        hash: &str,
+        prev_hash: &str,
+    ) -> Result<()> {
+        let prev = self.dbcli.get_level(level - 1)?;
+        if let Some(db_prev_hash) = &prev.map(|l| l.hash).flatten() {
+            ensure!(db_prev_hash == prev_hash, BadLevelHash{err: anyhow!("level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db", level, prev_hash, db_prev_hash)});
+        }
+
+        let next = self.dbcli.get_level(level + 1)?;
+        if let Some(db_next_prev_hash) = &next.map(|l| l.prev_hash).flatten() {
+            ensure!(db_next_prev_hash == hash, BadLevelHash{err: anyhow!("level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db", level, hash, db_next_prev_hash)});
+        }
+
+        Ok(())
+    }
+
     fn exec_for_block(
         &mut self,
         level: &LevelMeta,
         block: &Block,
     ) -> Result<Vec<SaveLevelResult>> {
+        // note: we expect level's values to all be set (no None values in its fields)
+        self.ensure_level_hash(
+            level.level,
+            level.hash.as_ref().unwrap(),
+            level.prev_hash.as_ref().unwrap(),
+        )?;
+
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
                 .active_contracts()
@@ -406,7 +460,7 @@ impl Executor {
 
         let mut storage_processor = self.get_storage_processor()?;
         let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_level(&mut tx, level)?;
+        DBClient::delete_level(&mut tx, level.level)?;
         DBClient::save_level(&mut tx, level)?;
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);

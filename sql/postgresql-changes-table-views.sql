@@ -1,12 +1,13 @@
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
         level,
-        level_timestamp
+        level_timestamp,
+	id
         {columns}
     FROM (
         SELECT DISTINCT ON({indices})
-            ctx.level as level,
-            level_meta.baked_at as level_timestamp,
+            ctx.level AS level,
+            level_meta.baked_at AS level_timestamp,
             t.*
         FROM (
             SELECT
@@ -64,13 +65,15 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
-        ctx.level as level,
-        level_meta.baked_at as level_timestamp,
+        ctx.level AS level,
+        level_meta.baked_at AS level_timestamp,
+	t.id,
         t.deleted
         {columns}
     FROM (
         SELECT
             t.tx_context_id,
+	    t.id,
             t.deleted
             {columns}
         FROM "{contract_schema}"."{table}" t
@@ -83,6 +86,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
         FROM (
             SELECT DISTINCT ON({indices})
                 t.tx_context_id,
+		t.id,
                 t.deleted
                 {columns}
             FROM "{contract_schema}"."{table}" t
@@ -104,7 +108,8 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
 
 	SELECT
 	    tx_context_id,
-	    'true' as deleted
+	    NULL AS id,
+	    'true' AS deleted
 	    {columns}
 	FROM (
             SELECT DISTINCT
@@ -118,7 +123,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                         ctx.content_number,
                         COALESCE(ctx.internal_number, -1)
 	    	    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-	        ) as latest_deleted
+	        ) AS latest_deleted
                 {columns}
             FROM "{contract_schema}"."{table}" t
             JOIN "{contract_schema}".bigmap_clears clr

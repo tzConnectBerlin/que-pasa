@@ -60,6 +60,18 @@ impl DBClient {
         )?;
         Ok(())
     }
+    pub(crate) fn common_tables_exist(&mut self) -> Result<bool> {
+        let res = self.dbconn.query_opt(
+            "
+SELECT 1
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name = 'levels'
+",
+            &[],
+        )?;
+        Ok(res.is_some())
+    }
 
     pub(crate) fn create_contract_schema(
         &mut self,
@@ -917,28 +929,46 @@ WHERE g.level NOT IN (
     }
 
     pub(crate) fn get_head(&mut self) -> Result<Option<LevelMeta>> {
-        let result = self.dbconn.query(
+        self.get_level_internal(None)
+    }
+
+    pub(crate) fn get_level(
+        &mut self,
+        level: u32,
+    ) -> Result<Option<LevelMeta>> {
+        self.get_level_internal(Some(level as i32))
+    }
+
+    fn get_level_internal(
+        &mut self,
+        level: Option<i32>,
+    ) -> Result<Option<LevelMeta>> {
+        let result = self.dbconn.query_opt(
             "
-SELECT level, hash, baked_at
+SELECT level, hash, prev_hash, baked_at
 FROM levels
-ORDER BY level
-DESC LIMIT 1",
-            &[],
+WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level = $1
+ORDER BY level DESC
+LIMIT 1",
+            &[&level],
         )?;
-        if result.is_empty() {
-            Ok(None)
-        } else if result.len() == 1 {
-            let level: i32 = result[0].get(0);
-            let hash: Option<String> = result[0].get(1);
-            let baked_at: Option<DateTime<Utc>> = result[0].get(2);
-            Ok(Some(LevelMeta {
-                level: level as u32,
-                hash,
-                baked_at,
-            }))
-        } else {
-            Err(anyhow!("Too many results for get_head"))
+        if result.is_none() {
+            return Ok(None);
         }
+
+        let row = result.unwrap();
+
+        let level: i32 = row.get(0);
+        let hash: Option<String> = row.get(1);
+        let prev_hash: Option<String> = row.get(2);
+        let baked_at: Option<DateTime<Utc>> = row.get(3);
+
+        Ok(Some(LevelMeta {
+            level: level as u32,
+            hash,
+            prev_hash,
+            baked_at,
+        }))
     }
 
     pub(crate) fn get_missing_levels(
@@ -1012,31 +1042,33 @@ SET max_id = $1",
         tx.execute(
             "
 INSERT INTO levels(
-    level, hash, baked_at
-) VALUES ($1, $2, $3)
+    level, hash, prev_hash, baked_at
+) VALUES ($1, $2, $3, $4)
 ",
-            &[&(meta.level as i32), &meta.hash, &meta.baked_at],
+            &[
+                &(meta.level as i32),
+                &meta.hash,
+                &meta.prev_hash,
+                &meta.baked_at,
+            ],
         )?;
         Ok(())
     }
 
-    pub(crate) fn delete_level(
-        tx: &mut Transaction,
-        meta: &LevelMeta,
-    ) -> Result<()> {
-        Self::delete_bigmap_copied_rows(tx, meta.level, None)?;
+    pub(crate) fn delete_level(tx: &mut Transaction, level: u32) -> Result<()> {
+        Self::delete_bigmap_copied_rows(tx, level, None)?;
 
         tx.execute(
             "
 DELETE FROM contract_levels
 WHERE level = $1",
-            &[&(meta.level as i32)],
+            &[&(level as i32)],
         )?;
         tx.execute(
             "
 DELETE FROM levels
 WHERE level = $1",
-            &[&(meta.level as i32)],
+            &[&(level as i32)],
         )?;
         Ok(())
     }

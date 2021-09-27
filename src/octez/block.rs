@@ -14,6 +14,7 @@ const LIQUIDITY_BAKING_TOKEN: &str = "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo";
 pub struct LevelMeta {
     pub level: u32,
     pub hash: Option<String>,
+    pub prev_hash: Option<String>,
     pub baked_at: Option<DateTime<Utc>>,
 }
 
@@ -343,14 +344,9 @@ impl Block {
         &self,
         contract_address: &str,
     ) -> bool {
-        // liquidity baking has an implicit contract creation event in this block
-        let liquidity_baking =
-            "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5".to_string();
-        let liquidity_baking_token =
-            "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo".to_string();
         if self.header.level == 1589247
-            && (contract_address == liquidity_baking
-                || contract_address == liquidity_baking_token)
+            && (contract_address == LIQUIDITY_BAKING
+                || contract_address == LIQUIDITY_BAKING_TOKEN)
         {
             return true;
         }
@@ -409,9 +405,8 @@ fn is_contract(address: &str) -> bool {
 )]
 pub struct Header {
     pub level: u32,
+    pub predecessor: String,
 
-    #[serde(skip)]
-    predecessor: String,
     #[serde(skip)]
     timestamp: String,
     #[serde(skip)]

@@ -11,7 +11,7 @@ pub struct Config {
     pub ssl: bool,
     pub ca_cert: Option<String>,
     pub generate_sql: bool,
-    pub init: bool,
+    pub reinit: bool,
     pub levels: Vec<u32>,
     pub node_url: String,
     pub network: String,
@@ -117,10 +117,9 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("init")
-                .short("i")
-                .long("init")
-                .value_name("INIT")
+            Arg::with_name("reinit")
+                .long("reinit")
+                .value_name("REINIT")
                 .help("If set, clear the DB out and recreate global tables")
                 .takes_value(false),
         )
@@ -178,7 +177,7 @@ pub fn init_config() -> Result<Config> {
         config.ca_cert = None;
     }
 
-    config.init = matches.is_present("init");
+    config.reinit = matches.is_present("reinit");
     config.recreate_views = matches.is_present("recreate_views");
     config.all_contracts = matches.is_present("index_all_contracts");
 

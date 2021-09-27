@@ -33,6 +33,7 @@ impl NodeClient {
                 .as_u32()
                 .ok_or_else(|| anyhow!("Couldn't get level from node"))?,
             hash: Some(json["hash"].to_string()),
+            prev_hash: Some(json["header"]["predecessor"].to_string()),
             baked_at: Some(Self::timestamp_from_block(&json)?),
         })
     }
@@ -55,6 +56,7 @@ impl NodeClient {
         let meta = LevelMeta {
             level: block.header.level as u32,
             hash: Some(block.hash.clone()),
+            prev_hash: Some(block.header.predecessor.clone()),
             baked_at: Some(Self::timestamp_from_block(&resp)?),
         };
         Ok((resp, meta, block))

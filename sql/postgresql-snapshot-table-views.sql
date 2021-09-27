@@ -1,7 +1,8 @@
 CREATE VIEW "{contract_schema}"."{table}_live" AS (
     SELECT
-        ctx.level as level,
-        level_meta.baked_at as level_timestamp
+        ctx.level AS level,
+        level_meta.baked_at AS level_timestamp,
+	t.id
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
@@ -27,8 +28,9 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 ctx.content_number,
                 COALESCE(ctx.internal_number, -1)
         ) AS ordering,
-        ctx.level as level,
-        level_meta.baked_at as level_timestamp
+        ctx.level AS level,
+        level_meta.baked_at AS level_timestamp,
+	t.id
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
