@@ -371,37 +371,11 @@ impl Block {
     }
 
     pub(crate) fn active_contracts(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec![];
-        for operations in &self.operations {
-            for operation in operations {
-                for content in &operation.contents {
-                    if let Some(operation_result) =
-                        &content.metadata.operation_result
-                    {
-                        if operation_result.status != "applied" {
-                            continue;
-                        }
-                        if let Some(address) = &content.destination {
-                            res.push(address.clone());
-                        }
-                        for result in &content
-                            .metadata
-                            .internal_operation_results
-                        {
-                            if let Some(address) = &result.destination {
-                                res.push(address.clone());
-                            }
-                        }
-
-                        res.extend(
-                            operation_result
-                                .originated_contracts
-                                .clone(),
-                        );
-                    }
-                }
-            }
-        }
+        let mut res: Vec<String> = self
+            .map_tx_contexts(|tx_context, _is_origination, _op_res| {
+                Ok(Some(tx_context.contract))
+            })
+            .unwrap();
         if self.header.level == LIQUIDITY_BAKING_LEVEL {
             res.push(LIQUIDITY_BAKING.to_string());
             res.push(LIQUIDITY_BAKING_TOKEN.to_string());
