@@ -177,6 +177,13 @@ impl IntraBlockBigmapDiffsProcessor {
                                 .collect();
 
                             targets.push(*source);
+
+                            if *bigmap < 0 {
+                                targets = targets
+                                    .into_iter()
+                                    .filter(|d| d != bigmap)
+                                    .collect();
+                            }
                         }
                         Op::Clear { bigmap } => {
                             // Probably does not happen, but just to be sure this branch is included.
@@ -435,6 +442,41 @@ fn test_normalizer() {
                 op_update(0, 2),
                 op_update(0, 3),
                 op_update(0, 4),
+            ],
+        },
+        TestCase {
+            name: "-bigmap ids are temporary, and only live in the scope of origin copy".to_string(),
+
+            tx_bigmap_ops: vec![(
+		tx_context(1),
+		vec![
+		    op_update(3, 1),
+		    Op::Copy{
+			bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
+			source: 3
+		    },
+		]), (
+                tx_context(2),
+                vec![
+                    op_update(10, 2),
+                    Op::Copy {
+                        bigmap: -2,
+                        source: 10,
+                    },
+                    op_update(-2, 3),
+                    Op::Copy {
+                        bigmap: 0,
+                        source: -2,
+                    },
+                ],
+            )],
+            normalize_tx_context: tx_context(2),
+            normalize_bigmap: 0,
+
+            exp_deps: vec![(10, tx_context(2))],
+            exp_ops: vec![
+                op_update(0, 2),
+                op_update(0, 3),
             ],
         },
         // what follows are test cases about scenarios that probably
