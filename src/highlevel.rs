@@ -263,7 +263,8 @@ impl Executor {
                 }
                 height_chan.send(l).unwrap();
             }
-        })
+        })?;
+        Ok(())
     }
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
@@ -290,7 +291,7 @@ impl Executor {
         &mut self,
         num_getters: usize,
         levels_selector: F,
-    ) -> Result<()>
+    ) -> Result<Vec<u32>>
     where
         F: FnOnce(flume::Sender<u32>) + Send + 'static,
     {
@@ -306,12 +307,12 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        self.read_block_chan(block_recv)?;
+        let processed_levels: Vec<u32> = self.read_block_chan(block_recv)?;
 
         for t in threads {
             t.join().unwrap();
         }
-        Ok(())
+        Ok(processed_levels)
     }
 
     pub fn fill_in_levels(&mut self, contract_id: &ContractID) -> Result<()> {
@@ -328,16 +329,18 @@ impl Executor {
     fn read_block_chan(
         &mut self,
         block_recv: flume::Receiver<Box<(LevelMeta, Block)>>,
-    ) -> Result<()> {
+    ) -> Result<Vec<u32>> {
+        let mut processed_levels: Vec<u32> = vec![];
         for b in block_recv {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
                 &self.exec_for_block(&meta, &block)?,
             );
+            processed_levels.push(meta.level);
         }
 
-        Ok(())
+        Ok(processed_levels)
     }
 
     fn print_status(level: u32, contract_results: &[SaveLevelResult]) {

@@ -135,21 +135,24 @@ fn main() {
         }
 
         if let Some(bcd_url) = &CONFIG.bcd_url {
+            let mut exclude_levels: Vec<u32> = vec![];
             for contract_id in &new_contracts {
                 info!("Initializing contract {}..", contract_id.name);
                 let bcd_cli = bcd::BCDClient::new(
                     bcd_url.clone(),
                     CONFIG.network.clone(),
                     contract_id.address.clone(),
+                    &exclude_levels,
                 );
 
-                executor
+                let processed_levels = executor
                     .exec_parallel(num_getters, move |height_chan| {
                         bcd_cli
                             .populate_levels_chan(height_chan)
                             .unwrap()
                     })
                     .unwrap();
+                exclude_levels.extend(processed_levels);
 
                 if let Some(l) =
                     get_implicit_origination_level(&contract_id.address)
@@ -163,14 +166,12 @@ fn main() {
 
                 info!("contract {} initialized.", contract_id.name)
             }
+        } else if !CONFIG.levels.is_empty() {
+            executor
+                .exec_levels(num_getters, CONFIG.levels.clone())
+                .unwrap();
+            return;
         }
-    }
-
-    if !CONFIG.levels.is_empty() {
-        executor
-            .exec_levels(num_getters, CONFIG.levels.clone())
-            .unwrap();
-        return;
     }
 
     // We will first load missing levels (if any)
