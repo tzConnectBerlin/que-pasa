@@ -211,60 +211,6 @@ WHERE name = $1
         Ok(res.is_some())
     }
 
-    fn get_contract_schema(
-        tx: &mut Transaction,
-        contract_address: &str,
-    ) -> Result<Option<String>> {
-        let res = tx.query_opt(
-            "
-SELECT
-    name
-FROM contracts
-WHERE address = $1
-",
-            &[&contract_address],
-        )?;
-        Ok(res.map(|row| row.get(0)))
-    }
-
-    fn get_bigmap_table(
-        tx: &mut Transaction,
-        contract_name: &str,
-        bigmap_id: i32,
-    ) -> Result<Option<String>> {
-        let res = tx.query_opt(
-            r#"
-SELECT
-    "table"
-FROM bigmap_tables
-WHERE contract = $1
-  AND bigmap_id = $2
-"#,
-            &[&contract_name, &bigmap_id],
-        )?;
-        Ok(res.map(|row| row.get(0)))
-    }
-
-    fn get_table_columns(
-        tx: &mut Transaction,
-        contract_name: &str,
-        table_name: &str,
-    ) -> Result<Vec<String>> {
-        let rows = tx.query(
-            "
-SELECT column_name
-FROM information_schema.columns
-WHERE table_schema = $1
-  AND table_name = $2
-",
-            &[&contract_name, &table_name],
-        )?;
-        Ok(rows
-            .into_iter()
-            .map(|row| row.get(0))
-            .collect())
-    }
-
     pub(crate) fn save_bigmap_keyhashes(
         tx: &mut Transaction,
         bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
@@ -328,9 +274,24 @@ Values ({})",
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
                 .join("), (");
-            let stmt = tx.prepare(&format!("
-INSERT INTO
-tx_contexts(id, level, contract, operation_group_number, operation_number, content_number, internal_number, operation_hash, source, destination, entrypoint) VALUES ( {} )", v_refs))?;
+            let stmt = tx.prepare(&format!(
+                "
+INSERT INTO tx_contexts(
+	id,
+	level,
+	contract,
+	operation_group_number,
+	operation_number,
+	content_number,
+	internal_number,
+	operation_hash,
+	source,
+	destination,
+	entrypoint
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
 
             let tx_contexts_pg: Vec<TxContextPG> = chunk
                 .iter()
@@ -391,10 +352,8 @@ tx_contexts(id, level, contract, operation_group_number, operation_number, conte
 
     pub(crate) fn apply_inserts(
         tx: &mut postgres::Transaction,
-        level: i32,
         contract_id: &ContractID,
         inserts: &[Insert],
-        next_id: &mut i64,
     ) -> Result<()> {
         let mut table_grouped: HashMap<(String, Vec<String>), Vec<Insert>> =
             HashMap::new();
@@ -599,9 +558,8 @@ WHERE table_schema = 'public'
         }
         tx.simple_query(
             "
-DROP TABLE IF EXISTS bigmap_copied_rows;
+DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
-DROP TABLE IF EXISTS bigmap_tables;
 DROP TABLE IF EXISTS tx_contexts;
 DROP TABLE IF EXISTS max_id;
 DROP TABLE IF EXISTS contract_levels;
@@ -762,8 +720,6 @@ INSERT INTO levels(
     }
 
     pub(crate) fn delete_level(tx: &mut Transaction, level: u32) -> Result<()> {
-        Self::delete_bigmap_copied_rows(tx, level, None)?;
-
         tx.execute(
             "
 DELETE FROM contract_levels
@@ -776,44 +732,6 @@ DELETE FROM levels
 WHERE level = $1",
             &[&(level as i32)],
         )?;
-        Ok(())
-    }
-
-    fn delete_bigmap_copied_rows(
-        tx: &mut Transaction,
-        level: u32,
-        contract_id: Option<&ContractID>, // if None: delete for all contracts
-    ) -> Result<()> {
-        for row in tx.query(
-            "
-DELETE FROM bigmap_copied_rows
-WHERE ($1::text is null OR $1::text = src_contract)
-  AND src_tx_context_id IN (
-    SELECT id from tx_contexts WHERE level = $2
-)
-RETURNING
-    dest_schema,
-    dest_table,
-    dest_row_id
-",
-            &[&contract_id.map(|c| &c.address), &(level as i32)],
-        )? {
-            let dest_schema: String = row.get(0);
-            let dest_table: String = row.get(1);
-            let dest_row_id: i64 = row.get(2);
-
-            tx.execute(
-                format!(
-                    r#"
-DELETE FROM "{}"."{}"
-WHERE id = $1
-"#,
-                    dest_schema, dest_table
-                )
-                .as_str(),
-                &[&dest_row_id],
-            )?;
-        }
         Ok(())
     }
 
@@ -838,8 +756,6 @@ INSERT INTO contract_levels(
         contract_id: &ContractID,
         level: u32,
     ) -> Result<()> {
-        Self::delete_bigmap_copied_rows(tx, level, Some(contract_id))?;
-
         tx.execute(
             "
 DELETE FROM contract_levels
@@ -859,7 +775,7 @@ WHERE contract = $1
         for dep in deps {
             tx.execute(
                 "
-INSERT INTO contract_deps (tx_context_id, src, dest)
+INSERT INTO contract_deps (level, src_contract, dest_schema)
 VALUES ($1, $2, $3)
 ON CONFLICT DO NOTHING",
                 &[&(level as i32), &dep, &contract_id.name],

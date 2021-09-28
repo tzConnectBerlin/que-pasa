@@ -55,7 +55,7 @@ pub(crate) struct TxContext {
     pub operation_group_number: usize,
     pub operation_number: usize,
     pub content_number: usize,
-    pub internal_number: Option<usize>,
+    pub internal_number: Option<i32>,
     pub source: Option<String>,
     pub destination: Option<String>,
     pub entrypoint: Option<String>,
@@ -219,7 +219,7 @@ impl Block {
                                                     operation_number,
                                                     content_number,
                                                     internal_number: Some(
-                                                        internal_number,
+                                                        internal_number as i32,
                                                     ),
                                                     source: Some(
                                                         internal_op
@@ -258,7 +258,7 @@ impl Block {
                                                 operation_number,
                                                 content_number,
                                                 internal_number: Some(
-                                                    internal_number,
+                                                    internal_number as i32,
                                                 ),
                                                 source: Some(
                                                     internal_op.source.clone(),

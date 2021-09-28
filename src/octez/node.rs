@@ -128,7 +128,7 @@ impl NodeClient {
         let op = || -> Result<JsonValue> {
             let uri =
                 format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-            debug!("loading: {}", uri);
+            println!("loading: {}", uri);
 
             let mut response = Vec::new();
             let mut handle = Easy::new();
@@ -200,7 +200,7 @@ impl StorageGetter for NodeClient {
         keyhash: &str,
     ) -> Result<JsonValue> {
         self.load(&format!(
-            "blocks/{}/context/big_map/{}/{}",
+            "blocks/{}/context/big_maps/{}/{}",
             level, bigmap_id, keyhash,
         ))
         .with_context(|| {

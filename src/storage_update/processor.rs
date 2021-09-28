@@ -79,13 +79,6 @@ impl IdGenerator {
         self.id += 1;
         old_id
     }
-
-    pub(crate) fn set(&mut self, id: i64) {
-        if id < self.id {
-            panic!("id counter cannot be changed backwards. attempted to change next id from {} to a lower value {}", self.id, id)
-        }
-        self.id = id;
-    }
 }
 
 type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
@@ -202,10 +195,10 @@ where
                         bigmap_contract_deps
                             .insert(src_context.contract.clone(), ());
                         self.process_bigmap_copy(
-                            &src_context,
+                            tx_context.clone(),
                             src_bigmap,
                             bigmap,
-                        );
+                        )?;
                     }
                 }
                 for op in &ops {
@@ -228,10 +221,16 @@ where
 
     fn process_bigmap_copy(
         &mut self,
-        ctx: &TxContext,
+        mut ctx: TxContext,
         src_bigmap: i32,
         dest_bigmap: i32,
     ) -> Result<()> {
+        ctx.internal_number = match ctx.internal_number {
+            None => Some(-1),
+            Some(x) => Some(x - 1),
+        };
+        let ctx = &self.tx_context(ctx);
+
         for (keyhash, key) in self
             .bigmap_keys
             .get(ctx.level, src_bigmap)?
@@ -251,26 +250,8 @@ where
         Ok(())
     }
 
-    pub(crate) fn get_bigmap_tables(&self) -> Result<Vec<(i32, String)>> {
-        let mut res: Vec<(i32, String)> = vec![];
-
-        for (bigmap_id, (_fk, rel_ast)) in &self.bigmap_map {
-            res.push((
-                *bigmap_id,
-                rel_ast
-                    .table_entry()
-                    .ok_or_else(|| anyhow!("table name missing"))?,
-            ))
-        }
-        Ok(res)
-    }
-
     pub(crate) fn get_id_value(&self) -> i64 {
         self.id_generator.id
-    }
-
-    pub(crate) fn set_id_value(&mut self, id: i64) {
-        self.id_generator.set(id);
     }
 
     fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {

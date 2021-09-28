@@ -108,8 +108,11 @@ fn main() {
                 .add_contract(contract_id)
                 .unwrap();
         }
+        let mut any_bootstrapped = false;
         loop {
-            executor.add_dependency_contracts();
+            executor
+                .add_dependency_contracts()
+                .unwrap();
 
             let contracts = executor.get_config();
             assert_contracts_ok(&contracts);
@@ -122,21 +125,16 @@ fn main() {
             let new_contracts = executor
                 .create_contract_schemas()
                 .unwrap();
+
             if new_contracts.is_empty() {
                 break;
             }
+            any_bootstrapped = true;
 
             info!(
                 "initializing following contracts' historically: {:#?}",
                 new_contracts
             );
-
-            if !CONFIG.levels.is_empty() {
-                executor
-                    .exec_levels(num_getters, CONFIG.levels.clone())
-                    .unwrap();
-                return;
-            }
 
             if let Some(bcd_url) = &CONFIG.bcd_url {
                 let mut exclude_levels: Vec<u32> = vec![];
@@ -176,8 +174,17 @@ fn main() {
                     .unwrap();
             }
         }
-        executor.exec_dependents().unwrap();
-        info!("all contracts historically bootstrapped. restart to begin normal continuous processing mode.");
+        if any_bootstrapped {
+            executor.exec_dependents().unwrap();
+            info!("all contracts historically bootstrapped. restart to begin normal continuous processing mode.");
+            return;
+        }
+    }
+
+    if !CONFIG.levels.is_empty() {
+        executor
+            .exec_levels(num_getters, CONFIG.levels.clone())
+            .unwrap();
         return;
     }
 

@@ -595,7 +595,6 @@ impl Executor {
                 })?;
         let tx_count = tx_contexts.len() as u32;
 
-        let mut id_counter = storage_processor.get_id_value() + 1;
         Self::save_level_processed_contract(
 	    tx,
                 meta,
@@ -604,7 +603,6 @@ impl Executor {
                 tx_contexts,
                 bigmap_contract_deps,
                 storage_processor.get_bigmap_keyhashes(),
-	        &mut id_counter,
             )
             .with_context(|| {
                 format!(
@@ -612,7 +610,7 @@ impl Executor {
                 meta.level, contract_id.name,
             )
             })?;
-        storage_processor.set_id_value(id_counter);
+        DBClient::set_max_id(tx, storage_processor.get_id_value() + 1)?;
 
         if is_origination {
             Self::mark_level_contract_origination(tx, meta, contract_id)
@@ -657,7 +655,6 @@ impl Executor {
         tx_contexts: Vec<TxContext>,
         bigmap_contract_deps: Vec<String>,
         bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
-        next_id: &mut i64,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
@@ -665,12 +662,10 @@ impl Executor {
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
         DBClient::apply_inserts(
             tx,
-            meta.level as i32,
             contract_id,
             &inserts
                 .into_values()
                 .collect::<Vec<Insert>>(),
-            next_id,
         )?;
         DBClient::save_contract_deps(
             tx,
@@ -679,7 +674,6 @@ impl Executor {
             bigmap_contract_deps,
         )?;
         DBClient::save_bigmap_keyhashes(tx, bigmap_keyhashes)?;
-        DBClient::set_max_id(tx, *next_id)?;
         Ok(())
     }
 }
