@@ -126,29 +126,12 @@ impl NodeClient {
             Error::Transient(e)
         }
         let op = || -> Result<JsonValue> {
-            let uri =
-                format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-            debug!("loading: {}", uri);
+            let body = self.load_body(endpoint)?;
 
-            let mut response = Vec::new();
-            let mut handle = Easy::new();
-            handle.timeout(self.timeout)?;
-            handle.url(&uri)?;
-            {
-                let mut transfer = handle.transfer();
-                transfer.write_function(|new_data| {
-                    response.extend_from_slice(new_data);
-                    Ok(new_data.len())
-                })?;
-                transfer.perform()?;
-            }
-            let body = std::str::from_utf8(&response).with_context(|| {
-                format!("failed to read response for uri='{}'", uri)
-            })?;
-            let json = json::parse(body).with_context(|| {
+            let json = json::parse(&body).with_context(|| {
                 format!(
-                    "failed to parse json for uri='{}', body: {}",
-                    uri, body
+                    "failed to parse json for endpoint='{}', body: {}",
+                    endpoint, body
                 )
             })?;
             Ok(json)
@@ -158,6 +141,30 @@ impl NodeClient {
         })
         .map_err(|e| anyhow!(e))
     }
+
+    fn load_body(&self, endpoint: &str) -> Result<String> {
+        let uri =
+            format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
+        debug!("loading: {}", uri);
+
+        let mut response = Vec::new();
+        let mut handle = Easy::new();
+        handle.timeout(self.timeout)?;
+        handle.url(&uri)?;
+        {
+            let mut transfer = handle.transfer();
+            transfer.write_function(|new_data| {
+                response.extend_from_slice(new_data);
+                Ok(new_data.len())
+            })?;
+            transfer.perform()?;
+        }
+        let body = std::str::from_utf8(&response).with_context(|| {
+            format!("failed to read response for uri='{}'", uri)
+        })?;
+
+        Ok(body.to_string())
+    }
 }
 
 pub(crate) trait StorageGetter {
@@ -166,6 +173,13 @@ pub(crate) trait StorageGetter {
         contract_id: &str,
         level: u32,
     ) -> Result<JsonValue>;
+
+    fn get_bigmap_value(
+        &self,
+        level: u32,
+        bigmap_id: i32,
+        keyhash: &str,
+    ) -> Result<Option<JsonValue>>;
 }
 
 impl StorageGetter for NodeClient {
@@ -184,5 +198,25 @@ impl StorageGetter for NodeClient {
                 contract_id, level
             )
         })
+    }
+
+    fn get_bigmap_value(
+        &self,
+        level: u32,
+        bigmap_id: i32,
+        keyhash: &str,
+    ) -> Result<Option<JsonValue>> {
+        let body = self.load_body(&format!(
+            "blocks/{}/context/big_maps/{}/{}",
+            level, bigmap_id, keyhash,
+        ))
+        .with_context(|| {
+            format!(
+                "failed to get value for bigmap (level={}, bigmap_id={}, keyhash={})",
+                level, bigmap_id, keyhash,
+            )
+        })?;
+
+        Ok(json::parse(&body).ok())
     }
 }

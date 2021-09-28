@@ -55,7 +55,7 @@ pub(crate) struct TxContext {
     pub operation_group_number: usize,
     pub operation_number: usize,
     pub content_number: usize,
-    pub internal_number: Option<usize>,
+    pub internal_number: Option<i32>,
     pub source: Option<String>,
     pub destination: Option<String>,
     pub entrypoint: Option<String>,
@@ -219,7 +219,7 @@ impl Block {
                                                     operation_number,
                                                     content_number,
                                                     internal_number: Some(
-                                                        internal_number,
+                                                        internal_number as i32,
                                                     ),
                                                     source: Some(
                                                         internal_op
@@ -258,7 +258,7 @@ impl Block {
                                                 operation_number,
                                                 content_number,
                                                 internal_number: Some(
-                                                    internal_number,
+                                                    internal_number as i32,
                                                 ),
                                                 source: Some(
                                                     internal_op.source.clone(),
@@ -732,11 +732,10 @@ pub struct BigMapDiff {
     pub big_map: Option<String>,
     pub source_big_map: Option<String>,
     pub destination_big_map: Option<String>,
+    pub key_hash: Option<String>,
     pub key: Option<serde_json::Value>,
     pub value: Option<serde_json::Value>,
 
-    #[serde(skip)]
-    key_hash: Option<String>,
     #[serde(skip)]
     key_type: Option<KeyType>,
     #[serde(skip)]

@@ -207,9 +207,6 @@ impl PostgresqlGenerator {
         &self,
         table: &Table,
     ) -> Result<String> {
-        if table.name == "bigmap_clears" {
-            return Ok("".to_string());
-        }
         if table.contains_snapshots() {
             self.create_views_for_snapshot_table(table)
         } else {
