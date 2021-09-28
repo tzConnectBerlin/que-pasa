@@ -1,9 +1,11 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use thiserror::Error;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -18,9 +20,7 @@ use crate::sql::db::DBClient;
 use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
-use crate::storage_update::bigmap::{
-    BigmapCopy, IntraBlockBigmapDiffsProcessor,
-};
+use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
 use crate::storage_update::processor::StorageProcessor;
 
 pub struct SaveLevelResult {
@@ -39,6 +39,10 @@ pub struct Executor {
 
     // Everything below this level has nothing to do with what we are indexing
     level_floor: LevelFloor,
+
+    db_url: String,
+    db_ssl: bool,
+    db_ca_cert: Option<String>,
 }
 
 #[derive(Clone)]
@@ -75,8 +79,25 @@ impl LevelFloor {
     }
 }
 
+#[derive(Error, Debug)]
+pub struct BadLevelHash {
+    err: anyhow::Error,
+}
+
+impl fmt::Display for BadLevelHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.err)
+    }
+}
+
 impl Executor {
-    pub fn new(node_cli: NodeClient, dbcli: DBClient) -> Self {
+    pub fn new(
+        node_cli: NodeClient,
+        dbcli: DBClient,
+        db_url: &str,
+        db_ssl: bool,
+        db_ca_cert: Option<String>,
+    ) -> Self {
         Self {
             node_cli,
             dbcli,
@@ -85,6 +106,9 @@ impl Executor {
             level_floor: LevelFloor {
                 f: Arc::new(Mutex::new(0)),
             },
+            db_url: db_url.to_string(),
+            db_ssl,
+            db_ca_cert,
         }
     }
 
@@ -169,11 +193,48 @@ impl Executor {
             .map(|x| &x.0)
     }
 
+    pub fn get_config(&self) -> Vec<ContractID> {
+        self.contracts
+            .keys()
+            .cloned()
+            .collect::<Vec<ContractID>>()
+    }
+
+    pub fn add_dependency_contracts(&mut self) -> Result<()> {
+        let config = self.get_config();
+        let deps = self
+            .dbcli
+            .get_config_deps(&config)
+            .unwrap();
+
+        for addr in deps {
+            self.add_contract(&ContractID {
+                name: addr.clone(),
+                address: addr,
+            })?;
+        }
+
+        Ok(())
+    }
+
+    pub fn exec_dependents(&mut self) -> Result<()> {
+        let config: Vec<&ContractID> = self.contracts.keys().collect();
+        let mut levels = self
+            .dbcli
+            .get_dependent_levels(&config)?;
+        if levels.is_empty() {
+            return Ok(());
+        }
+        levels.sort_unstable();
+
+        info!("reprocessing following levels, they have bigmap copies whose keys are now fully known: {:?}", levels);
+        self.exec_levels(1, levels)
+    }
+
     pub fn exec_continuous(&mut self) -> Result<()> {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
 
-        let mut storage_processor = self.get_storage_processor()?;
         loop {
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
@@ -182,10 +243,7 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(
-                                chain_head.level,
-                                &mut storage_processor,
-                            )?,
+                            &self.exec_level(chain_head.level)?,
                         );
                         continue;
                     }
@@ -198,10 +256,22 @@ impl Executor {
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
                     for level in (db_head.level + 1)..=chain_head.level {
-                        Self::print_status(
-                            level,
-                            &self.exec_level(level, &mut storage_processor)?,
-                        );
+                        match self.exec_level(level) {
+                            Ok(res) => Self::print_status(level, &res),
+                            Err(e) => {
+                                if !e.is::<BadLevelHash>() {
+                                    return Err(e);
+                                }
+                                warn!(
+                                    "{}, deleting previous level from database",
+                                    e
+                                );
+                                let mut tx = self.dbcli.transaction()?;
+                                DBClient::delete_level(&mut tx, level - 1)?;
+                                tx.commit()?;
+                                break;
+                            }
+                        }
                     }
                     continue;
                 }
@@ -219,7 +289,7 @@ impl Executor {
                             db_head.hash, chain_head.hash
                         );
                         let mut tx = self.dbcli.transaction()?;
-                        DBClient::delete_level(&mut tx, &db_head)?;
+                        DBClient::delete_level(&mut tx, db_head.level)?;
                         tx.commit()?;
                     }
                     std::thread::sleep(std::time::Duration::from_millis(1500));
@@ -242,7 +312,8 @@ impl Executor {
                 }
                 height_chan.send(l).unwrap();
             }
-        })
+        })?;
+        Ok(())
     }
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
@@ -258,6 +329,7 @@ impl Executor {
                 latest_level,
             )?;
             if missing_levels.is_empty() {
+                self.exec_dependents()?;
                 return Ok(());
             }
 
@@ -269,7 +341,7 @@ impl Executor {
         &mut self,
         num_getters: usize,
         levels_selector: F,
-    ) -> Result<()>
+    ) -> Result<Vec<u32>>
     where
         F: FnOnce(flume::Sender<u32>) + Send + 'static,
     {
@@ -285,12 +357,12 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        self.read_block_chan(block_recv)?;
+        let processed_levels: Vec<u32> = self.read_block_chan(block_recv)?;
 
         for t in threads {
             t.join().unwrap();
         }
-        Ok(())
+        Ok(processed_levels)
     }
 
     pub fn fill_in_levels(&mut self, contract_id: &ContractID) -> Result<()> {
@@ -307,17 +379,18 @@ impl Executor {
     fn read_block_chan(
         &mut self,
         block_recv: flume::Receiver<Box<(LevelMeta, Block)>>,
-    ) -> Result<()> {
-        let mut storage_processor = self.get_storage_processor()?;
+    ) -> Result<Vec<u32>> {
+        let mut processed_levels: Vec<u32> = vec![];
         for b in block_recv {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
-                &self.exec_for_block(&meta, &block, &mut storage_processor)?,
+                &self.exec_for_block(&meta, &block)?,
             );
+            processed_levels.push(meta.level);
         }
 
-        Ok(())
+        Ok(processed_levels)
     }
 
     fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
@@ -344,20 +417,27 @@ impl Executor {
 
     fn get_storage_processor(
         &mut self,
-    ) -> Result<StorageProcessor<NodeClient>> {
+    ) -> Result<StorageProcessor<NodeClient, DBClient>> {
         let id = self
             .dbcli
             .get_max_id()
             .with_context(|| {
                 "could not initialize storage processor from the db state"
             })?;
-        Ok(StorageProcessor::new(id, self.node_cli.clone()))
+        Ok(StorageProcessor::new(
+            id,
+            self.node_cli.clone(),
+            DBClient::connect(
+                &self.db_url,
+                self.db_ssl,
+                self.db_ca_cert.clone(),
+            )?,
+        ))
     }
 
-    fn exec_level(
+    pub(crate) fn exec_level(
         &mut self,
         level_height: u32,
-        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -369,15 +449,40 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&meta, &block, storage_processor)
+        self.exec_for_block(&meta, &block)
+    }
+
+    fn ensure_level_hash(
+        &mut self,
+        level: u32,
+        hash: &str,
+        prev_hash: &str,
+    ) -> Result<()> {
+        let prev = self.dbcli.get_level(level - 1)?;
+        if let Some(db_prev_hash) = &prev.map(|l| l.hash).flatten() {
+            ensure!(db_prev_hash == prev_hash, BadLevelHash{err: anyhow!("level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db", level, prev_hash, db_prev_hash)});
+        }
+
+        let next = self.dbcli.get_level(level + 1)?;
+        if let Some(db_next_prev_hash) = &next.map(|l| l.prev_hash).flatten() {
+            ensure!(db_next_prev_hash == hash, BadLevelHash{err: anyhow!("level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db", level, hash, db_next_prev_hash)});
+        }
+
+        Ok(())
     }
 
     fn exec_for_block(
         &mut self,
         level: &LevelMeta,
         block: &Block,
-        storage_processor: &mut StorageProcessor<NodeClient>,
     ) -> Result<Vec<SaveLevelResult>> {
+        // note: we expect level's values to all be set (no None values in its fields)
+        self.ensure_level_hash(
+            level.level,
+            level.hash.as_ref().unwrap(),
+            level.prev_hash.as_ref().unwrap(),
+        )?;
+
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
                 .active_contracts()
@@ -414,8 +519,9 @@ impl Executor {
 
         info!("processing level {}", level.level);
 
+        let mut storage_processor = self.get_storage_processor()?;
         let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_level(&mut tx, level)?;
+        DBClient::delete_level(&mut tx, level.level)?;
         DBClient::save_level(&mut tx, level)?;
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
@@ -426,7 +532,7 @@ impl Executor {
                 level,
                 block,
                 &diffs,
-                storage_processor,
+                &mut storage_processor,
                 contract_id,
                 rel_ast,
             )?);
@@ -460,7 +566,7 @@ impl Executor {
         meta: &LevelMeta,
         block: &Block,
         diffs: &IntraBlockBigmapDiffsProcessor,
-        storage_processor: &mut StorageProcessor<NodeClient>,
+        storage_processor: &mut StorageProcessor<NodeClient, DBClient>,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<SaveLevelResult> {
@@ -483,7 +589,7 @@ impl Executor {
             });
         }
 
-        let (inserts, bigmap_copies, tx_contexts) = storage_processor
+        let (inserts, tx_contexts, bigmap_contract_deps) = storage_processor
                 .process_block(block, diffs, &contract_id.address, rel_ast)
                 .with_context(|| {
                     format!(
@@ -498,9 +604,9 @@ impl Executor {
                 meta,
                 contract_id,
                 inserts,
-	        bigmap_copies,
                 tx_contexts,
-                storage_processor.get_id_value() + 1,
+                bigmap_contract_deps,
+                storage_processor.get_bigmap_keyhashes(),
             )
             .with_context(|| {
                 format!(
@@ -508,9 +614,7 @@ impl Executor {
                 meta.level, contract_id.name,
             )
             })?;
-
-        let bigmap_tables = storage_processor.get_bigmap_tables()?;
-        DBClient::save_bigmap_table_locations(tx, contract_id, &bigmap_tables)?;
+        DBClient::set_max_id(tx, storage_processor.get_id_value() + 1)?;
 
         if is_origination {
             Self::mark_level_contract_origination(tx, meta, contract_id)
@@ -552,9 +656,9 @@ impl Executor {
         meta: &LevelMeta,
         contract_id: &ContractID,
         inserts: Inserts,
-        bigmap_copies: Vec<BigmapCopy>,
         tx_contexts: Vec<TxContext>,
-        next_id: i64,
+        bigmap_contract_deps: Vec<String>,
+        bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
@@ -562,14 +666,18 @@ impl Executor {
         DBClient::save_tx_contexts(tx, &tx_contexts)?;
         DBClient::apply_inserts(
             tx,
-            meta.level as i32,
             contract_id,
             &inserts
                 .into_values()
                 .collect::<Vec<Insert>>(),
         )?;
-        DBClient::apply_bigmap_deps(tx, contract_id, &bigmap_copies)?;
-        DBClient::set_max_id(tx, next_id)?;
+        DBClient::save_contract_deps(
+            tx,
+            meta.level,
+            contract_id,
+            bigmap_contract_deps,
+        )?;
+        DBClient::save_bigmap_keyhashes(tx, bigmap_keyhashes)?;
         Ok(())
     }
 }
@@ -807,13 +915,36 @@ fn test_block() {
         ) -> Result<JsonValue> {
             Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
         }
+
+        fn get_bigmap_value(
+            &self,
+            _level: u32,
+            _bigmap_id: i32,
+            _keyhash: &str,
+        ) -> Result<Option<JsonValue>> {
+            Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
+        }
+    }
+
+    struct DummyBigmapKeysGetter {}
+    impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
+        fn get(
+            &mut self,
+            _level: u32,
+            _bigmap_id: i32,
+        ) -> Result<Vec<(String, String)>> {
+            Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
+        }
     }
 
     let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
     for contract in &contracts {
-        let mut storage_processor =
-            StorageProcessor::new(1, DummyStorageGetter {});
+        let mut storage_processor = StorageProcessor::new(
+            1,
+            DummyStorageGetter {},
+            DummyBigmapKeysGetter {},
+        );
 
         // verify that the test case is sane
         let mut unique_levels = contract.levels.clone();

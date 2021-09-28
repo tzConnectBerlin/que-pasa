@@ -2,6 +2,7 @@
 use anyhow::{anyhow, Result};
 use backoff::{retry, Error, ExponentialBackoff};
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::time::Duration;
 
 pub struct BCDClient {
@@ -9,15 +10,26 @@ pub struct BCDClient {
     network: String,
     timeout: Duration,
     contract_id: String,
+    exclude_levels: HashMap<u32, ()>,
 }
 
 impl BCDClient {
-    pub fn new(api_url: String, network: String, contract_id: String) -> Self {
+    pub fn new(
+        api_url: String,
+        network: String,
+        contract_id: String,
+        exclude_levels: &[u32],
+    ) -> Self {
+        let mut excl: HashMap<u32, ()> = HashMap::new();
+        for l in exclude_levels {
+            excl.insert(*l, ());
+        }
         Self {
             api_url,
             network,
             timeout: Duration::from_secs(20),
             contract_id,
+            exclude_levels: excl,
         }
     }
 
@@ -27,7 +39,12 @@ impl BCDClient {
     ) -> Result<()> {
         let mut last_id = None;
         let latest_level = self.get_latest_level()?;
-        height_send.send(latest_level)?;
+        if !self
+            .exclude_levels
+            .contains_key(&latest_level)
+        {
+            height_send.send(latest_level)?;
+        }
 
         loop {
             let (levels, new_last_id) = self.get_levels_page_with_contract(
@@ -40,6 +57,9 @@ impl BCDClient {
             last_id = Some(new_last_id);
 
             for level in levels {
+                if self.exclude_levels.contains_key(&level) {
+                    continue;
+                }
                 height_send.send(level)?;
             }
         }

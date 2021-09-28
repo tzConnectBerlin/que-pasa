@@ -9,11 +9,19 @@ const LIQUIDITY_BAKING_LEVEL: u32 = 1589247;
 const LIQUIDITY_BAKING: &str = "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5";
 const LIQUIDITY_BAKING_TOKEN: &str = "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo";
 
+pub(crate) fn get_implicit_origination_level(contract: &str) -> Option<u32> {
+    if contract == LIQUIDITY_BAKING || contract == LIQUIDITY_BAKING_TOKEN {
+        return Some(LIQUIDITY_BAKING_LEVEL);
+    }
+    None
+}
+
 #[derive(Clone, Debug)]
 
 pub struct LevelMeta {
     pub level: u32,
     pub hash: Option<String>,
+    pub prev_hash: Option<String>,
     pub baked_at: Option<DateTime<Utc>>,
 }
 
@@ -47,7 +55,7 @@ pub(crate) struct TxContext {
     pub operation_group_number: usize,
     pub operation_number: usize,
     pub content_number: usize,
-    pub internal_number: Option<usize>,
+    pub internal_number: Option<i32>,
     pub source: Option<String>,
     pub destination: Option<String>,
     pub entrypoint: Option<String>,
@@ -211,7 +219,7 @@ impl Block {
                                                     operation_number,
                                                     content_number,
                                                     internal_number: Some(
-                                                        internal_number,
+                                                        internal_number as i32,
                                                     ),
                                                     source: Some(
                                                         internal_op
@@ -250,7 +258,7 @@ impl Block {
                                                 operation_number,
                                                 content_number,
                                                 internal_number: Some(
-                                                    internal_number,
+                                                    internal_number as i32,
                                                 ),
                                                 source: Some(
                                                     internal_op.source.clone(),
@@ -343,14 +351,9 @@ impl Block {
         &self,
         contract_address: &str,
     ) -> bool {
-        // liquidity baking has an implicit contract creation event in this block
-        let liquidity_baking =
-            "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5".to_string();
-        let liquidity_baking_token =
-            "KT1AafHA1C1vk959wvHWBispY9Y2f3fxBUUo".to_string();
         if self.header.level == 1589247
-            && (contract_address == liquidity_baking
-                || contract_address == liquidity_baking_token)
+            && (contract_address == LIQUIDITY_BAKING
+                || contract_address == LIQUIDITY_BAKING_TOKEN)
         {
             return true;
         }
@@ -371,37 +374,11 @@ impl Block {
     }
 
     pub(crate) fn active_contracts(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec![];
-        for operations in &self.operations {
-            for operation in operations {
-                for content in &operation.contents {
-                    if let Some(operation_result) =
-                        &content.metadata.operation_result
-                    {
-                        if operation_result.status != "applied" {
-                            continue;
-                        }
-                        if let Some(address) = &content.destination {
-                            res.push(address.clone());
-                        }
-                        for result in &content
-                            .metadata
-                            .internal_operation_results
-                        {
-                            if let Some(address) = &result.destination {
-                                res.push(address.clone());
-                            }
-                        }
-
-                        res.extend(
-                            operation_result
-                                .originated_contracts
-                                .clone(),
-                        );
-                    }
-                }
-            }
-        }
+        let mut res: Vec<String> = self
+            .map_tx_contexts(|tx_context, _is_origination, _op_res| {
+                Ok(Some(tx_context.contract))
+            })
+            .unwrap();
         if self.header.level == LIQUIDITY_BAKING_LEVEL {
             res.push(LIQUIDITY_BAKING.to_string());
             res.push(LIQUIDITY_BAKING_TOKEN.to_string());
@@ -435,9 +412,8 @@ fn is_contract(address: &str) -> bool {
 )]
 pub struct Header {
     pub level: u32,
+    pub predecessor: String,
 
-    #[serde(skip)]
-    predecessor: String,
     #[serde(skip)]
     timestamp: String,
     #[serde(skip)]
@@ -756,11 +732,10 @@ pub struct BigMapDiff {
     pub big_map: Option<String>,
     pub source_big_map: Option<String>,
     pub destination_big_map: Option<String>,
+    pub key_hash: Option<String>,
     pub key: Option<serde_json::Value>,
     pub value: Option<serde_json::Value>,
 
-    #[serde(skip)]
-    key_hash: Option<String>,
     #[serde(skip)]
     key_type: Option<KeyType>,
     #[serde(skip)]

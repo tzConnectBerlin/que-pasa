@@ -7,9 +7,10 @@ use pretty_assertions::assert_eq;
 use crate::octez::block::{BigMapDiff, Block, TxContext};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Op {
+pub(crate) enum Op {
     Update {
         bigmap: i32,
+        keyhash: String,
         key: serde_json::Value,
         value: Option<serde_json::Value>, // if None: it means remove key in bigmap
     },
@@ -49,6 +50,9 @@ impl Op {
                         anyhow!("no big map id found in diff {:?}", raw)
                     })?
                     .parse()?,
+                keyhash: raw.key_hash.clone().ok_or_else(|| {
+                    anyhow!("no key_hash in big map update {:?}", raw)
+                })?,
                 key: raw
                     .key
                     .as_ref()
@@ -118,6 +122,15 @@ impl IntraBlockBigmapDiffsProcessor {
             res.tx_bigmap_ops
                 .insert(tx_context, ops);
         }
+
+        if false {
+            let mut keys: Vec<&TxContext> = res.tx_bigmap_ops.keys().collect();
+            keys.sort();
+            for k in keys {
+                println!("tx[{:#?}]: {:#?}", k, res.tx_bigmap_ops[k]);
+            }
+        }
+
         res
     }
 
@@ -154,6 +167,7 @@ impl IntraBlockBigmapDiffsProcessor {
             if targets.is_empty() {
                 break;
             }
+
             for op in self.tx_bigmap_ops[tx_context]
                 .iter()
                 .rev()
@@ -177,6 +191,13 @@ impl IntraBlockBigmapDiffsProcessor {
                                 .collect();
 
                             targets.push(*source);
+
+                            if *bigmap < 0 {
+                                targets = targets
+                                    .into_iter()
+                                    .filter(|d| d != bigmap)
+                                    .collect();
+                            }
                         }
                         Op::Clear { bigmap } => {
                             // Probably does not happen, but just to be sure this branch is included.
@@ -230,33 +251,6 @@ impl IntraBlockBigmapDiffsProcessor {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct BigmapCopy {
-    pub tx_context: TxContext,
-    pub src_contract: String,
-    pub src_bigmap: i32,
-    pub dest_table: String,
-    pub dest_bigmap: i32,
-}
-
-impl BigmapCopy {
-    pub(crate) fn new(
-        tx_context: TxContext,
-        src_contract: String,
-        src_bigmap: i32,
-        dest_table: String,
-        dest_bigmap: i32,
-    ) -> Self {
-        Self {
-            tx_context,
-            src_contract,
-            src_bigmap,
-            dest_table,
-            dest_bigmap,
-        }
-    }
-}
-
 #[test]
 fn test_normalizer() {
     fn tx_context(level: u32) -> TxContext {
@@ -277,6 +271,7 @@ fn test_normalizer() {
     fn op_update(bigmap: i32, ident: i32) -> Op {
         Op::Update {
             bigmap,
+            keyhash: "".to_string(),
             key: serde_json::Value::String(format!("{}", ident)),
             value: None,
         }
@@ -435,6 +430,41 @@ fn test_normalizer() {
                 op_update(0, 2),
                 op_update(0, 3),
                 op_update(0, 4),
+            ],
+        },
+        TestCase {
+            name: "-bigmap ids are temporary, and only live in the scope of origin copy".to_string(),
+
+            tx_bigmap_ops: vec![(
+		tx_context(1),
+		vec![
+		    op_update(3, 1),
+		    Op::Copy{
+			bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
+			source: 3
+		    },
+		]), (
+                tx_context(2),
+                vec![
+                    op_update(10, 2),
+                    Op::Copy {
+                        bigmap: -2,
+                        source: 10,
+                    },
+                    op_update(-2, 3),
+                    Op::Copy {
+                        bigmap: 0,
+                        source: -2,
+                    },
+                ],
+            )],
+            normalize_tx_context: tx_context(2),
+            normalize_bigmap: 0,
+
+            exp_deps: vec![(10, tx_context(2))],
+            exp_ops: vec![
+                op_update(0, 2),
+                op_update(0, 3),
             ],
         },
         // what follows are test cases about scenarios that probably

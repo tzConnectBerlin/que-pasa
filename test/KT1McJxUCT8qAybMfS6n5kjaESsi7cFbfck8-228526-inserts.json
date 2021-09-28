@@ -30,11 +30,11 @@
                 value: Numeric(Some("82195281")),
             ),
             (
-                name: "state",
+                name: "markets_state",
                 value: String("storage.market_map.auctionRunning"),
             ),
             (
-                name: "currency",
+                name: "metadata_currency",
                 value: String("metadata_fa12"),
             ),
             (
@@ -124,7 +124,7 @@
                 value: String("tz1Q3eT3kwr1hfvK49HK8YqPadNXzxdxnE7u"),
             ),
             (
-                name: "noname",
+                name: "markets_noname",
                 value: String("storage.liquidity_provider_map.bet"),
             ),
             (

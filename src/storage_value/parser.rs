@@ -45,6 +45,28 @@ impl Value {
         }
     }
 
+    pub fn unpair_list(&self) -> Result<Value> {
+        match self {
+            Value::Pair(l, rest) => {
+                let rest = (**rest).clone();
+                let rest_unpaired = if let Value::Pair { .. } = rest {
+                    if let Value::List(rest_unpaired) = rest.unpair_list()? {
+                        Ok(rest_unpaired)
+                    } else {
+                        Err(anyhow!("bad paired list value (partially nested pairs, partially something else)"))
+                    }
+                } else {
+                    Ok(vec![rest])
+                }?;
+                let mut xs = vec![(**l).clone()];
+                xs.extend(rest_unpaired);
+                Ok(Value::List(xs))
+            }
+            Value::List(_xs) => Ok(self.clone()),
+            _ => Err(anyhow!("bad paired List value (neither pairs nor list)")),
+        }
+    }
+
     pub fn unpair_elts(&self) -> Result<Value> {
         match self {
             Value::Pair(l, rest) => {

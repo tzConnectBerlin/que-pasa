@@ -2,7 +2,7 @@
 
 This repo contains the baby indexer, an indexer for dApps. It indexes only the contracts you want it to index. It reads the contract's storage definition and generates SQL DDL for a SQL representation of the tables, which it then populates.
 
-In short, Que Pasa translates the marketplace contract in: 
+In short, Que Pasa translates the marketplace contract in:
 
 ![](https://i.imgur.com/VhnGtss.png)
 
@@ -10,7 +10,7 @@ In short, Que Pasa translates the marketplace contract in:
 
 ![](https://i.imgur.com/Reb4NR2.png)
 
-Where, for example, table "storage" has the following columns: 
+Where, for example, table "storage" has the following columns:
 
 ![](https://i.imgur.com/6Adw1Cp.png)
 
@@ -22,7 +22,7 @@ The indexer stores data for only the contracts specified. Each contract's data i
 
 Every updated storage is inserted in its entirety (as a snapshot), with exception to Big map updates; each change is stored. This allows the indexer to be stateless (in other words, it doesn't care about what levels are processed in what order).
 
-For every table (including Big map tables) a `_live` view and a `_ordered` view is generated:
+For nearly all tables (including bigmap tables, excluding tables nested inside bigmaps) a `_live` view and a `_ordered` view is generated:
 - `_live` contains the current state.
 - `_ordered` for snapshots (non-bigmap) contains all snapshots in sequence of Tezos' execution order, and for changes (bigmaps) contains all updates in sequence of Tezos' execution order.
 
@@ -105,8 +105,9 @@ All tables have a `tx_context_id` field, which enables searching the database fo
 
 Variant records come in two varieties. The simplest are those which are simply one or another `unit` types, with different annotations. These become text fields in the database. The other type are true variant records, they become subsidiary tables, as maps and big maps are, with a text field in the parent table indicating which form of the record is present.
 
-Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed. If the most recent version of the map for the keys you specify has this flag set, there is no row.
+Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed (note: we don't update rows' deleted flag, we create a new row with deleted=true and value columns set to None). This means that if the most recent version of the map for the keys you specify has this deleted flag set, there is bigmap entry alive/present.
 
 # Limitations
 
+- We're (currently) not indexing: tickets, sapling states, lambda values. If they are present in an indexed contract, they're ignored. In other words, values of these types will not arrive in the db.
 - Generated table names can become quite long. Some contracts may be impeded by name length limitations of the underlying database system. For example, PostgreSQL's default setup only allows table names of up to 63 characters.

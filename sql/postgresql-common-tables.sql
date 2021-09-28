@@ -1,6 +1,7 @@
 CREATE TABLE levels (
     level INTEGER PRIMARY KEY,
     hash VARCHAR(60),
+    prev_hash VARCHAR(60),
     baked_at TIMESTAMP WITH TIME ZONE);
 
 CREATE UNIQUE INDEX levels_level ON levels(level);
@@ -48,38 +49,23 @@ CREATE UNIQUE INDEX ON tx_contexts(
     operation_group_number,
     operation_number,
     content_number,
-    coalesce(internal_number, -1));
+    coalesce(internal_number, -2));
 
-CREATE TABLE bigmap_deps(
+CREATE TABLE contract_deps(
+    level INT NOT NULL,
+
+    src_contract TEXT NOT NULL,
+    dest_schema TEXT NOT NULL,
+
+    PRIMARY KEY (level, src_contract, dest_schema)
+);
+
+CREATE TABLE bigmap_keys(
+    bigmap_id INTEGER NOT NULL,
     tx_context_id BIGINT NOT NULL,
+    keyhash TEXT NOT NULL,
+    key TEXT NOT NULL,
 
-    src_contract TEXT NOT NULL,
-    src_bigmap INTEGER NOT NULL,
-
-    dest_schema TEXT NOT NULL,
-    dest_table TEXT NOT NULL,
-    dest_bigmap INTEGER NOT NULL,
-
+    PRIMARY KEY (bigmap_id, tx_context_id,keyhash),
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
-);
-
-
-CREATE TABLE bigmap_copied_rows(
-    src_contract TEXT NOT NULL,
-
-    src_tx_context_id BIGINT NOT NULL,
-    dest_tx_context_id BIGINT NOT NULL,
-
-    dest_schema TEXT NOT NULL,
-    dest_table TEXT NOT NULL,
-    dest_row_id BIGINT NOT NULL,
-
-    FOREIGN KEY (src_tx_context_id) REFERENCES tx_contexts(id),
-    FOREIGN KEY (dest_tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
-);
-
-CREATE TABLE bigmap_tables (
-    bigmap_id INTEGER PRIMARY KEY,
-    contract TEXT NOT NULL,
-    "table" TEXT NOT NULL
 );

@@ -2,14 +2,13 @@ use crate::debug;
 use crate::octez::block;
 use crate::octez::block::TxContext;
 use crate::octez::node::StorageGetter;
+use crate::sql::db::BigmapKeysGetter;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use crate::storage_update::bigmap;
-use crate::storage_update::bigmap::{
-    BigmapCopy, IntraBlockBigmapDiffsProcessor,
-};
+use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
 use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
@@ -84,29 +83,56 @@ impl IdGenerator {
 
 type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
 
-pub(crate) struct StorageProcessor<NodeCli>
+pub(crate) struct StorageProcessor<NodeCli, BigmapKeys>
 where
     NodeCli: StorageGetter,
+    BigmapKeys: BigmapKeysGetter,
 {
-    big_map_map: BigMapMap,
+    bigmap_map: BigMapMap,
+    bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
     node_cli: NodeCli,
+    bigmap_keys: BigmapKeys,
 }
 
-impl<NodeCli> StorageProcessor<NodeCli>
+impl<NodeCli, BigmapKeys> StorageProcessor<NodeCli, BigmapKeys>
 where
     NodeCli: StorageGetter,
+    BigmapKeys: BigmapKeysGetter,
 {
-    pub(crate) fn new(initial_id: i64, node_cli: NodeCli) -> Self {
+    pub(crate) fn new(
+        initial_id: i64,
+        node_cli: NodeCli,
+        bigmap_keys: BigmapKeys,
+    ) -> Self {
         Self {
-            big_map_map: BigMapMap::new(),
+            bigmap_map: BigMapMap::new(),
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
+            bigmap_keyhashes: Vec::new(),
             id_generator: IdGenerator::new(initial_id),
             node_cli,
+            bigmap_keys,
         }
+    }
+
+    fn add_bigmap_keyhash(
+        &mut self,
+        tx_context: TxContext,
+        bigmap: i32,
+        keyhash: String,
+        key: String,
+    ) {
+        self.bigmap_keyhashes
+            .push((tx_context, bigmap, keyhash, key));
+    }
+
+    pub(crate) fn get_bigmap_keyhashes(
+        &self,
+    ) -> Vec<(TxContext, i32, String, String)> {
+        self.bigmap_keyhashes.clone()
     }
 
     pub(crate) fn process_block(
@@ -115,10 +141,11 @@ where
         diffs: &IntraBlockBigmapDiffsProcessor,
         contract_id: &str,
         rel_ast: &RelationalAST,
-    ) -> Result<(Inserts, Vec<BigmapCopy>, Vec<TxContext>)> {
+    ) -> Result<(Inserts, Vec<TxContext>, Vec<String>)> {
         self.inserts.clear();
         self.tx_contexts.clear();
-        self.big_map_map.clear();
+        self.bigmap_map.clear();
+        self.bigmap_keyhashes.clear();
 
         let storages: Vec<(TxContext, parser::Value)> =
             block.map_tx_contexts(|tx_context, is_origination, op_res| {
@@ -141,13 +168,13 @@ where
                     )))
                 } else {
                     Err(anyhow!(
-			    "bad contract call: no storage update. tx_context={:#?}",
-			    tx_context
-			))
+                "bad contract call: no storage update. tx_context={:#?}",
+                tx_context
+            ))
                 }
             })?;
 
-        let mut bigmap_copies: Vec<BigmapCopy> = vec![];
+        let mut bigmap_contract_deps: HashMap<String, ()> = HashMap::new();
         for (tx_context, parsed_storage) in &storages {
             let tx_context = &self.tx_context(tx_context.clone());
             self.process_storage_value(parsed_storage, rel_ast, tx_context)
@@ -159,23 +186,19 @@ where
                 })?;
 
             let mut bigmaps = diffs.get_tx_context_owned_bigmaps(tx_context);
+
             bigmaps.sort_unstable();
             for bigmap in bigmaps {
                 let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
-                if self.big_map_map.contains_key(&bigmap) {
-                    let (_fk, rel_ast) = &self.big_map_map[&bigmap];
+                if self.bigmap_map.contains_key(&bigmap) {
                     for (src_bigmap, src_context) in deps {
-                        let dest_bigmap = bigmap;
-                        let dest_table = rel_ast
-                            .table_entry()
-                            .ok_or_else(|| anyhow!("bigmap copy dest rel_ast has unexpected type"))?;
-                        bigmap_copies.push(BigmapCopy::new(
+                        bigmap_contract_deps
+                            .insert(src_context.contract.clone(), ());
+                        self.process_bigmap_copy(
                             tx_context.clone(),
-                            src_context.contract.clone(),
                             src_bigmap,
-                            dest_table,
-                            dest_bigmap,
-                        ));
+                            bigmap,
+                        )?;
                     }
                 }
                 for op in &ops {
@@ -186,26 +209,49 @@ where
 
         Ok((
             self.inserts.clone(),
-            bigmap_copies,
             self.tx_contexts
                 .keys()
                 .cloned()
                 .collect(),
+            bigmap_contract_deps
+                .into_keys()
+                .collect::<Vec<String>>(),
         ))
     }
 
-    pub(crate) fn get_bigmap_tables(&self) -> Result<Vec<(i32, String)>> {
-        let mut res: Vec<(i32, String)> = vec![];
+    fn process_bigmap_copy(
+        &mut self,
+        mut ctx: TxContext,
+        src_bigmap: i32,
+        dest_bigmap: i32,
+    ) -> Result<()> {
+        ctx.internal_number = match ctx.internal_number {
+            None => Some(-1),
+            Some(x) => Some(x - 1),
+        };
+        let ctx = &self.tx_context(ctx);
 
-        for (bigmap_id, (_fk, rel_ast)) in &self.big_map_map {
-            res.push((
-                *bigmap_id,
-                rel_ast
-                    .table_entry()
-                    .ok_or_else(|| anyhow!("table name missing"))?,
-            ))
+        let at_level = ctx.level - 1;
+        for (keyhash, key) in self
+            .bigmap_keys
+            .get(at_level, src_bigmap)?
+        {
+            let value = self
+                .node_cli
+                .get_bigmap_value(at_level, src_bigmap, &keyhash)?;
+            if value.is_none() {
+                continue;
+            }
+
+            let op = bigmap::Op::Update {
+                bigmap: dest_bigmap,
+                keyhash,
+                key: serde_json::from_str(&key)?,
+                value: serde_json::from_str(&value.unwrap().to_string())?,
+            };
+            self.process_bigmap_op(&op, ctx)?;
         }
-        Ok(res)
+        Ok(())
     }
 
     pub(crate) fn get_id_value(&self) -> i64 {
@@ -234,7 +280,7 @@ where
             }
             RelationalAST::List { .. } => {
                 // do not unfold list
-                Ok(v.clone())
+                v.unpair_list()
             }
             _ => Ok(v.unfold_list()),
         }
@@ -287,7 +333,7 @@ where
                     )
                 }
             ),
-            parser::Value::Pair { .. } => {
+            parser::Value::Pair { .. } | parser::Value::List { .. } => {
                 let mut res = parent_entry.clone();
                 res.value = ctx.last_table.clone();
                 Ok(res)
@@ -313,8 +359,13 @@ where
         tx_context: &TxContext,
     ) -> Result<()> {
         match op {
-            bigmap::Op::Update { bigmap, key, value } => {
-                let (_fk, rel_ast) = match self.big_map_map.get(bigmap) {
+            bigmap::Op::Update {
+                bigmap,
+                keyhash,
+                key,
+                value,
+            } => {
+                let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
                         return Ok(());
@@ -332,6 +383,13 @@ where
                         value_ast
                     },
                     {
+                        self.add_bigmap_keyhash(
+                            tx_context.clone(),
+                            *bigmap,
+                            keyhash.clone(),
+                            key.to_string(),
+                        );
+
                         let ctx = &ProcessStorageContext::new(
                             self.id_generator.get_id(),
                         )
@@ -392,6 +450,7 @@ where
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
+        debug!("process storage value ********");
         let ctx = &ProcessStorageContext::new(self.id_generator.get_id());
         self.process_storage_value_internal(
             &ctx.with_last_table("storage".to_string()),
@@ -432,9 +491,10 @@ where
     ) -> Result<()> {
         let v = &self.unfold_value(value, rel_ast)?;
         debug!(
-            "value: {}, rel_ast: {}",
+            "value: {}, v: {}, rel_ast: {}",
+            debug::pp_depth(3, value),
             debug::pp_depth(3, v),
-            debug::pp_depth(3, rel_ast)
+            debug::pp_depth(4, rel_ast)
         );
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {
@@ -764,7 +824,7 @@ where
         fk: i64,
         rel_ast: RelationalAST,
     ) {
-        self.big_map_map
+        self.bigmap_map
             .insert(bigmap_id, (fk, rel_ast));
     }
 
