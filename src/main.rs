@@ -189,6 +189,7 @@ fn main() {
         executor
             .exec_levels(num_getters, CONFIG.levels.clone())
             .unwrap();
+        executor.exec_dependents().unwrap();
         return;
     }
 

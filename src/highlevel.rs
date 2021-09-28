@@ -329,6 +329,7 @@ impl Executor {
                 latest_level,
             )?;
             if missing_levels.is_empty() {
+                self.exec_dependents()?;
                 return Ok(());
             }
 

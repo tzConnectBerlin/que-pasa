@@ -145,7 +145,7 @@ impl NodeClient {
     fn load_body(&self, endpoint: &str) -> Result<String> {
         let uri =
             format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
-        println!("loading: {}", uri);
+        debug!("loading: {}", uri);
 
         let mut response = Vec::new();
         let mut handle = Easy::new();
