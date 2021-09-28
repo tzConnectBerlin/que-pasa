@@ -914,13 +914,36 @@ fn test_block() {
         ) -> Result<JsonValue> {
             Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
         }
+
+        fn get_bigmap_value(
+            &self,
+            _level: u32,
+            _bigmap_id: i32,
+            _keyhash: &str,
+        ) -> Result<Option<JsonValue>> {
+            Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
+        }
+    }
+
+    struct DummyBigmapKeysGetter {}
+    impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
+        fn get(
+            &mut self,
+            _level: u32,
+            _bigmap_id: i32,
+        ) -> Result<Vec<(String, String)>> {
+            Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
+        }
     }
 
     let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
     for contract in &contracts {
-        let mut storage_processor =
-            StorageProcessor::new(1, DummyStorageGetter {});
+        let mut storage_processor = StorageProcessor::new(
+            1,
+            DummyStorageGetter {},
+            DummyBigmapKeysGetter {},
+        );
 
         // verify that the test case is sane
         let mut unique_levels = contract.levels.clone();
