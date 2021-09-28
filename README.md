@@ -54,9 +54,8 @@ Required settings:
 - Which contracts to index (for more info see "Contracts settings" section)
 
 Once those have been set:
-1. First, setup the database by running with `--init`. This will create a set of global tables (tables that are shared between each indexed contracts).
-2. An initial sync is now required (processing of all relevant blocks up til now). This can be done by processing every block from head until contracts origination, though it will require fetching all blocks in this range (including blocks that are irrelevant to the setup). For the alternative fast sync see section "Fast sync".
-3. Now we're synced. Any subsequent runs will run in a continuous mode, where we wait for new blocks to arrive and process them when they do.
+1. First, an initial sync is required (processing of all relevant blocks up til now). This can be done by processing every block from head until contracts origination, though it will require fetching all blocks in this range (including blocks that are irrelevant to the setup). For the alternative fast sync see section "Fast sync".
+2. Now we're synced. Any subsequent runs will run in a continuous mode, where we wait for new blocks to arrive and process them when they do.
 
 ### Database settings
 
