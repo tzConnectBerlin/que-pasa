@@ -172,6 +172,10 @@ fn main() {
                 executor
                     .exec_levels(num_getters, CONFIG.levels.clone())
                     .unwrap();
+            } else {
+                executor
+                    .exec_missing_levels(num_getters)
+                    .unwrap();
             }
         }
         if any_bootstrapped {
@@ -189,11 +193,13 @@ fn main() {
     }
 
     // We will first load missing levels (if any)
+    info!("processing missing levels");
     executor
         .exec_missing_levels(num_getters)
         .unwrap();
 
     // At last, normal operation.
+    info!("processing blocks at the chain head");
     executor.exec_continuous().unwrap();
 }
 

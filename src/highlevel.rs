@@ -222,6 +222,9 @@ impl Executor {
         let mut levels = self
             .dbcli
             .get_dependent_levels(&config)?;
+        if levels.is_empty() {
+            return Ok(());
+        }
         levels.sort();
 
         info!("reprocessing following levels, they have bigmap copies whose keys are now fully known: {:?}", levels);

@@ -24,6 +24,27 @@ impl TableBuilder {
         res
     }
 
+    pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
+        let mut res: Vec<String> = vec!["bigmap_clears".to_string()];
+
+        // All child tables of changes tables cannot have view definitions defined.
+        // To get _ordered or _live rows for these child tables, simply join with id
+        // of parent bigmap table (on which there are _live and _ordered views defined).
+        res.extend(
+            self.tables
+                .values()
+                .filter_map(|t| {
+                    if t.contains_snapshots() {
+                        None
+                    } else {
+                        Some(format!("{}.", t.name))
+                    }
+                })
+                .collect::<Vec<String>>(),
+        );
+        res
+    }
+
     fn add_column(&mut self, is_keyword: bool, rel_entry: &RelationalEntry) {
         let mut table = self.get_table(&rel_entry.table_name);
         if rel_entry.is_index {

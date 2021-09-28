@@ -231,19 +231,23 @@ where
         };
         let ctx = &self.tx_context(ctx);
 
+        let at_level = ctx.level - 1;
         for (keyhash, key) in self
             .bigmap_keys
-            .get(ctx.level, src_bigmap)?
+            .get(at_level, src_bigmap)?
         {
             let value = self
                 .node_cli
-                .get_bigmap_value(ctx.level, src_bigmap, &keyhash)?;
+                .get_bigmap_value(at_level, src_bigmap, &keyhash)?;
+            if value.is_none() {
+                continue;
+            }
 
             let op = bigmap::Op::Update {
                 bigmap: dest_bigmap,
-                keyhash: keyhash,
+                keyhash,
                 key: serde_json::from_str(&key)?,
-                value: serde_json::from_str(&value.to_string())?,
+                value: serde_json::from_str(&value.unwrap().to_string())?,
             };
             self.process_bigmap_op(&op, ctx)?;
         }

@@ -122,6 +122,15 @@ impl IntraBlockBigmapDiffsProcessor {
             res.tx_bigmap_ops
                 .insert(tx_context, ops);
         }
+
+        if false {
+            let mut keys: Vec<&TxContext> = res.tx_bigmap_ops.keys().collect();
+            keys.sort();
+            for k in keys {
+                println!("tx[{:#?}]: {:#?}", k, res.tx_bigmap_ops[k]);
+            }
+        }
+
         res
     }
 
@@ -158,6 +167,7 @@ impl IntraBlockBigmapDiffsProcessor {
             if targets.is_empty() {
                 break;
             }
+
             for op in self.tx_bigmap_ops[tx_context]
                 .iter()
                 .rev()
@@ -261,7 +271,7 @@ fn test_normalizer() {
     fn op_update(bigmap: i32, ident: i32) -> Op {
         Op::Update {
             bigmap,
-            keyhash: "",
+            keyhash: "".to_string(),
             key: serde_json::Value::String(format!("{}", ident)),
             value: None,
         }

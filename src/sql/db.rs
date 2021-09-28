@@ -102,12 +102,21 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                 )
                 .as_str(),
             )?;
+
+            let noview_prefixes = builder.get_viewless_table_prefixes();
+            println!("remove from views: {:?}", noview_prefixes);
+
             for (_name, table) in sorted_tables {
                 let table_def = generator.create_table_definition(table)?;
-                let views_def = generator.create_view_definition(table)?;
-
                 tx.simple_query(table_def.as_str())?;
-                tx.simple_query(views_def.as_str())?;
+
+                if !noview_prefixes
+                    .iter()
+                    .any(|prefix| table.name.starts_with(prefix))
+                {
+                    let views_def = generator.create_view_definition(table)?;
+                    tx.simple_query(views_def.as_str())?;
+                }
             }
             tx.commit()?;
 
@@ -166,8 +175,14 @@ DROP VIEW "{contract_schema}"."{table}_live";
         sorted_tables.sort_by_key(|a| a.0);
         sorted_tables.reverse();
 
+        let noview_prefixes = builder.get_viewless_table_prefixes();
+        println!("remove from views: {:?}", noview_prefixes);
+
         for (_name, table) in sorted_tables {
-            if table.name != "bigmap_clears" {
+            if !noview_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
                 tx.simple_query(
                     format!(
                         r#"
@@ -720,6 +735,12 @@ INSERT INTO levels(
     }
 
     pub(crate) fn delete_level(tx: &mut Transaction, level: u32) -> Result<()> {
+        tx.execute(
+            "
+DELETE FROM contract_deps
+WHERE level = $1",
+            &[&(level as i32)],
+        )?;
         tx.execute(
             "
 DELETE FROM contract_levels
