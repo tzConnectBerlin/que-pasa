@@ -288,17 +288,17 @@ Values ({})",
             let stmt = tx.prepare(&format!(
                 "
 INSERT INTO tx_contexts(
-	id,
-	level,
-	contract,
-	operation_group_number,
-	operation_number,
-	content_number,
-	internal_number,
-	operation_hash,
-	source,
-	destination,
-	entrypoint
+    id,
+    level,
+    contract,
+    operation_group_number,
+    operation_number,
+    content_number,
+    internal_number,
+    operation_hash,
+    source,
+    destination,
+    entrypoint
 )
 VALUES ( {} )",
                 v_refs

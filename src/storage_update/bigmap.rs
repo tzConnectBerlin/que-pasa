@@ -436,14 +436,14 @@ fn test_normalizer() {
             name: "-bigmap ids are temporary, and only live in the scope of origin copy".to_string(),
 
             tx_bigmap_ops: vec![(
-		tx_context(1),
-		vec![
-		    op_update(3, 1),
-		    Op::Copy{
-			bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
-			source: 3
-		    },
-		]), (
+        tx_context(1),
+        vec![
+            op_update(3, 1),
+            Op::Copy{
+            bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
+            source: 3
+            },
+        ]), (
                 tx_context(2),
                 vec![
                     op_update(10, 2),

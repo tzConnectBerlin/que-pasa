@@ -600,7 +600,7 @@ impl Executor {
         let tx_count = tx_contexts.len() as u32;
 
         Self::save_level_processed_contract(
-	    tx,
+        tx,
                 meta,
                 contract_id,
                 inserts,

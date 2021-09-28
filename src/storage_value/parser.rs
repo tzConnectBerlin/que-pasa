@@ -79,11 +79,11 @@ impl Value {
                                 rest.unpair_elts()?
                             {
                                 Ok(rest_unpaired)
-			    } else {
-				Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)"))
-			    }
+                } else {
+                Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)"))
+                }
                         },
-			_ => Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)")),
+            _ => Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)")),
                     }?;
                     let mut xs = vec![(**l).clone()];
                     xs.extend(rest_unpaired);
