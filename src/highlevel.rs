@@ -225,7 +225,7 @@ impl Executor {
         if levels.is_empty() {
             return Ok(());
         }
-        levels.sort();
+        levels.sort_unstable();
 
         info!("reprocessing following levels, they have bigmap copies whose keys are now fully known: {:?}", levels);
         self.exec_levels(1, levels)
