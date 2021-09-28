@@ -104,7 +104,7 @@ All tables have a `tx_context_id` field, which enables searching the database fo
 
 Variant records come in two varieties. The simplest are those which are simply one or another `unit` types, with different annotations. These become text fields in the database. The other type are true variant records, they become subsidiary tables, as maps and big maps are, with a text field in the parent table indicating which form of the record is present.
 
-Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed (note: we don't update rows' deleted flag, we create a new row with deleted=true and value columns set to None). This means that if the most recent version of the map for the keys you specify has this deleted flag set, there is bigmap entry alive/present.
+Big map updates are stored independently of the rest of the storage, as one would expect. Since we need to be able to look back at the history of the chain, there is a `deleted` flag which tells one whether the row has been removed (note: we don't update rows' deleted flag, we create a new row with deleted=true and value columns set to null). This means that if the most recent version of the map for the keys you specify has this deleted flag set, those keys in this bigmap are no longer alive/present.
 
 # Limitations
 
