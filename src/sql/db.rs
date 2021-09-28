@@ -104,8 +104,6 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
             )?;
 
             let noview_prefixes = builder.get_viewless_table_prefixes();
-            println!("remove from views: {:?}", noview_prefixes);
-
             for (_name, table) in sorted_tables {
                 let table_def = generator.create_table_definition(table)?;
                 tx.simple_query(table_def.as_str())?;
@@ -176,8 +174,6 @@ DROP VIEW "{contract_schema}"."{table}_live";
         sorted_tables.reverse();
 
         let noview_prefixes = builder.get_viewless_table_prefixes();
-        println!("remove from views: {:?}", noview_prefixes);
-
         for (_name, table) in sorted_tables {
             if !noview_prefixes
                 .iter()
