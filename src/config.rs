@@ -36,9 +36,9 @@ lazy_static! {
 pub fn init_config() -> Result<Config> {
     let mut config: Config = Default::default();
     let matches = App::new("Tezos Contract Baby Indexer")
-        .version("0.0")
-        .author("john newby <john.newby@tzconect.com>")
-        .about("Indexes a single contract")
+        .version("1.0.0")
+        .author("Rick Klomp <rick.klomp@tzconect.com>")
+        .about("An indexer for specific contracts")
         .arg(
             Arg::with_name("contract_settings")
                 .short("c")
