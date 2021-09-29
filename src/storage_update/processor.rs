@@ -450,11 +450,10 @@ where
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        debug!("process storage value ********");
         let ctx = &ProcessStorageContext::new(self.id_generator.get_id());
         self.process_storage_value_internal(
             &ctx.with_last_table("storage".to_string()),
-            &value.unfold_list(),
+            &value,
             rel_ast,
             tx_context,
         )?;

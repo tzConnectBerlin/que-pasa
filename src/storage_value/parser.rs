@@ -62,6 +62,7 @@ impl Value {
                 xs.extend(rest_unpaired);
                 Ok(Value::List(xs))
             }
+            Value::None => Ok(Value::List(vec![])),
             Value::List(_xs) => Ok(self.clone()),
             _ => Err(anyhow!("bad paired List value (neither pairs nor list)")),
         }
@@ -98,6 +99,7 @@ impl Value {
 }
 
 pub(crate) fn parse_json(storage_json: &JsonValue) -> Result<Value> {
+    println!("storage_json: {:#?}", storage_json);
     let lexed = lex(storage_json);
     parse_lexed(&lexed)
         .with_context(|| "failed to parse storage json into Value")
@@ -144,6 +146,9 @@ fn decode_bs58_address(hex: &str) -> Result<String> {
 
 fn lex(json: &JsonValue) -> JsonValue {
     if let JsonValue::Array(mut a) = json.clone() {
+        if a.len() == 0 {
+            return json.clone();
+        }
         a.reverse();
         lexer_unfold_many_pair(&mut a)
     } else {
