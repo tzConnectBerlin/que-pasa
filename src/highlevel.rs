@@ -517,7 +517,11 @@ impl Executor {
         };
         let mut contract_results: Vec<SaveLevelResult> = vec![];
 
-        info!("processing level {}", level.level);
+        info!(
+            "processing level {}: (baked at {})",
+            level.level,
+            level.baked_at.unwrap()
+        );
 
         let mut storage_processor = self.get_storage_processor()?;
         let mut tx = self.dbcli.transaction()?;
