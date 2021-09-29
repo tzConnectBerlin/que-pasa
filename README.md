@@ -93,7 +93,7 @@ que-pasa \
 
 ### Fast sync
 
-It is possible to only process the blocks relevant to the setup. For this to work it's necessary to ask from an external source in which blocks the setup contracts have been active. Currently the only external source supported is better-call.dev. If you wish to enable fast sync, set the `--bcd` and `--network` CLI args when running Que Pasa for the first time (or when running for an additional contract for the first time).
+It is possible to only process the blocks relevant to the setup. For this to work it's necessary to ask from an external source in which blocks the setup contracts have been active. Currently the only external source supported is better-call.dev. If you wish to enable fast sync, set the `--bcd-url` and `--network` CLI args when running Que Pasa for the first time (or when running for an additional contract for the first time).
 
 ## Database structure
 
