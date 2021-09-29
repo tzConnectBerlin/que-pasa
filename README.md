@@ -3,16 +3,39 @@
 This repo contains the baby indexer, an indexer for dApps. It indexes only the contracts you want it to index. It reads the contract's storage definition and generates SQL DDL for a SQL representation of the tables, which it then populates.
 
 In short, Que Pasa translates the marketplace contract in:
-
-![](https://i.imgur.com/VhnGtss.png)
-
-, into a database schema with following tables:
-
-![](https://i.imgur.com/Reb4NR2.png)
-
-Where, for example, table "storage" has the following columns:
-
-![](https://i.imgur.com/6Adw1Cp.png)
+```
+rklomp@Monke que-pasa % cat HEN.yaml 
+contracts:
+- name: "hdao"
+  address: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB"
+- name: "marketplace"
+  address: "KT1HbQepzV1nVGg8QVznG7z4RcHseD5kwqBn"
+```
+into a database schema with following tables:
+```
+tezos=# \dt "marketplace".*
+                List of relations
+   Schema    |       Name       | Type  |  Owner  
+-------------+------------------+-------+---------
+ marketplace | bigmap_clears    | table | quepasa
+ marketplace | storage          | table | quepasa
+ marketplace | storage.metadata | table | quepasa
+ marketplace | storage.swaps    | table | quepasa
+(4 rows)
+```
+And, for example, the table "storage" here has the following columns:
+```
+tezos=# \d "marketplace"."storage"
+                                           Table "marketplace.storage"
+    Column     |          Type          | Collation | Nullable |                     Default                     
+---------------+------------------------+-----------+----------+-------------------------------------------------
+ tx_context_id | bigint                 |           | not null | 
+ id            | bigint                 |           | not null | nextval('marketplace.storage_id_seq'::regclass)
+ counter       | numeric                |           |          | 
+ fee           | numeric                |           |          | 
+ manager       | character varying(127) |           |          | 
+ objkt         | character varying(127) |           |          | 
+```
 
 Currently the indexer works with PostgreSQL (we have been running with PostgreSQL 12 and 13).
 
