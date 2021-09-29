@@ -873,6 +873,10 @@ fn test_block() {
             id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
             levels: vec![1678750],
         },
+        Contract {
+            id: "KT1HkMueXCVsBWKj9y7PQmM6QDeUrfZnGPDa",
+            levels: vec![1621538],
+        },
     ];
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {

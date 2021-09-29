@@ -62,7 +62,6 @@ impl Value {
                 xs.extend(rest_unpaired);
                 Ok(Value::List(xs))
             }
-            Value::None => Ok(Value::List(vec![])),
             Value::List(_xs) => Ok(self.clone()),
             _ => Err(anyhow!("bad paired List value (neither pairs nor list)")),
         }
@@ -99,7 +98,6 @@ impl Value {
 }
 
 pub(crate) fn parse_json(storage_json: &JsonValue) -> Result<Value> {
-    println!("storage_json: {:#?}", storage_json);
     let lexed = lex(storage_json);
     parse_lexed(&lexed)
         .with_context(|| "failed to parse storage json into Value")
