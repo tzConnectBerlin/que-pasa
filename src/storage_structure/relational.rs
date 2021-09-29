@@ -72,6 +72,15 @@ impl Context {
         c.table_name = format!("{}.{}", self.table_name, name);
         c
     }
+
+    pub(crate) fn table_leaf_name(&self) -> String {
+        self.table_name
+            .rfind('.')
+            .map(|pos| {
+                self.table_name[pos + 1..self.table_name.len()].to_string()
+            })
+            .unwrap_or(self.table_name.clone())
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -272,7 +281,7 @@ impl ASTBuilder {
                         None => "noname".to_string(),
                     };
                     Ok(self
-                        .build_enumeration_or(ctx, ele, &name)?
+                        .build_enumeration_or(ctx, ele, &name, false)?
                         .0)
                 }
             },
@@ -293,16 +302,25 @@ impl ASTBuilder {
         ctx: &Context,
         ele: &Ele,
         column_name: &str,
+        is_index: bool,
     ) -> Result<(RelationalAST, String)> {
         match &ele.expr_type {
             ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
                 left_type,
                 right_type,
             )) => {
-                let (left_ast, left_table) =
-                    self.build_enumeration_or(ctx, left_type, column_name)?;
-                let (right_ast, right_table) =
-                    self.build_enumeration_or(ctx, right_type, column_name)?;
+                let (left_ast, left_table) = self.build_enumeration_or(
+                    ctx,
+                    left_type,
+                    column_name,
+                    false,
+                )?;
+                let (right_ast, right_table) = self.build_enumeration_or(
+                    ctx,
+                    right_type,
+                    column_name,
+                    false,
+                )?;
                 let rel_entry = RelationalEntry {
                     table_name: ctx.table_name.clone(),
                     column_name: self.column_name(
@@ -310,8 +328,9 @@ impl ASTBuilder {
                         &ele_set_annot(ele, Some(column_name.to_string())),
                         false,
                     ),
-                    column_type: ele.expr_type.clone(),
-                    is_index: false,
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    //column_type: ele.expr_type.clone(),
+                    is_index,
                     value: None,
                 };
                 Ok((
@@ -336,15 +355,35 @@ impl ASTBuilder {
                         ),
                         column_type: ele.expr_type.clone(),
                         value: ele.name.clone(),
-                        is_index: false,
+                        is_index,
                     },
                 },
                 ctx.table_name.clone(),
             )),
             _ => {
-                let ctx = self.start_table(ctx, ele);
+                let name = match &ele.name {
+                    Some(x) => x.clone(),
+                    None => {
+                        let name_from_type =
+                            get_column_name(&ele.expr_type).to_string();
+                        if name_from_type != "" {
+                            name_from_type
+                        } else {
+                            "noname".to_string()
+                        }
+                    }
+                };
+
+                let ctx =
+                    self.start_table(ctx, &ele_set_annot(ele, Some(name)));
+                let ele =
+                    &ele_set_annot(ele, Some(ctx.table_leaf_name().clone()));
                 Ok((
-                    self.build_relational_ast(&ctx, ele)?,
+                    if is_index {
+                        self.build_index(&ctx, ele)?
+                    } else {
+                        self.build_relational_ast(&ctx, ele)?
+                    },
                     ctx.table_name.clone(),
                 ))
             }
@@ -367,7 +406,19 @@ impl ASTBuilder {
                         right_ast: Box::new(right),
                     })
                 }
-                _ => Err(anyhow!("unexpected input type to index")),
+                ComplexExprTy::OrEnumeration { .. } => {
+                    let name = match &ele.name {
+                        Some(s) => s.clone(),
+                        None => "noname".to_string(),
+                    };
+                    Ok(self
+                        .build_enumeration_or(ctx, ele, &name, true)?
+                        .0)
+                }
+                _ => Err(anyhow!(
+                    "unexpected input type to index: ele={:#?}",
+                    ele
+                )),
             },
             ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {

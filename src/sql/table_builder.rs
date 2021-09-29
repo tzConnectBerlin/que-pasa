@@ -162,6 +162,11 @@ impl TableBuilder {
                 right_ast,
             } => {
                 self.add_column(false, or_unfold);
+                if or_unfold.is_index {
+                    let mut t = self.get_table(&or_unfold.table_name);
+                    t.no_uniqueness();
+                    self.store_table(t);
+                }
 
                 self.touch_table(left_table);
                 self.touch_table(right_table);
