@@ -368,13 +368,13 @@ impl Executor {
                         bcd_url.clone(),
                         network.clone(),
                         contract_id.address.clone(),
-                        &exclude_levels,
                     );
 
+                    let excl = exclude_levels.clone();
                     let processed_levels = self
                         .exec_parallel(num_getters, move |height_chan| {
                             bcd_cli
-                                .populate_levels_chan(height_chan)
+                                .populate_levels_chan(height_chan, &excl)
                                 .unwrap()
                         })
                         .unwrap();

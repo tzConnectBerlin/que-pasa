@@ -10,42 +10,41 @@ pub struct BCDClient {
     network: String,
     timeout: Duration,
     contract_id: String,
-    exclude_levels: HashMap<u32, ()>,
 }
 
 impl BCDClient {
-    pub fn new(
-        api_url: String,
-        network: String,
-        contract_id: String,
-        exclude_levels: &[u32],
-    ) -> Self {
-        let mut excl: HashMap<u32, ()> = HashMap::new();
-        for l in exclude_levels {
-            excl.insert(*l, ());
-        }
+    pub fn new(api_url: String, network: String, contract_id: String) -> Self {
         Self {
             api_url,
             network,
             timeout: Duration::from_secs(20),
             contract_id,
-            exclude_levels: excl,
         }
     }
 
     pub fn populate_levels_chan(
         &self,
         height_send: flume::Sender<u32>,
+        exclude_levels: &[u32],
     ) -> Result<()> {
-        let mut last_id = None;
-        let latest_level = self.get_latest_level()?;
-        if !self
-            .exclude_levels
-            .contains_key(&latest_level)
-        {
-            height_send.send(latest_level)?;
+        let mut exclude: HashMap<u32, ()> = HashMap::new();
+        for l in exclude_levels {
+            exclude.insert(*l, ());
         }
 
+        let mut send_level = |l: u32| -> Result<()> {
+            if exclude.contains_key(&l) {
+                return Ok(());
+            }
+            height_send.send(l)?;
+            exclude.insert(l, ());
+            Ok(())
+        };
+
+        let latest_level = self.get_latest_level()?;
+        send_level(latest_level)?;
+
+        let mut last_id = None;
         loop {
             let (levels, new_last_id) = self.get_levels_page_with_contract(
                 self.contract_id.to_string(),
@@ -57,10 +56,7 @@ impl BCDClient {
             last_id = Some(new_last_id);
 
             for level in levels {
-                if self.exclude_levels.contains_key(&level) {
-                    continue;
-                }
-                height_send.send(level)?;
+                send_level(level)?;
             }
         }
         Ok(())
@@ -133,7 +129,7 @@ impl BCDClient {
         }
         let op = || -> Result<String> {
             let uri = format!("{}/{}", self.api_url, endpoint);
-            info!("GET {}..", uri);
+            debug!("GET {}..", uri);
 
             let cli = reqwest::blocking::Client::new();
             let body = cli
