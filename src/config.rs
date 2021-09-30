@@ -29,7 +29,7 @@ pub struct ContractID {
 }
 
 lazy_static! {
-    pub static ref CONFIG: Config = init_config().unwrap();
+    pub static ref CONFIG: Result<Config> = init_config();
 }
 
 // init config and return it also.

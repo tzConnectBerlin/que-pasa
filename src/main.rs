@@ -64,19 +64,21 @@ fn main() {
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
+    let config = CONFIG.as_ref().unwrap();
+
     let node_cli =
-        &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
+        &node::NodeClient::new(config.node_url.clone(), "main".to_string());
 
     let mut dbcli = DBClient::connect(
-        &CONFIG.database_url,
-        CONFIG.ssl,
-        CONFIG.ca_cert.clone(),
+        &config.database_url,
+        config.ssl,
+        config.ca_cert.clone(),
     )
     .with_context(|| "failed to connect to the db")
     .unwrap();
 
-    let setup_db = CONFIG.reinit || !dbcli.common_tables_exist().unwrap();
-    if CONFIG.reinit {
+    let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
+    if config.reinit {
         println!(
             "Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
             Interrupt within 15 seconds to abort"
@@ -95,15 +97,15 @@ fn main() {
     let mut executor = highlevel::Executor::new(
         node_cli.clone(),
         dbcli,
-        &CONFIG.database_url,
-        CONFIG.ssl,
-        CONFIG.ca_cert.clone(),
+        &config.database_url,
+        config.ssl,
+        config.ca_cert.clone(),
     );
-    let num_getters = CONFIG.workers_cap;
-    if CONFIG.all_contracts {
+    let num_getters = config.workers_cap;
+    if config.all_contracts {
         executor.index_all_contracts();
     } else {
-        for contract_id in &CONFIG.contracts {
+        for contract_id in &config.contracts {
             executor
                 .add_contract(contract_id)
                 .unwrap();
@@ -118,7 +120,7 @@ fn main() {
             assert_contracts_ok(&contracts);
             info!("running for contracts: {:#?}", contracts);
 
-            if CONFIG.recreate_views {
+            if config.recreate_views {
                 executor.recreate_views().unwrap();
             }
 
@@ -136,13 +138,13 @@ fn main() {
                 new_contracts
             );
 
-            if let Some(bcd_url) = &CONFIG.bcd_url {
+            if let Some(bcd_url) = &config.bcd_url {
                 let mut exclude_levels: Vec<u32> = vec![];
                 for contract_id in &new_contracts {
                     info!("Initializing contract {}..", contract_id.name);
                     let bcd_cli = bcd::BCDClient::new(
                         bcd_url.clone(),
-                        CONFIG.network.clone(),
+                        config.network.clone(),
                         contract_id.address.clone(),
                         &exclude_levels,
                     );
@@ -168,9 +170,9 @@ fn main() {
 
                     info!("contract {} initialized.", contract_id.name)
                 }
-            } else if !CONFIG.levels.is_empty() {
+            } else if !config.levels.is_empty() {
                 executor
-                    .exec_levels(num_getters, CONFIG.levels.clone())
+                    .exec_levels(num_getters, config.levels.clone())
                     .unwrap();
             } else {
                 executor
@@ -185,9 +187,9 @@ fn main() {
         }
     }
 
-    if !CONFIG.levels.is_empty() {
+    if !config.levels.is_empty() {
         executor
-            .exec_levels(num_getters, CONFIG.levels.clone())
+            .exec_levels(num_getters, config.levels.clone())
             .unwrap();
         executor.exec_dependents().unwrap();
         return;
