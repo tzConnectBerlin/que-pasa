@@ -3,6 +3,8 @@ use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use thiserror::Error;
@@ -238,6 +240,24 @@ impl Executor {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
 
+        fn wait(first_wait: &mut bool) {
+            if *first_wait {
+                print!("waiting for the next block");
+            } else {
+                print!(".");
+            }
+            *first_wait = false;
+            io::stdout().flush().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+        fn wait_done(first_wait: &mut bool) {
+            if !*first_wait {
+                print!("\n");
+                *first_wait = false;
+                io::stdout().flush().unwrap();
+            }
+        }
+        let mut first_wait = true;
         loop {
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
@@ -258,6 +278,7 @@ impl Executor {
             debug!("db: {} chain: {}", db_head.level, chain_head.level);
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
+                    wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
                         match self.exec_level(level) {
                             Ok(res) => Self::print_status(level, &res),
@@ -276,17 +297,17 @@ impl Executor {
                             }
                         }
                     }
+                    first_wait = true;
                     continue;
                 }
                 Ordering::Less => {
-                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    wait(&mut first_wait);
                     continue;
                 }
                 Ordering::Equal => {
                     // they are equal, so we will just check that the hashes match.
-                    if db_head.hash == chain_head.hash {
-                        // if they match, nothing to do.
-                    } else {
+                    if db_head.hash != chain_head.hash {
+                        wait_done(&mut first_wait);
                         warn!(
                             "Hashes don't match: {:?} (db) <> {:?} (chain)",
                             db_head.hash, chain_head.hash
@@ -295,7 +316,7 @@ impl Executor {
                         DBClient::delete_level(&mut tx, db_head.level)?;
                         tx.commit()?;
                     }
-                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    wait(&mut first_wait);
                 }
             }
         }

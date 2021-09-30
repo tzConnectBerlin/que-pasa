@@ -97,8 +97,22 @@ Interrupt within 15 seconds to abort"
         CONFIG.ssl,
         CONFIG.ca_cert.clone(),
     );
+    let num_getters = CONFIG.workers_cap;
     if CONFIG.all_contracts {
         executor.index_all_contracts();
+        if !CONFIG.levels.is_empty() {
+            executor
+                .exec_levels(num_getters, CONFIG.levels.clone())
+                .unwrap();
+        } else {
+            info!("processing missing levels");
+            executor
+                .exec_missing_levels(num_getters)
+                .unwrap();
+
+            info!("processing blocks at the chain head");
+            executor.exec_continuous().unwrap();
+        }
         return;
     }
 
@@ -115,7 +129,6 @@ Interrupt within 15 seconds to abort"
         return;
     }
 
-    let num_getters = CONFIG.workers_cap;
     if !CONFIG.levels.is_empty() {
         executor
             .add_dependency_contracts()
