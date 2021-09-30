@@ -652,6 +652,34 @@ LIMIT 1",
         end: u32,
     ) -> Result<Vec<u32>> {
         let mut rows: Vec<i32> = vec![];
+        if contracts.is_empty() {
+            let start: i32 = 1400000;
+            for row in self.dbconn.query(
+                format!(
+                    "
+SELECT
+    s.i
+FROM generate_series({},{}) s(i)
+WHERE NOT EXISTS (
+    SELECT
+        1
+    FROM levels
+    WHERE level = s.i
+)
+ORDER BY 1",
+                    start, end
+                )
+                .as_str(),
+                &[],
+            )? {
+                rows.push(row.get(0));
+            }
+        return Ok(rows
+            .iter()
+            .map(|x| *x as u32)
+            .collect::<Vec<u32>>());
+        }
+
         for contract_id in contracts {
             let origination = self.get_origination(contract_id)?;
             let start = origination.unwrap_or(1);

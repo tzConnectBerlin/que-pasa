@@ -320,14 +320,17 @@ impl Executor {
         loop {
             let latest_level = self.node_cli.head()?.level;
 
-            let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
+                let missing_levels: Vec<u32> = if self.all_contracts {
+                self.dbcli.get_missing_levels(
+                    &Vec::new(), latest_level)?
+             } else {self.dbcli.get_missing_levels(
                 self.contracts
                     .keys()
                     .cloned()
                     .collect::<Vec<ContractID>>()
                     .as_slice(),
                 latest_level,
-            )?;
+            )?};
             if missing_levels.is_empty() {
                 return Ok(());
             }
