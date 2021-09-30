@@ -1,10 +1,22 @@
-FROM rust:1.55.0
+FROM rust:1.54 AS builder
 
 WORKDIR /usr/src/que-pasa
-COPY . .
+COPY src src
+COPY sql sql
+COPY *.yaml .
+COPY *.sh .
+COPY Cargo.toml .
 
-RUN cargo install --path .
+RUN cargo build --release
 
-ENV PATH "${PATH}:/usr/local/cargo/bin/"
+# Using buster-slim as runtime image, rather than eg alpine.
+# Reason: alpine requires static linking, which has some cons in rust
+FROM debian:buster-slim
 
-CMD ["que-pasa"]
+WORKDIR /que-pasa
+COPY --from=builder /usr/src/que-pasa/target/release/que-pasa ./
+
+RUN apt update
+RUN apt -y install libssl1.1 libcurl4
+
+ENTRYPOINT ["/que-pasa/que-pasa"]
