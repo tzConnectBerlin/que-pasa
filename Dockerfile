@@ -17,6 +17,6 @@ WORKDIR /que-pasa
 COPY --from=builder /usr/src/que-pasa/target/release/que-pasa ./
 
 RUN apt update
-RUN apt -y install libssl1.1 libcurl4
+RUN apt -y install libssl1.1 libcurl4 dumb-init
 
-ENTRYPOINT ["/que-pasa/que-pasa"]
+ENTRYPOINT ["/usr/bin/dumb-init", "/que-pasa/que-pasa"]
