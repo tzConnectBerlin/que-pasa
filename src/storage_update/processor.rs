@@ -302,7 +302,6 @@ where
             parser::Value::Left(left) => must_match_rel!(
                 rel_ast,
                 RelationalAST::OrEnumeration {
-                    or_unfold,
                     left_table,
                     left_ast,
                     ..
@@ -310,7 +309,7 @@ where
                 {
                     self.resolve_or(
                         &ctx.with_last_table(left_table.clone()),
-                        or_unfold,
+                        parent_entry,
                         left,
                         left_ast,
                     )
@@ -319,7 +318,6 @@ where
             parser::Value::Right(right) => must_match_rel!(
                 rel_ast,
                 RelationalAST::OrEnumeration {
-                    or_unfold,
                     right_table,
                     right_ast,
                     ..
@@ -327,7 +325,7 @@ where
                 {
                     self.resolve_or(
                         &ctx.with_last_table(right_table.clone()),
-                        or_unfold,
+                        parent_entry,
                         right,
                         right_ast,
                     )
@@ -338,10 +336,10 @@ where
                 res.value = ctx.last_table.clone();
                 Ok(res)
             }
-            parser::Value::Unit(val) => {
+            parser::Value::Unit => {
                 must_match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
-                    let mut res = rel_entry.clone();
-                    res.value = val.clone();
+                    let mut res = parent_entry.clone();
+                    res.value = rel_entry.value.clone();
                     Ok(res)
                 })
             }
@@ -505,15 +503,18 @@ where
                 }
             }
             RelationalAST::OrEnumeration { or_unfold, .. } => {
-                let rel_entry = self.resolve_or(ctx, or_unfold, v, rel_ast)?;
-                if let Some(value) = rel_entry.value {
-                    self.sql_add_cell(
-                        ctx,
-                        &rel_entry.table_name,
-                        &rel_entry.column_name,
-                        insert::Value::String(value),
-                        tx_context,
-                    );
+                if let Some(or_unfold) = or_unfold {
+                    let rel_entry =
+                        self.resolve_or(ctx, or_unfold, v, rel_ast)?;
+                    if let Some(value) = rel_entry.value {
+                        self.sql_add_cell(
+                            ctx,
+                            &rel_entry.table_name,
+                            &rel_entry.column_name,
+                            insert::Value::String(value),
+                            tx_context,
+                        );
+                    }
                 }
             }
             RelationalAST::Option { elem_ast } => {
@@ -570,9 +571,13 @@ where
                     RelationalAST::OrEnumeration {
                         left_table,
                         left_ast,
+                        right_table,
                         ..
                     },
                     {
+                        if left_table == right_table {
+                            return Ok(());
+                        }
                         let ctx = &self.update_context(
                             ctx,
                             Some(left_table.clone()),
@@ -591,9 +596,13 @@ where
                     RelationalAST::OrEnumeration {
                         right_table,
                         right_ast,
+                        left_table,
                         ..
                     },
                     {
+                        if left_table == right_table {
+                            return Ok(());
+                        }
                         let ctx = &self.update_context(
                             ctx,
                             Some(right_table.clone()),
@@ -683,7 +692,7 @@ where
                     Ok(())
                 }
             )),
-            parser::Value::Unit(None) => {
+            parser::Value::Unit => {
                 must_match_rel!(rel_ast, RelationalAST::Leaf { rel_entry }, {
                     self.sql_add_cell(
                         ctx,
@@ -789,10 +798,7 @@ where
                 }
             }
             SimpleExprTy::Unit => match v {
-                parser::Value::Unit(None) => Ok(insert::Value::Null),
-                parser::Value::Unit(Some(u)) => {
-                    Ok(insert::Value::String(u.clone()))
-                }
+                parser::Value::Unit => Ok(insert::Value::Null),
                 _ => Err(anyhow!(
                     "storage2sql_value: failed to match type with value"
                 )),

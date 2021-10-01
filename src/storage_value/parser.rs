@@ -27,7 +27,7 @@ pub enum Value {
     Right(Box<Value>),
     String(String),
     Timestamp(DateTime<Utc>),
-    Unit(Option<String>),
+    Unit,
 }
 
 impl Value {
@@ -216,7 +216,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
                 }
             }
             "TRUE" => return Ok(Value::Bool(true)),
-            "UNIT" => return Ok(Value::Unit(None)),
+            "UNIT" => return Ok(Value::Unit),
 
             _ => {
                 debug!("Ignoring unknown prim {}", json["prim"]);
@@ -245,7 +245,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
             "nat" => Ok(Value::Nat(bigint(&s)?)),
             "string" => Ok(Value::String(s)),
             //"timestamp" => Ok(Value::Timestamp(s)),
-            "unit" => Ok(Value::Unit(None)),
+            "unit" => Ok(Value::Unit),
             "prim" => Ok(prim(&s)),
             _ => {
                 panic!(

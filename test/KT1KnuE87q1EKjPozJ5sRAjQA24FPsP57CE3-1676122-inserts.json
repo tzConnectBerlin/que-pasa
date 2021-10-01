@@ -72,7 +72,7 @@
                 value: Numeric(Some("50")),
             ),
             (
-                name: "flat_tokenType_1",
+                name: "flat_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -110,7 +110,7 @@
                 value: Numeric(Some("100")),
             ),
             (
-                name: "flat_tokenType_1",
+                name: "flat_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -148,7 +148,7 @@
                 value: Numeric(Some("150")),
             ),
             (
-                name: "flat_tokenType_1",
+                name: "flat_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -382,7 +382,7 @@
                 value: Numeric(Some("300000000000")),
             ),
             (
-                name: "rewardToken_tokenType_1",
+                name: "rewardToken_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -398,7 +398,7 @@
                 value: Numeric(Some("1621375625")),
             ),
             (
-                name: "poolToken_tokenType_1",
+                name: "poolToken_tokenType",
                 value: String("fa2"),
             ),
             (

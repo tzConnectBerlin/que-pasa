@@ -161,18 +161,22 @@ impl TableBuilder {
                 right_table,
                 right_ast,
             } => {
-                self.add_column(false, or_unfold);
-                if or_unfold.is_index {
-                    let mut t = self.get_table(&or_unfold.table_name);
-                    t.no_uniqueness();
-                    self.store_table(t);
+                if let Some(or_unfold) = or_unfold {
+                    self.add_column(false, or_unfold);
+                    if or_unfold.is_index {
+                        let mut t = self.get_table(&or_unfold.table_name);
+                        t.no_uniqueness();
+                        self.store_table(t);
+                    }
                 }
 
-                self.touch_table(left_table);
-                self.touch_table(right_table);
+                if left_table != right_table {
+                    self.touch_table(left_table);
+                    self.touch_table(right_table);
 
-                self.populate(left_ast);
-                self.populate(right_ast);
+                    self.populate(left_ast);
+                    self.populate(right_ast);
+                }
             }
             RelationalAST::Leaf { rel_entry } => {
                 self.add_column(false, rel_entry)

@@ -78,7 +78,7 @@
                 value: Timestamp(Some("2021-03-31T09:02:00Z")),
             ),
             (
-                name: "state_3",
+                name: "state",
                 value: String("questionMarketClosed"),
             ),
             (

@@ -93,7 +93,7 @@ pub enum RelationalAST {
         right_ast: Box<RelationalAST>,
     },
     OrEnumeration {
-        or_unfold: RelationalEntry,
+        or_unfold: Option<RelationalEntry>,
         left_table: String,
         left_ast: Box<RelationalAST>,
         right_table: String,
@@ -304,38 +304,59 @@ impl ASTBuilder {
         column_name: &str,
         is_index: bool,
     ) -> Result<(RelationalAST, String)> {
+        let rel_entry = RelationalEntry {
+            table_name: ctx.table_name.clone(),
+            column_name: self.column_name(
+                ctx,
+                &ele_set_annot(ele, Some(column_name.to_string())),
+                false,
+            ),
+            column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+            is_index,
+            value: None,
+        };
+
+        self.build_enumeration_or_internal(
+            ctx,
+            ele,
+            column_name,
+            is_index,
+            Some(rel_entry),
+        )
+    }
+
+    fn build_enumeration_or_internal(
+        &mut self,
+        ctx: &Context,
+        ele: &Ele,
+        column_name: &str,
+        is_index: bool,
+        or_unfold: Option<RelationalEntry>,
+    ) -> Result<(RelationalAST, String)> {
         match &ele.expr_type {
             ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
                 left_type,
                 right_type,
             )) => {
-                let (left_ast, left_table) = self.build_enumeration_or(
-                    ctx,
-                    left_type,
-                    column_name,
-                    false,
-                )?;
-                let (right_ast, right_table) = self.build_enumeration_or(
-                    ctx,
-                    right_type,
-                    column_name,
-                    false,
-                )?;
-                let rel_entry = RelationalEntry {
-                    table_name: ctx.table_name.clone(),
-                    column_name: self.column_name(
+                let (left_ast, left_table) = self
+                    .build_enumeration_or_internal(
                         ctx,
-                        &ele_set_annot(ele, Some(column_name.to_string())),
+                        left_type,
+                        column_name,
                         false,
-                    ),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
-                    //column_type: ele.expr_type.clone(),
-                    is_index,
-                    value: None,
-                };
+                        None,
+                    )?;
+                let (right_ast, right_table) = self
+                    .build_enumeration_or_internal(
+                        ctx,
+                        right_type,
+                        column_name,
+                        false,
+                        None,
+                    )?;
                 Ok((
                     RelationalAST::OrEnumeration {
-                        or_unfold: rel_entry,
+                        or_unfold,
                         left_table,
                         left_ast: Box::new(left_ast),
                         right_table,

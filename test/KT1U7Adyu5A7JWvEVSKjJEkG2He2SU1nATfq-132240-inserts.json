@@ -152,7 +152,7 @@
                 value: Timestamp(Some("2021-03-31T08:30:00Z")),
             ),
             (
-                name: "state_1",
+                name: "state",
                 value: String("questionAuctionWithdrawOpen"),
             ),
             (
