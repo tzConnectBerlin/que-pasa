@@ -498,6 +498,15 @@ fn test_relational_ast_builder() {
             name: n,
         }
     }
+    fn pair(n: Option<String>, l: Ele, r: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Pair(
+                Box::new(l),
+                Box::new(r),
+            )),
+            name: n,
+        }
+    }
 
     struct TestCase {
         name: String,
@@ -546,7 +555,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "OrEnumeration containing Units stays in parent table".to_string(),
-            ele: or(None, simple(None, SimpleExprTy::Unit), simple(None, SimpleExprTy::Unit)),
+            ele: or(None, simple(Some("disabled".to_string()), SimpleExprTy::Unit), simple(None, SimpleExprTy::Unit)),
             exp: Some(RelationalAST::OrEnumeration {
                 or_unfold: Some(RelationalEntry {
                     table_name: "storage".to_string(),
@@ -560,7 +569,7 @@ fn test_relational_ast_builder() {
                     table_name: "storage".to_string(),
                     column_name: "noname_1".to_string(),
                     column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
-                    value: None,
+                    value: Some("disabled".to_string()),
                     is_index: false,
                 }}),
                 right_table: None,
@@ -574,7 +583,7 @@ fn test_relational_ast_builder() {
             }),
         },
         TestCase {
-            name: "OrEnumeration containing non units creates child tables".to_string(),
+            name: "OrEnumeration containing no units creates child table (tc with only 1 variant non-unit)".to_string(),
             ele: or(None, simple(None, SimpleExprTy::Unit), simple(None, SimpleExprTy::Nat)),
             exp: Some(RelationalAST::OrEnumeration {
                 or_unfold: Some(RelationalEntry {
@@ -598,6 +607,71 @@ fn test_relational_ast_builder() {
                     column_name: "nat".to_string(),
                     column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
                     value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "OrEnumeration containing no units creates child tables (tc with both variants non-unit)".to_string(),
+            ele: or(Some("or_annot".to_string()), simple(Some("left_side".to_string()), SimpleExprTy::String), simple(Some("annot_defined".to_string()), SimpleExprTy::Mutez)),
+            exp: Some(RelationalAST::OrEnumeration {
+                or_unfold: Some(RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "or_annot".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }),
+                left_table: Some("storage.left_side".to_string()),
+                left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.left_side".to_string(),
+                    column_name: "left_side".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }}),
+                right_table: Some("storage.annot_defined".to_string()),
+                right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.annot_defined".to_string(),
+                    column_name: "annot_defined".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "OrEnumeration containing a pair creates child table with multi columns".to_string(),
+            ele: or(Some("or_annot".to_string()), pair(Some("left_side".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat)), simple(Some("annot_defined".to_string()), SimpleExprTy::Unit)),
+            exp: Some(RelationalAST::OrEnumeration {
+                or_unfold: Some(RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "or_annot".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }),
+                left_table: Some("storage.left_side".to_string()),
+                left_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.left_side".to_string(),
+                    column_name: "left_side_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.left_side".to_string(),
+                    column_name: "left_side_var_b".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }})}),
+                right_table: None,
+                right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "or_annot_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    value: Some("annot_defined".to_string()),
                     is_index: false,
                 }}),
             }),
