@@ -170,11 +170,12 @@ impl TableBuilder {
                     }
                 }
 
-                if left_table != right_table {
+                if let Some(left_table) = left_table {
                     self.touch_table(left_table);
-                    self.touch_table(right_table);
-
                     self.populate(left_ast);
+                }
+                if let Some(right_table) = right_table {
+                    self.touch_table(right_table);
                     self.populate(right_ast);
                 }
             }

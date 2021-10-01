@@ -34,15 +34,15 @@ macro_rules! must_match_rel {
 
 #[derive(Clone, Debug)]
 pub struct ProcessStorageContext {
-    pub last_table: Option<String>,
+    pub last_table: String,
     pub id: i64,
     pub fk_id: Option<i64>,
 }
 impl ProcessStorageContext {
-    pub fn new(id: i64) -> ProcessStorageContext {
+    pub fn new(id: i64, root_table: String) -> ProcessStorageContext {
         ProcessStorageContext {
             id,
-            last_table: None,
+            last_table: root_table,
             fk_id: None,
         }
     }
@@ -58,7 +58,7 @@ impl ProcessStorageContext {
     }
     pub fn with_last_table(&self, last_table: String) -> Self {
         let mut c = self.clone();
-        c.last_table = Some(last_table);
+        c.last_table = last_table;
         c
     }
 }
@@ -288,7 +288,7 @@ where
 
     fn resolve_or(
         &self,
-        ctx: &ProcessStorageContext,
+        parent_table: &str,
         parent_entry: &RelationalEntry,
         v: &parser::Value,
         rel_ast: &RelationalAST,
@@ -308,7 +308,10 @@ where
                 },
                 {
                     self.resolve_or(
-                        &ctx.with_last_table(left_table.clone()),
+                        left_table
+                            .as_ref()
+                            .map(|t| t.as_str())
+                            .unwrap_or(parent_table),
                         parent_entry,
                         left,
                         left_ast,
@@ -324,7 +327,10 @@ where
                 },
                 {
                     self.resolve_or(
-                        &ctx.with_last_table(right_table.clone()),
+                        right_table
+                            .as_ref()
+                            .map(|t| t.as_str())
+                            .unwrap_or(parent_table),
                         parent_entry,
                         right,
                         right_ast,
@@ -333,7 +339,7 @@ where
             ),
             parser::Value::Pair { .. } | parser::Value::List { .. } => {
                 let mut res = parent_entry.clone();
-                res.value = ctx.last_table.clone();
+                res.value = Some(parent_table.to_string());
                 Ok(res)
             }
             parser::Value::Unit => {
@@ -390,8 +396,8 @@ where
 
                         let ctx = &ProcessStorageContext::new(
                             self.id_generator.get_id(),
-                        )
-                        .with_last_table(table.clone());
+                            table.clone(),
+                        );
                         self.process_storage_value_internal(
                             ctx,
                             &parser::parse_lexed(&serde2json!(&key))?,
@@ -425,8 +431,10 @@ where
                 )
             }
             bigmap::Op::Clear { bigmap } => {
-                let ctx =
-                    &ProcessStorageContext::new(self.id_generator.get_id());
+                let ctx = &ProcessStorageContext::new(
+                    self.id_generator.get_id(),
+                    "bigmap_clears".to_string(),
+                );
                 self.sql_add_cell(
                     ctx,
                     &"bigmap_clears".to_string(),
@@ -448,13 +456,11 @@ where
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        let ctx = &ProcessStorageContext::new(self.id_generator.get_id());
-        self.process_storage_value_internal(
-            &ctx.with_last_table("storage".to_string()),
-            value,
-            rel_ast,
-            tx_context,
-        )?;
+        let ctx = &ProcessStorageContext::new(
+            self.id_generator.get_id(),
+            "storage".to_string(),
+        );
+        self.process_storage_value_internal(&ctx, value, rel_ast, tx_context)?;
         Ok(())
     }
 
@@ -465,10 +471,12 @@ where
         tx_context: &TxContext,
     ) -> ProcessStorageContext {
         if let Some(table_name) = current_table {
-            if ctx.last_table != Some(table_name.clone()) {
-                if let Some(last_table) = &ctx.last_table {
-                    self.sql_touch_insert(&ctx.clone(), last_table, tx_context);
-                }
+            if ctx.last_table != table_name.clone() {
+                self.sql_touch_insert(
+                    &ctx.clone(),
+                    &ctx.last_table,
+                    tx_context,
+                );
 
                 return ctx
                     .with_last_table(table_name)
@@ -504,8 +512,12 @@ where
             }
             RelationalAST::OrEnumeration { or_unfold, .. } => {
                 if let Some(or_unfold) = or_unfold {
-                    let rel_entry =
-                        self.resolve_or(ctx, or_unfold, v, rel_ast)?;
+                    let rel_entry = self.resolve_or(
+                        &ctx.last_table,
+                        or_unfold,
+                        v,
+                        rel_ast,
+                    )?;
                     if let Some(value) = rel_entry.value {
                         self.sql_add_cell(
                             ctx,
@@ -571,16 +583,15 @@ where
                     RelationalAST::OrEnumeration {
                         left_table,
                         left_ast,
-                        right_table,
                         ..
                     },
                     {
-                        if left_table == right_table {
+                        if left_table.is_none() {
                             return Ok(());
                         }
                         let ctx = &self.update_context(
                             ctx,
-                            Some(left_table.clone()),
+                            left_table.clone(),
                             tx_context,
                         );
                         self.process_storage_value_internal(
@@ -596,16 +607,15 @@ where
                     RelationalAST::OrEnumeration {
                         right_table,
                         right_ast,
-                        left_table,
                         ..
                     },
                     {
-                        if left_table == right_table {
+                        if right_table.is_none() {
                             return Ok(());
                         }
                         let ctx = &self.update_context(
                             ctx,
-                            Some(right_table.clone()),
+                            right_table.clone(),
                             tx_context,
                         );
                         self.process_storage_value_internal(

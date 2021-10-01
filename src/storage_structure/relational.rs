@@ -4,6 +4,9 @@ use crate::storage_structure::typing::{
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
+#[cfg(test)]
+use pretty_assertions::assert_eq;
+
 pub type Indexes = HashMap<String, u32>;
 
 fn get_column_name(expr: &ExprTy) -> &str {
@@ -94,9 +97,9 @@ pub enum RelationalAST {
     },
     OrEnumeration {
         or_unfold: Option<RelationalEntry>,
-        left_table: String,
+        left_table: Option<String>,
         left_ast: Box<RelationalAST>,
-        right_table: String,
+        right_table: Option<String>,
         right_ast: Box<RelationalAST>,
     },
     Map {
@@ -357,9 +360,17 @@ impl ASTBuilder {
                 Ok((
                     RelationalAST::OrEnumeration {
                         or_unfold,
-                        left_table,
+                        left_table: if left_table != ctx.table_name {
+                            Some(left_table)
+                        } else {
+                            None
+                        },
                         left_ast: Box::new(left_ast),
-                        right_table,
+                        right_table: if right_table != ctx.table_name {
+                            Some(right_table)
+                        } else {
+                            None
+                        },
                         right_ast: Box::new(right_ast),
                     },
                     ctx.table_name.clone(),
@@ -468,4 +479,140 @@ fn ele_set_annot(ele: &Ele, annot: Option<String>) -> Ele {
     let mut e = ele.clone();
     e.name = annot;
     e
+}
+
+#[test]
+fn test_relational_ast_builder() {
+    fn simple(n: Option<String>, t: SimpleExprTy) -> Ele {
+        Ele {
+            expr_type: ExprTy::SimpleExprTy(t),
+            name: n,
+        }
+    }
+    fn or(n: Option<String>, l: Ele, r: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
+                Box::new(l),
+                Box::new(r),
+            )),
+            name: n,
+        }
+    }
+
+    struct TestCase {
+        name: String,
+        ele: Ele,
+        exp: Option<RelationalAST>,
+    }
+    let tests: Vec<TestCase> = vec![
+        TestCase {
+            name: "simple type with name".to_string(),
+            ele: simple(Some("contract_owner".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "contract_owner".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "simple type without name (resulting column name is generated based on type: string)".to_string(),
+            ele: simple(None, SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "string".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "simple type without name (resulting column name is generated based on type: mutez)".to_string(),
+            ele: simple(None, SimpleExprTy::Mutez),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "mutez".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "OrEnumeration containing Units stays in parent table".to_string(),
+            ele: or(None, simple(None, SimpleExprTy::Unit), simple(None, SimpleExprTy::Unit)),
+            exp: Some(RelationalAST::OrEnumeration {
+                or_unfold: Some(RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "noname".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }),
+                left_table: None,
+                left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "noname_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    value: None,
+                    is_index: false,
+                }}),
+                right_table: None,
+                right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "noname_2".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "OrEnumeration containing non units creates child tables".to_string(),
+            ele: or(None, simple(None, SimpleExprTy::Unit), simple(None, SimpleExprTy::Nat)),
+            exp: Some(RelationalAST::OrEnumeration {
+                or_unfold: Some(RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "noname".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }),
+                left_table: None,
+                left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "noname_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    value: None,
+                    is_index: false,
+                }}),
+                right_table: Some("storage.nat".to_string()),
+                right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.nat".to_string(),
+                    column_name: "nat".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+    ];
+
+    for tc in tests {
+        println!("test case: {}", tc.name);
+
+        let got =
+            ASTBuilder::new().build_relational_ast(&Context::init(), &tc.ele);
+        if tc.exp.is_none() {
+            assert!(got.is_err());
+            continue;
+        }
+        assert_eq!(tc.exp.unwrap(), got.unwrap());
+    }
 }
