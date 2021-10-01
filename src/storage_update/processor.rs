@@ -489,7 +489,7 @@ where
         tx_context: &TxContext,
     ) -> Result<()> {
         let v = &self.unfold_value(value, rel_ast)?;
-        println!(
+        debug!(
             "value: {}, v: {}, rel_ast: {}",
             debug::pp_depth(3, value),
             debug::pp_depth(3, v),

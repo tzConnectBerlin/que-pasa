@@ -290,7 +290,6 @@ fn bigint(source: &str) -> Result<BigInt> {
 }
 
 pub(crate) fn parse_date(value: &Value) -> Result<insert::Value> {
-    println!("parsing {:?}", value);
     match value {
         Value::Int(s) => {
             let ts: i64 = s
