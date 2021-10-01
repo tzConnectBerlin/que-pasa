@@ -489,7 +489,7 @@ where
         tx_context: &TxContext,
     ) -> Result<()> {
         let v = &self.unfold_value(value, rel_ast)?;
-        debug!(
+        println!(
             "value: {}, v: {}, rel_ast: {}",
             debug::pp_depth(3, value),
             debug::pp_depth(3, v),
@@ -762,9 +762,7 @@ where
                     "storage2sql_value: failed to match type with value"
                 )),
             },
-            SimpleExprTy::Timestamp => {
-                Ok(insert::Value::Timestamp(parser::parse_date(v)?))
-            }
+            SimpleExprTy::Timestamp => Ok(parser::parse_date(v)?),
             SimpleExprTy::Address => {
                 match v {
                     parser::Value::Bytes(bs) =>

@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Context, Result};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use json;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
 use std::str::from_utf8;
 use std::str::FromStr;
+
+use crate::sql::insert;
 
 #[derive(
     Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
@@ -287,17 +289,26 @@ fn bigint(source: &str) -> Result<BigInt> {
     Ok(BigInt::from_str(source)?)
 }
 
-pub(crate) fn parse_date(value: &Value) -> Result<DateTime<Utc>> {
+pub(crate) fn parse_date(value: &Value) -> Result<insert::Value> {
+    println!("parsing {:?}", value);
     match value {
         Value::Int(s) => {
             let ts: i64 = s
                 .to_i64()
                 .ok_or_else(|| anyhow!("Num conversion failed"))?;
-            Ok(Utc.timestamp(ts, 0))
+            match Utc.timestamp_opt(ts, 0) {
+                LocalResult::Single(t) => Ok(insert::Value::Timestamp(Some(t))),
+                LocalResult::None => Ok(insert::Value::Timestamp(None)),
+                LocalResult::Ambiguous(_, _) => {
+                    Err(anyhow!("Can't parse {:?}", value))
+                }
+            }
         }
         Value::String(s) => {
             let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
-            Ok(fixedoffset.with_timezone(&Utc))
+            Ok(insert::Value::Timestamp(Some(
+                fixedoffset.with_timezone(&Utc),
+            )))
         }
         _ => Err(anyhow!("Can't parse {:?}", value)),
     }

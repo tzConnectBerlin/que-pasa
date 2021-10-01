@@ -43,7 +43,7 @@
             ),
             (
                 name: "solver_timestamp",
-                value: Timestamp("2021-03-08T17:13:24Z"),
+                value: Timestamp(Some("2021-03-08T17:13:24Z")),
             ),
             (
                 name: "solver_address",

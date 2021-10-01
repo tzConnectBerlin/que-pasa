@@ -313,7 +313,7 @@
             ),
             (
                 name: "lockEndTime",
-                value: Timestamp("2021-08-16T00:49:40Z"),
+                value: Timestamp(Some("2021-08-16T00:49:40Z")),
             ),
             (
                 name: "rewardDebt",
@@ -355,11 +355,11 @@
             ),
             (
                 name: "endTime",
-                value: Timestamp("2022-08-31T16:00:00Z"),
+                value: Timestamp(Some("2022-08-31T16:00:00Z")),
             ),
             (
                 name: "startTime",
-                value: Timestamp("2021-08-16T16:00:00Z"),
+                value: Timestamp(Some("2021-08-16T16:00:00Z")),
             ),
             (
                 name: "rewardPerSec",
@@ -371,7 +371,7 @@
             ),
             (
                 name: "lastRewardTime",
-                value: Timestamp("2021-09-08T12:08:44Z"),
+                value: Timestamp(Some("2021-09-08T12:08:44Z")),
             ),
             (
                 name: "rewardPaid",

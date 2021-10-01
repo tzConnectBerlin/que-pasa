@@ -39,7 +39,7 @@
             ),
             (
                 name: "datetime",
-                value: Timestamp("2021-08-19T14:55:31Z"),
+                value: Timestamp(Some("2021-08-19T14:55:31Z")),
             ),
             (
                 name: "completed",

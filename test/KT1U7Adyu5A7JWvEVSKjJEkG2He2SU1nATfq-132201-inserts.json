@@ -145,11 +145,11 @@
             ),
             (
                 name: "market_close",
-                value: Timestamp("2021-03-31T09:00:00Z"),
+                value: Timestamp(Some("2021-03-31T09:00:00Z")),
             ),
             (
                 name: "auction_end",
-                value: Timestamp("2021-03-31T08:25:00Z"),
+                value: Timestamp(Some("2021-03-31T08:25:00Z")),
             ),
             (
                 name: "state",
