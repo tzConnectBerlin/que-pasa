@@ -211,11 +211,14 @@ impl ASTBuilder {
             }
         }
         self.column_names
-            .insert((table, name.clone()), c);
+            .insert((table.clone(), name.clone()), c);
         if c == 0 {
             name
         } else {
-            format!("{}_{}", name, c)
+            let postfixed = format!("{}_{}", name, c);
+            self.column_names
+                .insert((table, postfixed.clone()), 0);
+            postfixed
         }
     }
 
@@ -507,6 +510,50 @@ fn test_relational_ast_builder() {
             name: n,
         }
     }
+    fn set(n: Option<String>, elems: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
+                true,
+                Box::new(elems),
+            )),
+            name: n,
+        }
+    }
+    fn list(n: Option<String>, elems: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
+                false,
+                Box::new(elems),
+            )),
+            name: n,
+        }
+    }
+    fn map(n: Option<String>, key: Ele, value: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Map(
+                Box::new(key),
+                Box::new(value),
+            )),
+            name: n,
+        }
+    }
+    fn bigmap(n: Option<String>, key: Ele, value: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::BigMap(
+                Box::new(key),
+                Box::new(value),
+            )),
+            name: n,
+        }
+    }
+    fn option(n: Option<String>, elem: Ele) -> Ele {
+        Ele {
+            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Option(Box::new(
+                elem,
+            ))),
+            name: n,
+        }
+    }
 
     struct TestCase {
         name: String,
@@ -674,6 +721,344 @@ fn test_relational_ast_builder() {
                     value: Some("annot_defined".to_string()),
                     is_index: false,
                 }}),
+            }),
+        },
+        TestCase {
+            name: "set (no annot)".to_string(),
+            ele: set(None, pair(Some("left_side".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat))),
+            exp: Some(RelationalAST::List {
+                table: "storage.noname".to_string(),
+                elems_unique: true,
+                elems_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.noname".to_string(),
+                    column_name: "idx_left_side_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.noname".to_string(),
+                    column_name: "idx_left_side_var_b".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: true,
+                }})}),
+            }),
+        },
+        TestCase {
+            name: "set (with annot)".to_string(),
+            ele: set(Some("denylist".to_string()), pair(Some("deny".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat))),
+            exp: Some(RelationalAST::List {
+                table: "storage.denylist".to_string(),
+                elems_unique: true,
+                elems_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.denylist".to_string(),
+                    column_name: "idx_deny_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.denylist".to_string(),
+                    column_name: "idx_deny_var_b".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: true,
+                }})}),
+            }),
+        },
+        TestCase {
+            name: "list (no annot, only difference with set is its elems are not unique)".to_string(),
+            ele: list(None, pair(Some("deny".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat))),
+            exp: Some(RelationalAST::List {
+                table: "storage.noname".to_string(),
+                elems_unique: false,
+                elems_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.noname".to_string(),
+                    column_name: "deny_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.noname".to_string(),
+                    column_name: "deny_var_b".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }})}),
+            }),
+        },
+        TestCase {
+            name: "map (no annot)".to_string(),
+            ele: map(None, simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat)),
+            exp: Some(RelationalAST::Map {
+                table: "storage.noname".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.noname".to_string(),
+                    column_name: "idx_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.noname".to_string(),
+                    column_name: "var_b".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "bigmap (with annot)".to_string(),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat)),
+            exp: Some(RelationalAST::BigMap {
+                table: "storage.ledger".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "idx_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "var_b".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "option (no annot)".to_string(),
+            ele: option(None, simple(Some("var_a".to_string()), SimpleExprTy::String)),
+            exp: Some(RelationalAST::Option {
+                elem_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        // More complex test cases involving multiple complex types, to test
+        // how they interact with each other through global state such as
+        // deduplication of table names and column names
+        TestCase {
+            name: "multiple without annot of same type in same table => uniq column name postfix generated".to_string(),
+            ele: pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez)),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "mutez".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    value: None,
+                    is_index: false,
+                }}),
+                right_ast: Box::new(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "mutez_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "multiple without annot of different type in same table => no postfix generated, because it's not necessary due to different types".to_string(),
+            ele: pair(None, simple(None, SimpleExprTy::Nat), simple(None, SimpleExprTy::Mutez)),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "nat".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+                right_ast: Box::new(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "mutez".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 1) => uniq column name postfix generated".to_string(),
+            ele: pair(None, simple(Some("mutez_1".to_string()), SimpleExprTy::String), pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez))),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                }}),
+                right_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                    right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_2".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                }),
+            }),
+        },
+        TestCase {
+            name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 2) => uniq column name postfix generated".to_string(),
+            ele: pair(None, simple(Some("mutez".to_string()), SimpleExprTy::String), pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez))),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                }}),
+                right_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                    right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_2".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                }),
+            }),
+        },
+        TestCase {
+            name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 3) => uniq column name postfix generated".to_string(),
+            ele: pair(None, pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez)), simple(Some("mutez".to_string()), SimpleExprTy::String)),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                    right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                }),
+                right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_2".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 4) => uniq column name postfix generated".to_string(),
+            ele: pair(None, pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez)), simple(Some("mutez_1".to_string()), SimpleExprTy::String)),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                    right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: false,
+                    }}),
+                }),
+                right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "mutez_1_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "multiple nameless tables => uniq column name postfix generated".to_string(),
+            ele: pair(None, map(None, simple(Some("map_key".to_string()), SimpleExprTy::Mutez), simple(Some("map_value".to_string()), SimpleExprTy::Nat)), bigmap(None, simple(Some("bigmap_key".to_string()), SimpleExprTy::Mutez), simple(Some("bigmap_value".to_string()), SimpleExprTy::Nat))),
+            exp: Some(RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::Map {
+                    table: "storage.noname".to_string(),
+                    key_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.noname".to_string(),
+                            column_name: "idx_map_key".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                            value: None,
+                            is_index: true,
+                    }}),
+                    value_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.noname".to_string(),
+                            column_name: "map_value".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                            value: None,
+                            is_index: false,
+                    }}),
+                }),
+                right_ast: Box::new(RelationalAST::BigMap {
+                    table: "storage.noname_1".to_string(),
+                    key_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.noname_1".to_string(),
+                            column_name: "idx_bigmap_key".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                            value: None,
+                            is_index: true,
+                    }}),
+                    value_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.noname_1".to_string(),
+                            column_name: "bigmap_value".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                            value: None,
+                            is_index: false,
+                    }}),
+                }),
             }),
         },
     ];
