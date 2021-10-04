@@ -971,22 +971,25 @@ fn test_block() {
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {
-            let mut sort_on = tables[&insert.table_name]
-                .indices
-                .clone();
-            sort_on.extend(
-                tables[&insert.table_name]
-                    .columns
-                    .keys()
-                    .filter(|col| {
-                        !tables[&insert.table_name]
-                            .indices
-                            .iter()
-                            .any(|idx| idx == *col)
-                    })
-                    .cloned()
-                    .collect::<Vec<String>>(),
-            );
+            let mut sort_on: Vec<String> = vec![];
+            if tables.contains_key(&insert.table_name) {
+                sort_on = tables[&insert.table_name]
+                    .indices
+                    .clone();
+                sort_on.extend(
+                    tables[&insert.table_name]
+                        .columns
+                        .keys()
+                        .filter(|col| {
+                            !tables[&insert.table_name]
+                                .indices
+                                .iter()
+                                .any(|idx| idx == *col)
+                        })
+                        .cloned()
+                        .collect::<Vec<String>>(),
+                );
+            }
             let mut res: Vec<insert::Value> = sort_on
                 .iter()
                 .map(|idx| {

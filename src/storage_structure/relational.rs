@@ -70,7 +70,7 @@ impl Context {
         c
     }
 
-    pub(crate) fn start_table(&self, name: String) -> Self {
+    pub(crate) fn start_table(&self, name: &str) -> Self {
         let mut c = self.next();
         c.table_name = format!("{}.{}", self.table_name, name);
         c
@@ -161,24 +161,32 @@ impl ASTBuilder {
             None => "noname".to_string(),
         };
 
+        let full_name = ctx.start_table(&name).table_name;
         let mut c = 0;
-        if self.table_names.contains_key(&name) {
-            c = self.table_names[&name] + 1;
+        if self
+            .table_names
+            .contains_key(&full_name)
+        {
+            c = self.table_names[&full_name] + 1;
             while self
                 .table_names
-                .contains_key(&format!("{}_{}", name, c))
+                .contains_key(&format!("{}_{}", full_name, c))
             {
                 c += 1;
             }
         }
-        self.table_names.insert(name.clone(), c);
+        self.table_names
+            .insert(full_name.clone(), c);
+
         let name = if c == 0 {
             name
         } else {
+            self.table_names
+                .insert(format!("{}_{}", full_name, c), c);
             format!("{}_{}", name, c)
         };
 
-        ctx.start_table(name)
+        ctx.start_table(&name)
     }
 
     fn column_name(
@@ -1018,7 +1026,7 @@ fn test_relational_ast_builder() {
             }),
         },
         TestCase {
-            name: "multiple nameless tables => uniq column name postfix generated".to_string(),
+            name: "multiple nameless tables => uniq table name postfix generated".to_string(),
             ele: pair(None, map(None, simple(Some("map_key".to_string()), SimpleExprTy::Mutez), simple(Some("map_value".to_string()), SimpleExprTy::Nat)), bigmap(None, simple(Some("bigmap_key".to_string()), SimpleExprTy::Mutez), simple(Some("bigmap_value".to_string()), SimpleExprTy::Nat))),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Map {
@@ -1061,6 +1069,50 @@ fn test_relational_ast_builder() {
                 }),
             }),
         },
+        TestCase {
+            name: "multiple nameless tables, but they don't clash because they're in different child tables => no postfix added".to_string(),
+            ele: map(Some("ledger".to_string()), simple(Some("map_key".to_string()), SimpleExprTy::Mutez), pair(None, bigmap(Some("ledger".to_string()), simple(Some("bigmap_key".to_string()), SimpleExprTy::Mutez), simple(Some("bigmap_value".to_string()), SimpleExprTy::Nat)), simple(Some("map_value".to_string()), SimpleExprTy::Nat))),
+            exp: Some(RelationalAST::Map {
+                    table: "storage.ledger".to_string(),
+                    key_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.ledger".to_string(),
+                            column_name: "idx_map_key".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                            value: None,
+                            is_index: true,
+                    }}),
+                    value_ast: Box::new(RelationalAST::Pair {
+                        left_ast: Box::new(RelationalAST::BigMap {
+                            table: "storage.ledger.ledger".to_string(),
+                            key_ast: Box::new(RelationalAST::Leaf {
+                                rel_entry: RelationalEntry {
+                                    table_name: "storage.ledger.ledger".to_string(),
+                                    column_name: "idx_bigmap_key".to_string(),
+                                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                                    value: None,
+                                    is_index: true,
+                            }}),
+                            value_ast: Box::new(RelationalAST::Leaf {
+                                rel_entry: RelationalEntry {
+                                    table_name: "storage.ledger.ledger".to_string(),
+                                    column_name: "bigmap_value".to_string(),
+                                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                                    value: None,
+                                    is_index: false,
+                            }}),
+                        }),
+                        right_ast: Box::new(RelationalAST::Leaf {
+                            rel_entry: RelationalEntry {
+                                table_name: "storage.ledger".to_string(),
+                                column_name: "map_value".to_string(),
+                                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                                value: None,
+                                is_index: false,
+                        }}),
+                    }),
+                }),
+            },
     ];
 
     for tc in tests {
