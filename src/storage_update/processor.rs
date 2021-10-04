@@ -15,6 +15,9 @@ use num::ToPrimitive;
 use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::collections::HashMap;
 
+#[cfg(test)]
+use pretty_assertions::assert_eq;
+
 macro_rules! serde2json {
     ($serde:expr) => {
         json::parse(&serde_json::to_string(&$serde)?)?
@@ -918,5 +921,478 @@ where
                 assert!(e.fk_id == fk_id);
                 (*e).clone()
             })
+    }
+
+    #[cfg(test)]
+    pub fn process_storage_value_test(
+        &mut self,
+        value: &parser::Value,
+        rel_ast: &RelationalAST,
+        tx_context: &TxContext,
+    ) -> Result<()> {
+        self.process_storage_value(value, rel_ast, tx_context)
+    }
+
+    #[cfg(test)]
+    pub fn get_inserts(&self) -> Inserts {
+        return self.inserts.clone();
+    }
+}
+
+#[test]
+fn test_process_storage_value() {
+    use num::BigInt;
+
+    fn numeric(i: i32) -> insert::Value {
+        insert::Value::Numeric(PgNumeric::new(Some(BigDecimal::from(i))))
+    }
+
+    struct TestCase {
+        name: String,
+        rel_ast: RelationalAST,
+        value: parser::Value,
+        tx_context: TxContext,
+        exp_inserts: Vec<Insert>,
+    }
+    let tests: Vec<TestCase> = vec![
+        TestCase {
+            name: "basic string".to_string(),
+            rel_ast: RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "contract_owner".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            },
+            value: parser::Value::String("test value".to_string()),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![Insert {
+                table_name: "storage".to_string(),
+                id: 1,
+                fk_id: None,
+                columns: vec![
+                    Column {
+                        name: "tx_context_id".to_string(),
+                        value: insert::Value::BigInt(32),
+                    },
+                    Column {
+                        name: "contract_owner".to_string(),
+                        value: insert::Value::String("test value".to_string()),
+                    },
+                ],
+            }],
+        },
+        TestCase {
+            name: "set of integers".to_string(),
+            rel_ast: RelationalAST::List {
+                table: "storage.the_set".to_string(),
+                elems_unique: true,
+                elems_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_set".to_string(),
+                        column_name: "idx_foo".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        value: None,
+                        is_index: true,
+                    },
+                }),
+            },
+            value: parser::Value::List(vec![
+                parser::Value::Int(BigInt::from(0)),
+                parser::Value::Int(BigInt::from(-5)),
+            ]),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![
+                Insert {
+                    table_name: "storage".to_string(),
+                    id: 1,
+                    fk_id: None,
+                    columns: vec![Column {
+                        name: "tx_context_id".to_string(),
+                        value: insert::Value::BigInt(32),
+                    }],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
+                    id: 3,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(0),
+                        },
+                    ],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
+                    id: 4,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(-5),
+                        },
+                    ],
+                },
+            ],
+        },
+        TestCase {
+            name: "empty set of integers".to_string(),
+            rel_ast: RelationalAST::List {
+                table: "storage.the_set".to_string(),
+                elems_unique: true,
+                elems_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_set".to_string(),
+                        column_name: "idx_foo".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        value: None,
+                        is_index: true,
+                    },
+                }),
+            },
+            value: parser::Value::List(vec![]),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![Insert {
+                table_name: "storage".to_string(),
+                id: 1,
+                fk_id: None,
+                columns: vec![Column {
+                    name: "tx_context_id".to_string(),
+                    value: insert::Value::BigInt(32),
+                }],
+            }],
+        },
+    ];
+
+    for tc in tests {
+        println!("test case: {}", tc.name);
+
+        let mut exp = Inserts::new();
+        let mut ordering: Vec<InsertKey> = vec![];
+        for insert in &tc.exp_inserts {
+            let k = InsertKey {
+                table_name: insert.table_name.clone(),
+                id: insert.id,
+            };
+            exp.insert(k.clone(), insert.clone());
+            ordering.push(k);
+        }
+
+        let mut processor = StorageProcessor::new(
+            1,
+            DummyStorageGetter {},
+            DummyBigmapKeysGetter {},
+        );
+
+        let res = processor.process_storage_value_test(
+            &tc.value,
+            &tc.rel_ast,
+            &tc.tx_context,
+        );
+        assert!(res.is_ok());
+
+        let got = processor.get_inserts();
+        let mut got_ordered: Vec<Insert> = vec![];
+        for exp_key in &ordering {
+            if !got.contains_key(exp_key) {
+                continue;
+            }
+            got_ordered.push(got[exp_key].clone())
+        }
+        for (got_key, got_value) in &got {
+            if exp.contains_key(got_key) {
+                continue;
+            }
+            got_ordered.push(got_value.clone());
+        }
+        assert_eq!(tc.exp_inserts, got_ordered);
+    }
+}
+
+#[test]
+fn test_process_block() {
+    // this tests the generated table structures against known good ones.
+    // if it fails for a good reason, the output can be used to repopulate the
+    // test files. To do this, execute script/generate_test_output.bash
+    use crate::octez::block::Block;
+    use crate::sql::insert;
+    use crate::sql::insert::Insert;
+    use crate::sql::table_builder::{TableBuilder, TableMap};
+    use crate::storage_structure::relational::ASTBuilder;
+    use crate::storage_structure::typing;
+    use json::JsonValue;
+    use ron::ser::{to_string_pretty, PrettyConfig};
+
+    env_logger::init();
+
+    fn get_rel_ast_from_script_json(json: &JsonValue) -> Result<RelationalAST> {
+        let storage_definition = json["code"]
+            .members()
+            .find(|x| x["prim"] == "storage")
+            .unwrap_or(&JsonValue::Null)["args"][0]
+            .clone();
+        debug!("{}", storage_definition.to_string());
+        let type_ast = typing::storage_ast_from_json(&storage_definition)?;
+        let rel_ast = ASTBuilder::new()
+            .build_relational_ast(
+                &crate::relational::Context::init(),
+                &type_ast,
+            )
+            .unwrap();
+        Ok(rel_ast)
+    }
+
+    #[derive(Debug)]
+    struct Contract<'a> {
+        id: &'a str,
+        levels: Vec<u32>,
+    }
+
+    let contracts: Vec<Contract> = vec![
+        Contract {
+            id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
+            levels: vec![
+                132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219,
+                132222, 132240, 132242, 132259, 132262, 132278, 132282, 132285,
+                132298, 132300, 132367, 132383, 132384, 132388, 132390, 135501,
+                138208, 149127,
+            ],
+        },
+        Contract {
+            id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
+            levels: vec![
+                228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466,
+                228467, 228468, 228490, 228505, 228506, 228507, 228508, 228509,
+                228510, 228511, 228512, 228516, 228521, 228522, 228523, 228524,
+                228525, 228526, 228527,
+            ],
+        },
+        Contract {
+            id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
+            levels: vec![
+                147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813,
+                147814, 147815, 147816,
+            ],
+        },
+        Contract {
+            // Hic et Nunc hDAO contract (has "set" type in storage)
+            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
+            levels: vec![1443112],
+        },
+        Contract {
+            // Has a set,list and map. map has >1 keys
+            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
+            levels: vec![50503],
+        },
+        Contract {
+            // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
+            id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
+            levels: vec![1588744],
+        },
+        Contract {
+            id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
+            levels: vec![1676122],
+        },
+        Contract {
+            id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
+            levels: vec![1678750],
+        },
+        Contract {
+            id: "KT1HkMueXCVsBWKj9y7PQmM6QDeUrfZnGPDa",
+            levels: vec![1621538],
+        },
+    ];
+
+    fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
+        inserts.sort_by_key(|insert| {
+            let mut sort_on: Vec<String> = vec![];
+            if tables.contains_key(&insert.table_name) {
+                sort_on = tables[&insert.table_name]
+                    .indices
+                    .clone();
+                sort_on.extend(
+                    tables[&insert.table_name]
+                        .columns
+                        .keys()
+                        .filter(|col| {
+                            !tables[&insert.table_name]
+                                .indices
+                                .iter()
+                                .any(|idx| idx == *col)
+                        })
+                        .cloned()
+                        .collect::<Vec<String>>(),
+                );
+            }
+            let mut res: Vec<insert::Value> = sort_on
+                .iter()
+                .map(|idx| {
+                    insert
+                        .get_column(idx)
+                        .map_or(insert::Value::Null, |col| col.value.clone())
+                })
+                .collect();
+            res.insert(0, insert::Value::String(insert.table_name.clone()));
+            res
+        });
+    }
+
+    let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
+    let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
+    for contract in &contracts {
+        let mut storage_processor = StorageProcessor::new(
+            1,
+            DummyStorageGetter {},
+            DummyBigmapKeysGetter {},
+        );
+
+        // verify that the test case is sane
+        let mut unique_levels = contract.levels.clone();
+        unique_levels.sort();
+        unique_levels.dedup();
+        assert_eq!(contract.levels.len(), unique_levels.len());
+
+        let script_json = json::parse(&debug::load_test(&format!(
+            "test/{}.script",
+            contract.id
+        )))
+        .unwrap();
+        let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
+
+        // having the table layout is useful for sorting the test results and
+        // expected results in deterministic order (we'll use the table's index)
+        let mut builder = TableBuilder::new();
+        builder.populate(&rel_ast);
+        let tables = &builder.tables;
+
+        for level in &contract.levels {
+            println!("contract={}, level={}", contract.id, level);
+
+            let block: Block = serde_json::from_str(&debug::load_test(
+                &format!("test/{}.level-{}.json", contract.id, level),
+            ))
+            .unwrap();
+
+            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
+            let (inserts, _, _) = storage_processor
+                .process_block(&block, &diffs, contract.id, &rel_ast)
+                .unwrap();
+
+            let filename =
+                format!("test/{}-{}-inserts.json", contract.id, level);
+            println!("cat > {} <<ENDOFJSON", filename);
+            println!(
+                "{}",
+                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+            );
+            println!(
+                "ENDOFJSON
+    "
+            );
+
+            let mut result: Vec<Insert> = inserts.values().cloned().collect();
+            sort_inserts(tables, &mut result);
+            results.push((contract.id, *level, result));
+
+            use std::path::Path;
+            let p = Path::new(&filename);
+
+            use std::fs::File;
+            if let Ok(file) = File::open(p) {
+                use std::io::BufReader;
+                let reader = BufReader::new(file);
+                println!("filename: {}", filename);
+                let v: Inserts = ron::de::from_reader(reader).unwrap();
+
+                let mut expected_result: Vec<Insert> =
+                    v.values().cloned().collect();
+                sort_inserts(tables, &mut expected_result);
+
+                expected.push((contract.id, *level, expected_result));
+            }
+        }
+    }
+    assert_eq!(expected, results);
+}
+
+#[cfg(test)]
+struct DummyStorageGetter {}
+#[cfg(test)]
+impl crate::octez::node::StorageGetter for DummyStorageGetter {
+    fn get_contract_storage(
+        &self,
+        _contract_id: &str,
+        _level: u32,
+    ) -> Result<json::JsonValue> {
+        Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
+    }
+
+    fn get_bigmap_value(
+        &self,
+        _level: u32,
+        _bigmap_id: i32,
+        _keyhash: &str,
+    ) -> Result<Option<json::JsonValue>> {
+        Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
+    }
+}
+
+#[cfg(test)]
+struct DummyBigmapKeysGetter {}
+#[cfg(test)]
+impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
+    fn get(
+        &mut self,
+        _level: u32,
+        _bigmap_id: i32,
+    ) -> Result<Vec<(String, String)>> {
+        Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
     }
 }
