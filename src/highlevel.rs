@@ -60,12 +60,7 @@ impl LevelFloor {
         let mut level_floor = self
             .f
             .lock()
-            .map_err(|_| {
-                Err::<(), anyhow::Error>(anyhow!(
-                    "failed to lock level_floor mutex"
-                ))
-            })
-            .unwrap();
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
         *level_floor = floor;
         Ok(())
     }
@@ -74,18 +69,14 @@ impl LevelFloor {
         let level_floor = self
             .f
             .lock()
-            .map_err(|_| {
-                Err::<(), anyhow::Error>(anyhow!(
-                    "failed to lock level_floor mutex"
-                ))
-            })
-            .unwrap();
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
         Ok(*level_floor)
     }
 }
 
 #[derive(Error, Debug)]
 pub struct BadLevelHash {
+    level: u32,
     err: anyhow::Error,
 }
 
@@ -286,12 +277,13 @@ impl Executor {
                                 if !e.is::<BadLevelHash>() {
                                     return Err(e);
                                 }
+                                let bad_lvl = e.downcast::<BadLevelHash>()?;
                                 warn!(
                                     "{}, deleting previous level from database",
-                                    e
+                                    bad_lvl.err
                                 );
                                 let mut tx = self.dbcli.transaction()?;
-                                DBClient::delete_level(&mut tx, level - 1)?;
+                                DBClient::delete_level(&mut tx, bad_lvl.level)?;
                                 tx.commit()?;
                                 break;
                             }
@@ -446,7 +438,9 @@ impl Executor {
         let processed_levels: Vec<u32> = self.read_block_chan(block_recv)?;
 
         for t in threads {
-            t.join().unwrap();
+            t.join().map_err(|e| {
+                anyhow!("parallel execution thread failed with err: {:?}", e)
+            })?;
         }
         Ok(processed_levels)
     }
@@ -545,13 +539,36 @@ impl Executor {
         prev_hash: &str,
     ) -> Result<()> {
         let prev = self.dbcli.get_level(level - 1)?;
-        if let Some(db_prev_hash) = &prev.map(|l| l.hash).flatten() {
-            ensure!(db_prev_hash == prev_hash, BadLevelHash{err: anyhow!("level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db", level, prev_hash, db_prev_hash)});
+        if let Some(db_prev_hash) = prev
+            .as_ref()
+            .map(|l| l.hash.as_ref())
+            .flatten()
+        {
+            ensure!(
+                db_prev_hash == prev_hash, BadLevelHash{
+                    level: prev.as_ref().unwrap().level,
+                    err: anyhow!(
+                        "level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db",
+                        level, prev_hash, db_prev_hash),
+                }
+            );
         }
 
         let next = self.dbcli.get_level(level + 1)?;
-        if let Some(db_next_prev_hash) = &next.map(|l| l.prev_hash).flatten() {
-            ensure!(db_next_prev_hash == hash, BadLevelHash{err: anyhow!("level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db", level, hash, db_next_prev_hash)});
+        if let Some(db_next_prev_hash) = next
+            .as_ref()
+            .map(|l| l.prev_hash.as_ref())
+            .flatten()
+        {
+            ensure!(
+                db_next_prev_hash == hash,
+                BadLevelHash{
+                    level: next.as_ref().unwrap().level,
+                    err: anyhow!(
+                        "level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db",
+                        level, hash, db_next_prev_hash),
+                }
+            );
         }
 
         Ok(())

@@ -97,22 +97,8 @@ Interrupt within 15 seconds to abort"
         CONFIG.ssl,
         CONFIG.ca_cert.clone(),
     );
-    let num_getters = CONFIG.workers_cap;
     if CONFIG.all_contracts {
-        executor.index_all_contracts();
-        if !CONFIG.levels.is_empty() {
-            executor
-                .exec_levels(num_getters, CONFIG.levels.clone())
-                .unwrap();
-        } else {
-            info!("processing missing levels");
-            executor
-                .exec_missing_levels(num_getters)
-                .unwrap();
-
-            info!("processing blocks at the chain head");
-            executor.exec_continuous().unwrap();
-        }
+        index_all_contracts(executor);
         return;
     }
 
@@ -129,6 +115,7 @@ Interrupt within 15 seconds to abort"
         return;
     }
 
+    let num_getters = CONFIG.workers_cap;
     if !CONFIG.levels.is_empty() {
         executor
             .add_dependency_contracts()
@@ -167,13 +154,45 @@ Interrupt within 15 seconds to abort"
 
     // We will first load missing levels (if any)
     info!("processing missing levels");
-    executor
-        .exec_missing_levels(num_getters)
-        .unwrap();
+    match executor.exec_missing_levels(num_getters) {
+        Ok(_) => {}
+        Err(e) => {
+            if !e.is::<highlevel::BadLevelHash>() {
+                panic!("{}", e);
+            }
+            warn!(
+                "{}, falling back to continuous mode that can deal with this",
+                e
+            );
+        }
+    }
 
     // At last, normal operation.
     info!("processing blocks at the chain head");
     executor.exec_continuous().unwrap();
+}
+
+fn index_all_contracts(mut executor: highlevel::Executor) {
+    executor.index_all_contracts();
+    if !CONFIG.levels.is_empty() {
+        executor
+            .exec_levels(CONFIG.workers_cap, CONFIG.levels.clone())
+            .unwrap();
+    } else {
+        info!("processing missing levels");
+        match executor.exec_missing_levels(CONFIG.workers_cap) {
+            Ok(_) => {}
+            Err(e) => {
+                if !e.is::<highlevel::BadLevelHash>() {
+                    panic!("{}", e);
+                }
+                warn!("{}, falling back to continuous mode that can deal with this", e);
+            }
+        }
+
+        info!("processing blocks at the chain head");
+        executor.exec_continuous().unwrap();
+    }
 }
 
 fn assert_contracts_ok(contracts: &[ContractID]) {

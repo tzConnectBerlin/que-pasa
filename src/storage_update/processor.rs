@@ -1100,6 +1100,56 @@ fn test_process_storage_value() {
                 entrypoint: None,
             },
             exp_inserts: vec![Insert {
+                // note: still generates an entry for the storage table
+                table_name: "storage".to_string(),
+                id: 1,
+                fk_id: None,
+                columns: vec![Column {
+                    name: "tx_context_id".to_string(),
+                    value: insert::Value::BigInt(32),
+                }],
+            }],
+        },
+        TestCase {
+            name: "bigmap list of values".to_string(),
+            rel_ast: RelationalAST::BigMap {
+                table: "storage.the_bigmap".to_string(),
+                elems_unique: true,
+                key_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_bigmap".to_string(),
+                        column_name: "idx_foo".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        value: None,
+                        is_index: true,
+                    },
+                }),
+                value_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_bigmap".to_string(),
+                        column_name: "bar".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            },
+            value: parser::Value::List(vec![]),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![Insert {
+                // note: still generates an entry for the storage table
                 table_name: "storage".to_string(),
                 id: 1,
                 fk_id: None,
