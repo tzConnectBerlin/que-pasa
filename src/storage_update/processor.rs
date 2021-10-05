@@ -475,11 +475,7 @@ where
     ) -> ProcessStorageContext {
         if let Some(table_name) = current_table {
             if ctx.last_table != table_name.clone() {
-                self.sql_touch_insert(
-                    &ctx.clone(),
-                    &ctx.last_table,
-                    tx_context,
-                );
+                self.sql_touch_insert(ctx, &ctx.last_table, tx_context);
 
                 return ctx
                     .with_last_table(table_name)
@@ -537,6 +533,8 @@ where
                     self.process_storage_value_internal(
                         ctx, v, elem_ast, tx_context,
                     )?;
+                } else {
+                    self.sql_touch_insert(ctx, &ctx.last_table, tx_context);
                 }
                 return Ok(());
             }
@@ -632,27 +630,23 @@ where
                 rel_ast,
                 RelationalAST::List { elems_ast, .. },
                 {
+                    let mut ctx: ProcessStorageContext = ctx.clone();
                     for element in l {
-                        let id = self.id_generator.get_id();
                         self.process_storage_value_internal(
-                            &ctx.with_id(id),
-                            element,
-                            elems_ast,
-                            tx_context,
+                            &ctx, element, elems_ast, tx_context,
                         )?;
+                        ctx = ctx.with_id(self.id_generator.get_id());
                     }
                     Ok(())
                 }
             )
             .or(must_match_rel!(rel_ast, RelationalAST::Map { .. }, {
+                let mut ctx: ProcessStorageContext = ctx.clone();
                 for element in l {
-                    let id = self.id_generator.get_id();
                     self.process_storage_value_internal(
-                        &ctx.with_id(id),
-                        element,
-                        rel_ast,
-                        tx_context,
+                        &ctx, element, rel_ast, tx_context,
                     )?;
+                    ctx = ctx.with_id(self.id_generator.get_id());
                 }
                 Ok(())
             }))
@@ -660,14 +654,12 @@ where
                 rel_ast,
                 RelationalAST::BigMap { .. },
                 {
+                    let mut ctx: ProcessStorageContext = ctx.clone();
                     for element in l {
-                        let id = self.id_generator.get_id();
                         self.process_storage_value_internal(
-                            &ctx.with_id(id),
-                            element,
-                            rel_ast,
-                            tx_context,
+                            &ctx, element, rel_ast, tx_context,
                         )?;
+                        ctx = ctx.with_id(self.id_generator.get_id());
                     }
                     Ok(())
                 }
@@ -997,6 +989,85 @@ fn test_process_storage_value() {
             }],
         },
         TestCase {
+            name: "option accepts value (storage simply has underlying value present, it's not a 'Some(x)' but rather an x that we get)"
+                .to_string(),
+            rel_ast: RelationalAST::Option {
+                elem_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "contract_owner".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            },
+            value: parser::Value::String("the value".to_string()),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![Insert {
+                table_name: "storage".to_string(),
+                id: 1,
+                fk_id: None,
+                columns: vec![Column {
+                    name: "tx_context_id".to_string(),
+                    value: insert::Value::BigInt(32),
+                }, Column {
+                    name: "contract_owner".to_string(),
+                    value: insert::Value::String("the value".to_string()),
+                }],
+            }],
+        },
+        TestCase {
+            name: "option accepts none (simply no column value then)"
+                .to_string(),
+            rel_ast: RelationalAST::Option {
+                elem_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "contract_owner".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            },
+            value: parser::Value::None,
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![Insert {
+                table_name: "storage".to_string(),
+                id: 1,
+                fk_id: None,
+                columns: vec![Column {
+                    name: "tx_context_id".to_string(),
+                    value: insert::Value::BigInt(32),
+                }],
+            }],
+        },
+        TestCase {
             name: "set of integers".to_string(),
             rel_ast: RelationalAST::List {
                 table: "storage.the_set".to_string(),
@@ -1040,7 +1111,7 @@ fn test_process_storage_value() {
                 },
                 Insert {
                     table_name: "storage.the_set".to_string(),
-                    id: 3,
+                    id: 2,
                     fk_id: Some(1),
                     columns: vec![
                         Column {
@@ -1055,7 +1126,195 @@ fn test_process_storage_value() {
                 },
                 Insert {
                     table_name: "storage.the_set".to_string(),
+                    id: 3,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(-5),
+                        },
+                    ],
+                },
+            ],
+        },
+        TestCase {
+            name: "set of integers (nested pairs is accepted too)".to_string(),
+            rel_ast: RelationalAST::List {
+                table: "storage.the_set".to_string(),
+                elems_unique: true,
+                elems_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_set".to_string(),
+                        column_name: "idx_foo".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        value: None,
+                        is_index: true,
+                    },
+                }),
+            },
+            value: parser::Value::Pair(
+                Box::new(parser::Value::Int(BigInt::from(0))),
+                Box::new(parser::Value::Pair(
+                    Box::new(parser::Value::Int(BigInt::from(-5))),
+                    Box::new(parser::Value::Int(BigInt::from(-2))),
+                )),
+            ),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![
+                Insert {
+                    table_name: "storage".to_string(),
+                    id: 1,
+                    fk_id: None,
+                    columns: vec![Column {
+                        name: "tx_context_id".to_string(),
+                        value: insert::Value::BigInt(32),
+                    }],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
+                    id: 2,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(0),
+                        },
+                    ],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
+                    id: 3,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(-5),
+                        },
+                    ],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
                     id: 4,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(-2),
+                        },
+                    ],
+                },
+            ],
+        },
+        TestCase {
+            name: "list w/ storage variable".to_string(),
+            rel_ast: RelationalAST::Pair {
+                left_ast: Box::new(RelationalAST::List {
+                    table: "storage.the_set".to_string(),
+                    elems_unique: true,
+                    elems_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.the_set".to_string(),
+                            column_name: "idx_foo".to_string(),
+                            column_type: ExprTy::SimpleExprTy(
+                                SimpleExprTy::Int,
+                            ),
+                            value: None,
+                            is_index: true,
+                        },
+                    }),
+                }),
+                right_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage".to_string(),
+                        column_name: "bar".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            },
+            value: parser::Value::Pair(
+                Box::new(parser::Value::List(vec![
+                    parser::Value::Int(BigInt::from(0)),
+                    parser::Value::Int(BigInt::from(-5)),
+                ])),
+                Box::new(parser::Value::String("value".to_string())),
+            ),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![
+                Insert {
+                    table_name: "storage".to_string(),
+                    id: 1,
+                    fk_id: None,
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "bar".to_string(),
+                            value: insert::Value::String("value".to_string()),
+                        },
+                    ],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
+                    id: 2,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(0),
+                        },
+                    ],
+                },
+                Insert {
+                    table_name: "storage.the_set".to_string(),
+                    id: 3,
                     fk_id: Some(1),
                     columns: vec![
                         Column {
@@ -1111,10 +1370,9 @@ fn test_process_storage_value() {
             }],
         },
         TestCase {
-            name: "bigmap list of values".to_string(),
+            name: "bigmap: empty set of values".to_string(),
             rel_ast: RelationalAST::BigMap {
                 table: "storage.the_bigmap".to_string(),
-                elems_unique: true,
                 key_ast: Box::new(RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_bigmap".to_string(),
@@ -1158,6 +1416,108 @@ fn test_process_storage_value() {
                     value: insert::Value::BigInt(32),
                 }],
             }],
+        },
+        TestCase {
+            name: "bigmap: with set of values".to_string(),
+            rel_ast: RelationalAST::BigMap {
+                table: "storage.the_bigmap".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_bigmap".to_string(),
+                        column_name: "idx_foo".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        value: None,
+                        is_index: true,
+                    },
+                }),
+                value_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.the_bigmap".to_string(),
+                        column_name: "bar".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            },
+            value: parser::Value::List(vec![
+                parser::Value::Elt(
+                    Box::new(parser::Value::Int(BigInt::from(3))),
+                    Box::new(parser::Value::String("some_value".to_string())),
+                ),
+                parser::Value::Elt(
+                    Box::new(parser::Value::Int(BigInt::from(1))),
+                    Box::new(parser::Value::String(
+                        "another_value".to_string(),
+                    )),
+                ),
+            ]),
+            tx_context: TxContext {
+                id: Some(32),
+                level: 10,
+                contract: "test".to_string(),
+                operation_hash: "foo hash".to_string(),
+                operation_group_number: 1,
+                operation_number: 2,
+                content_number: 3,
+                internal_number: None,
+                source: None,
+                destination: None,
+                entrypoint: None,
+            },
+            exp_inserts: vec![
+                Insert {
+                    table_name: "storage".to_string(),
+                    id: 1,
+                    fk_id: None,
+                    columns: vec![Column {
+                        name: "tx_context_id".to_string(),
+                        value: insert::Value::BigInt(32),
+                    }],
+                },
+                Insert {
+                    table_name: "storage.the_bigmap".to_string(),
+                    id: 2,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(3),
+                        },
+                        Column {
+                            name: "bar".to_string(),
+                            value: insert::Value::String(
+                                "some_value".to_string(),
+                            ),
+                        },
+                    ],
+                },
+                Insert {
+                    table_name: "storage.the_bigmap".to_string(),
+                    id: 3,
+                    fk_id: Some(1),
+                    columns: vec![
+                        Column {
+                            name: "tx_context_id".to_string(),
+                            value: insert::Value::BigInt(32),
+                        },
+                        Column {
+                            name: "idx_foo".to_string(),
+                            value: numeric(1),
+                        },
+                        Column {
+                            name: "bar".to_string(),
+                            value: insert::Value::String(
+                                "another_value".to_string(),
+                            ),
+                        },
+                    ],
+                },
+            ],
         },
     ];
 

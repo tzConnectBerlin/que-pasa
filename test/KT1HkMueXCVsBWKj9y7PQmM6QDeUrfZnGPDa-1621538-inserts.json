@@ -15,10 +15,10 @@
     ),
     (
         table_name: "storage.noname",
-        id: 4,
+        id: 3,
     ): (
         table_name: "storage.noname",
-        id: 4,
+        id: 3,
         fk_id: Some(2),
         columns: [
             (

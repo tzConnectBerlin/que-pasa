@@ -93,10 +93,10 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 246,
+        id: 245,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 246,
+        id: 245,
         fk_id: Some(244),
         columns: [
             (

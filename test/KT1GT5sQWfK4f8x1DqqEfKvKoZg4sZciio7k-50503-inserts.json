@@ -15,10 +15,10 @@
     ),
     (
         table_name: "storage.set1",
-        id: 6,
+        id: 5,
     ): (
         table_name: "storage.set1",
-        id: 6,
+        id: 5,
         fk_id: Some(2),
         columns: [
             (
@@ -33,10 +33,10 @@
     ),
     (
         table_name: "storage.set1",
-        id: 5,
+        id: 4,
     ): (
         table_name: "storage.set1",
-        id: 5,
+        id: 4,
         fk_id: Some(2),
         columns: [
             (
@@ -51,10 +51,10 @@
     ),
     (
         table_name: "storage.set1",
-        id: 4,
+        id: 3,
     ): (
         table_name: "storage.set1",
-        id: 4,
+        id: 3,
         fk_id: Some(2),
         columns: [
             (
@@ -63,28 +63,6 @@
             ),
             (
                 name: "idx_nat",
-                value: Numeric(Some("1")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.map1",
-        id: 9,
-    ): (
-        table_name: "storage.map1",
-        id: 9,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_nat",
-                value: Numeric(Some("2")),
-            ),
-            (
-                name: "mutez",
                 value: Numeric(Some("1")),
             ),
         ],
@@ -103,6 +81,28 @@
             ),
             (
                 name: "idx_nat",
+                value: Numeric(Some("2")),
+            ),
+            (
+                name: "mutez",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.map1",
+        id: 7,
+    ): (
+        table_name: "storage.map1",
+        id: 7,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_nat",
                 value: Numeric(Some("1")),
             ),
             (
@@ -113,10 +113,10 @@
     ),
     (
         table_name: "storage.list1",
-        id: 11,
+        id: 10,
     ): (
         table_name: "storage.list1",
-        id: 11,
+        id: 10,
         fk_id: Some(2),
         columns: [
             (
