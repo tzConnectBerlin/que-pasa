@@ -620,11 +620,10 @@ WHERE g.level NOT IN (
     ) -> Result<Option<LevelMeta>> {
         let result = self.dbconn.query_opt(
             "
-SELECT level, hash, prev_hash, baked_at
+SELECT
+    level, hash, prev_hash, baked_at
 FROM levels
-WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level = $1
-ORDER BY level DESC
-LIMIT 1",
+WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level = $1",
             &[&level],
         )?;
         if result.is_none() {

@@ -147,12 +147,24 @@ pub struct ASTBuilder {
     column_names: HashMap<(String, String), u32>,
 }
 
+lazy_static! {
+    static ref RESERVED: Vec<String> =
+        vec!["id".to_string(), "tx_context_id".to_string()];
+    static ref RESERVED_BIGMAP: Vec<String> =
+        vec!["bigmap_id".to_string(), "deleted".to_string()];
+}
+
 impl ASTBuilder {
     pub(crate) fn new() -> Self {
-        Self {
+        let mut res = Self {
             table_names: HashMap::new(),
             column_names: HashMap::new(),
+        };
+        for column_name in RESERVED.iter() {
+            res.column_names
+                .insert(("storage".to_string(), column_name.clone()), 0);
         }
+        res
     }
 
     fn start_table(&mut self, ctx: &Context, ele: &Ele) -> Context {
@@ -186,7 +198,12 @@ impl ASTBuilder {
             format!("{}_{}", name, c)
         };
 
-        ctx.start_table(&name)
+        let ctx = ctx.start_table(&name);
+        for column_name in RESERVED.iter() {
+            self.column_names
+                .insert((ctx.table_name.clone(), column_name.clone()), 0);
+        }
+        ctx
     }
 
     fn column_name(
@@ -260,6 +277,14 @@ impl ASTBuilder {
                 }
                 ComplexExprTy::BigMap(key_type, value_type) => {
                     let ctx = &self.start_table(ctx, ele);
+
+                    for column_name in RESERVED_BIGMAP.iter() {
+                        self.column_names.insert(
+                            (ctx.table_name.clone(), column_name.clone()),
+                            0,
+                        );
+                    }
+
                     let key_ast = self.build_index(ctx, key_type)?;
                     let value_ast =
                         self.build_relational_ast(ctx, value_type)?;
@@ -838,6 +863,135 @@ fn test_relational_ast_builder() {
             }),
         },
         TestCase {
+            name: "id is a reserved column name and is immediately postfixed".to_string(),
+            ele: simple(Some("id".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "id_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "tx_context_id is a reserved column name and is immediately postfixed".to_string(),
+            ele: simple(Some("tx_context_id".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "tx_context_id_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "id is a reserved column name, also in child tables of storage".to_string(),
+            ele: list(Some("addresses".to_string()), simple(Some("id".to_string()), SimpleExprTy::String)),
+            exp: Some(RelationalAST::List{
+                table: "storage.addresses".to_string(),
+                elems_unique: false,
+                elems_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.addresses".to_string(),
+                        column_name: "id_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            }),
+        },
+        TestCase {
+            name: "bigmap with a contract related field 'bigmap_id' gets postfixed, because it's a fieldname we need reserved".to_string(),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("bigmap_id".to_string()), SimpleExprTy::Nat)),
+            exp: Some(RelationalAST::BigMap {
+                table: "storage.ledger".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "idx_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "bigmap_id_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "bigmap with a contract related field 'bigmap_id' gets postfixed, because it's a fieldname we need reserved (and the idx_ variant is not postfixed due to the idx_ part making it nonclashing with reserved bigmap_id)".to_string(),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("bigmap_id".to_string()), SimpleExprTy::String), simple(Some("bigmap_id".to_string()), SimpleExprTy::Nat)),
+            exp: Some(RelationalAST::BigMap {
+                table: "storage.ledger".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "idx_bigmap_id".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "bigmap_id_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "bigmap with a contract related field 'deleted' gets postfixed, because it's a fieldname we need reserved".to_string(),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("deleted".to_string()), SimpleExprTy::Nat)),
+            exp: Some(RelationalAST::BigMap {
+                table: "storage.ledger".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "idx_var_a".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: true,
+                }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
+                    table_name: "storage.ledger".to_string(),
+                    column_name: "deleted_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    value: None,
+                    is_index: false,
+                }}),
+            }),
+        },
+        TestCase {
+            name: "NON-bigmap with a contract related field 'deleted' does NOT get postfixed (because it's only a reserved keyword in the bigmaps' tables)".to_string(),
+            ele: simple(Some("deleted".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "deleted".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "NON-bigmap with a contract related field 'bigmap_id' does NOT get postfixed (because it's only a reserved keyword in the bigmaps' tables)".to_string(),
+            ele: simple(Some("bigmap_id".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "bigmap_id".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
             name: "option (no annot)".to_string(),
             ele: option(None, simple(Some("var_a".to_string()), SimpleExprTy::String)),
             exp: Some(RelationalAST::Option {
@@ -1073,46 +1227,46 @@ fn test_relational_ast_builder() {
             name: "multiple nameless tables, but they don't clash because they're in different child tables => no postfix added".to_string(),
             ele: map(Some("ledger".to_string()), simple(Some("map_key".to_string()), SimpleExprTy::Mutez), pair(None, bigmap(Some("ledger".to_string()), simple(Some("bigmap_key".to_string()), SimpleExprTy::Mutez), simple(Some("bigmap_value".to_string()), SimpleExprTy::Nat)), simple(Some("map_value".to_string()), SimpleExprTy::Nat))),
             exp: Some(RelationalAST::Map {
-                    table: "storage.ledger".to_string(),
-                    key_ast: Box::new(RelationalAST::Leaf {
-                        rel_entry: RelationalEntry {
-                            table_name: "storage.ledger".to_string(),
-                            column_name: "idx_map_key".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
-                            value: None,
-                            is_index: true,
-                    }}),
-                    value_ast: Box::new(RelationalAST::Pair {
-                        left_ast: Box::new(RelationalAST::BigMap {
-                            table: "storage.ledger.ledger".to_string(),
-                            key_ast: Box::new(RelationalAST::Leaf {
-                                rel_entry: RelationalEntry {
-                                    table_name: "storage.ledger.ledger".to_string(),
-                                    column_name: "idx_bigmap_key".to_string(),
-                                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
-                                    value: None,
-                                    is_index: true,
-                            }}),
-                            value_ast: Box::new(RelationalAST::Leaf {
-                                rel_entry: RelationalEntry {
-                                    table_name: "storage.ledger.ledger".to_string(),
-                                    column_name: "bigmap_value".to_string(),
-                                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
-                                    value: None,
-                                    is_index: false,
-                            }}),
-                        }),
-                        right_ast: Box::new(RelationalAST::Leaf {
+                table: "storage.ledger".to_string(),
+                key_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.ledger".to_string(),
+                        column_name: "idx_map_key".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        value: None,
+                        is_index: true,
+                }}),
+                value_ast: Box::new(RelationalAST::Pair {
+                    left_ast: Box::new(RelationalAST::BigMap {
+                        table: "storage.ledger.ledger".to_string(),
+                        key_ast: Box::new(RelationalAST::Leaf {
                             rel_entry: RelationalEntry {
-                                table_name: "storage.ledger".to_string(),
-                                column_name: "map_value".to_string(),
+                                table_name: "storage.ledger.ledger".to_string(),
+                                column_name: "idx_bigmap_key".to_string(),
+                                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                                value: None,
+                                is_index: true,
+                        }}),
+                        value_ast: Box::new(RelationalAST::Leaf {
+                            rel_entry: RelationalEntry {
+                                table_name: "storage.ledger.ledger".to_string(),
+                                column_name: "bigmap_value".to_string(),
                                 column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
                                 value: None,
                                 is_index: false,
                         }}),
                     }),
+                    right_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.ledger".to_string(),
+                            column_name: "map_value".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                            value: None,
+                            is_index: false,
+                    }}),
                 }),
-            },
+            }),
+        },
     ];
 
     for tc in tests {

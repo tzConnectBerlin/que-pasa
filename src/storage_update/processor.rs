@@ -875,14 +875,10 @@ where
         tx_context: &TxContext,
     ) {
         let mut insert = self.sql_touch_insert(ctx, table_name, tx_context);
-        let name = match column_name {
-            "id" => ".id".to_string(),
-            "tx_context_id" => ".tx_context_id".to_string(),
-            s => s.to_string(),
-        };
-        insert
-            .columns
-            .push(Column { name, value });
+        insert.columns.push(Column {
+            name: column_name.to_string(),
+            value,
+        });
 
         self.inserts.insert(
             InsertKey {

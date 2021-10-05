@@ -45,20 +45,12 @@ impl TableBuilder {
         res
     }
 
-    fn add_column(&mut self, is_keyword: bool, rel_entry: &RelationalEntry) {
+    fn add_column(&mut self, rel_entry: &RelationalEntry) {
         let mut table = self.get_table(&rel_entry.table_name);
         if rel_entry.is_index {
-            table.add_index(
-                is_keyword,
-                &rel_entry.column_name,
-                &rel_entry.column_type,
-            );
+            table.add_index(&rel_entry.column_name, &rel_entry.column_type);
         } else {
-            table.add_column(
-                is_keyword,
-                &rel_entry.column_name,
-                &rel_entry.column_type,
-            );
+            table.add_column(&rel_entry.column_name, &rel_entry.column_type);
         }
         self.store_table(table);
     }
@@ -73,12 +65,10 @@ impl TableBuilder {
             None => {
                 let mut t = Table::new(name.to_string());
                 t.add_index(
-                    true,
                     &"tx_context_id".to_string(),
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
                 t.add_column(
-                    true,
                     &"id".to_string(),
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
@@ -94,11 +84,7 @@ impl TableBuilder {
 
     fn touch_bigmap_meta_tables(&mut self) {
         let mut t = self.get_table("bigmap_clears");
-        t.add_index(
-            true,
-            "bigmap_id",
-            &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-        );
+        t.add_index("bigmap_id", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
         self.store_table(t);
     }
 
@@ -128,12 +114,10 @@ impl TableBuilder {
                 let mut t = self.get_table(table);
                 t.tracks_changes();
                 t.add_column(
-                    true,
                     &"deleted".to_string(),
                     &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
                 );
                 t.add_index(
-                    true,
                     &"bigmap_id".to_string(),
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
@@ -162,7 +146,7 @@ impl TableBuilder {
                 right_ast,
             } => {
                 if let Some(or_unfold) = or_unfold {
-                    self.add_column(false, or_unfold);
+                    self.add_column(or_unfold);
                     if or_unfold.is_index {
                         let mut t = self.get_table(&or_unfold.table_name);
                         t.no_uniqueness();
@@ -179,9 +163,7 @@ impl TableBuilder {
                     self.populate(right_ast);
                 }
             }
-            RelationalAST::Leaf { rel_entry } => {
-                self.add_column(false, rel_entry)
-            }
+            RelationalAST::Leaf { rel_entry } => self.add_column(rel_entry),
         }
     }
 }

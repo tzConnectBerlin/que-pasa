@@ -62,7 +62,7 @@
                 value: Numeric(Some("9")),
             ),
             (
-                name: ".id",
+                name: "id_1",
                 value: Numeric(Some("6")),
             ),
             (
