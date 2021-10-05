@@ -154,18 +154,9 @@ Interrupt within 15 seconds to abort"
 
     // We will first load missing levels (if any)
     info!("processing missing levels");
-    match executor.exec_missing_levels(num_getters) {
-        Ok(_) => {}
-        Err(e) => {
-            if !e.is::<highlevel::BadLevelHash>() {
-                panic!("{}", e);
-            }
-            warn!(
-                "{}, falling back to continuous mode that can deal with this",
-                e
-            );
-        }
-    }
+    executor
+        .exec_missing_levels(num_getters)
+        .unwrap();
 
     // At last, normal operation.
     info!("processing blocks at the chain head");
@@ -180,15 +171,9 @@ fn index_all_contracts(mut executor: highlevel::Executor) {
             .unwrap();
     } else {
         info!("processing missing levels");
-        match executor.exec_missing_levels(CONFIG.workers_cap) {
-            Ok(_) => {}
-            Err(e) => {
-                if !e.is::<highlevel::BadLevelHash>() {
-                    panic!("{}", e);
-                }
-                warn!("{}, falling back to continuous mode that can deal with this", e);
-            }
-        }
+        executor
+            .exec_missing_levels(CONFIG.workers_cap)
+            .unwrap();
 
         info!("processing blocks at the chain head");
         executor.exec_continuous().unwrap();

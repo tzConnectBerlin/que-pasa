@@ -411,7 +411,16 @@ impl Executor {
                 return Ok(());
             }
 
-            self.exec_levels(num_getters, missing_levels)?;
+            if let Err(e) = self.exec_levels(num_getters, missing_levels) {
+                if !e.is::<BadLevelHash>() {
+                    return Err(e);
+                }
+                let bad_lvl = e.downcast::<BadLevelHash>()?;
+                warn!("{}, deleting previous level from database", bad_lvl.err);
+                let mut tx = self.dbcli.transaction()?;
+                DBClient::delete_level(&mut tx, bad_lvl.level)?;
+                tx.commit()?;
+            }
         }
     }
 
