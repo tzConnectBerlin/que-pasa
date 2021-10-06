@@ -463,7 +463,7 @@ where
             self.id_generator.get_id(),
             "storage".to_string(),
         );
-        self.process_storage_value_internal(&ctx, value, rel_ast, tx_context)?;
+        self.process_storage_value_internal(ctx, value, rel_ast, tx_context)?;
         Ok(())
     }
 
@@ -474,7 +474,7 @@ where
         tx_context: &TxContext,
     ) -> ProcessStorageContext {
         if let Some(table_name) = current_table {
-            if ctx.last_table != table_name.clone() {
+            if ctx.last_table != table_name {
                 self.sql_touch_insert(ctx, &ctx.last_table, tx_context);
 
                 return ctx
@@ -509,23 +509,20 @@ where
                     return Ok(());
                 }
             }
-            RelationalAST::OrEnumeration { or_unfold, .. } => {
-                if let Some(or_unfold) = or_unfold {
-                    let rel_entry = self.resolve_or(
-                        &ctx.last_table,
-                        or_unfold,
-                        v,
-                        rel_ast,
-                    )?;
-                    if let Some(value) = rel_entry.value {
-                        self.sql_add_cell(
-                            ctx,
-                            &rel_entry.table_name,
-                            &rel_entry.column_name,
-                            insert::Value::String(value),
-                            tx_context,
-                        );
-                    }
+            RelationalAST::OrEnumeration {
+                or_unfold: Some(or_unfold),
+                ..
+            } => {
+                let rel_entry =
+                    self.resolve_or(&ctx.last_table, or_unfold, v, rel_ast)?;
+                if let Some(value) = rel_entry.value {
+                    self.sql_add_cell(
+                        ctx,
+                        &rel_entry.table_name,
+                        &rel_entry.column_name,
+                        insert::Value::String(value),
+                        tx_context,
+                    );
                 }
             }
             RelationalAST::Option { elem_ast } => {

@@ -243,9 +243,8 @@ impl Executor {
         }
         fn wait_done(first_wait: &mut bool) {
             if !*first_wait {
-                print!("\n");
+                println!();
                 *first_wait = false;
-                io::stdout().flush().unwrap();
             }
         }
         let mut first_wait = true;

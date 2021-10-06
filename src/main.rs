@@ -62,7 +62,7 @@ fn main() {
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
-    let config = &CONFIG.unwrap();
+    let config = CONFIG.as_ref().unwrap();
 
     let node_cli =
         &node::NodeClient::new(config.node_url.clone(), "main".to_string());
@@ -165,7 +165,10 @@ Interrupt within 15 seconds to abort"
     executor.exec_continuous().unwrap();
 }
 
-fn index_all_contracts(config: &Config, mut executor: highlevel::Executor) {
+fn index_all_contracts(
+    config: &config::Config,
+    mut executor: highlevel::Executor,
+) {
     executor.index_all_contracts();
     if !config.levels.is_empty() {
         executor
