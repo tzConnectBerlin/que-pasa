@@ -144,7 +144,7 @@ fn decode_bs58_address(hex: &str) -> Result<String> {
 
 fn lex(json: &JsonValue) -> JsonValue {
     if let JsonValue::Array(mut a) = json.clone() {
-        if a.len() == 0 {
+        if a.is_empty() {
             return json.clone();
         }
         a.reverse();

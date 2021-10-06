@@ -79,7 +79,7 @@ impl Context {
             .map(|pos| {
                 self.table_name[pos + 1..self.table_name.len()].to_string()
             })
-            .unwrap_or(self.table_name.clone())
+            .unwrap_or_else(|| self.table_name.clone())
     }
 }
 
@@ -366,7 +366,7 @@ impl ASTBuilder {
                     None => {
                         let name_from_type =
                             get_column_name(&ele.expr_type).to_string();
-                        if name_from_type != "" {
+                        if !name_from_type.is_empty() {
                             name_from_type
                         } else {
                             "noname".to_string()
@@ -376,8 +376,7 @@ impl ASTBuilder {
 
                 let ctx =
                     self.start_table(ctx, &ele_set_annot(ele, Some(name)));
-                let ele =
-                    &ele_set_annot(ele, Some(ctx.table_leaf_name().clone()));
+                let ele = &ele_set_annot(ele, Some(ctx.table_leaf_name()));
                 Ok((
                     if is_index {
                         self.build_index(&ctx, ele)?

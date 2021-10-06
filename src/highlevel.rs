@@ -12,7 +12,10 @@ use pretty_assertions::assert_eq;
 
 use crate::config::ContractID;
 use crate::debug;
-use crate::octez::block::{Block, LevelMeta, TxContext};
+use crate::octez::bcd;
+use crate::octez::block::{
+    get_implicit_origination_level, Block, LevelMeta, TxContext,
+};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
@@ -314,6 +317,68 @@ impl Executor {
             }
         })?;
         Ok(())
+    }
+
+    pub fn exec_new_contracts_historically(
+        &mut self,
+        bcd_settings: Option<(String, String)>,
+        num_getters: usize,
+    ) -> Result<Vec<ContractID>> {
+        let mut res: Vec<ContractID> = vec![];
+        loop {
+            self.add_dependency_contracts().unwrap();
+            let new_contracts = self.create_contract_schemas().unwrap();
+
+            if new_contracts.is_empty() {
+                break;
+            }
+            res.extend(new_contracts.clone());
+
+            info!(
+                "initializing the following contracts historically: {:#?}",
+                new_contracts
+            );
+
+            if let Some((bcd_url, network)) = &bcd_settings {
+                let mut exclude_levels: Vec<u32> = vec![];
+                for contract_id in &new_contracts {
+                    info!("Initializing contract {}..", contract_id.name);
+                    let bcd_cli = bcd::BCDClient::new(
+                        bcd_url.clone(),
+                        network.clone(),
+                        contract_id.address.clone(),
+                        &exclude_levels,
+                    );
+
+                    let processed_levels = self
+                        .exec_parallel(num_getters, move |height_chan| {
+                            bcd_cli
+                                .populate_levels_chan(height_chan)
+                                .unwrap()
+                        })
+                        .unwrap();
+                    exclude_levels.extend(processed_levels);
+
+                    if let Some(l) =
+                        get_implicit_origination_level(&contract_id.address)
+                    {
+                        self.exec_level(l).unwrap();
+                    }
+
+                    self.fill_in_levels(contract_id)
+                        .unwrap();
+
+                    info!("contract {} initialized.", contract_id.name)
+                }
+            } else {
+                self.exec_missing_levels(num_getters)
+                    .unwrap();
+            }
+        }
+        if !res.is_empty() {
+            self.exec_dependents().unwrap();
+        }
+        Ok(res)
     }
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {

@@ -36,7 +36,6 @@ pub mod storage_value;
 use anyhow::Context;
 use config::CONFIG;
 use env_logger::Env;
-use octez::bcd;
 use octez::node;
 use sql::db::DBClient;
 use std::collections::HashMap;
@@ -46,7 +45,6 @@ use std::thread;
 
 use config::ContractID;
 use contract_denylist::is_contract_denylisted;
-use octez::block::get_implicit_origination_level;
 use storage_structure::relational;
 
 fn main() {
@@ -64,25 +62,23 @@ fn main() {
     let env = Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
-    let config = CONFIG.as_ref().unwrap();
-
     let node_cli =
-        &node::NodeClient::new(config.node_url.clone(), "main".to_string());
+        &node::NodeClient::new(CONFIG.node_url.clone(), "main".to_string());
 
     let mut dbcli = DBClient::connect(
-        &config.database_url,
-        config.ssl,
-        config.ca_cert.clone(),
+        &CONFIG.database_url,
+        CONFIG.ssl,
+        CONFIG.ca_cert.clone(),
     )
     .with_context(|| "failed to connect to the db")
     .unwrap();
 
-    let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
-    if config.reinit {
+    let setup_db = CONFIG.reinit || !dbcli.common_tables_exist().unwrap();
+    if CONFIG.reinit {
         println!(
-            "Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
-            Interrupt within 15 seconds to abort"
-        );
+"Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
+Interrupt within 15 seconds to abort"
+);
         thread::sleep(std::time::Duration::from_millis(15000));
         dbcli
             .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
@@ -97,99 +93,60 @@ fn main() {
     let mut executor = highlevel::Executor::new(
         node_cli.clone(),
         dbcli,
-        &config.database_url,
-        config.ssl,
-        config.ca_cert.clone(),
+        &CONFIG.database_url,
+        CONFIG.ssl,
+        CONFIG.ca_cert.clone(),
     );
-    let num_getters = config.workers_cap;
-    if config.all_contracts {
+    if CONFIG.all_contracts {
         executor.index_all_contracts();
-    } else {
-        for contract_id in &config.contracts {
-            executor
-                .add_contract(contract_id)
-                .unwrap();
-        }
-        let mut any_bootstrapped = false;
-        loop {
-            executor
-                .add_dependency_contracts()
-                .unwrap();
-
-            let contracts = executor.get_config();
-            assert_contracts_ok(&contracts);
-            info!("running for contracts: {:#?}", contracts);
-
-            if config.recreate_views {
-                executor.recreate_views().unwrap();
-            }
-
-            let new_contracts = executor
-                .create_contract_schemas()
-                .unwrap();
-
-            if new_contracts.is_empty() {
-                break;
-            }
-            any_bootstrapped = true;
-
-            info!(
-                "initializing following contracts' historically: {:#?}",
-                new_contracts
-            );
-
-            if let Some(bcd_url) = &config.bcd_url {
-                let mut exclude_levels: Vec<u32> = vec![];
-                for contract_id in &new_contracts {
-                    info!("Initializing contract {}..", contract_id.name);
-                    let bcd_cli = bcd::BCDClient::new(
-                        bcd_url.clone(),
-                        config.network.clone(),
-                        contract_id.address.clone(),
-                        &exclude_levels,
-                    );
-
-                    let processed_levels = executor
-                        .exec_parallel(num_getters, move |height_chan| {
-                            bcd_cli
-                                .populate_levels_chan(height_chan)
-                                .unwrap()
-                        })
-                        .unwrap();
-                    exclude_levels.extend(processed_levels);
-
-                    if let Some(l) =
-                        get_implicit_origination_level(&contract_id.address)
-                    {
-                        executor.exec_level(l).unwrap();
-                    }
-
-                    executor
-                        .fill_in_levels(contract_id)
-                        .unwrap();
-
-                    info!("contract {} initialized.", contract_id.name)
-                }
-            } else if !config.levels.is_empty() {
-                executor
-                    .exec_levels(num_getters, config.levels.clone())
-                    .unwrap();
-            } else {
-                executor
-                    .exec_missing_levels(num_getters)
-                    .unwrap();
-            }
-        }
-        if any_bootstrapped {
-            executor.exec_dependents().unwrap();
-            info!("all contracts historically bootstrapped. restart to begin normal continuous processing mode.");
-            return;
-        }
+        return;
     }
 
-    if !config.levels.is_empty() {
+    for contract_id in &CONFIG.contracts {
         executor
-            .exec_levels(num_getters, config.levels.clone())
+            .add_contract(contract_id)
+            .unwrap();
+    }
+    let contracts = executor.get_config();
+    assert_contracts_ok(&contracts);
+
+    if CONFIG.recreate_views {
+        executor.recreate_views().unwrap();
+        return;
+    }
+
+    let num_getters = CONFIG.workers_cap;
+    if !CONFIG.levels.is_empty() {
+        executor
+            .add_dependency_contracts()
+            .unwrap();
+        executor
+            .create_contract_schemas()
+            .unwrap();
+        executor
+            .exec_levels(num_getters, CONFIG.levels.clone())
+            .unwrap();
+        return;
+    }
+
+    let new_initialized = executor
+        .exec_new_contracts_historically(
+            CONFIG
+                .bcd_url
+                .as_ref()
+                .map(|url| (url.clone(), CONFIG.network.clone())),
+            num_getters,
+        )
+        .unwrap();
+    if !new_initialized.is_empty() {
+        info!("all contracts historically bootstrapped. restart to begin normal continuous processing mode.");
+        return;
+    }
+
+    info!("running for contracts: {:#?}", contracts);
+    if !CONFIG.levels.is_empty() {
+        executor
+            .exec_levels(num_getters, CONFIG.levels.clone())
             .unwrap();
         executor.exec_dependents().unwrap();
         return;

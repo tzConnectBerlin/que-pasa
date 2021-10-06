@@ -453,7 +453,7 @@ where
         let ctx = &ProcessStorageContext::new(self.id_generator.get_id());
         self.process_storage_value_internal(
             &ctx.with_last_table("storage".to_string()),
-            &value,
+            value,
             rel_ast,
             tx_context,
         )?;
