@@ -45,17 +45,12 @@ impl Context {
     }
 
     pub(crate) fn apply_prefix(&self, name: &str) -> String {
-        let mut res = format!(
+        format!(
             "{}{}{}",
             self.prefix,
             if self.prefix.is_empty() { "" } else { "_" },
             name,
-        );
-        if res == "level" || res == "level_timestamp" {
-            // always reserve these column names for the _live and _ordered view defintion
-            res = format!(".{}", res);
-        }
-        res
+        )
     }
 
     pub(crate) fn next(&self) -> Self {
@@ -148,8 +143,12 @@ pub struct ASTBuilder {
 }
 
 lazy_static! {
-    static ref RESERVED: Vec<String> =
-        vec!["id".to_string(), "tx_context_id".to_string()];
+    static ref RESERVED: Vec<String> = vec![
+        "id".to_string(),
+        "tx_context_id".to_string(),
+        "level".to_string(),
+        "level_timestamp".to_string()
+    ];
     static ref RESERVED_BIGMAP: Vec<String> =
         vec!["bigmap_id".to_string(), "deleted".to_string()];
 }
@@ -198,7 +197,13 @@ impl ASTBuilder {
             format!("{}_{}", name, c)
         };
 
+        let parent_table = &ctx.table_name;
         let ctx = ctx.start_table(&name);
+
+        self.column_names.insert(
+            (ctx.table_name.clone(), format!("{}_id", parent_table)),
+            0,
+        );
         for column_name in RESERVED.iter() {
             self.column_names
                 .insert((ctx.table_name.clone(), column_name.clone()), 0);
@@ -889,6 +894,32 @@ fn test_relational_ast_builder() {
             }),
         },
         TestCase {
+            name: "level is a reserved column name and is immediately postfixed".to_string(),
+            ele: simple(Some("level".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "level_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
+            name: "level_timestamp is a reserved column name and is immediately postfixed".to_string(),
+            ele: simple(Some("level_timestamp".to_string()), SimpleExprTy::String),
+            exp: Some(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: "storage".to_string(),
+                    column_name: "level_timestamp_1".to_string(),
+                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+        },
+        TestCase {
             name: "id is a reserved column name, also in child tables of storage".to_string(),
             ele: list(Some("addresses".to_string()), simple(Some("id".to_string()), SimpleExprTy::String)),
             exp: Some(RelationalAST::List{
@@ -902,6 +933,44 @@ fn test_relational_ast_builder() {
                         value: None,
                         is_index: false,
                     },
+                }),
+            }),
+        },
+        TestCase {
+            name: "parent_id is a reserved column name in child tables".to_string(),
+            ele: list(Some("addresses".to_string()), simple(Some("storage_id".to_string()), SimpleExprTy::String)),
+            exp: Some(RelationalAST::List{
+                table: "storage.addresses".to_string(),
+                elems_unique: false,
+                elems_ast: Box::new(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: "storage.addresses".to_string(),
+                        column_name: "storage_id_1".to_string(),
+                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        value: None,
+                        is_index: false,
+                    },
+                }),
+            }),
+        },
+        TestCase {
+            name: "parent_id is a reserved column name in nested child tables".to_string(),
+            ele: list(Some("addresses".to_string()), list(None, simple(Some("storage.addresses_id".to_string()), SimpleExprTy::String))),
+            exp: Some(RelationalAST::List{
+                table: "storage.addresses".to_string(),
+                elems_unique: false,
+                elems_ast: Box::new(RelationalAST::List{
+                    table: "storage.addresses.noname".to_string(),
+                    elems_unique: false,
+                    elems_ast: Box::new(RelationalAST::Leaf {
+                        rel_entry: RelationalEntry {
+                            table_name: "storage.addresses.noname".to_string(),
+                            column_name: "storage.addresses_id_1".to_string(),
+                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                            value: None,
+                            is_index: false,
+                        },
+                    }),
                 }),
             }),
         },
