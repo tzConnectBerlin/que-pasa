@@ -256,13 +256,13 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(chain_head.level)?,
+                            &self.exec_level(chain_head.level, false)?,
                         );
                         continue;
                     }
                     Err(anyhow!(
-                    "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
-                ))
+                        "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
+                    ))
                 }
             }?;
             debug!("db: {} chain: {}", db_head.level, chain_head.level);
@@ -270,7 +270,7 @@ impl Executor {
                 Ordering::Greater => {
                     wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
-                        match self.exec_level(level) {
+                        match self.exec_level(level, false) {
                             Ok(res) => Self::print_status(level, &res),
                             Err(e) => {
                                 if !e.is::<BadLevelHash>() {
@@ -278,8 +278,8 @@ impl Executor {
                                 }
                                 let bad_lvl = e.downcast::<BadLevelHash>()?;
                                 warn!(
-                                    "{}, deleting previous level from database",
-                                    bad_lvl.err
+                                    "{}, deleting level {} from database",
+                                    bad_lvl.err, bad_lvl.level
                                 );
                                 let mut tx = self.dbcli.transaction()?;
                                 DBClient::delete_level(&mut tx, bad_lvl.level)?;
@@ -374,7 +374,7 @@ impl Executor {
                     if let Some(l) =
                         get_implicit_origination_level(&contract_id.address)
                     {
-                        self.exec_level(l).unwrap();
+                        self.exec_level(l, true).unwrap();
                     }
 
                     self.fill_in_levels(contract_id)
@@ -410,16 +410,7 @@ impl Executor {
                 return Ok(());
             }
 
-            if let Err(e) = self.exec_levels(num_getters, missing_levels) {
-                if !e.is::<BadLevelHash>() {
-                    return Err(e);
-                }
-                let bad_lvl = e.downcast::<BadLevelHash>()?;
-                warn!("{}, deleting previous level from database", bad_lvl.err);
-                let mut tx = self.dbcli.transaction()?;
-                DBClient::delete_level(&mut tx, bad_lvl.level)?;
-                tx.commit()?;
-            }
+            self.exec_levels(num_getters, missing_levels)?;
         }
     }
 
@@ -473,7 +464,7 @@ impl Executor {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
-                &self.exec_for_block(&meta, &block)?,
+                &self.exec_for_block(&meta, &block, true)?,
             );
             processed_levels.push(meta.level);
         }
@@ -526,6 +517,7 @@ impl Executor {
     pub(crate) fn exec_level(
         &mut self,
         level_height: u32,
+        cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -537,7 +529,7 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&meta, &block)
+        self.exec_for_block(&meta, &block, cleanup_on_reorg)
     }
 
     fn ensure_level_hash(
@@ -586,13 +578,21 @@ impl Executor {
         &mut self,
         level: &LevelMeta,
         block: &Block,
+        cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         // note: we expect level's values to all be set (no None values in its fields)
-        self.ensure_level_hash(
+        if let Err(e) = self.ensure_level_hash(
             level.level,
             level.hash.as_ref().unwrap(),
             level.prev_hash.as_ref().unwrap(),
-        )?;
+        ) {
+            if !cleanup_on_reorg || !e.is::<BadLevelHash>() {
+                return Err(e);
+            }
+            let bad_lvl = e.downcast::<BadLevelHash>()?;
+            warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
+            self.exec_level(bad_lvl.level, true)?;
+        }
 
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
