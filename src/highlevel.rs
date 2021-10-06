@@ -835,6 +835,7 @@ fn test_generate() {
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
 
+    use ron::ser::{to_string_pretty, PrettyConfig};
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
@@ -876,7 +877,10 @@ fn test_generate() {
 
     let filename = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json";
     println!("cat > {} <<ENDOFJSON", filename);
-    println!("{}", serde_json::to_string(&tables).unwrap());
+    println!(
+        "{}",
+        to_string_pretty(&tables, PrettyConfig::new()).unwrap()
+    );
     println!(
         "ENDOFJSON
     "
@@ -886,7 +890,7 @@ fn test_generate() {
     let file = File::open(p).unwrap();
     let reader = BufReader::new(file);
     let v: Vec<crate::sql::table::Table> =
-        serde_json::from_reader(reader).unwrap();
+        ron::de::from_reader(reader).unwrap();
     assert_eq!(v.len(), tables.len());
     //test doesn't verify view exist
     for i in 0..v.len() {
