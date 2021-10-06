@@ -1,12 +1,3 @@
-extern crate atty;
-extern crate backtrace;
-extern crate bs58;
-extern crate chrono;
-extern crate clap;
-extern crate curl;
-extern crate dotenv;
-extern crate hex;
-extern crate indicatif;
 extern crate itertools;
 #[macro_use]
 extern crate json;
@@ -14,14 +5,8 @@ extern crate json;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
-extern crate native_tls;
-extern crate postgres;
-extern crate postgres_native_tls;
-extern crate regex;
-extern crate ron;
 #[macro_use]
 extern crate serde;
-extern crate serde_json;
 
 pub mod config;
 pub mod contract_denylist;
