@@ -441,7 +441,16 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
+        self.recompute_derivative_tables()?;
         Ok(processed_levels)
+    }
+
+    fn repopulate_derived_tables(&mut self) -> Result<()> {
+        for (contract_id, (rel_ast, _)) in &self.contracts {
+            self.dbcli
+                .repopulate_derived_tables(contract_id, rel_ast)?;
+        }
+        Ok(())
     }
 
     pub fn fill_in_levels(&mut self, contract_id: &ContractID) -> Result<()> {

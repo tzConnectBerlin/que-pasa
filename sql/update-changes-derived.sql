@@ -1,4 +1,47 @@
-CREATE VIEW "{contract_schema}"."{table}_live" AS (
+-- update based on newly processed block (note: _must_ be a *newer* block)
+
+DELETE FROM "{contract_schema}"."{table}_live"
+WHERE bigmap_id IN (
+    SELECT
+        bigmap_id
+    FROM "{contract_schema}".bigmap_clears
+    WHERE tx_context_id in ({tx_context_ids})
+);
+
+DELETE FROM "{contract_schema}"."{table}_live"
+WHERE id IN (
+    SELECT
+        live.id
+    FROM (
+        SELECT
+            {indices}
+        FROM (
+            SELECT DISTINCT ON({indices})
+                t.deleted,
+                {indices}
+            FROM "{contract_schema}"."{table}" t
+            JOIN tx_contexts ctx
+              ON ctx.id = t.tx_context_id
+            JOIN levels level_meta
+              ON level_meta.level = ctx.level
+            WHERE t.tx_context_id IN ({tx_context_ids})
+            ORDER BY
+                {indices},
+                ctx.operation_group_number DESC,
+                ctx.operation_number DESC,
+                ctx.content_number DESC,
+                COALESCE(ctx.internal_number, -2) DESC
+        ) t
+        where t.deleted
+    ) as deleted_indices
+    JOIN "{contract_schema}"."{table}_live" live
+      ON {indices_equal}
+) q;
+
+INSERT INTO "{contract_schema}"."{table}_live"
+SELECT
+    *
+FROM (
     SELECT
         level,
         level_timestamp,
@@ -9,32 +52,35 @@ CREATE VIEW "{contract_schema}"."{table}_live" AS (
             ctx.level AS level,
             level_meta.baked_at AS level_timestamp,
             t.*
-        FROM (
-            SELECT
-                t.*
-            FROM "{contract_schema}"."{table}" t
-            WHERE t.bigmap_id NOT IN (SELECT bigmap_id FROM "{contract_schema}".bigmap_clears)
-        ) t
+        FROM "{contract_schema}"."{table}" t
         JOIN tx_contexts ctx
           ON ctx.id = t.tx_context_id
         JOIN levels level_meta
           ON level_meta.level = ctx.level
+        WHERE t.tx_context_id IN ({tx_context_ids})
         ORDER BY
             {indices},
-            ctx.level DESC,
             ctx.operation_group_number DESC,
             ctx.operation_number DESC,
             ctx.content_number DESC,
             COALESCE(ctx.internal_number, -2) DESC
     ) t
     where not t.deleted
-);
+) q;
 
-CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
+
+INSERT INTO "{contract_schema}"."{table}_ordered"
+SELECT
+    ordering + (SELECT max(ordering) FROM "{contract_schema}"."{table}_ordered") as ordering,
+    level,
+    level_timestamp,
+    id,
+    deleted
+    {columns}
+FROM (
     SELECT
         ROW_NUMBER() OVER (
             ORDER BY
-                ctx.level,
                 ctx.operation_group_number,
                 ctx.operation_number,
                 ctx.content_number,
@@ -52,6 +98,7 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
             t.deleted
             {columns}
         FROM "{contract_schema}"."{table}" t
+        WHERE t.tx_context_id IN ({tx_context_ids})
 
         UNION ALL
 
@@ -66,7 +113,6 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                 last_value(deleted) over (
                     PARTITION BY ({indices})
                     ORDER BY
-                        ctx.level,
                         ctx.operation_group_number,
                         ctx.operation_number,
                         ctx.content_number,
@@ -74,16 +120,17 @@ CREATE VIEW "{contract_schema}"."{table}_ordered" AS (
                     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
                 ) AS latest_deleted
                 {columns}
-            FROM "{contract_schema}"."{table}" t
-            JOIN "{contract_schema}".bigmap_clears clr
+            FROM "{contract_schema}".bigmap_clears clr
+            JOIN "{contract_schema}"."{table}" t
               ON t.bigmap_id = clr.bigmap_id
             JOIN tx_contexts ctx
               ON ctx.id = t.tx_context_id
-            ) t
+            WHERE clr.tx_context_id IN ({tx_context_ids})
+        ) t
         WHERE NOT t.latest_deleted
     ) t  -- t with bigmap clears unfolded
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
     JOIN levels level_meta
       ON level_meta.level = ctx.level
-);
+) q;

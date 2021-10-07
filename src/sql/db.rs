@@ -71,6 +71,49 @@ WHERE table_schema = 'public'
         Ok(res.is_some())
     }
 
+    pub(crate) fn repopulate_derived_tables(
+        &mut self,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) {
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let generator = PostgresqlGenerator::new(contract_id);
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+
+        let mut tx = self.transaction()?;
+        let noview_prefixes = builder.get_viewless_table_prefixes();
+        for (_name, table) in sorted_tables {
+            if !noview_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                DBClient::repopulate_derived_table(&mut tx, table);
+            }
+        }
+    }
+
+    fn repopulate_derived_table(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        table: Table,
+    ) -> Result<()> {
+        if table.contains_snapshots() {
+            tx.simple_query(
+                format!(
+                    include_str!("../../sql/repopulate-snapshot-derived.sql"),
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                    columns = ..,
+                )
+                .as_str(),
+            )?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn create_contract_schema(
         &mut self,
         contract_id: &ContractID,

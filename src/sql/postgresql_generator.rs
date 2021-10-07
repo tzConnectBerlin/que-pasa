@@ -110,7 +110,7 @@ impl PostgresqlGenerator {
         Ok(cols)
     }
 
-    fn table_sql_columns(
+    pub(crate) fn table_sql_columns(
         &self,
         table: &Table,
         with_keywords: bool,
