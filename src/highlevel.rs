@@ -172,14 +172,6 @@ impl Executor {
         Ok(new_contracts)
     }
 
-    pub fn recreate_views(&mut self) -> Result<()> {
-        for (contract_id, rel_ast) in &self.contracts {
-            self.dbcli
-                .recreate_contract_views(contract_id, &rel_ast.0)?;
-        }
-        Ok(())
-    }
-
     pub fn get_contract_rel_ast(
         &self,
         contract_id: &ContractID,
@@ -256,7 +248,7 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(chain_head.level, false)?,
+                            &self.exec_level(chain_head.level, false, true)?,
                         );
                         continue;
                     }
@@ -270,7 +262,7 @@ impl Executor {
                 Ordering::Greater => {
                     wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
-                        match self.exec_level(level, false) {
+                        match self.exec_level(level, false, true) {
                             Ok(res) => Self::print_status(level, &res),
                             Err(e) => {
                                 if !e.is::<BadLevelHash>() {
@@ -284,6 +276,7 @@ impl Executor {
                                 let mut tx = self.dbcli.transaction()?;
                                 DBClient::delete_level(&mut tx, bad_lvl.level)?;
                                 tx.commit()?;
+                                self.repopulate_derived_tables()?;
                                 break;
                             }
                         }
@@ -306,6 +299,7 @@ impl Executor {
                         let mut tx = self.dbcli.transaction()?;
                         DBClient::delete_level(&mut tx, db_head.level)?;
                         tx.commit()?;
+                        self.repopulate_derived_tables()?;
                     }
                     wait(&mut first_wait);
                 }
@@ -374,7 +368,7 @@ impl Executor {
                     if let Some(l) =
                         get_implicit_origination_level(&contract_id.address)
                     {
-                        self.exec_level(l, true).unwrap();
+                        self.exec_level(l, true, false).unwrap();
                     }
 
                     self.fill_in_levels(contract_id)
@@ -441,11 +435,12 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
-        self.recompute_derivative_tables()?;
+        self.repopulate_derived_tables()?;
         Ok(processed_levels)
     }
 
     fn repopulate_derived_tables(&mut self) -> Result<()> {
+        info!("re-populating derived tables (_live, _ordered)");
         for (contract_id, (rel_ast, _)) in &self.contracts {
             self.dbcli
                 .repopulate_derived_tables(contract_id, rel_ast)?;
@@ -473,7 +468,7 @@ impl Executor {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
-                &self.exec_for_block(&meta, &block, true)?,
+                &self.exec_for_block(&meta, &block, true, false)?,
             );
             processed_levels.push(meta.level);
         }
@@ -527,6 +522,7 @@ impl Executor {
         &mut self,
         level_height: u32,
         cleanup_on_reorg: bool,
+        update_derived_tables: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -538,7 +534,12 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&meta, &block, cleanup_on_reorg)
+        self.exec_for_block(
+            &meta,
+            &block,
+            cleanup_on_reorg,
+            update_derived_tables,
+        )
     }
 
     fn ensure_level_hash(
@@ -588,6 +589,7 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
         cleanup_on_reorg: bool,
+        update_derived_tables: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         // note: we expect level's values to all be set (no None values in its fields)
         if let Err(e) = self.ensure_level_hash(
@@ -600,7 +602,7 @@ impl Executor {
             }
             let bad_lvl = e.downcast::<BadLevelHash>()?;
             warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
-            self.exec_level(bad_lvl.level, true)?;
+            self.exec_level(bad_lvl.level, true, update_derived_tables)?;
         }
 
         let process_contracts = if self.all_contracts {
@@ -659,6 +661,7 @@ impl Executor {
                 &mut storage_processor,
                 contract_id,
                 rel_ast,
+                update_derived_tables,
             )?);
         }
         tx.commit()?;
@@ -693,6 +696,7 @@ impl Executor {
         storage_processor: &mut StorageProcessor<NodeClient, DBClient>,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
+        update_derived_tables: bool,
     ) -> Result<SaveLevelResult> {
         let is_origination =
             block.has_contract_origination(&contract_id.address);
@@ -724,20 +728,28 @@ impl Executor {
         let tx_count = tx_contexts.len() as u32;
 
         Self::save_level_processed_contract(
-        tx,
-                meta,
-                contract_id,
-                inserts,
-                tx_contexts,
-                bigmap_contract_deps,
-                storage_processor.get_bigmap_keyhashes(),
-            )
-            .with_context(|| {
-                format!(
+            tx,
+            meta,
+            contract_id,
+            inserts,
+            &tx_contexts,
+            bigmap_contract_deps,
+            storage_processor.get_bigmap_keyhashes(),
+        )
+        .with_context(|| {
+            format!(
                 "execute failed (level={}, contract={}): could not save processed block",
                 meta.level, contract_id.name,
             )
-            })?;
+        })?;
+        if update_derived_tables {
+            DBClient::update_derived_tables(
+                tx,
+                contract_id,
+                rel_ast,
+                &tx_contexts,
+            )?;
+        }
         DBClient::set_max_id(tx, storage_processor.get_id_value() + 1)?;
 
         if is_origination {
@@ -780,14 +792,14 @@ impl Executor {
         meta: &LevelMeta,
         contract_id: &ContractID,
         inserts: Inserts,
-        tx_contexts: Vec<TxContext>,
+        tx_contexts: &[TxContext],
         bigmap_contract_deps: Vec<String>,
         bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
     ) -> Result<()> {
         DBClient::delete_contract_level(tx, contract_id, meta.level)?;
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
 
-        DBClient::save_tx_contexts(tx, &tx_contexts)?;
+        DBClient::save_tx_contexts(tx, tx_contexts)?;
         DBClient::apply_inserts(
             tx,
             contract_id,

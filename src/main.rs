@@ -97,11 +97,6 @@ Interrupt within 15 seconds to abort"
     let contracts = executor.get_config();
     assert_contracts_ok(&contracts);
 
-    if config.recreate_views {
-        executor.recreate_views().unwrap();
-        return;
-    }
-
     let num_getters = config.workers_cap;
     if !config.levels.is_empty() {
         executor

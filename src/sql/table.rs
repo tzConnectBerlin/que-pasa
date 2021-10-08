@@ -128,6 +128,28 @@ impl Table {
         res
     }
 
+    pub(crate) fn drop_column(&mut self, name: &str) {
+        if let Some(_) = self.columns.remove(name) {
+            self.keys = self
+                .keys
+                .clone()
+                .into_iter()
+                .filter(|k| k != name)
+                .collect::<Vec<String>>();
+
+            self.drop_index(name);
+        }
+    }
+
+    pub(crate) fn drop_index(&mut self, name: &str) {
+        self.indices = self
+            .indices
+            .clone()
+            .into_iter()
+            .filter(|k| k != name)
+            .collect::<Vec<String>>();
+    }
+
     pub(crate) fn keywords(&self) -> Vec<String> {
         let mut res = vec!["id".to_string(), "tx_context_id".to_string()];
         if !self.contains_snapshots() {

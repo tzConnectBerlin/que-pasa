@@ -17,7 +17,6 @@ pub struct Config {
     pub network: String,
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
-    pub recreate_views: bool,
 }
 
 #[derive(
@@ -123,13 +122,6 @@ pub fn init_config() -> Result<Config> {
                 .help("If set, clear the DB out and recreate global tables")
                 .takes_value(false),
         )
-        .arg(
-            Arg::with_name("recreate_views")
-                .long("recreate-views")
-                .value_name("RECREATE_VIEWS")
-                .help("If set, drop and recreate all _live and _ordered view definitions")
-                .takes_value(false),
-        )
         .get_matches();
 
     let maybe_fpath = matches
@@ -178,7 +170,6 @@ pub fn init_config() -> Result<Config> {
     }
 
     config.reinit = matches.is_present("reinit");
-    config.recreate_views = matches.is_present("recreate_views");
     config.all_contracts = matches.is_present("index_all_contracts");
 
     config.levels = matches

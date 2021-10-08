@@ -1,14 +1,17 @@
 -- repopulate
 
 DELETE FROM "{contract_schema}"."{table}_live";
-INSERT INTO "{contract_schema}"."{table}_live" live
+INSERT INTO "{contract_schema}"."{table}_live" (
+    level, level_timestamp, id, tx_context_id {columns}
+)
 SELECT
     *
 FROM (
     SELECT
         ctx.level AS level,
         level_meta.baked_at AS level_timestamp,
-        t.id
+        t.id,
+        t.tx_context_id
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx
@@ -16,6 +19,7 @@ FROM (
     JOIN levels level_meta
       ON level_meta.level = ctx.level
     ORDER BY
+        ctx.level DESC,
         ctx.operation_group_number DESC,
         ctx.operation_number DESC,
         ctx.content_number DESC,
@@ -25,7 +29,9 @@ FROM (
 
 
 DELETE FROM "{contract_schema}"."{table}_ordered";
-INSERT INTO "{contract_schema}"."{table}_ordered"
+INSERT INTO "{contract_schema}"."{table}_ordered" (
+    ordering, level, level_timestamp, id, tx_context_id {columns}
+)
 SELECT
     *
 FROM (
@@ -40,7 +46,8 @@ FROM (
         ) AS ordering,
         ctx.level AS level,
         level_meta.baked_at AS level_timestamp,
-        t.id
+        t.id,
+        t.tx_context_id
         {columns}
     FROM "{contract_schema}"."{table}" t
     JOIN tx_contexts ctx

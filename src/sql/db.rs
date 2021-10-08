@@ -17,6 +17,7 @@ use crate::octez::block::TxContext;
 use crate::octez::node::NodeClient;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
+use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
 
@@ -75,11 +76,10 @@ WHERE table_schema = 'public'
         &mut self,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
-    ) {
+    ) -> Result<()> {
         let mut builder = TableBuilder::new();
         builder.populate(rel_ast);
 
-        let generator = PostgresqlGenerator::new(contract_id);
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
 
@@ -90,27 +90,136 @@ WHERE table_schema = 'public'
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
-                DBClient::repopulate_derived_table(&mut tx, table);
+                DBClient::repopulate_derived_table(
+                    &mut tx,
+                    contract_id,
+                    table,
+                )?;
             }
         }
+        tx.commit()?;
+        Ok(())
     }
 
     fn repopulate_derived_table(
         tx: &mut Transaction,
         contract_id: &ContractID,
-        table: Table,
+        table: &Table,
     ) -> Result<()> {
+        let columns = PostgresqlGenerator::table_sql_columns(table, false)
+            .iter()
+            .map(|col| format!(", {}", col))
+            .collect::<Vec<String>>()
+            .join("");
+        let indices =
+            PostgresqlGenerator::table_sql_indices(table, false).join(",");
         if table.contains_snapshots() {
             tx.simple_query(
                 format!(
                     include_str!("../../sql/repopulate-snapshot-derived.sql"),
                     contract_schema = contract_id.name,
                     table = table.name,
-                    columns = ..,
+                    columns = columns,
                 )
                 .as_str(),
             )?;
+        } else {
+            tx.simple_query(
+                format!(
+                    include_str!("../../sql/repopulate-changes-derived.sql"),
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                    columns = columns,
+                    indices = indices,
+                )
+                .as_str(),
+            )?;
+        };
+        Ok(())
+    }
+
+    pub(crate) fn update_derived_tables(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+        tx_contexts: &[TxContext],
+    ) -> Result<()> {
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+
+        let noview_prefixes = builder.get_viewless_table_prefixes();
+        for (_name, table) in sorted_tables {
+            if !noview_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                DBClient::update_derived_table(
+                    tx,
+                    contract_id,
+                    table,
+                    tx_contexts,
+                )?;
+            }
         }
+        Ok(())
+    }
+
+    fn update_derived_table(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        table: &Table,
+        tx_contexts: &[TxContext],
+    ) -> Result<()> {
+        let tx_context_ids: String = tx_contexts
+            .iter()
+            .map(|ctx| format!("{}", ctx.id.unwrap()))
+            .collect::<Vec<String>>()
+            .join(",");
+
+        let columns = PostgresqlGenerator::table_sql_columns(table, false)
+            .iter()
+            .map(|col| format!(", {}", col))
+            .collect::<Vec<String>>()
+            .join("");
+        let indices =
+            PostgresqlGenerator::table_sql_indices(table, false).join(",");
+
+        if table.contains_snapshots() {
+            tx.simple_query(
+                format!(
+                    include_str!("../../sql/update-snapshot-derived.sql"),
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                    columns = columns,
+                    tx_context_ids = tx_context_ids,
+                )
+                .as_str(),
+            )?;
+        } else {
+            let indices_equal =
+                PostgresqlGenerator::table_sql_indices(table, false)
+                    .iter()
+                    .map(|idx| {
+                        format!("deleted_indices.{idx} = live.{idx}", idx = idx)
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" AND ");
+            tx.simple_query(
+                format!(
+                    include_str!("../../sql/update-changes-derived.sql"),
+                    contract_schema = contract_id.name,
+                    table = table.name,
+                    columns = columns,
+                    indices = indices,
+                    indices_equal = indices_equal,
+                    tx_context_ids = tx_context_ids,
+                )
+                .as_str(),
+            )?;
+        };
         Ok(())
     }
 
@@ -155,8 +264,11 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                     .iter()
                     .any(|prefix| table.name.starts_with(prefix))
                 {
-                    let views_def = generator.create_view_definition(table)?;
-                    tx.simple_query(views_def.as_str())?;
+                    for derived_table_def in
+                        generator.create_derived_table_definitions(table)?
+                    {
+                        tx.simple_query(derived_table_def.as_str())?;
+                    }
                 }
             }
             tx.commit()?;
@@ -164,42 +276,6 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
             return Ok(true);
         }
         Ok(false)
-    }
-
-    pub(crate) fn recreate_contract_views(
-        &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
-    ) -> Result<()> {
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
-
-        let generator = PostgresqlGenerator::new(contract_id);
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-
-        let mut tx = self.transaction()?;
-        for (_, table) in sorted_tables {
-            if table.name == "bigmap_clears" {
-                continue;
-            }
-            tx.simple_query(
-                format!(
-                    r#"
-DROP VIEW "{contract_schema}"."{table}_ordered";
-DROP VIEW "{contract_schema}"."{table}_live";
-"#,
-                    contract_schema = contract_id.name,
-                    table = table.name,
-                )
-                .as_str(),
-            )?;
-            let views_def = generator.create_view_definition(table)?;
-
-            tx.simple_query(views_def.as_str())?;
-        }
-        tx.commit()?;
-        Ok(())
     }
 
     pub(crate) fn delete_contract_schema(

@@ -36,16 +36,20 @@ WHERE id IN (
     ) as deleted_indices
     JOIN "{contract_schema}"."{table}_live" live
       ON {indices_equal}
-) q;
+);
 
-INSERT INTO "{contract_schema}"."{table}_live"
+INSERT INTO "{contract_schema}"."{table}_live" (
+    level, level_timestamp, id, tx_context_id, bigmap_id {columns}
+)
 SELECT
     *
 FROM (
     SELECT
         level,
         level_timestamp,
-        id
+        id,
+        tx_context_id,
+        bigmap_id
         {columns}
     FROM (
         SELECT DISTINCT ON({indices})
@@ -66,15 +70,18 @@ FROM (
             COALESCE(ctx.internal_number, -2) DESC
     ) t
     where not t.deleted
-) q;
+) t;
 
 
-INSERT INTO "{contract_schema}"."{table}_ordered"
+INSERT INTO "{contract_schema}"."{table}_ordered" (
+    ordering, level, level_timestamp, id, tx_context_id, deleted {columns}
+)
 SELECT
     ordering + (SELECT max(ordering) FROM "{contract_schema}"."{table}_ordered") as ordering,
     level,
     level_timestamp,
     id,
+    tx_context_id,
     deleted
     {columns}
 FROM (
@@ -89,6 +96,7 @@ FROM (
         ctx.level AS level,
         level_meta.baked_at AS level_timestamp,
         t.id,
+        t.tx_context_id,
         t.deleted
         {columns}
     FROM (
@@ -133,4 +141,4 @@ FROM (
       ON ctx.id = t.tx_context_id
     JOIN levels level_meta
       ON level_meta.level = ctx.level
-) q;
+) t;

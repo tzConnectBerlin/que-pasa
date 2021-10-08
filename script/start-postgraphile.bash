@@ -7,4 +7,4 @@ if [ -z $DATABASE_URL ]; then
     exit 1
 fi
 
-postgraphile --live --append-plugins `pwd`/graphql/multiple.js,@graphile/subscriptions-lds  --owner-connection $DATABASE_URL --connection $DATABASE_URL "${@}"
+postgraphile --live --append-plugins `pwd`/graphql/multiple.js,@graphile/subscriptions-lds,@graphile-contrib/pg-order-by-related  --owner-connection $DATABASE_URL --connection $DATABASE_URL "${@}"
