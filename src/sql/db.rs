@@ -301,8 +301,8 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                 tx.simple_query(
                     format!(
                         r#"
-DROP VIEW "{contract_schema}"."{table}_ordered";
-DROP VIEW "{contract_schema}"."{table}_live";
+DROP TABLE "{contract_schema}"."{table}_ordered";
+DROP TABLE "{contract_schema}"."{table}_live";
 "#,
                         contract_schema = contract_id.name,
                         table = table.name,
