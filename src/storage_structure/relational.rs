@@ -469,6 +469,13 @@ impl ASTBuilder {
     ) -> Result<RelationalAST> {
         match ele.expr_type {
             ExprTy::ComplexExprTy(ref ety) => match ety {
+                ComplexExprTy::Option(elem_type) => {
+                    let ctx = ctx.next_with_prefix(ele.name.clone());
+                    let elem_ast = self.build_index(&ctx, elem_type)?;
+                    Ok(RelationalAST::Option {
+                        elem_ast: Box::new(elem_ast),
+                    })
+                }
                 ComplexExprTy::Pair(left_type, right_type) => {
                     let ctx = ctx.next_with_prefix(ele.name.clone());
                     let left = self.build_index(&ctx.next(), left_type)?;
