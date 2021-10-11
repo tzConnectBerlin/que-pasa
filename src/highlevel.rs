@@ -450,6 +450,12 @@ impl Executor {
     }
 
     fn repopulate_derived_tables(&mut self) -> Result<()> {
+        #[cfg(feature = "regression")]
+        if self.always_update_derived {
+            info!("skipping re-populating of derived tables, always_update_derived enabled");
+            return Ok(());
+        }
+
         info!("re-populating derived tables (_live, _ordered)");
         for (contract_id, (rel_ast, _)) in &self.contracts {
             self.dbcli

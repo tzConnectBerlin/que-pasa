@@ -13,26 +13,20 @@ WHERE id IN (
     SELECT
         live.id
     FROM (
-        SELECT
+        SELECT DISTINCT ON({indices})
             {indices}
-        FROM (
-            SELECT DISTINCT ON({indices})
-                t.deleted,
-                {indices}
-            FROM "{contract_schema}"."{table}" t
-            JOIN tx_contexts ctx
-              ON ctx.id = t.tx_context_id
-            JOIN levels level_meta
-              ON level_meta.level = ctx.level
-            WHERE t.tx_context_id IN ({tx_context_ids})
-            ORDER BY
-                {indices},
-                ctx.operation_group_number DESC,
-                ctx.operation_number DESC,
-                ctx.content_number DESC,
-                COALESCE(ctx.internal_number, -2) DESC
-        ) t
-        where t.deleted
+        FROM "{contract_schema}"."{table}" t
+        JOIN tx_contexts ctx
+          ON ctx.id = t.tx_context_id
+        JOIN levels level_meta
+          ON level_meta.level = ctx.level
+        WHERE t.tx_context_id IN ({tx_context_ids})
+        ORDER BY
+            {indices},
+            ctx.operation_group_number DESC,
+            ctx.operation_number DESC,
+            ctx.content_number DESC,
+            COALESCE(ctx.internal_number, -2) DESC
     ) as deleted_indices
     JOIN "{contract_schema}"."{table}_live" live
       ON {indices_equal}

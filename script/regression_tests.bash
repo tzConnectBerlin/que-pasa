@@ -33,6 +33,7 @@ export NODE_URL=https://mainnet-tezos.giganode.io
 export DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE
 
 function query {
+    echo "query: $1"
     res=`psql -c "$1"`
 
     exp=`printf "%s;\n%s" "$1" "$res"`
@@ -55,9 +56,10 @@ query 'select count(1) from tx_contexts' || exit 1
 query 'select count(1) from contracts' || exit 1
 query 'select count(1) from contract_levels' || exit 1
 query 'select count(1) from contract_deps' || exit 1
-query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
-query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
-query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering' || exit 1
+
+query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
+query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
+query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering' || exit 1
 
 if [[ "$MODE" == "assert" ]]; then
     echo 'all good'

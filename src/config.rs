@@ -224,7 +224,10 @@ pub fn init_config() -> Result<Config> {
     #[cfg(feature = "regression")]
     {
         config.always_update_derived =
-            matches.is_present("always-update-derived");
+            matches.is_present("always_update_derived");
+        if config.always_update_derived {
+            config.workers_cap = 1;
+        }
     }
 
     debug!("Config={:#?}", config);
