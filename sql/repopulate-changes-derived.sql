@@ -49,7 +49,7 @@ SELECT
     *
 FROM (
     SELECT
-        ROW_NUMBER() OVER (
+        DENSE_RANK() OVER (
             ORDER BY
                 ctx.level,
                 ctx.operation_group_number,

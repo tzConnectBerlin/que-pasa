@@ -80,7 +80,7 @@ SELECT
     {columns}
 FROM (
     SELECT
-        ROW_NUMBER() OVER (
+        DENSE_RANK() OVER (
             ORDER BY
                 ctx.operation_group_number,
                 ctx.operation_number,

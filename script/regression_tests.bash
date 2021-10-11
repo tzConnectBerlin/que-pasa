@@ -11,10 +11,6 @@ if [[ "$MODE" != "generate" && "$MODE" != "assert" && "$MODE" != "inspect" ]]; t
 fi
 echo "mode: $MODE"
 
-if [[ "$MODE" == "generate" ]]; then
-    rm test/regression/*.query
-fi
-
 export PGHOST=localhost
 export PGPORT=35432
 export PGUSER=test
@@ -32,14 +28,22 @@ sleep $SETUP_WAIT
 export NODE_URL=https://mainnet-tezos.giganode.io
 export DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE
 
+query_id=0
 function query {
-    echo "query: $1"
+    query_id=$(( query_id + 1 ))
+    echo "query $query_id: $1"
     res=`psql -c "$1"`
 
     exp=`printf "%s;\n%s" "$1" "$res"`
-    exp_file=test/regression/`echo "$1" | md5sum | awk '{print $1}'`.query
+    exp_file=test/regression/"$query_id".query
     if [[ "$MODE" == "assert" ]]; then
-        diff --suppress-common-lines -y $exp_file - <<< "$exp" || exit 1
+        # diff --suppress-common-lines -y $exp_file - <<< "$exp" || exit 1
+        tmp=`mktemp`
+        echo "$exp" > $tmp
+        if ! cmp $tmp $exp_file ; then
+            opendiff $tmp $exp_file
+            exit 1
+        fi
     else
         printf "***\nexpectation generated:\n%s\n***\n\n" "$exp"
         echo "$exp" > $exp_file
@@ -48,10 +52,15 @@ function query {
 
 cargo run -- --index-all-contracts -l 1500000-1500001
 cargo run --features regression -- --index-all-contracts -l 1500002-1500005 --always-update-derived
+
 if [[ "$MODE" == "inspect" ]]; then
     psql
     exit 0
 fi
+if [[ "$MODE" == "generate" ]]; then
+    rm test/regression/*.query
+fi
+
 query 'select count(1) from tx_contexts' || exit 1
 query 'select count(1) from contracts' || exit 1
 query 'select count(1) from contract_levels' || exit 1
@@ -59,7 +68,7 @@ query 'select count(1) from contract_deps' || exit 1
 
 query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
 query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
-query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering' || exit 1
+query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat' || exit 1
 
 if [[ "$MODE" == "assert" ]]; then
     echo 'all good'
