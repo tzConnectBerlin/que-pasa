@@ -33,7 +33,7 @@ WHERE id IN (
 );
 
 INSERT INTO "{contract_schema}"."{table}_live" (
-    level, level_timestamp, id, tx_context_id, bigmap_id {columns}
+    level, level_timestamp, id, tx_context_id, bigmap_id {columns_anon}
 )
 SELECT
     *
@@ -68,7 +68,7 @@ FROM (
 
 
 INSERT INTO "{contract_schema}"."{table}_ordered" (
-    ordering, level, level_timestamp, id, tx_context_id, deleted {columns}
+    ordering, level, level_timestamp, id, tx_context_id, deleted {columns_anon}
 )
 SELECT
     ordering + (SELECT max(ordering) FROM "{contract_schema}"."{table}_ordered") as ordering,

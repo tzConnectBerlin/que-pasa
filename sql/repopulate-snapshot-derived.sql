@@ -2,7 +2,7 @@
 
 DELETE FROM "{contract_schema}"."{table}_live";
 INSERT INTO "{contract_schema}"."{table}_live" (
-    level, level_timestamp, id, tx_context_id {columns}
+    level, level_timestamp, id, tx_context_id {columns_anon}
 )
 SELECT
     *
@@ -30,13 +30,13 @@ FROM (
 
 DELETE FROM "{contract_schema}"."{table}_ordered";
 INSERT INTO "{contract_schema}"."{table}_ordered" (
-    ordering, level, level_timestamp, id, tx_context_id {columns}
+    ordering, level, level_timestamp, id, tx_context_id {columns_anon}
 )
 SELECT
     *
 FROM (
     SELECT
-        ROW_NUMBER() OVER (
+        DENSE_RANK() OVER (
             ORDER BY
                 ctx.level,
                 ctx.operation_group_number,

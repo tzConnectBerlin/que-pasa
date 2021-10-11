@@ -108,17 +108,27 @@ WHERE table_schema = 'public'
     ) -> Result<()> {
         let columns = PostgresqlGenerator::table_sql_columns(table, false)
             .iter()
+            .map(|col| format!(", t.{}", col))
+            .collect::<Vec<String>>()
+            .join("");
+        let columns_anon = PostgresqlGenerator::table_sql_columns(table, false)
+            .iter()
             .map(|col| format!(", {}", col))
             .collect::<Vec<String>>()
             .join("");
-        let indices =
-            PostgresqlGenerator::table_sql_indices(table, false).join(",");
+        let indices = PostgresqlGenerator::table_sql_indices(table, false)
+            .iter()
+            .map(|idx| format!("t.{}", idx))
+            .collect::<Vec<String>>()
+            .join(",");
+
         if table.contains_snapshots() {
             tx.simple_query(
                 format!(
                     include_str!("../../sql/repopulate-snapshot-derived.sql"),
                     contract_schema = contract_id.name,
                     table = table.name,
+                    columns_anon = columns_anon,
                     columns = columns,
                 )
                 .as_str(),
@@ -129,6 +139,7 @@ WHERE table_schema = 'public'
                     include_str!("../../sql/repopulate-changes-derived.sql"),
                     contract_schema = contract_id.name,
                     table = table.name,
+                    columns_anon = columns_anon,
                     columns = columns,
                     indices = indices,
                 )
@@ -181,11 +192,19 @@ WHERE table_schema = 'public'
 
         let columns = PostgresqlGenerator::table_sql_columns(table, false)
             .iter()
+            .map(|col| format!(", t.{}", col))
+            .collect::<Vec<String>>()
+            .join("");
+        let columns_anon = PostgresqlGenerator::table_sql_columns(table, false)
+            .iter()
             .map(|col| format!(", {}", col))
             .collect::<Vec<String>>()
             .join("");
-        let indices =
-            PostgresqlGenerator::table_sql_indices(table, false).join(",");
+        let indices = PostgresqlGenerator::table_sql_indices(table, false)
+            .iter()
+            .map(|idx| format!("t.{}", idx))
+            .collect::<Vec<String>>()
+            .join(",");
 
         if table.contains_snapshots() {
             tx.simple_query(
@@ -193,6 +212,7 @@ WHERE table_schema = 'public'
                     include_str!("../../sql/update-snapshot-derived.sql"),
                     contract_schema = contract_id.name,
                     table = table.name,
+                    columns_anon = columns_anon,
                     columns = columns,
                     tx_context_ids = tx_context_ids,
                 )
@@ -212,6 +232,7 @@ WHERE table_schema = 'public'
                     include_str!("../../sql/update-changes-derived.sql"),
                     contract_schema = contract_id.name,
                     table = table.name,
+                    columns_anon = columns_anon,
                     columns = columns,
                     indices = indices,
                     indices_equal = indices_equal,

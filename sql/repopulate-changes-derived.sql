@@ -2,7 +2,7 @@
 
 DELETE FROM "{contract_schema}"."{table}_live";
 INSERT INTO "{contract_schema}"."{table}_live" (
-    level, level_timestamp, id, tx_context_id, bigmap_id {columns}
+    level, level_timestamp, id, tx_context_id, bigmap_id {columns_anon}
 )
 SELECT
     *
@@ -43,7 +43,7 @@ FROM (
 
 DELETE FROM "{contract_schema}"."{table}_ordered";
 INSERT INTO "{contract_schema}"."{table}_ordered" (
-    ordering, level, level_timestamp, id, tx_context_id, deleted {columns}
+    ordering, level, level_timestamp, id, tx_context_id, deleted {columns_anon}
 )
 SELECT
     *
