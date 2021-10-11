@@ -17,6 +17,8 @@ pub struct Config {
     pub network: String,
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
+    #[cfg(feature = "regression")]
+    pub always_update_derived: bool,
 }
 
 #[derive(
@@ -121,8 +123,15 @@ pub fn init_config() -> Result<Config> {
                 .value_name("REINIT")
                 .help("If set, clear the DB out and recreate global tables")
                 .takes_value(false),
-        )
-        .get_matches();
+    );
+    #[cfg(feature = "regression")]
+    let matches = matches.arg(
+        Arg::with_name("always_update_derived")
+            .long("always-update-derived")
+            .help("If set, after every block (and in every exec_), always update the derived _live and _ordered tables")
+            .takes_value(false),
+    );
+    let matches = matches.get_matches();
 
     let maybe_fpath = matches
         .value_of("contract_settings")
@@ -210,6 +219,12 @@ pub fn init_config() -> Result<Config> {
             config.workers_cap
         );
         config.workers_cap = 1;
+    }
+
+    #[cfg(feature = "regression")]
+    {
+        config.always_update_derived =
+            matches.is_present("always-update-derived");
     }
 
     debug!("Config={:#?}", config);

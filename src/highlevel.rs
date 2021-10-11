@@ -42,6 +42,9 @@ pub struct Executor {
     contracts: HashMap<ContractID, (RelationalAST, Option<u32>)>,
     all_contracts: bool,
 
+    #[cfg(feature = "regression")]
+    always_update_derived: bool,
+
     // Everything below this level has nothing to do with what we are indexing
     level_floor: LevelFloor,
 
@@ -99,6 +102,8 @@ impl Executor {
             dbcli,
             contracts: HashMap::new(),
             all_contracts: false,
+            #[cfg(feature = "regression")]
+            always_update_derived: false,
             level_floor: LevelFloor {
                 f: Arc::new(Mutex::new(0)),
             },
@@ -128,6 +133,11 @@ impl Executor {
 
     pub fn index_all_contracts(&mut self) {
         self.all_contracts = true
+    }
+
+    #[cfg(feature = "regression")]
+    pub fn always_update_derived_tables(&mut self) {
+        self.always_update_derived = true
     }
 
     pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
@@ -604,6 +614,10 @@ impl Executor {
             warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
             self.exec_level(bad_lvl.level, true, update_derived_tables)?;
         }
+
+        #[cfg(feature = "regression")]
+        let update_derived_tables =
+            update_derived_tables | self.always_update_derived;
 
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block

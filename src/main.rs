@@ -84,6 +84,10 @@ Interrupt within 15 seconds to abort"
         config.ssl,
         config.ca_cert.clone(),
     );
+    #[cfg(feature = "regression")]
+    if config.always_update_derived {
+        executor.always_update_derived_tables();
+    }
     if config.all_contracts {
         index_all_contracts(config, executor);
         return;

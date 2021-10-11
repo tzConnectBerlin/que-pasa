@@ -46,6 +46,7 @@ function query {
 }
 
 cargo run -- --index-all-contracts -l 1500000-1500001
+cargo run --features regression -- --index-all-contracts -l 1500002-1500005 --always-update-derived
 if [[ "$MODE" == "inspect" ]]; then
     psql
     exit 0
