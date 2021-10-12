@@ -92,7 +92,7 @@ where
     BigmapKeys: BigmapKeysGetter,
 {
     bigmap_map: BigMapMap,
-    bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+    bigmap_keyhashes: HashMap<(TxContext, i32, String), String>,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
@@ -114,7 +114,7 @@ where
             bigmap_map: BigMapMap::new(),
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
-            bigmap_keyhashes: Vec::new(),
+            bigmap_keyhashes: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
             node_cli,
             bigmap_keys,
@@ -129,13 +129,22 @@ where
         key: String,
     ) {
         self.bigmap_keyhashes
-            .push((tx_context, bigmap, keyhash, key));
+            .insert((tx_context, bigmap, keyhash), key);
     }
 
     pub(crate) fn get_bigmap_keyhashes(
         &self,
     ) -> Vec<(TxContext, i32, String, String)> {
-        self.bigmap_keyhashes.clone()
+        let mut res: Vec<(TxContext, i32, String, String)> = vec![];
+        for ((tx_context, bigmap_id, keyhash), key) in &self.bigmap_keyhashes {
+            res.push((
+                tx_context.clone(),
+                *bigmap_id,
+                keyhash.clone(),
+                key.clone(),
+            ));
+        }
+        res
     }
 
     pub(crate) fn process_block(
@@ -193,6 +202,9 @@ where
             bigmaps.sort_unstable();
             for bigmap in bigmaps {
                 let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                for op in ops.iter().rev() {
+                    self.process_bigmap_op(op, tx_context)?;
+                }
                 if self.bigmap_map.contains_key(&bigmap) {
                     for (src_bigmap, src_context) in deps {
                         bigmap_contract_deps
@@ -203,9 +215,6 @@ where
                             bigmap,
                         )?;
                     }
-                }
-                for op in &ops {
-                    self.process_bigmap_op(op, tx_context)?;
                 }
             }
         }
@@ -372,6 +381,13 @@ where
                 key,
                 value,
             } => {
+                if self.bigmap_keyhashes.contains_key(&(
+                    tx_context.clone(),
+                    *bigmap,
+                    keyhash.clone(),
+                )) {
+                    return Ok(());
+                }
                 let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {

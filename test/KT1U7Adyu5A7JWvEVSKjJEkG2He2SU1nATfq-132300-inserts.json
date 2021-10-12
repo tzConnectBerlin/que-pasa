@@ -65,7 +65,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("9")),
+                value: Numeric(Some("7")),
             ),
             (
                 name: "idx_tokens_address",
@@ -95,7 +95,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("7")),
+                value: Numeric(Some("9")),
             ),
             (
                 name: "idx_tokens_address",

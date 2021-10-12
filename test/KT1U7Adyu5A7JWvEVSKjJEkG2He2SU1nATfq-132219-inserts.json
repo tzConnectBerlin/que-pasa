@@ -39,7 +39,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("6")),
+                value: Numeric(Some("4")),
             ),
             (
                 name: "tokens_nat",
@@ -91,7 +91,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("4")),
+                value: Numeric(Some("6")),
             ),
             (
                 name: "tokens_nat",

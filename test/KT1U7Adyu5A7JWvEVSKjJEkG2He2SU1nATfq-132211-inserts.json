@@ -39,11 +39,11 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("3")),
+                value: Numeric(Some("1")),
             ),
             (
                 name: "tokens_nat",
-                value: Numeric(Some("107526881720430108683")),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "bigmap_id",
@@ -91,11 +91,11 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("1")),
+                value: Numeric(Some("3")),
             ),
             (
                 name: "tokens_nat",
-                value: Numeric(Some("100000000000000000000")),
+                value: Numeric(Some("107526881720430108683")),
             ),
             (
                 name: "bigmap_id",
@@ -209,15 +209,15 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("3")),
+                value: Numeric(Some("2")),
             ),
             (
                 name: "idx_tokens_address",
-                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
-                value: Numeric(Some("7526881720430108683")),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "bigmap_id",
@@ -239,15 +239,15 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("2")),
+                value: Numeric(Some("3")),
             ),
             (
                 name: "idx_tokens_address",
-                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
-                value: Numeric(Some("7526881720430108683")),
+                value: Numeric(Some("100000000000000000000")),
             ),
             (
                 name: "bigmap_id",
@@ -299,15 +299,15 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("3")),
+                value: Numeric(Some("2")),
             ),
             (
                 name: "idx_tokens_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
                 name: "tokens_balance",
-                value: Numeric(Some("100000000000000000000")),
+                value: Numeric(Some("7526881720430108683")),
             ),
             (
                 name: "bigmap_id",
@@ -329,15 +329,15 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("2")),
+                value: Numeric(Some("3")),
             ),
             (
                 name: "idx_tokens_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
             ),
             (
                 name: "tokens_balance",
-                value: Numeric(Some("100000000000000000000")),
+                value: Numeric(Some("7526881720430108683")),
             ),
             (
                 name: "bigmap_id",
