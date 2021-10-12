@@ -50,9 +50,13 @@ function query {
     fi
 }
 
-cargo run -- --index-all-contracts -l 1500000-1500001
-cargo run --features regression -- --index-all-contracts -l 1500002-1500005 --always-update-derived
-cargo run --features regression -- --index-all-contracts -l 1700002-1700005 --always-update-derived
+cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1
+cargo run --features regression -- --index-all-contracts -l 1500002-1500005 --always-update-derived || exit 1
+cargo run --features regression -- --index-all-contracts -l 1700002-1700005 --always-update-derived || exit 1
+
+# the latter has a delete bigmap, the first has rows indexed of the deleted bigmap
+cargo run --features regression -- --index-all-contracts -l 1768431 --always-update-derived || exit 1
+cargo run --features regression -- --index-all-contracts -l 1768606 --always-update-derived || exit 1
 
 if [[ "$MODE" == "inspect" ]]; then
     psql
@@ -70,6 +74,9 @@ query 'select count(1) from contract_deps' || exit 1
 query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
 query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
 query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat' || exit 1
+
+# verifying here that the repopulate also works with deleted bigmap rows
+cargo run -- --index-all-contracts -l 1768606 || exit 1
 
 if [[ "$MODE" == "assert" ]]; then
     echo 'all good'

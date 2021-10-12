@@ -106,7 +106,9 @@ FROM (
 
         SELECT
             tx_context_id,
-            NULL AS id,
+            -ROW_NUMBER() OVER () + (
+                SELECT LEAST(0, MIN(id)) FROM "{contract_schema}"."{table}"
+            ) AS id,
             'true' AS deleted
             {columns}
         FROM (
