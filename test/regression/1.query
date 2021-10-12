@@ -1,0 +1,5 @@
+select count(1) from tx_contexts;
+ count 
+-------
+  1132
+(1 row)
