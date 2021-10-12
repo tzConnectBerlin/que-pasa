@@ -26,7 +26,7 @@ pub enum ComplexExprTy {
     Map(Box<Ele>, Box<Ele>),
     Pair(Box<Ele>, Box<Ele>),
     OrEnumeration(Box<Ele>, Box<Ele>),
-    Option(Box<Ele>), // TODO: move this out into SimpleExprTy??
+    Option(Box<Ele>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

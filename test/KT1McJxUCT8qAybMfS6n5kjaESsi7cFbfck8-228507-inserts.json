@@ -99,7 +99,7 @@
             ),
             (
                 name: "auctionRunning_auction_period_end",
-                value: Timestamp("2021-05-04T11:48:09Z"),
+                value: Timestamp(Some("2021-05-04T11:48:09Z")),
             ),
         ],
     ),

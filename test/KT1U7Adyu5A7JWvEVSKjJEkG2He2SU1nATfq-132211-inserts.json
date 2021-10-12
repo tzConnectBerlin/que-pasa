@@ -145,14 +145,14 @@
             ),
             (
                 name: "market_close",
-                value: Timestamp("2021-03-31T09:00:00Z"),
+                value: Timestamp(Some("2021-03-31T09:00:00Z")),
             ),
             (
                 name: "auction_end",
-                value: Timestamp("2021-03-31T08:25:00Z"),
+                value: Timestamp(Some("2021-03-31T08:25:00Z")),
             ),
             (
-                name: "state_1",
+                name: "state",
                 value: String("questionAuctionWithdrawOpen"),
             ),
             (
@@ -167,10 +167,10 @@
     ),
     (
         table_name: "storage.questions.auction_bids",
-        id: 35,
+        id: 34,
     ): (
         table_name: "storage.questions.auction_bids",
-        id: 35,
+        id: 34,
         fk_id: Some(33),
         columns: [
             (

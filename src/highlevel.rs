@@ -3,6 +3,8 @@ use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
+use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use thiserror::Error;
@@ -12,7 +14,10 @@ use pretty_assertions::assert_eq;
 
 use crate::config::ContractID;
 use crate::debug;
-use crate::octez::block::{Block, LevelMeta, TxContext};
+use crate::octez::bcd;
+use crate::octez::block::{
+    get_implicit_origination_level, Block, LevelMeta, TxContext,
+};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
@@ -55,12 +60,7 @@ impl LevelFloor {
         let mut level_floor = self
             .f
             .lock()
-            .map_err(|_| {
-                Err::<(), anyhow::Error>(anyhow!(
-                    "failed to lock level_floor mutex"
-                ))
-            })
-            .unwrap();
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
         *level_floor = floor;
         Ok(())
     }
@@ -69,18 +69,14 @@ impl LevelFloor {
         let level_floor = self
             .f
             .lock()
-            .map_err(|_| {
-                Err::<(), anyhow::Error>(anyhow!(
-                    "failed to lock level_floor mutex"
-                ))
-            })
-            .unwrap();
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
         Ok(*level_floor)
     }
 }
 
 #[derive(Error, Debug)]
 pub struct BadLevelHash {
+    level: u32,
     err: anyhow::Error,
 }
 
@@ -235,6 +231,23 @@ impl Executor {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
 
+        fn wait(first_wait: &mut bool) {
+            if *first_wait {
+                print!("waiting for the next block");
+            } else {
+                print!(".");
+            }
+            *first_wait = false;
+            io::stdout().flush().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+        fn wait_done(first_wait: &mut bool) {
+            if !*first_wait {
+                println!();
+                *first_wait = false;
+            }
+        }
+        let mut first_wait = true;
         loop {
             let chain_head = self.node_cli.head()?;
             let db_head = match self.dbcli.get_head()? {
@@ -243,47 +256,49 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(chain_head.level)?,
+                            &self.exec_level(chain_head.level, false)?,
                         );
                         continue;
                     }
                     Err(anyhow!(
-                    "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
-                ))
+                        "cannot run in continuous mode: DB is empty, expected at least 1 block present to continue from"
+                    ))
                 }
             }?;
             debug!("db: {} chain: {}", db_head.level, chain_head.level);
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
+                    wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
-                        match self.exec_level(level) {
+                        match self.exec_level(level, false) {
                             Ok(res) => Self::print_status(level, &res),
                             Err(e) => {
                                 if !e.is::<BadLevelHash>() {
                                     return Err(e);
                                 }
+                                let bad_lvl = e.downcast::<BadLevelHash>()?;
                                 warn!(
-                                    "{}, deleting previous level from database",
-                                    e
+                                    "{}, deleting level {} from database",
+                                    bad_lvl.err, bad_lvl.level
                                 );
                                 let mut tx = self.dbcli.transaction()?;
-                                DBClient::delete_level(&mut tx, level - 1)?;
+                                DBClient::delete_level(&mut tx, bad_lvl.level)?;
                                 tx.commit()?;
                                 break;
                             }
                         }
                     }
+                    first_wait = true;
                     continue;
                 }
                 Ordering::Less => {
-                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    wait(&mut first_wait);
                     continue;
                 }
                 Ordering::Equal => {
                     // they are equal, so we will just check that the hashes match.
-                    if db_head.hash == chain_head.hash {
-                        // if they match, nothing to do.
-                    } else {
+                    if db_head.hash != chain_head.hash {
+                        wait_done(&mut first_wait);
                         warn!(
                             "Hashes don't match: {:?} (db) <> {:?} (chain)",
                             db_head.hash, chain_head.hash
@@ -292,7 +307,7 @@ impl Executor {
                         DBClient::delete_level(&mut tx, db_head.level)?;
                         tx.commit()?;
                     }
-                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    wait(&mut first_wait);
                 }
             }
         }
@@ -314,6 +329,68 @@ impl Executor {
             }
         })?;
         Ok(())
+    }
+
+    pub fn exec_new_contracts_historically(
+        &mut self,
+        bcd_settings: Option<(String, String)>,
+        num_getters: usize,
+    ) -> Result<Vec<ContractID>> {
+        let mut res: Vec<ContractID> = vec![];
+        loop {
+            self.add_dependency_contracts().unwrap();
+            let new_contracts = self.create_contract_schemas().unwrap();
+
+            if new_contracts.is_empty() {
+                break;
+            }
+            res.extend(new_contracts.clone());
+
+            info!(
+                "initializing the following contracts historically: {:#?}",
+                new_contracts
+            );
+
+            if let Some((bcd_url, network)) = &bcd_settings {
+                let mut exclude_levels: Vec<u32> = vec![];
+                for contract_id in &new_contracts {
+                    info!("Initializing contract {}..", contract_id.name);
+                    let bcd_cli = bcd::BCDClient::new(
+                        bcd_url.clone(),
+                        network.clone(),
+                        contract_id.address.clone(),
+                    );
+
+                    let excl = exclude_levels.clone();
+                    let processed_levels = self
+                        .exec_parallel(num_getters, move |height_chan| {
+                            bcd_cli
+                                .populate_levels_chan(height_chan, &excl)
+                                .unwrap()
+                        })
+                        .unwrap();
+                    exclude_levels.extend(processed_levels);
+
+                    if let Some(l) =
+                        get_implicit_origination_level(&contract_id.address)
+                    {
+                        self.exec_level(l, true).unwrap();
+                    }
+
+                    self.fill_in_levels(contract_id)
+                        .unwrap();
+
+                    info!("contract {} initialized.", contract_id.name)
+                }
+            } else {
+                self.exec_missing_levels(num_getters)
+                    .unwrap();
+            }
+        }
+        if !res.is_empty() {
+            self.exec_dependents().unwrap();
+        }
+        Ok(res)
     }
 
     pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
@@ -360,7 +437,9 @@ impl Executor {
         let processed_levels: Vec<u32> = self.read_block_chan(block_recv)?;
 
         for t in threads {
-            t.join().unwrap();
+            t.join().map_err(|e| {
+                anyhow!("parallel execution thread failed with err: {:?}", e)
+            })?;
         }
         Ok(processed_levels)
     }
@@ -385,7 +464,7 @@ impl Executor {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
-                &self.exec_for_block(&meta, &block)?,
+                &self.exec_for_block(&meta, &block, true)?,
             );
             processed_levels.push(meta.level);
         }
@@ -438,6 +517,7 @@ impl Executor {
     pub(crate) fn exec_level(
         &mut self,
         level_height: u32,
+        cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -449,7 +529,7 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&meta, &block)
+        self.exec_for_block(&meta, &block, cleanup_on_reorg)
     }
 
     fn ensure_level_hash(
@@ -459,13 +539,36 @@ impl Executor {
         prev_hash: &str,
     ) -> Result<()> {
         let prev = self.dbcli.get_level(level - 1)?;
-        if let Some(db_prev_hash) = &prev.map(|l| l.hash).flatten() {
-            ensure!(db_prev_hash == prev_hash, BadLevelHash{err: anyhow!("level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db", level, prev_hash, db_prev_hash)});
+        if let Some(db_prev_hash) = prev
+            .as_ref()
+            .map(|l| l.hash.as_ref())
+            .flatten()
+        {
+            ensure!(
+                db_prev_hash == prev_hash, BadLevelHash{
+                    level: prev.as_ref().unwrap().level,
+                    err: anyhow!(
+                        "level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db",
+                        level, prev_hash, db_prev_hash),
+                }
+            );
         }
 
         let next = self.dbcli.get_level(level + 1)?;
-        if let Some(db_next_prev_hash) = &next.map(|l| l.prev_hash).flatten() {
-            ensure!(db_next_prev_hash == hash, BadLevelHash{err: anyhow!("level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db", level, hash, db_next_prev_hash)});
+        if let Some(db_next_prev_hash) = next
+            .as_ref()
+            .map(|l| l.prev_hash.as_ref())
+            .flatten()
+        {
+            ensure!(
+                db_next_prev_hash == hash,
+                BadLevelHash{
+                    level: next.as_ref().unwrap().level,
+                    err: anyhow!(
+                        "level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db",
+                        level, hash, db_next_prev_hash),
+                }
+            );
         }
 
         Ok(())
@@ -475,13 +578,21 @@ impl Executor {
         &mut self,
         level: &LevelMeta,
         block: &Block,
+        cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         // note: we expect level's values to all be set (no None values in its fields)
-        self.ensure_level_hash(
+        if let Err(e) = self.ensure_level_hash(
             level.level,
             level.hash.as_ref().unwrap(),
             level.prev_hash.as_ref().unwrap(),
-        )?;
+        ) {
+            if !cleanup_on_reorg || !e.is::<BadLevelHash>() {
+                return Err(e);
+            }
+            let bad_lvl = e.downcast::<BadLevelHash>()?;
+            warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
+            self.exec_level(bad_lvl.level, true)?;
+        }
 
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
@@ -517,7 +628,11 @@ impl Executor {
         };
         let mut contract_results: Vec<SaveLevelResult> = vec![];
 
-        info!("processing level {}", level.level);
+        info!(
+            "processing level {}: (baked at {})",
+            level.level,
+            level.baked_at.unwrap()
+        );
 
         let mut storage_processor = self.get_storage_processor()?;
         let mut tx = self.dbcli.transaction()?;
@@ -713,23 +828,17 @@ pub(crate) fn get_rel_ast(
     Ok(rel_ast)
 }
 
-/// Load from the ../test directory, only for testing
-#[allow(dead_code)]
-fn load_test(name: &str) -> String {
-    //println!("{}", name);
-    std::fs::read_to_string(std::path::Path::new(name)).unwrap()
-}
-
 #[test]
 fn test_generate() {
     use crate::sql::postgresql_generator::PostgresqlGenerator;
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
 
+    use ron::ser::{to_string_pretty, PrettyConfig};
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
-    let json = json::parse(&load_test(
+    let json = json::parse(&debug::load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
     ))
     .unwrap();
@@ -767,7 +876,10 @@ fn test_generate() {
 
     let filename = "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.tables.json";
     println!("cat > {} <<ENDOFJSON", filename);
-    println!("{}", serde_json::to_string(&tables).unwrap());
+    println!(
+        "{}",
+        to_string_pretty(&tables, PrettyConfig::new()).unwrap()
+    );
     println!(
         "ENDOFJSON
     "
@@ -777,7 +889,7 @@ fn test_generate() {
     let file = File::open(p).unwrap();
     let reader = BufReader::new(file);
     let v: Vec<crate::sql::table::Table> =
-        serde_json::from_reader(reader).unwrap();
+        ron::de::from_reader(reader).unwrap();
     assert_eq!(v.len(), tables.len());
     //test doesn't verify view exist
     for i in 0..v.len() {
@@ -786,241 +898,13 @@ fn test_generate() {
 }
 
 #[test]
-fn test_block() {
-    // this tests the generated table structures against known good ones.
-    // if it fails for a good reason, the output can be used to repopulate the
-    // test files. To do this, execute script/generate_test_output.bash
-    use crate::octez::block::Block;
-    use crate::sql::insert;
-    use crate::sql::insert::Insert;
-    use crate::sql::table_builder::{TableBuilder, TableMap};
-    use crate::storage_structure::relational::ASTBuilder;
-    use crate::storage_structure::typing;
-    use json::JsonValue;
-    use ron::ser::{to_string_pretty, PrettyConfig};
-
-    env_logger::init();
-
-    fn get_rel_ast_from_script_json(json: &JsonValue) -> Result<RelationalAST> {
-        let storage_definition = json["code"]
-            .members()
-            .find(|x| x["prim"] == "storage")
-            .unwrap_or(&JsonValue::Null)["args"][0]
-            .clone();
-        debug!("{}", storage_definition.to_string());
-        let type_ast = typing::storage_ast_from_json(&storage_definition)?;
-        let rel_ast = ASTBuilder::new()
-            .build_relational_ast(
-                &crate::relational::Context::init(),
-                &type_ast,
-            )
-            .unwrap();
-        Ok(rel_ast)
-    }
-
-    #[derive(Debug)]
-    struct Contract<'a> {
-        id: &'a str,
-        levels: Vec<u32>,
-    }
-
-    let contracts: Vec<Contract> = vec![
-        Contract {
-            id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-            levels: vec![
-                132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219,
-                132222, 132240, 132242, 132259, 132262, 132278, 132282, 132285,
-                132298, 132300, 132367, 132383, 132384, 132388, 132390, 135501,
-                138208, 149127,
-            ],
-        },
-        Contract {
-            id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
-            levels: vec![
-                228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466,
-                228467, 228468, 228490, 228505, 228506, 228507, 228508, 228509,
-                228510, 228511, 228512, 228516, 228521, 228522, 228523, 228524,
-                228525, 228526, 228527,
-            ],
-        },
-        Contract {
-            id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
-            levels: vec![
-                147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813,
-                147814, 147815, 147816,
-            ],
-        },
-        Contract {
-            // Hic et Nunc hDAO contract (has "set" type in storage)
-            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
-            levels: vec![1443112],
-        },
-        Contract {
-            // Has a set,list and map. map has >1 keys
-            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
-            levels: vec![50503],
-        },
-        Contract {
-            // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
-            id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
-            levels: vec![1588744],
-        },
-        Contract {
-            id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
-            levels: vec![1676122],
-        },
-        Contract {
-            id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
-            levels: vec![1678750],
-        },
-    ];
-
-    fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
-        inserts.sort_by_key(|insert| {
-            let mut sort_on = tables[&insert.table_name]
-                .indices
-                .clone();
-            sort_on.extend(
-                tables[&insert.table_name]
-                    .columns
-                    .keys()
-                    .filter(|col| {
-                        !tables[&insert.table_name]
-                            .indices
-                            .iter()
-                            .any(|idx| idx == *col)
-                    })
-                    .cloned()
-                    .collect::<Vec<String>>(),
-            );
-            let mut res: Vec<insert::Value> = sort_on
-                .iter()
-                .map(|idx| {
-                    insert
-                        .get_column(idx)
-                        .map_or(insert::Value::Null, |col| col.value.clone())
-                })
-                .collect();
-            res.insert(0, insert::Value::String(insert.table_name.clone()));
-            res
-        });
-    }
-
-    struct DummyStorageGetter {}
-    impl crate::octez::node::StorageGetter for DummyStorageGetter {
-        fn get_contract_storage(
-            &self,
-            _contract_id: &str,
-            _level: u32,
-        ) -> Result<JsonValue> {
-            Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
-        }
-
-        fn get_bigmap_value(
-            &self,
-            _level: u32,
-            _bigmap_id: i32,
-            _keyhash: &str,
-        ) -> Result<Option<JsonValue>> {
-            Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
-        }
-    }
-
-    struct DummyBigmapKeysGetter {}
-    impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
-        fn get(
-            &mut self,
-            _level: u32,
-            _bigmap_id: i32,
-        ) -> Result<Vec<(String, String)>> {
-            Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
-        }
-    }
-
-    let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
-    let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
-    for contract in &contracts {
-        let mut storage_processor = StorageProcessor::new(
-            1,
-            DummyStorageGetter {},
-            DummyBigmapKeysGetter {},
-        );
-
-        // verify that the test case is sane
-        let mut unique_levels = contract.levels.clone();
-        unique_levels.sort();
-        unique_levels.dedup();
-        assert_eq!(contract.levels.len(), unique_levels.len());
-
-        let script_json =
-            json::parse(&load_test(&format!("test/{}.script", contract.id)))
-                .unwrap();
-        let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
-
-        // having the table layout is useful for sorting the test results and
-        // expected results in deterministic order (we'll use the table's index)
-        let mut builder = TableBuilder::new();
-        builder.populate(&rel_ast);
-        let tables = &builder.tables;
-
-        for level in &contract.levels {
-            println!("contract={}, level={}", contract.id, level);
-
-            let block: Block = serde_json::from_str(&load_test(&format!(
-                "test/{}.level-{}.json",
-                contract.id, level
-            )))
-            .unwrap();
-
-            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
-            let (inserts, _, _) = storage_processor
-                .process_block(&block, &diffs, contract.id, &rel_ast)
-                .unwrap();
-
-            let filename =
-                format!("test/{}-{}-inserts.json", contract.id, level);
-            println!("cat > {} <<ENDOFJSON", filename);
-            println!(
-                "{}",
-                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
-            );
-            println!(
-                "ENDOFJSON
-    "
-            );
-
-            let mut result: Vec<Insert> = inserts.values().cloned().collect();
-            sort_inserts(tables, &mut result);
-            results.push((contract.id, *level, result));
-
-            use std::path::Path;
-            let p = Path::new(&filename);
-
-            use std::fs::File;
-            if let Ok(file) = File::open(p) {
-                use std::io::BufReader;
-                let reader = BufReader::new(file);
-                println!("filename: {}", filename);
-                let v: Inserts = ron::de::from_reader(reader).unwrap();
-
-                let mut expected_result: Vec<Insert> =
-                    v.values().cloned().collect();
-                sort_inserts(tables, &mut expected_result);
-
-                expected.push((contract.id, *level, expected_result));
-            }
-        }
-    }
-    assert_eq!(expected, results);
-}
-
-#[test]
 fn test_get_origination_operations_from_block() {
     use crate::octez::block::Block;
     let test_file =
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json";
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
-    let block: Block = serde_json::from_str(&load_test(test_file)).unwrap();
+    let block: Block =
+        serde_json::from_str(&debug::load_test(test_file)).unwrap();
     assert!(block.has_contract_origination(&contract_id));
 
     for level in vec![
@@ -1034,7 +918,7 @@ fn test_get_origination_operations_from_block() {
         );
         println!("testing {}", filename);
         let level_block: Block =
-            serde_json::from_str(&load_test(&filename)).unwrap();
+            serde_json::from_str(&debug::load_test(&filename)).unwrap();
 
         assert!(!level_block.has_contract_origination(&contract_id));
     }

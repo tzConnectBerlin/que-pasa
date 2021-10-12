@@ -173,7 +173,7 @@
             ),
             (
                 name: "auctionRunning_auction_period_end",
-                value: Timestamp("2021-05-04T13:40:04Z"),
+                value: Timestamp(Some("2021-05-04T13:40:04Z")),
             ),
         ],
     ),
@@ -203,7 +203,7 @@
             ),
             (
                 name: "auctionRunning_auction_period_end",
-                value: Timestamp("2021-05-04T13:40:04Z"),
+                value: Timestamp(Some("2021-05-04T13:40:04Z")),
             ),
         ],
     ),

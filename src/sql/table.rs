@@ -6,7 +6,6 @@ use std::collections::HashMap;
 pub struct Column {
     pub name: String,
     pub column_type: SimpleExprTy,
-    pub is_keyword: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -47,51 +46,16 @@ impl Table {
         self.snapshots
     }
 
-    fn resolve_keyword_conflict(
-        &mut self,
-        is_keyword: bool,
-        name: &mut String,
-    ) -> bool {
-        if let Some(mut other) = self.columns.get(name).cloned() {
-            if other.is_keyword == is_keyword {
-                return false;
-            }
-
-            let non_keyword_name = format!(".{}", name);
-            if !is_keyword {
-                *name = non_keyword_name;
-            } else {
-                other.name = non_keyword_name.clone();
-                let i = self
-                    .keys
-                    .iter()
-                    .position(|k| k == name)
-                    .unwrap();
-                if !self.columns.contains_key(name) {
-                    self.keys.push(non_keyword_name.clone());
-                    if let Some(existing) = self.keys.get_mut(i) {
-                        *existing = non_keyword_name.clone();
-                    }
-                }
-                self.columns
-                    .insert(non_keyword_name, other);
-            }
-        }
-        true
-    }
-
     pub(crate) fn add_column(
         &mut self,
-        is_keyword: bool,
         column_name: &str,
         column_type: &ExprTy,
     ) {
-        let mut name = column_name.to_string();
-        let is_new = self.resolve_keyword_conflict(is_keyword, &mut name);
-        if !is_new {
+        if self.columns.contains_key(column_name) {
             return;
         }
 
+        let name = column_name.to_string();
         match column_type {
             ExprTy::SimpleExprTy(e) => {
                 if !self.columns.contains_key(&name) {
@@ -102,7 +66,6 @@ impl Table {
                     Column {
                         name,
                         column_type: *e,
-                        is_keyword,
                     },
                 );
             }
@@ -116,7 +79,6 @@ impl Table {
                         Column {
                             name,
                             column_type: SimpleExprTy::Unit, // What will ultimately go in is a Unit
-                            is_keyword,
                         },
                     );
                 }
@@ -130,16 +92,14 @@ impl Table {
 
     pub(crate) fn add_index(
         &mut self,
-        is_keyword: bool,
         column_name: &str,
         column_type: &ExprTy,
     ) {
-        let mut name = column_name.to_string();
-        let is_new = self.resolve_keyword_conflict(is_keyword, &mut name);
-        if !is_new {
+        if self.columns.contains_key(column_name) {
             return;
         }
 
+        let name = column_name.to_string();
         match column_type {
             ExprTy::SimpleExprTy(e) => {
                 if !self.columns.contains_key(&name) {
@@ -151,7 +111,6 @@ impl Table {
                     Column {
                         name,
                         column_type: *e,
-                        is_keyword,
                     },
                 );
             }
@@ -165,6 +124,15 @@ impl Table {
         let mut res: Vec<&Column> = vec![];
         for k in &self.keys {
             res.push(&self.columns[k]);
+        }
+        res
+    }
+
+    pub(crate) fn keywords(&self) -> Vec<String> {
+        let mut res = vec!["id".to_string(), "tx_context_id".to_string()];
+        if !self.contains_snapshots() {
+            res.push("deleted".to_string());
+            res.push("bigmap_id".to_string());
         }
         res
     }

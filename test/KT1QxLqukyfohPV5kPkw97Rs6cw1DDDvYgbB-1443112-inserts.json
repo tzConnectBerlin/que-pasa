@@ -61,15 +61,15 @@
             ),
             (
                 name: "period_finish",
-                value: Timestamp("2021-05-24T15:38:04Z"),
+                value: Timestamp(Some("2021-05-24T15:38:04Z")),
             ),
             (
                 name: "last_veto",
-                value: Timestamp("2021-04-24T15:38:04Z"),
+                value: Timestamp(Some("2021-04-24T15:38:04Z")),
             ),
             (
                 name: "last_update_time",
-                value: Timestamp("2021-04-24T17:15:44Z"),
+                value: Timestamp(Some("2021-04-24T17:15:44Z")),
             ),
             (
                 name: "baker_validator",
@@ -1339,10 +1339,10 @@
     ),
     (
         table_name: "storage.ledger.allowances",
-        id: 17,
+        id: 16,
     ): (
         table_name: "storage.ledger.allowances",
-        id: 17,
+        id: 16,
         fk_id: Some(15),
         columns: [
             (
@@ -1357,10 +1357,10 @@
     ),
     (
         table_name: "storage.ledger.allowances",
-        id: 14,
+        id: 13,
     ): (
         table_name: "storage.ledger.allowances",
-        id: 14,
+        id: 13,
         fk_id: Some(11),
         columns: [
             (
@@ -1375,10 +1375,10 @@
     ),
     (
         table_name: "storage.ledger.allowances",
-        id: 13,
+        id: 12,
     ): (
         table_name: "storage.ledger.allowances",
-        id: 13,
+        id: 12,
         fk_id: Some(11),
         columns: [
             (

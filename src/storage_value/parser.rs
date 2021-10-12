@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Context, Result};
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use json;
 use json::JsonValue;
 use num::{BigInt, ToPrimitive};
 use std::str::from_utf8;
 use std::str::FromStr;
+
+use crate::sql::insert;
 
 #[derive(
     Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize,
@@ -25,7 +27,7 @@ pub enum Value {
     Right(Box<Value>),
     String(String),
     Timestamp(DateTime<Utc>),
-    Unit(Option<String>),
+    Unit,
 }
 
 impl Value {
@@ -79,11 +81,11 @@ impl Value {
                                 rest.unpair_elts()?
                             {
                                 Ok(rest_unpaired)
-                } else {
-                Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)"))
-                }
+                            } else {
+                                Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)"))
+                            }
                         },
-            _ => Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)")),
+                        _ => Err(anyhow!("bad paired Elt value (partially nested pairs of Elt, partially something else)")),
                     }?;
                     let mut xs = vec![(**l).clone()];
                     xs.extend(rest_unpaired);
@@ -144,6 +146,9 @@ fn decode_bs58_address(hex: &str) -> Result<String> {
 
 fn lex(json: &JsonValue) -> JsonValue {
     if let JsonValue::Array(mut a) = json.clone() {
+        if a.is_empty() {
+            return json.clone();
+        }
         a.reverse();
         lexer_unfold_many_pair(&mut a)
     } else {
@@ -211,7 +216,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
                 }
             }
             "TRUE" => return Ok(Value::Bool(true)),
-            "UNIT" => return Ok(Value::Unit(None)),
+            "UNIT" => return Ok(Value::Unit),
 
             _ => {
                 debug!("Ignoring unknown prim {}", json["prim"]);
@@ -240,7 +245,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
             "nat" => Ok(Value::Nat(bigint(&s)?)),
             "string" => Ok(Value::String(s)),
             //"timestamp" => Ok(Value::Timestamp(s)),
-            "unit" => Ok(Value::Unit(None)),
+            "unit" => Ok(Value::Unit),
             "prim" => Ok(prim(&s)),
             _ => {
                 panic!(
@@ -284,17 +289,25 @@ fn bigint(source: &str) -> Result<BigInt> {
     Ok(BigInt::from_str(source)?)
 }
 
-pub(crate) fn parse_date(value: &Value) -> Result<DateTime<Utc>> {
+pub(crate) fn parse_date(value: &Value) -> Result<insert::Value> {
     match value {
         Value::Int(s) => {
             let ts: i64 = s
                 .to_i64()
                 .ok_or_else(|| anyhow!("Num conversion failed"))?;
-            Ok(Utc.timestamp(ts, 0))
+            match Utc.timestamp_opt(ts, 0) {
+                LocalResult::Single(t) => Ok(insert::Value::Timestamp(Some(t))),
+                LocalResult::None => Ok(insert::Value::Timestamp(None)),
+                LocalResult::Ambiguous(_, _) => {
+                    Err(anyhow!("Can't parse {:?}", value))
+                }
+            }
         }
         Value::String(s) => {
             let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
-            Ok(fixedoffset.with_timezone(&Utc))
+            Ok(insert::Value::Timestamp(Some(
+                fixedoffset.with_timezone(&Utc),
+            )))
         }
         _ => Err(anyhow!("Can't parse {:?}", value)),
     }

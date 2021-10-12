@@ -53,10 +53,10 @@
     ),
     (
         table_name: "storage.serviceFees",
-        id: 14,
+        id: 13,
     ): (
         table_name: "storage.serviceFees",
-        id: 14,
+        id: 13,
         fk_id: Some(2),
         columns: [
             (
@@ -72,7 +72,7 @@
                 value: Numeric(Some("50")),
             ),
             (
-                name: "flat_tokenType_1",
+                name: "flat_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -91,10 +91,10 @@
     ),
     (
         table_name: "storage.serviceFees",
-        id: 13,
+        id: 12,
     ): (
         table_name: "storage.serviceFees",
-        id: 13,
+        id: 12,
         fk_id: Some(2),
         columns: [
             (
@@ -110,7 +110,7 @@
                 value: Numeric(Some("100")),
             ),
             (
-                name: "flat_tokenType_1",
+                name: "flat_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -129,10 +129,10 @@
     ),
     (
         table_name: "storage.serviceFees",
-        id: 12,
+        id: 11,
     ): (
         table_name: "storage.serviceFees",
-        id: 12,
+        id: 11,
         fk_id: Some(2),
         columns: [
             (
@@ -148,7 +148,7 @@
                 value: Numeric(Some("150")),
             ),
             (
-                name: "flat_tokenType_1",
+                name: "flat_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -179,7 +179,7 @@
             ),
             (
                 name: "idx_address",
-                value: String("tz1codeYURj5z49HKX9zmLHms2vJN2qDjrtt"),
+                value: String("tz1hD63wN8p9V8o5ARU7wA7RKAQvBAwkeTr7"),
             ),
         ],
     ),
@@ -189,6 +189,24 @@
     ): (
         table_name: "storage.serviceFeeWhitelist",
         id: 8,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1codeYURj5z49HKX9zmLHms2vJN2qDjrtt"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.serviceFeeWhitelist",
+        id: 7,
+    ): (
+        table_name: "storage.serviceFeeWhitelist",
+        id: 7,
         fk_id: Some(2),
         columns: [
             (
@@ -203,10 +221,10 @@
     ),
     (
         table_name: "storage.serviceFeeWhitelist",
-        id: 7,
+        id: 6,
     ): (
         table_name: "storage.serviceFeeWhitelist",
-        id: 7,
+        id: 6,
         fk_id: Some(2),
         columns: [
             (
@@ -221,10 +239,10 @@
     ),
     (
         table_name: "storage.serviceFeeWhitelist",
-        id: 6,
+        id: 5,
     ): (
         table_name: "storage.serviceFeeWhitelist",
-        id: 6,
+        id: 5,
         fk_id: Some(2),
         columns: [
             (
@@ -239,10 +257,10 @@
     ),
     (
         table_name: "storage.serviceFeeWhitelist",
-        id: 5,
+        id: 4,
     ): (
         table_name: "storage.serviceFeeWhitelist",
-        id: 5,
+        id: 4,
         fk_id: Some(2),
         columns: [
             (
@@ -257,10 +275,10 @@
     ),
     (
         table_name: "storage.serviceFeeWhitelist",
-        id: 4,
+        id: 3,
     ): (
         table_name: "storage.serviceFeeWhitelist",
-        id: 4,
+        id: 3,
         fk_id: Some(2),
         columns: [
             (
@@ -270,24 +288,6 @@
             (
                 name: "idx_address",
                 value: String("tz1Kewu2GSEQXePDr3geEgcHCzgibjoTye3S"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 10,
-    ): (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 10,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1hD63wN8p9V8o5ARU7wA7RKAQvBAwkeTr7"),
             ),
         ],
     ),
@@ -313,7 +313,7 @@
             ),
             (
                 name: "lockEndTime",
-                value: Timestamp("2021-08-16T00:49:40Z"),
+                value: Timestamp(Some("2021-08-16T00:49:40Z")),
             ),
             (
                 name: "rewardDebt",
@@ -355,11 +355,11 @@
             ),
             (
                 name: "endTime",
-                value: Timestamp("2022-08-31T16:00:00Z"),
+                value: Timestamp(Some("2022-08-31T16:00:00Z")),
             ),
             (
                 name: "startTime",
-                value: Timestamp("2021-08-16T16:00:00Z"),
+                value: Timestamp(Some("2021-08-16T16:00:00Z")),
             ),
             (
                 name: "rewardPerSec",
@@ -371,7 +371,7 @@
             ),
             (
                 name: "lastRewardTime",
-                value: Timestamp("2021-09-08T12:08:44Z"),
+                value: Timestamp(Some("2021-09-08T12:08:44Z")),
             ),
             (
                 name: "rewardPaid",
@@ -382,7 +382,7 @@
                 value: Numeric(Some("300000000000")),
             ),
             (
-                name: "rewardToken_tokenType_1",
+                name: "rewardToken_tokenType",
                 value: String("fa2"),
             ),
             (
@@ -398,7 +398,7 @@
                 value: Numeric(Some("1621375625")),
             ),
             (
-                name: "poolToken_tokenType_1",
+                name: "poolToken_tokenType",
                 value: String("fa2"),
             ),
             (

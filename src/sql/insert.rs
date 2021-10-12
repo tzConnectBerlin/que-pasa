@@ -15,7 +15,7 @@ pub enum Value {
     Numeric(PgNumeric),
     Int(i32),
     BigInt(i64),
-    Timestamp(DateTime<Utc>),
+    Timestamp(Option<DateTime<Utc>>),
     Null,
 }
 
@@ -26,7 +26,11 @@ impl Value {
             Value::Bool(b) => b.borrow_to_sql(),
             Value::Int(i) => i.borrow_to_sql(),
             Value::BigInt(i) => i.borrow_to_sql(),
-            Value::Timestamp(t) => t.borrow_to_sql(),
+            Value::Timestamp(Some(t)) => t.borrow_to_sql(),
+            Value::Timestamp(None) => {
+                postgres::types::Timestamp::<DateTime<Utc>>::PosInfinity
+                    .borrow_to_sql()
+            }
             Value::Numeric(n) => n.borrow_to_sql(),
             Value::Null => "NULL".borrow_to_sql(),
         }

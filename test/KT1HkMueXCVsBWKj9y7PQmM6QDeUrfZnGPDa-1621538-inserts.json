@@ -1,0 +1,54 @@
+{
+    (
+        table_name: "storage",
+        id: 2,
+    ): (
+        table_name: "storage",
+        id: 2,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.noname",
+        id: 3,
+    ): (
+        table_name: "storage.noname",
+        id: 3,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "scheduler_address",
+                value: String("tz1XBSP5AJzhMGRPGvkaK8KcvX2AdSUASxnx"),
+            ),
+            (
+                name: "recipient",
+                value: String("tz1XBSP5AJzhMGRPGvkaK8KcvX2AdSUASxnx"),
+            ),
+            (
+                name: "fee",
+                value: Numeric(Some("1")),
+            ),
+            (
+                name: "datetime",
+                value: Timestamp(Some("2021-08-19T14:55:31Z")),
+            ),
+            (
+                name: "completed",
+                value: Bool(false),
+            ),
+            (
+                name: "amount",
+                value: Numeric(Some("10")),
+            ),
+        ],
+    ),
+}

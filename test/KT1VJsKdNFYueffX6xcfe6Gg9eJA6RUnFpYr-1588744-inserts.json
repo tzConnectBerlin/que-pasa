@@ -43,7 +43,7 @@
             ),
             (
                 name: "solver_timestamp",
-                value: Timestamp("2021-03-08T17:13:24Z"),
+                value: Timestamp(Some("2021-03-08T17:13:24Z")),
             ),
             (
                 name: "solver_address",
@@ -62,7 +62,7 @@
                 value: Numeric(Some("9")),
             ),
             (
-                name: ".id",
+                name: "id_1",
                 value: Numeric(Some("6")),
             ),
             (
@@ -89,6 +89,28 @@
             ),
             (
                 name: "idx_address",
+                value: String("tz1iwS4f1Vy1D5bRBP1otzPE5MByw2dJ8a1s"),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("83")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 98,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 98,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
                 value: String("tz1ikQN6GZtYr11oXmTi3AB8Y7WsjmT5nSNc"),
             ),
             (
@@ -99,10 +121,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 98,
+        id: 97,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 98,
+        id: 97,
         fk_id: Some(6),
         columns: [
             (
@@ -121,10 +143,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 97,
+        id: 96,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 97,
+        id: 96,
         fk_id: Some(6),
         columns: [
             (
@@ -143,10 +165,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 96,
+        id: 95,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 96,
+        id: 95,
         fk_id: Some(6),
         columns: [
             (
@@ -165,10 +187,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 95,
+        id: 94,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 95,
+        id: 94,
         fk_id: Some(6),
         columns: [
             (
@@ -187,10 +209,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 94,
+        id: 93,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 94,
+        id: 93,
         fk_id: Some(6),
         columns: [
             (
@@ -209,10 +231,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 93,
+        id: 92,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 93,
+        id: 92,
         fk_id: Some(6),
         columns: [
             (
@@ -231,10 +253,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 92,
+        id: 91,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 92,
+        id: 91,
         fk_id: Some(6),
         columns: [
             (
@@ -253,10 +275,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 91,
+        id: 90,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 91,
+        id: 90,
         fk_id: Some(6),
         columns: [
             (
@@ -275,10 +297,32 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 90,
+        id: 9,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 90,
+        id: 9,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1LGEUSxGeg7sLJVCRphGEXHCaEgeCYZ8pB"),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("77")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 89,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 89,
         fk_id: Some(6),
         columns: [
             (
@@ -297,32 +341,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 9,
+        id: 88,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 9,
-        fk_id: Some(6),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1L9g4SaPvg5uwZbCvEwbySu2hgwLb3qSGJ"),
-            ),
-            (
-                name: "nat",
-                value: Numeric(Some("1")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.puzzles.claimed",
-        id: 89,
-    ): (
-        table_name: "storage.puzzles.claimed",
-        id: 89,
+        id: 88,
         fk_id: Some(6),
         columns: [
             (
@@ -341,10 +363,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 88,
+        id: 87,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 88,
+        id: 87,
         fk_id: Some(6),
         columns: [
             (
@@ -363,10 +385,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 87,
+        id: 86,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 87,
+        id: 86,
         fk_id: Some(6),
         columns: [
             (
@@ -385,10 +407,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 86,
+        id: 85,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 86,
+        id: 85,
         fk_id: Some(6),
         columns: [
             (
@@ -407,10 +429,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 85,
+        id: 84,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 85,
+        id: 84,
         fk_id: Some(6),
         columns: [
             (
@@ -429,10 +451,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 84,
+        id: 83,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 84,
+        id: 83,
         fk_id: Some(6),
         columns: [
             (
@@ -451,10 +473,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 83,
+        id: 82,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 83,
+        id: 82,
         fk_id: Some(6),
         columns: [
             (
@@ -473,10 +495,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 82,
+        id: 81,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 82,
+        id: 81,
         fk_id: Some(6),
         columns: [
             (
@@ -495,10 +517,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 81,
+        id: 80,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 81,
+        id: 80,
         fk_id: Some(6),
         columns: [
             (
@@ -517,10 +539,32 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 80,
+        id: 8,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 80,
+        id: 8,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1L9g4SaPvg5uwZbCvEwbySu2hgwLb3qSGJ"),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 79,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 79,
         fk_id: Some(6),
         columns: [
             (
@@ -539,32 +583,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 8,
+        id: 78,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 8,
-        fk_id: Some(6),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1L2ThyAYn5xsMrHR9XKat7QRVN3FRpDfmT"),
-            ),
-            (
-                name: "nat",
-                value: Numeric(Some("35")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.puzzles.claimed",
-        id: 79,
-    ): (
-        table_name: "storage.puzzles.claimed",
-        id: 79,
+        id: 78,
         fk_id: Some(6),
         columns: [
             (
@@ -583,10 +605,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 78,
+        id: 77,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 78,
+        id: 77,
         fk_id: Some(6),
         columns: [
             (
@@ -605,10 +627,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 77,
+        id: 76,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 77,
+        id: 76,
         fk_id: Some(6),
         columns: [
             (
@@ -627,10 +649,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 76,
+        id: 75,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 76,
+        id: 75,
         fk_id: Some(6),
         columns: [
             (
@@ -649,10 +671,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 75,
+        id: 74,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 75,
+        id: 74,
         fk_id: Some(6),
         columns: [
             (
@@ -671,10 +693,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 74,
+        id: 73,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 74,
+        id: 73,
         fk_id: Some(6),
         columns: [
             (
@@ -693,10 +715,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 73,
+        id: 72,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 73,
+        id: 72,
         fk_id: Some(6),
         columns: [
             (
@@ -715,10 +737,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 72,
+        id: 71,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 72,
+        id: 71,
         fk_id: Some(6),
         columns: [
             (
@@ -737,10 +759,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 71,
+        id: 70,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 71,
+        id: 70,
         fk_id: Some(6),
         columns: [
             (
@@ -759,10 +781,32 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 70,
+        id: 7,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 70,
+        id: 7,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1L2ThyAYn5xsMrHR9XKat7QRVN3FRpDfmT"),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("35")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.puzzles.claimed",
+        id: 69,
+    ): (
+        table_name: "storage.puzzles.claimed",
+        id: 69,
         fk_id: Some(6),
         columns: [
             (
@@ -781,10 +825,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 69,
+        id: 68,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 69,
+        id: 68,
         fk_id: Some(6),
         columns: [
             (
@@ -803,10 +847,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 68,
+        id: 67,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 68,
+        id: 67,
         fk_id: Some(6),
         columns: [
             (
@@ -825,10 +869,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 67,
+        id: 66,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 67,
+        id: 66,
         fk_id: Some(6),
         columns: [
             (
@@ -847,10 +891,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 66,
+        id: 65,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 66,
+        id: 65,
         fk_id: Some(6),
         columns: [
             (
@@ -869,10 +913,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 65,
+        id: 64,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 65,
+        id: 64,
         fk_id: Some(6),
         columns: [
             (
@@ -891,10 +935,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 64,
+        id: 63,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 64,
+        id: 63,
         fk_id: Some(6),
         columns: [
             (
@@ -913,10 +957,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 63,
+        id: 62,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 63,
+        id: 62,
         fk_id: Some(6),
         columns: [
             (
@@ -935,10 +979,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 62,
+        id: 61,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 62,
+        id: 61,
         fk_id: Some(6),
         columns: [
             (
@@ -957,10 +1001,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 61,
+        id: 60,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 61,
+        id: 60,
         fk_id: Some(6),
         columns: [
             (
@@ -979,10 +1023,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 60,
+        id: 59,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 60,
+        id: 59,
         fk_id: Some(6),
         columns: [
             (
@@ -1001,10 +1045,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 59,
+        id: 58,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 59,
+        id: 58,
         fk_id: Some(6),
         columns: [
             (
@@ -1023,10 +1067,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 58,
+        id: 57,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 58,
+        id: 57,
         fk_id: Some(6),
         columns: [
             (
@@ -1045,10 +1089,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 57,
+        id: 56,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 57,
+        id: 56,
         fk_id: Some(6),
         columns: [
             (
@@ -1067,10 +1111,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 56,
+        id: 55,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 56,
+        id: 55,
         fk_id: Some(6),
         columns: [
             (
@@ -1089,10 +1133,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 55,
+        id: 54,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 55,
+        id: 54,
         fk_id: Some(6),
         columns: [
             (
@@ -1111,10 +1155,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 54,
+        id: 53,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 54,
+        id: 53,
         fk_id: Some(6),
         columns: [
             (
@@ -1133,10 +1177,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 53,
+        id: 52,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 53,
+        id: 52,
         fk_id: Some(6),
         columns: [
             (
@@ -1155,10 +1199,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 52,
+        id: 51,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 52,
+        id: 51,
         fk_id: Some(6),
         columns: [
             (
@@ -1177,10 +1221,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 51,
+        id: 50,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 51,
+        id: 50,
         fk_id: Some(6),
         columns: [
             (
@@ -1199,10 +1243,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 50,
+        id: 49,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 50,
+        id: 49,
         fk_id: Some(6),
         columns: [
             (
@@ -1221,10 +1265,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 49,
+        id: 48,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 49,
+        id: 48,
         fk_id: Some(6),
         columns: [
             (
@@ -1243,10 +1287,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 48,
+        id: 47,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 48,
+        id: 47,
         fk_id: Some(6),
         columns: [
             (
@@ -1265,10 +1309,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 47,
+        id: 46,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 47,
+        id: 46,
         fk_id: Some(6),
         columns: [
             (
@@ -1287,10 +1331,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 46,
+        id: 45,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 46,
+        id: 45,
         fk_id: Some(6),
         columns: [
             (
@@ -1309,10 +1353,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 45,
+        id: 44,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 45,
+        id: 44,
         fk_id: Some(6),
         columns: [
             (
@@ -1331,10 +1375,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 44,
+        id: 43,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 44,
+        id: 43,
         fk_id: Some(6),
         columns: [
             (
@@ -1353,10 +1397,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 43,
+        id: 42,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 43,
+        id: 42,
         fk_id: Some(6),
         columns: [
             (
@@ -1375,10 +1419,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 42,
+        id: 41,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 42,
+        id: 41,
         fk_id: Some(6),
         columns: [
             (
@@ -1397,10 +1441,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 41,
+        id: 40,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 41,
+        id: 40,
         fk_id: Some(6),
         columns: [
             (
@@ -1419,10 +1463,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 40,
+        id: 39,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 40,
+        id: 39,
         fk_id: Some(6),
         columns: [
             (
@@ -1441,10 +1485,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 39,
+        id: 38,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 39,
+        id: 38,
         fk_id: Some(6),
         columns: [
             (
@@ -1463,10 +1507,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 38,
+        id: 37,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 38,
+        id: 37,
         fk_id: Some(6),
         columns: [
             (
@@ -1485,10 +1529,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 37,
+        id: 36,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 37,
+        id: 36,
         fk_id: Some(6),
         columns: [
             (
@@ -1507,10 +1551,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 36,
+        id: 35,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 36,
+        id: 35,
         fk_id: Some(6),
         columns: [
             (
@@ -1529,10 +1573,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 35,
+        id: 34,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 35,
+        id: 34,
         fk_id: Some(6),
         columns: [
             (
@@ -1551,10 +1595,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 34,
+        id: 33,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 34,
+        id: 33,
         fk_id: Some(6),
         columns: [
             (
@@ -1573,10 +1617,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 33,
+        id: 32,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 33,
+        id: 32,
         fk_id: Some(6),
         columns: [
             (
@@ -1595,10 +1639,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 32,
+        id: 31,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 32,
+        id: 31,
         fk_id: Some(6),
         columns: [
             (
@@ -1617,10 +1661,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 31,
+        id: 30,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 31,
+        id: 30,
         fk_id: Some(6),
         columns: [
             (
@@ -1639,10 +1683,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 30,
+        id: 29,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 30,
+        id: 29,
         fk_id: Some(6),
         columns: [
             (
@@ -1661,10 +1705,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 29,
+        id: 28,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 29,
+        id: 28,
         fk_id: Some(6),
         columns: [
             (
@@ -1683,10 +1727,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 28,
+        id: 27,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 28,
+        id: 27,
         fk_id: Some(6),
         columns: [
             (
@@ -1705,10 +1749,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 27,
+        id: 26,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 27,
+        id: 26,
         fk_id: Some(6),
         columns: [
             (
@@ -1727,10 +1771,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 26,
+        id: 25,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 26,
+        id: 25,
         fk_id: Some(6),
         columns: [
             (
@@ -1749,10 +1793,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 25,
+        id: 24,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 25,
+        id: 24,
         fk_id: Some(6),
         columns: [
             (
@@ -1771,10 +1815,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 24,
+        id: 23,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 24,
+        id: 23,
         fk_id: Some(6),
         columns: [
             (
@@ -1793,10 +1837,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 23,
+        id: 22,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 23,
+        id: 22,
         fk_id: Some(6),
         columns: [
             (
@@ -1815,10 +1859,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 22,
+        id: 21,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 22,
+        id: 21,
         fk_id: Some(6),
         columns: [
             (
@@ -1837,10 +1881,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 21,
+        id: 20,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 21,
+        id: 20,
         fk_id: Some(6),
         columns: [
             (
@@ -1859,10 +1903,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 20,
+        id: 19,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 20,
+        id: 19,
         fk_id: Some(6),
         columns: [
             (
@@ -1881,10 +1925,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 19,
+        id: 18,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 19,
+        id: 18,
         fk_id: Some(6),
         columns: [
             (
@@ -1903,10 +1947,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 18,
+        id: 17,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 18,
+        id: 17,
         fk_id: Some(6),
         columns: [
             (
@@ -1925,10 +1969,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 17,
+        id: 16,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 17,
+        id: 16,
         fk_id: Some(6),
         columns: [
             (
@@ -1947,10 +1991,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 16,
+        id: 15,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 16,
+        id: 15,
         fk_id: Some(6),
         columns: [
             (
@@ -1969,10 +2013,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 15,
+        id: 14,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 15,
+        id: 14,
         fk_id: Some(6),
         columns: [
             (
@@ -1991,10 +2035,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 14,
+        id: 13,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 14,
+        id: 13,
         fk_id: Some(6),
         columns: [
             (
@@ -2013,10 +2057,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 13,
+        id: 12,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 13,
+        id: 12,
         fk_id: Some(6),
         columns: [
             (
@@ -2035,10 +2079,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 12,
+        id: 11,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 12,
+        id: 11,
         fk_id: Some(6),
         columns: [
             (
@@ -2057,32 +2101,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 11,
+        id: 103,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 11,
-        fk_id: Some(6),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1LaPHiKa6s64rHX6CnvJEE2afZwHZa5suG"),
-            ),
-            (
-                name: "nat",
-                value: Numeric(Some("59")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.puzzles.claimed",
-        id: 104,
-    ): (
-        table_name: "storage.puzzles.claimed",
-        id: 104,
+        id: 103,
         fk_id: Some(6),
         columns: [
             (
@@ -2101,10 +2123,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 103,
+        id: 102,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 103,
+        id: 102,
         fk_id: Some(6),
         columns: [
             (
@@ -2123,10 +2145,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 102,
+        id: 101,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 102,
+        id: 101,
         fk_id: Some(6),
         columns: [
             (
@@ -2145,10 +2167,10 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 101,
+        id: 100,
     ): (
         table_name: "storage.puzzles.claimed",
-        id: 101,
+        id: 100,
         fk_id: Some(6),
         columns: [
             (
@@ -2167,28 +2189,6 @@
     ),
     (
         table_name: "storage.puzzles.claimed",
-        id: 100,
-    ): (
-        table_name: "storage.puzzles.claimed",
-        id: 100,
-        fk_id: Some(6),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1iwS4f1Vy1D5bRBP1otzPE5MByw2dJ8a1s"),
-            ),
-            (
-                name: "nat",
-                value: Numeric(Some("83")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.puzzles.claimed",
         id: 10,
     ): (
         table_name: "storage.puzzles.claimed",
@@ -2201,20 +2201,20 @@
             ),
             (
                 name: "idx_address",
-                value: String("tz1LGEUSxGeg7sLJVCRphGEXHCaEgeCYZ8pB"),
+                value: String("tz1LaPHiKa6s64rHX6CnvJEE2afZwHZa5suG"),
             ),
             (
                 name: "nat",
-                value: Numeric(Some("77")),
+                value: Numeric(Some("59")),
             ),
         ],
     ),
     (
         table_name: "storage.author",
-        id: 4,
+        id: 3,
     ): (
         table_name: "storage.author",
-        id: 4,
+        id: 3,
         fk_id: Some(2),
         columns: [
             (

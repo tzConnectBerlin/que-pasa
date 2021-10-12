@@ -120,10 +120,10 @@ impl PostgresqlGenerator {
             .iter()
             .filter(|x| {
                 with_keywords
-                    || (x.name != "id"
-                        && x.name != "deleted"
-                        && x.name != "tx_context_id"
-                        && x.name != "bigmap_id")
+                    || !table
+                        .keywords()
+                        .iter()
+                        .any(|keyword| keyword == &x.name)
             })
             .filter(|x| self.create_sql(x).is_some())
             .map(|x| x.name.clone())
@@ -233,7 +233,12 @@ impl PostgresqlGenerator {
             .indices
             .iter()
             .cloned()
-            .filter(|index| index != "tx_context_id" && index != "bigmap_id")
+            .filter(|index| {
+                !table
+                    .keywords()
+                    .iter()
+                    .any(|keyword| index == keyword)
+            })
             .collect();
 
         Ok(format!(
