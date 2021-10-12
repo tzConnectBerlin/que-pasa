@@ -54,8 +54,10 @@ cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1
 cargo run --features regression -- --index-all-contracts -l 1500002-1500005 --always-update-derived || exit 1
 cargo run --features regression -- --index-all-contracts -l 1700002-1700005 --always-update-derived || exit 1
 
-# the latter has a delete bigmap, the first has rows indexed of the deleted bigmap
+# the latter has a delete bigmap, the first 3 have rows indexed of the deleted bigmap
 cargo run --features regression -- --index-all-contracts -l 1768431 --always-update-derived || exit 1
+cargo run --features regression -- --index-all-contracts -l 1768503 --always-update-derived || exit 1
+cargo run --features regression -- --index-all-contracts -l 1768506 --always-update-derived || exit 1
 cargo run --features regression -- --index-all-contracts -l 1768606 --always-update-derived || exit 1
 
 if [[ "$MODE" == "inspect" ]]; then
