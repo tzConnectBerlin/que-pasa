@@ -29,7 +29,7 @@ WHERE id IN (
             COALESCE(ctx.internal_number, -2) DESC
     ) as deleted_indices
     JOIN "{contract_schema}"."{table}_live" live
-      ON {indices_equal}
+      ON {indices_equal_deleted_live}
 );
 
 INSERT INTO "{contract_schema}"."{table}_live" (
@@ -114,9 +114,10 @@ FROM (
         FROM (
             SELECT DISTINCT
                 clr.tx_context_id,
-                last_value(deleted) over (
+                last_value(t.deleted) over (
                     PARTITION BY ({indices})
                     ORDER BY
+                        ctx.level,
                         ctx.operation_group_number,
                         ctx.operation_number,
                         ctx.content_number,
@@ -129,7 +130,11 @@ FROM (
               ON t.bigmap_id = clr.bigmap_id
             JOIN tx_contexts ctx
               ON ctx.id = t.tx_context_id
+            LEFT JOIN "{contract_schema}"."{table}" t2
+              ON  {indices_equal_t_t2}
+              AND t2.tx_context_id = clr.tx_context_id
             WHERE clr.tx_context_id IN ({tx_context_ids})
+              AND t2 IS NULL
         ) t
         WHERE NOT t.latest_deleted
     ) t  -- t with bigmap clears unfolded

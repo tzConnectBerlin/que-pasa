@@ -134,6 +134,12 @@ WHERE table_schema = 'public'
                 .as_str(),
             )?;
         } else {
+            let indices_equal_t_t2 =
+                PostgresqlGenerator::table_sql_indices(table, false)
+                    .iter()
+                    .map(|idx| format!("t.{idx} = t2.{idx}", idx = idx))
+                    .collect::<Vec<String>>()
+                    .join(" AND ");
             tx.simple_query(
                 format!(
                     include_str!("../../sql/repopulate-changes-derived.sql"),
@@ -142,6 +148,7 @@ WHERE table_schema = 'public'
                     columns_anon = columns_anon,
                     columns = columns,
                     indices = indices,
+                    indices_equal_t_t2 = indices_equal_t_t2,
                 )
                 .as_str(),
             )?;
@@ -219,12 +226,18 @@ WHERE table_schema = 'public'
                 .as_str(),
             )?;
         } else {
-            let indices_equal =
+            let indices_equal_deleted_live =
                 PostgresqlGenerator::table_sql_indices(table, false)
                     .iter()
                     .map(|idx| {
                         format!("deleted_indices.{idx} = live.{idx}", idx = idx)
                     })
+                    .collect::<Vec<String>>()
+                    .join(" AND ");
+            let indices_equal_t_t2 =
+                PostgresqlGenerator::table_sql_indices(table, false)
+                    .iter()
+                    .map(|idx| format!("t.{idx} = t2.{idx}", idx = idx))
                     .collect::<Vec<String>>()
                     .join(" AND ");
             tx.simple_query(
@@ -235,7 +248,8 @@ WHERE table_schema = 'public'
                     columns_anon = columns_anon,
                     columns = columns,
                     indices = indices,
-                    indices_equal = indices_equal,
+                    indices_equal_deleted_live = indices_equal_deleted_live,
+                    indices_equal_t_t2 = indices_equal_t_t2,
                     tx_context_ids = tx_context_ids,
                 )
                 .as_str(),

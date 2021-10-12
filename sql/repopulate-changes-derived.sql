@@ -76,14 +76,14 @@ FROM (
         SELECT
             tx_context_id,
             -ROW_NUMBER() OVER () + (
-                SELECT LEAST(0, MIN(id)
-            ) FROM "{contract_schema}"."{table}") AS id,
+                SELECT LEAST(0, MIN(id)) FROM "{contract_schema}"."{table}"
+            ) AS id,
             'true' AS deleted
             {columns}
         FROM (
             SELECT DISTINCT
                 clr.tx_context_id,
-                last_value(deleted) over (
+                last_value(t.deleted) over (
                     PARTITION BY ({indices})
                     ORDER BY
                         ctx.level,
@@ -94,11 +94,15 @@ FROM (
                     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
                 ) AS latest_deleted
                 {columns}
-            FROM "{contract_schema}"."{table}" t
-            JOIN "{contract_schema}".bigmap_clears clr
+            FROM "{contract_schema}".bigmap_clears clr
+            JOIN "{contract_schema}"."{table}" t
               ON t.bigmap_id = clr.bigmap_id
             JOIN tx_contexts ctx
               ON ctx.id = t.tx_context_id
+            LEFT JOIN "{contract_schema}"."{table}" t2
+              ON  {indices_equal_t_t2}
+              AND t2.tx_context_id = clr.tx_context_id
+            WHERE t2 IS NULL
         ) t
         WHERE NOT t.latest_deleted
     ) t  -- t with bigmap clears unfolded

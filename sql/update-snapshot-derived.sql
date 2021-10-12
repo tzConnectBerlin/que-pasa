@@ -42,7 +42,6 @@ FROM (
     SELECT
         DENSE_RANK() OVER (
             ORDER BY
-                ctx.level,
                 ctx.operation_group_number,
                 ctx.operation_number,
                 ctx.content_number,
