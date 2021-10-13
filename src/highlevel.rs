@@ -768,7 +768,11 @@ impl Executor {
                 contract_id,
                 rel_ast,
                 &tx_contexts,
-            )?;
+            ).with_context(|| {
+            format!(
+                "execute failed (level={}, contract={}): could not update derived tables",
+                meta.level, contract_id.name,
+            )})?;
         }
         DBClient::set_max_id(tx, storage_processor.get_id_value() + 1)?;
 
