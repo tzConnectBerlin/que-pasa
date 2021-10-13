@@ -102,6 +102,10 @@ impl PostgresqlGenerator {
             None => vec![],
         };
         for column in table.get_columns() {
+            if !table.id_unique && column.name == "id".to_string() {
+                cols.push("id BIGINT NOT NULL".to_string());
+                continue;
+            }
             if let Some(val) = Self::create_sql(column) {
                 cols.push(val);
             }
@@ -261,6 +265,7 @@ impl PostgresqlGenerator {
             ordered.drop_column("bigmap_id");
         }
         ordered.add_fk("id".to_string(), table.name.clone(), "id".to_string());
+        ordered.id_unique = false;
 
         Ok(vec![
             self.create_table_definition(&live)?,

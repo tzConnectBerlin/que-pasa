@@ -102,7 +102,7 @@ FROM (
 
         SELECT
             t.tx_context_id,
-            -t.id as id,
+            t.id,
             'true' AS deleted
             {columns}
         FROM (

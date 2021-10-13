@@ -71,14 +71,13 @@ FROM (
 
         SELECT
             t.tx_context_id,
-            -ROW_NUMBER() OVER () + (
-                SELECT LEAST(0, MIN(id)) FROM "{contract_schema}"."{table}"
-            ) AS id,
+            t.id,
             'true' AS deleted
             {columns}
         FROM (
             SELECT DISTINCT
                 clr.tx_context_id,
+                LAST_VALUE(t.id) OVER w as id,
                 LAST_VALUE(t.deleted) OVER w as latest_deleted
                 {columns_latest}
             FROM "{contract_schema}".bigmap_clears clr

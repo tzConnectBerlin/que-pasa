@@ -14,6 +14,7 @@ pub struct Table {
     pub indices: Vec<String>,
     pub columns: HashMap<String, Column>,
     pub fk: HashMap<(String, String, String), ()>,
+    pub id_unique: bool,
     keys: Vec<String>,
     unique: bool,
     snapshots: bool,
@@ -29,6 +30,7 @@ impl Table {
             unique: true,
             snapshots: true,
             fk: HashMap::new(),
+            id_unique: true,
         }
     }
 
