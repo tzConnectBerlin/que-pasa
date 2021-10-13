@@ -66,6 +66,6 @@ CREATE TABLE bigmap_keys(
     keyhash TEXT NOT NULL,
     key TEXT NOT NULL,
 
-    PRIMARY KEY (bigmap_id, tx_context_id,keyhash),
+    PRIMARY KEY (tx_context_id, bigmap_id, keyhash),
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
 );

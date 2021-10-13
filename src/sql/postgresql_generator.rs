@@ -249,7 +249,10 @@ impl PostgresqlGenerator {
         if !table.contains_snapshots() {
             live.drop_column("deleted");
         }
-        live.drop_index("tx_context_id");
+        // TODO: should remove this from the uniqueness constraint, as it's
+        // more correct. however, currently we rely on uniq constraints to start
+        // with tx_context_id, it's used as an index to speed up delete cascading
+        //live.drop_index("tx_context_id");
         live.add_fk("id".to_string(), table.name.clone(), "id".to_string());
 
         let mut ordered = table.clone();

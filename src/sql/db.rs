@@ -590,12 +590,10 @@ VALUES ( {} )",
         let mut it = self.dbconn.query_raw(
             format!(
                 "
-SELECT
-    src_contract,
-    MAX(level) as last_level_dep
+SELECT DISTINCT
+    src_contract
 FROM contract_deps
 WHERE dest_schema IN ({})
-GROUP BY src_contract
 ",
                 v_refs
             )
@@ -607,11 +605,9 @@ GROUP BY src_contract
         )?;
         let mut res: Vec<ContractID> = vec![];
         while let Some(row) = it.next()? {
-            let latest_depending_level: i32 = row.get(1);
             res.push(ContractID {
                 address: row.get(0),
                 name: row.get(0),
-                level_roof: Some(latest_depending_level as u32),
             });
         }
         Ok(res
@@ -751,7 +747,6 @@ WHERE table_schema = 'public'
                 let contract_id = ContractID {
                     name: row.get(0),
                     address: row.get(1),
-                    level_roof: None,
                 };
                 let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
                 Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
@@ -838,13 +833,10 @@ WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level
     pub(crate) fn get_missing_levels(
         &mut self,
         contracts: &[ContractID],
-        mut end: u32,
+        end: u32,
     ) -> Result<Vec<u32>> {
         let mut rows: Vec<i32> = vec![];
         for contract_id in contracts {
-            if let Some(roof) = contract_id.level_roof {
-                end = std::cmp::min(end, roof);
-            }
             let origination = self.get_origination(contract_id)?;
             let start = origination.unwrap_or(1);
             for row in self.dbconn.query(
