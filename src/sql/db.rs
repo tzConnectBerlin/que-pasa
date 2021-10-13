@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use askama::Template;
 use itertools::Itertools;
 use std::collections::HashMap;
 
@@ -20,6 +21,39 @@ use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
+
+#[derive(Template)]
+#[template(path = "repopulate-snapshot-derived.sql", escape = "none")]
+struct RepopulateSnapshotDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+}
+#[derive(Template)]
+#[template(path = "repopulate-changes-derived.sql", escape = "none")]
+struct RepopulateChangesDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    indices: &'a [String],
+}
+#[derive(Template)]
+#[template(path = "update-snapshot-derived.sql", escape = "none")]
+struct UpdateSnapshotDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    tx_context_ids: &'a [i64],
+}
+#[derive(Template)]
+#[template(path = "update-changes-derived.sql", escape = "none")]
+struct UpdateChangesDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    indices: &'a [String],
+    tx_context_ids: &'a [i64],
+}
 
 pub struct DBClient {
     dbconn: postgres::Client,
@@ -108,62 +142,27 @@ WHERE table_schema = 'public'
     ) -> Result<()> {
         let columns = PostgresqlGenerator::table_sql_columns(table, false)
             .iter()
-            .map(|col| format!(", t.{}", col))
-            .collect::<Vec<String>>()
-            .join("");
-        let columns_anon = PostgresqlGenerator::table_sql_columns(table, false)
-            .iter()
-            .map(|col| format!(", {}", col))
-            .collect::<Vec<String>>()
-            .join("");
-        let indices = PostgresqlGenerator::table_sql_indices(table, false)
-            .iter()
-            .map(|idx| format!("t.{}", idx))
-            .collect::<Vec<String>>()
-            .join(",");
-
+            .cloned()
+            .collect::<Vec<String>>();
         if table.contains_snapshots() {
-            tx.simple_query(
-                format!(
-                    include_str!("../../sql/repopulate-snapshot-derived.sql"),
-                    contract_schema = contract_id.name,
-                    table = table.name,
-                    columns_anon = columns_anon,
-                    columns = columns,
-                )
-                .as_str(),
-            )?;
+            let tmpl = RepopulateSnapshotDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+            };
+            tx.simple_query(&tmpl.render()?)?;
         } else {
-            let indices_equal_t_t2 =
-                PostgresqlGenerator::table_sql_indices(table, false)
-                    .iter()
-                    .map(|idx| format!("t.{idx} = t2.{idx}", idx = idx))
-                    .collect::<Vec<String>>()
-                    .join(" AND ");
-            let columns_latest =
-                PostgresqlGenerator::table_sql_columns(table, false)
-                    .iter()
-                    .map(|col| {
-                        format!(
-                            ", LAST_VALUE(t.{col}) OVER w AS {col}",
-                            col = col
-                        )
-                    })
-                    .collect::<Vec<String>>()
-                    .join("");
-            tx.simple_query(
-                format!(
-                    include_str!("../../sql/repopulate-changes-derived.sql"),
-                    contract_schema = contract_id.name,
-                    table = table.name,
-                    columns_anon = columns_anon,
-                    columns = columns,
-                    indices = indices,
-                    columns_latest = columns_latest,
-                    indices_equal_t_t2 = indices_equal_t_t2,
-                )
-                .as_str(),
-            )?;
+            let indices = PostgresqlGenerator::table_sql_indices(table, false)
+                .iter()
+                .cloned()
+                .collect::<Vec<String>>();
+            let tmpl = RepopulateChangesDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+                indices: &indices,
+            };
+            tx.simple_query(&tmpl.render()?)?;
         };
         Ok(())
     }
@@ -203,81 +202,37 @@ WHERE table_schema = 'public'
         table: &Table,
         tx_contexts: &[TxContext],
     ) -> Result<()> {
-        let tx_context_ids: String = tx_contexts
+        let tx_context_ids: Vec<i64> = tx_contexts
             .iter()
-            .map(|ctx| format!("{}", ctx.id.unwrap()))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        let columns = PostgresqlGenerator::table_sql_columns(table, false)
-            .iter()
-            .map(|col| format!(", t.{}", col))
-            .collect::<Vec<String>>()
-            .join("");
-        let columns_anon = PostgresqlGenerator::table_sql_columns(table, false)
-            .iter()
-            .map(|col| format!(", {}", col))
-            .collect::<Vec<String>>()
-            .join("");
-        let indices = PostgresqlGenerator::table_sql_indices(table, false)
-            .iter()
-            .map(|idx| format!("t.{}", idx))
-            .collect::<Vec<String>>()
-            .join(",");
-
+            .map(|ctx| ctx.id.unwrap())
+            .collect();
+        let columns: Vec<String> =
+            PostgresqlGenerator::table_sql_columns(table, false)
+                .iter()
+                .cloned()
+                .collect();
         if table.contains_snapshots() {
-            tx.simple_query(
-                format!(
-                    include_str!("../../sql/update-snapshot-derived.sql"),
-                    contract_schema = contract_id.name,
-                    table = table.name,
-                    columns_anon = columns_anon,
-                    columns = columns,
-                    tx_context_ids = tx_context_ids,
-                )
-                .as_str(),
-            )?;
+            let tmpl = UpdateSnapshotDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+                tx_context_ids: &tx_context_ids,
+            };
+            tx.simple_query(&tmpl.render()?)?;
         } else {
-            let indices_equal_deleted_live =
+            let indices: Vec<String> =
                 PostgresqlGenerator::table_sql_indices(table, false)
                     .iter()
-                    .map(|idx| {
-                        format!("deleted_indices.{idx} = live.{idx}", idx = idx)
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" AND ");
-            let indices_equal_t_t2 =
-                PostgresqlGenerator::table_sql_indices(table, false)
-                    .iter()
-                    .map(|idx| format!("t.{idx} = t2.{idx}", idx = idx))
-                    .collect::<Vec<String>>()
-                    .join(" AND ");
-            let columns_latest =
-                PostgresqlGenerator::table_sql_columns(table, false)
-                    .iter()
-                    .map(|col| {
-                        format!(
-                            ", LAST_VALUE(t.{col}) OVER w AS {col}",
-                            col = col
-                        )
-                    })
-                    .collect::<Vec<String>>()
-                    .join("");
-            tx.simple_query(
-                format!(
-                    include_str!("../../sql/update-changes-derived.sql"),
-                    contract_schema = contract_id.name,
-                    table = table.name,
-                    columns_anon = columns_anon,
-                    columns = columns,
-                    indices = indices,
-                    columns_latest = columns_latest,
-                    indices_equal_deleted_live = indices_equal_deleted_live,
-                    indices_equal_t_t2 = indices_equal_t_t2,
-                    tx_context_ids = tx_context_ids,
-                )
-                .as_str(),
-            )?;
+                    .cloned()
+                    .collect();
+            let tmpl = UpdateChangesDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+                tx_context_ids: &tx_context_ids,
+                indices: &indices,
+            };
+            tx.simple_query(&tmpl.render()?)?;
         };
         Ok(())
     }

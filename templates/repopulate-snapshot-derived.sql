@@ -1,8 +1,16 @@
 -- repopulate
 
-DELETE FROM "{contract_schema}"."{table}_live";
-INSERT INTO "{contract_schema}"."{table}_live" (
-    level, level_timestamp, id, tx_context_id {columns_anon}
+{% macro unfold(column_names, from_table, sep_first) %}
+    {%- for col in column_names -%}
+        {%- if sep_first.clone() || !loop.first %}, {% endif -%}
+        {% if !from_table.is_empty() %}{{ from_table }}.{% endif %}{{ col }}
+    {%- endfor -%}
+{% endmacro %}
+
+
+DELETE FROM "{{ contract_schema }}"."{{ table }}_live";
+INSERT INTO "{{ contract_schema }}"."{{ table }}_live" (
+    level, level_timestamp, id, tx_context_id {% call unfold(columns, "", true) %}
 )
 SELECT
     *
@@ -12,8 +20,8 @@ FROM (
         level_meta.baked_at AS level_timestamp,
         t.id,
         t.tx_context_id
-        {columns}
-    FROM "{contract_schema}"."{table}" t
+        {% call unfold(columns, "t", true) %}
+    FROM "{{ contract_schema }}"."{{ table }}" t
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
     JOIN levels level_meta
@@ -28,9 +36,9 @@ FROM (
 ) q;
 
 
-DELETE FROM "{contract_schema}"."{table}_ordered";
-INSERT INTO "{contract_schema}"."{table}_ordered" (
-    ordering, level, level_timestamp, id, tx_context_id {columns_anon}
+DELETE FROM "{{ contract_schema }}"."{{ table }}_ordered";
+INSERT INTO "{{ contract_schema }}"."{{ table }}_ordered" (
+    ordering, level, level_timestamp, id, tx_context_id {% call unfold(columns, "", true) %}
 )
 SELECT
     *
@@ -48,8 +56,8 @@ FROM (
         level_meta.baked_at AS level_timestamp,
         t.id,
         t.tx_context_id
-        {columns}
-    FROM "{contract_schema}"."{table}" t
+        {% call unfold(columns, "t", true) %}
+    FROM "{{ contract_schema }}"."{{ table }}" t
     JOIN tx_contexts ctx
       ON ctx.id = t.tx_context_id
     JOIN levels level_meta
