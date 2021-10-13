@@ -192,14 +192,23 @@ impl PostgresqlGenerator {
         Self::table_parent_name(table).map(|parent| format!("{}_id", parent))
     }
 
-    fn create_foreign_key_constraint(&self, table: &Table) -> Option<String> {
-        Self::table_parent_name(table).map(|parent| {
+    fn create_foreign_key_constraint(&self, table: &Table) -> Vec<String> {
+        let mut fks: Vec<(String, String, String)> =
+            table.fk.keys().cloned().collect();
+
+        if let Some(parent) = Self::table_parent_name(table) {
+            fks.push((format!("{}_id", parent), parent, "id".to_string()));
+        };
+
+        fks.into_iter().map(|(col, ref_table, ref_col)| {
             format!(
-                r#"FOREIGN KEY ("{table}_id") REFERENCES "{contract_schema}"."{table}"(id)"#,
+                r#"FOREIGN KEY ("{col}") REFERENCES "{contract_schema}"."{ref_table}"({ref_col})"#,
                 contract_schema = self.contract_id.name,
-                table = parent,
+                col = col,
+                ref_table = ref_table,
+                ref_col = ref_col,
             )
-        })
+        }).collect::<Vec<String>>()
     }
 
     pub(crate) fn create_common_tables() -> String {
@@ -213,9 +222,7 @@ impl PostgresqlGenerator {
         let mut v: Vec<String> = vec![self.start_table(&table.name)];
         let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
-        if let Some(fk) = self.create_foreign_key_constraint(table) {
-            columns.push(fk);
-        }
+        columns.extend(self.create_foreign_key_constraint(table));
         let mut s = columns.join(",\n\t");
         s.push_str(",\n\t");
         v.push(s);
@@ -239,6 +246,7 @@ impl PostgresqlGenerator {
             live.drop_column("deleted");
         }
         live.drop_index("tx_context_id");
+        live.add_fk("id".to_string(), table.name.clone(), "id".to_string());
 
         let mut ordered = table.clone();
         ordered.name = format!("{}_ordered", ordered.name);
@@ -252,6 +260,7 @@ impl PostgresqlGenerator {
         if !table.contains_snapshots() {
             ordered.drop_column("bigmap_id");
         }
+        ordered.add_fk("id".to_string(), table.name.clone(), "id".to_string());
 
         Ok(vec![
             self.create_table_definition(&live)?,

@@ -13,6 +13,7 @@ pub struct Table {
     pub name: String,
     pub indices: Vec<String>,
     pub columns: HashMap<String, Column>,
+    pub fk: HashMap<(String, String, String), ()>,
     keys: Vec<String>,
     unique: bool,
     snapshots: bool,
@@ -27,6 +28,7 @@ impl Table {
             keys: vec![],
             unique: true,
             snapshots: true,
+            fk: HashMap::new(),
         }
     }
 
@@ -44,6 +46,16 @@ impl Table {
 
     pub(crate) fn contains_snapshots(&self) -> bool {
         self.snapshots
+    }
+
+    pub(crate) fn add_fk(
+        &mut self,
+        column_name: String,
+        ref_table: String,
+        ref_col: String,
+    ) {
+        self.fk
+            .insert((column_name, ref_table, ref_col), ());
     }
 
     pub(crate) fn add_column(

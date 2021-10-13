@@ -904,6 +904,7 @@ fn test_generate() {
     let generator = PostgresqlGenerator::new(&ContractID {
         name: "testcontract".to_string(),
         address: "".to_string(),
+        level_roof: None,
     });
     let mut builder = crate::sql::table_builder::TableBuilder::new();
     builder.populate(&rel_ast);
