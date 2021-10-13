@@ -205,11 +205,8 @@ impl Executor {
             .get_config_deps(&config)
             .unwrap();
 
-        for addr in deps {
-            self.add_contract(&ContractID {
-                name: addr.clone(),
-                address: addr,
-            })?;
+        for dep in &deps {
+            self.add_contract(dep)?;
         }
 
         Ok(())
@@ -632,6 +629,7 @@ impl Executor {
                 .map(|address| ContractID {
                     name: address.clone(),
                     address: address.clone(),
+                    level_roof: None,
                 })
                 .collect();
             let new_contracts: Vec<&ContractID> = active_contracts
@@ -655,6 +653,10 @@ impl Executor {
             self.contracts
                 .keys()
                 .cloned()
+                .filter(|c| {
+                    c.level_roof.is_none()
+                        || c.level_roof.unwrap() < level.level
+                })
                 .collect::<Vec<ContractID>>()
         };
         let mut contract_results: Vec<SaveLevelResult> = vec![];

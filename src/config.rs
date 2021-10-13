@@ -27,6 +27,8 @@ pub struct Config {
 pub struct ContractID {
     pub address: String,
     pub name: String,
+    #[serde(default)]
+    pub level_roof: Option<u32>, // if set, don't process above this level
 }
 
 lazy_static! {
@@ -150,6 +152,7 @@ pub fn init_config() -> Result<Config> {
             Some((name, address)) => ContractID {
             name: name.to_string(),
             address: address.to_string(),
+            level_roof: None,
             },
             None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
         }

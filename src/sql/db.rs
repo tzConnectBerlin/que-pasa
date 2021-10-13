@@ -578,7 +578,7 @@ VALUES ( {} )",
     pub(crate) fn get_config_deps(
         &mut self,
         config: &[ContractID],
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<ContractID>> {
         if config.is_empty() {
             return Ok(vec![]);
         }
@@ -590,10 +590,12 @@ VALUES ( {} )",
         let mut it = self.dbconn.query_raw(
             format!(
                 "
-SELECT DISTINCT
-    src_contract
+SELECT
+    src_contract,
+    MAX(level) as last_level_dep
 FROM contract_deps
 WHERE dest_schema IN ({})
+GROUP BY src_contract
 ",
                 v_refs
             )
@@ -603,13 +605,21 @@ WHERE dest_schema IN ({})
                 .map(|c| c.name.borrow_to_sql())
                 .collect::<Vec<&dyn ToSql>>(),
         )?;
-        let mut res: Vec<String> = vec![];
+        let mut res: Vec<ContractID> = vec![];
         while let Some(row) = it.next()? {
-            res.push(row.get(0));
+            res.push(ContractID {
+                address: row.get(0),
+                name: row.get(0),
+                level_roof: row.get(1),
+            });
         }
         Ok(res
             .into_iter()
-            .filter(|dep| !config.iter().any(|c| c.address == *dep))
+            .filter(|dep| {
+                !config
+                    .iter()
+                    .any(|c| c.address == dep.address)
+            })
             .collect())
     }
 
@@ -740,6 +750,7 @@ WHERE table_schema = 'public'
                 let contract_id = ContractID {
                     name: row.get(0),
                     address: row.get(1),
+                    level_roof: None,
                 };
                 let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
                 Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
@@ -826,10 +837,13 @@ WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level
     pub(crate) fn get_missing_levels(
         &mut self,
         contracts: &[ContractID],
-        end: u32,
+        mut end: u32,
     ) -> Result<Vec<u32>> {
         let mut rows: Vec<i32> = vec![];
         for contract_id in contracts {
+            if let Some(roof) = contract_id.level_roof {
+                end = std::cmp::min(end, roof);
+            }
             let origination = self.get_origination(contract_id)?;
             let start = origination.unwrap_or(1);
             for row in self.dbconn.query(
