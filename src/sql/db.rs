@@ -607,10 +607,11 @@ GROUP BY src_contract
         )?;
         let mut res: Vec<ContractID> = vec![];
         while let Some(row) = it.next()? {
+            let latest_depending_level: i32 = row.get(1);
             res.push(ContractID {
                 address: row.get(0),
                 name: row.get(0),
-                level_roof: row.get(1),
+                level_roof: Some(latest_depending_level as u32),
             });
         }
         Ok(res
