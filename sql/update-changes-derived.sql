@@ -67,7 +67,7 @@ INSERT INTO "{contract_schema}"."{table}_ordered" (
     ordering, level, level_timestamp, id, tx_context_id, deleted {columns_anon}
 )
 SELECT
-    ordering + (SELECT max(ordering) FROM "{contract_schema}"."{table}_ordered") as ordering,
+    ordering + COALESCE((SELECT max(ordering) FROM "{contract_schema}"."{table}_ordered"), 0) as ordering,
     level,
     level_timestamp,
     id,
