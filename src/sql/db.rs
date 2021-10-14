@@ -140,10 +140,8 @@ WHERE table_schema = 'public'
         contract_id: &ContractID,
         table: &Table,
     ) -> Result<()> {
-        let columns = PostgresqlGenerator::table_sql_columns(table, false)
-            .iter()
-            .cloned()
-            .collect::<Vec<String>>();
+        let columns: Vec<String> =
+            PostgresqlGenerator::table_sql_columns(table, false).to_vec();
         if table.contains_snapshots() {
             let tmpl = RepopulateSnapshotDerivedTmpl {
                 contract_schema: &contract_id.name,
@@ -152,15 +150,12 @@ WHERE table_schema = 'public'
             };
             tx.simple_query(&tmpl.render()?)?;
         } else {
-            let indices = PostgresqlGenerator::table_sql_indices(table, false)
-                .iter()
-                .cloned()
-                .collect::<Vec<String>>();
             let tmpl = RepopulateChangesDerivedTmpl {
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 columns: &columns,
-                indices: &indices,
+                indices: &PostgresqlGenerator::table_sql_indices(table, false)
+                    .to_vec(),
             };
             tx.simple_query(&tmpl.render()?)?;
         };
@@ -207,10 +202,7 @@ WHERE table_schema = 'public'
             .map(|ctx| ctx.id.unwrap())
             .collect();
         let columns: Vec<String> =
-            PostgresqlGenerator::table_sql_columns(table, false)
-                .iter()
-                .cloned()
-                .collect();
+            PostgresqlGenerator::table_sql_columns(table, false).to_vec();
         if table.contains_snapshots() {
             let tmpl = UpdateSnapshotDerivedTmpl {
                 contract_schema: &contract_id.name,
@@ -220,17 +212,13 @@ WHERE table_schema = 'public'
             };
             tx.simple_query(&tmpl.render()?)?;
         } else {
-            let indices: Vec<String> =
-                PostgresqlGenerator::table_sql_indices(table, false)
-                    .iter()
-                    .cloned()
-                    .collect();
             let tmpl = UpdateChangesDerivedTmpl {
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 columns: &columns,
                 tx_context_ids: &tx_context_ids,
-                indices: &indices,
+                indices: &PostgresqlGenerator::table_sql_indices(table, false)
+                    .to_vec(),
             };
             tx.simple_query(&tmpl.render()?)?;
         };

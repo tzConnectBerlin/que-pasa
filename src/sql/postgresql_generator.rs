@@ -102,7 +102,7 @@ impl PostgresqlGenerator {
             None => vec![],
         };
         for column in table.get_columns() {
-            if !table.id_unique && column.name == "id".to_string() {
+            if !table.id_unique && column.name == *"id" {
                 cols.push("id BIGINT NOT NULL".to_string());
                 continue;
             }
@@ -187,7 +187,7 @@ impl PostgresqlGenerator {
         Self::parent_name(&table.name)
     }
 
-    pub(crate) fn parent_name(name: &String) -> Option<String> {
+    pub(crate) fn parent_name(name: &str) -> Option<String> {
         name.rfind('.')
             .map(|pos| name[0..pos].to_string())
     }

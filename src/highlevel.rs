@@ -705,6 +705,7 @@ impl Executor {
         self.update_level_floor()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn exec_for_block_contract(
         tx: &mut Transaction,
         meta: &LevelMeta,

@@ -143,7 +143,7 @@ impl Table {
     }
 
     pub(crate) fn drop_column(&mut self, name: &str) {
-        if let Some(_) = self.columns.remove(name) {
+        if self.columns.remove(name).is_some() {
             self.keys = self
                 .keys
                 .clone()
