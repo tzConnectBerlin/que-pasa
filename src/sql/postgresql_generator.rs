@@ -160,21 +160,37 @@ impl PostgresqlGenerator {
             .collect()
     }
 
-    pub(crate) fn create_index(&self, table: &Table) -> String {
+    pub(crate) fn create_index(&self, table: &Table) -> Vec<String> {
         if table.indices.is_empty() {
-            return "".to_string();
+            return vec![];
         }
         let uniqueness_constraint = match table.has_uniqueness() {
             true => "UNIQUE",
             false => "",
         };
-        format!(
+        let mut res: Vec<String> = vec![format!(
             r#"CREATE {unique} INDEX "{table}_uniq" ON "{contract_schema}"."{table}"({columns});"#,
             unique = uniqueness_constraint,
             contract_schema = self.contract_id.name,
             table = table.name,
             columns = Self::table_sql_indices(table, true).join(", ")
-        )
+        )];
+        if let Some(parent) = Self::table_parent_name(table) {
+            res.push(format!(
+                r#"CREATE INDEX "{table}_{parent}_id_idx" ON "{contract_schema}"."{table}"("{parent}_id");"#,
+                contract_schema = self.contract_id.name,
+                table = table.name,
+                parent = parent,
+            ));
+        };
+        if !table.id_unique {
+            res.push(format!(
+                r#"CREATE INDEX "{table}_id_idx" ON "{contract_schema}"."{table}"(id);"#,
+                contract_schema = self.contract_id.name,
+                table = table.name,
+            ));
+        }
+        res
     }
 
     fn table_parent_name(table: &Table) -> Option<String> {
@@ -231,7 +247,7 @@ impl PostgresqlGenerator {
         s.push_str(",\n\t");
         v.push(s);
         v.push(self.end_table());
-        v.push(self.create_index(table));
+        v.extend(self.create_index(table));
         Ok(v.join("\n"))
     }
 
