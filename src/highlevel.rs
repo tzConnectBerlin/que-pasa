@@ -1,4 +1,5 @@
 use anyhow::{anyhow, ensure, Context, Result};
+use chrono::Duration;
 use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -336,6 +337,7 @@ impl Executor {
         &mut self,
         bcd_settings: Option<(String, String)>,
         num_getters: usize,
+        acceptable_head_offset: Duration,
     ) -> Result<Vec<ContractID>> {
         let mut res: Vec<ContractID> = vec![];
         loop {
@@ -384,7 +386,7 @@ impl Executor {
                     info!("contract {} initialized.", contract_id.name)
                 }
             } else {
-                self.exec_missing_levels(num_getters)
+                self.exec_missing_levels(num_getters, acceptable_head_offset)
                     .unwrap();
             }
         }
@@ -394,23 +396,41 @@ impl Executor {
         Ok(res)
     }
 
-    pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
+    pub fn exec_missing_levels(
+        &mut self,
+        num_getters: usize,
+        acceptable_head_offset: Duration,
+    ) -> Result<()> {
         loop {
-            let latest_level = self.node_cli.head()?.level;
+            let latest_level: LevelMeta = self.node_cli.head()?;
 
-            let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
+            let mut missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
                 self.contracts
                     .keys()
                     .cloned()
                     .collect::<Vec<ContractID>>()
                     .as_slice(),
-                latest_level,
+                latest_level.level,
             )?;
-            if missing_levels.is_empty() {
+            let has_gaps = missing_levels
+                .windows(2)
+                .any(|w| w[0] != w[1] - 1);
+
+            let first_missing: LevelMeta = self
+                .node_cli
+                .level_json(missing_levels[0])?
+                .1;
+
+            if !has_gaps
+                && latest_level.baked_at.unwrap()
+                    - first_missing.baked_at.unwrap()
+                    < acceptable_head_offset
+            {
                 self.exec_dependents()?;
                 return Ok(());
             }
 
+            missing_levels.reverse();
             self.exec_levels(num_getters, missing_levels)?;
         }
     }

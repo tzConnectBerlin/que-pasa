@@ -806,7 +806,6 @@ ORDER BY 1",
         }
         rows.sort_unstable();
         rows.dedup();
-        rows.reverse();
         Ok(rows
             .iter()
             .map(|x| *x as u32)
