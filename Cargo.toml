@@ -32,7 +32,8 @@ lazy_static = "1.4.0"
 log = "0.4.0"
 native-tls = "0.2.7"
 num = { version = "0.4", features = ["serde"] }
-postgres = { version = "0.19.1", features = ["with-chrono-0_4"] }
+postgres = { version = "0.19.2", features = ["with-chrono-0_4"] }
+postgres-types = { version = "0.2.2", features = ["derive"] }
 postgres-native-tls = "0.5.0"
 pg_bigdecimal = { version = "0.1.1", features = ["serde"] }
 regex = "1.4.5"

@@ -21,11 +21,18 @@ CREATE TABLE contract_levels (
     PRIMARY KEY(contract, level)
 );
 
-CREATE TABLE max_id (
-    max_id BIGINT
+CREATE TYPE indexer_mode AS ENUM (
+    'Bootstrap',
+    'Head'
 );
 
-INSERT INTO max_id (max_id) VALUES (1);
+CREATE TABLE indexer_state (
+    max_id BIGINT NOT NULL,
+    mode indexer_mode NOT NULL
+);
+
+INSERT INTO indexer_state (max_id, mode)
+VALUES (1, 'Bootstrap');
 
 CREATE TABLE tx_contexts(
     id BIGINT NOT NULL PRIMARY KEY,

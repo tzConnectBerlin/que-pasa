@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use native_tls::{Certificate, TlsConnector};
 use postgres::fallible_iterator::FallibleIterator;
-use postgres::types::{BorrowToSql, ToSql};
+use postgres::types::{BorrowToSql, FromSql, ToSql};
 use postgres::{Client, NoTls, Transaction};
 use postgres_native_tls::MakeTlsConnector;
 use std::fs;
@@ -21,6 +21,13 @@ use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
+
+#[derive(PartialEq, Eq, Debug, ToSql, FromSql)]
+#[postgres(name = "indexer_mode")]
+pub(crate) enum IndexerMode {
+    Bootstrap,
+    Head,
+}
 
 #[derive(Template)]
 #[template(path = "repopulate-snapshot-derived.sql", escape = "none")]
@@ -700,7 +707,7 @@ WHERE table_schema = 'public'
 DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
 DROP TABLE IF EXISTS tx_contexts;
-DROP TABLE IF EXISTS max_id;
+DROP TABLE IF EXISTS indexer_state;
 DROP TABLE IF EXISTS contract_levels;
 DROP TABLE IF EXISTS contracts;
 DROP TABLE IF EXISTS levels;
@@ -812,10 +819,34 @@ ORDER BY 1",
             .collect::<Vec<u32>>())
     }
 
+    pub(crate) fn get_indexer_mode(&mut self) -> Result<IndexerMode> {
+        let mode: IndexerMode = self
+            .dbconn
+            .query_one("select mode from indexer_state", &[])?
+            .get(0);
+        Ok(mode)
+    }
+
+    pub(crate) fn set_indexer_mode(&mut self, mode: IndexerMode) -> Result<()> {
+        let updated = self.dbconn.execute(
+            "
+update indexer_state
+set mode = $1",
+            &[&mode],
+        )?;
+        if updated == 1 {
+            Ok(())
+        } else {
+            Err(anyhow!(
+            "wrong number of rows in indexer_state table. please fix manually. sorry"
+        ))
+        }
+    }
+
     pub(crate) fn get_max_id(&mut self) -> Result<i64> {
         let max_id: i64 = self
             .dbconn
-            .query("SELECT max_id FROM max_id", &[])?[0]
+            .query_one("select max_id from indexer_state", &[])?
             .get(0);
         Ok(max_id + 1)
     }
@@ -823,15 +854,15 @@ ORDER BY 1",
     pub(crate) fn set_max_id(tx: &mut Transaction, max_id: i64) -> Result<()> {
         let updated = tx.execute(
             "
-UPDATE max_id
-SET max_id = $1",
+update indexer_state
+set max_id = $1",
             &[&max_id],
         )?;
         if updated == 1 {
             Ok(())
         } else {
             Err(anyhow!(
-            "Wrong number of rows in max_id table. Please fix manually. Sorry"
+            "wrong number of rows in indexer_state table. please fix manually. sorry"
         ))
         }
     }
