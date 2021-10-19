@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, ensure, Result};
 use askama::Template;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -865,6 +865,32 @@ set max_id = $1",
             "wrong number of rows in indexer_state table. please fix manually. sorry"
         ))
         }
+    }
+
+    pub(crate) fn ensure_all_contracts_equal_sync(&mut self) -> Result<()> {
+        let unsynced: Vec<String> = self
+            .dbconn
+            .query(
+                "
+select
+    c.name
+from levels lvl, contracts c
+where not exists (
+    select 1
+    from contract_levels clvl
+    where clvl.level = lvl.level
+      and clvl.contract = c.name
+)",
+                &[],
+            )?
+            .iter()
+            .map(|row| row.get(0))
+            .collect();
+        ensure!(
+            unsynced.len() == 0,
+            anyhow!("have unsynchronized contracts: {:#?}", unsynced)
+        );
+        Ok(())
     }
 
     pub(crate) fn save_level(

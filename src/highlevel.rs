@@ -505,6 +505,9 @@ impl Executor {
             anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
         );
 
+        self.dbcli
+            .ensure_all_contracts_equal_sync()?;
+
         for (contract_id, (rel_ast, _)) in &self.contracts {
             self.dbcli
                 .repopulate_derived_tables(contract_id, rel_ast)?;
