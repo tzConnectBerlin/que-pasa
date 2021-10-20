@@ -889,7 +889,8 @@ where lvl.level >= coalesce(orig.level, 0)
     from contract_levels clvl
     where clvl.level = lvl.level
       and clvl.contract = c.name
-)",
+)
+order by 1",
                 &[],
             )?
             .iter()

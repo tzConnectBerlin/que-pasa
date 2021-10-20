@@ -71,10 +71,6 @@ impl BCDClient {
         if let Some(last_id) = last_id {
             params.push(("last_id".to_string(), last_id))
         }
-        let resp = self.load(
-            format!("contract/{}/{}/operations", self.network, contract_id),
-            &params,
-        )?;
 
         #[derive(Deserialize)]
         struct Operation {
@@ -86,7 +82,14 @@ impl BCDClient {
             #[serde(default)]
             pub last_id: String,
         }
-        let parsed: Parsed = serde_json::from_str(&resp)?;
+        let parsed: Parsed = self.load(
+            format!("contract/{}/{}/operations", self.network, contract_id),
+            &params,
+            |resp| {
+                let parsed: Parsed = serde_json::from_str(resp)?;
+                Ok(parsed)
+            },
+        )?;
 
         let mut levels: Vec<u32> = parsed
             .operations
@@ -99,13 +102,16 @@ impl BCDClient {
     }
 
     fn get_latest_level(&self) -> Result<u32> {
-        let resp = self.load("head".to_string(), &[])?;
         #[derive(Deserialize)]
         struct Parsed {
             network: String,
             level: u32,
         }
-        let parsed: Vec<Parsed> = serde_json::from_str(&resp)?;
+        let parsed: Vec<Parsed> =
+            self.load("head".to_string(), &[], |resp| {
+                let parsed: Vec<Parsed> = serde_json::from_str(resp)?;
+                Ok(parsed)
+            })?;
         match parsed
             .iter()
             .find(|elem| elem.network == self.network)
@@ -118,16 +124,20 @@ impl BCDClient {
         }
     }
 
-    fn load(
+    fn load<F, O>(
         &self,
         endpoint: String,
         query_params: &[(String, String)],
-    ) -> Result<String> {
+        parse_func: F,
+    ) -> Result<O>
+    where
+        F: Fn(&str) -> Result<O>,
+    {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
             warn!("transient better-call.dev communication error, retrying.. err={}", e);
             Error::Transient(e)
         }
-        let op = || -> Result<String> {
+        let op = || -> Result<O> {
             let uri = format!("{}/{}", self.api_url, endpoint);
             debug!("GET {}..", uri);
 
@@ -138,7 +148,8 @@ impl BCDClient {
                 .timeout(self.timeout)
                 .send()?
                 .text()?;
-            Ok(body)
+            let parsed: O = parse_func(&body)?;
+            Ok(parsed)
         };
         retry(ExponentialBackoff::default(), || {
             op().map_err(transient_err)
