@@ -1,4 +1,4 @@
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{anyhow, Result};
 use askama::Template;
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -867,15 +867,24 @@ set max_id = $1",
         }
     }
 
-    pub(crate) fn ensure_all_contracts_equal_sync(&mut self) -> Result<()> {
-        let unsynced: Vec<String> = self
+    pub(crate) fn get_partial_processed_levels(&mut self) -> Result<Vec<u32>> {
+        let partial_processed: Vec<i32> = self
             .dbconn
             .query(
                 "
-select
-    c.name
-from levels lvl, contracts c
-where not exists (
+with all_levels as (
+    select distinct
+        level
+    from contract_levels
+)
+select distinct
+    lvl.level
+from all_levels lvl, contracts c
+left join contract_levels orig
+  on  orig.contract = c.name
+  and orig.is_origination
+where lvl.level >= coalesce(orig.level, 0)
+  and not exists (
     select 1
     from contract_levels clvl
     where clvl.level = lvl.level
@@ -886,11 +895,10 @@ where not exists (
             .iter()
             .map(|row| row.get(0))
             .collect();
-        ensure!(
-            unsynced.len() == 0,
-            anyhow!("have unsynchronized contracts: {:#?}", unsynced)
-        );
-        Ok(())
+        Ok(partial_processed
+            .into_iter()
+            .map(|lvl| lvl as u32)
+            .collect())
     }
 
     pub(crate) fn save_level(

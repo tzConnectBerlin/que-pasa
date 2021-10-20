@@ -8,6 +8,9 @@
 {% endmacro %}
 
 
+ALTER TABLE "{{ contract_schema }}"."{{ table }}_ordered" SET UNLOGGED;
+ALTER TABLE "{{ contract_schema }}"."{{ table }}_live" SET UNLOGGED;
+
 DELETE FROM "{{ contract_schema }}"."{{ table }}_live";
 INSERT INTO "{{ contract_schema }}"."{{ table }}_live" (
     level, level_timestamp, id, tx_context_id, bigmap_id {% call unfold(columns, "", true) %}
@@ -121,3 +124,6 @@ FROM (
     JOIN levels level_meta
       ON level_meta.level = ctx.level
 ) q;
+
+ALTER TABLE "{{ contract_schema }}"."{{ table }}_ordered" SET LOGGED;
+ALTER TABLE "{{ contract_schema }}"."{{ table }}_live" SET LOGGED;

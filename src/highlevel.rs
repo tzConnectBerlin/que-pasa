@@ -323,6 +323,10 @@ impl Executor {
         num_getters: usize,
         levels: Vec<u32>,
     ) -> Result<()> {
+        if levels.is_empty() {
+            return Ok(());
+        }
+
         let level_floor = self.level_floor.clone();
         let have_floor = !self.all_contracts;
         self.exec_parallel(num_getters, move |height_chan| {
@@ -399,11 +403,25 @@ impl Executor {
         Ok(res)
     }
 
+    fn exec_partially_processed(&mut self, num_getters: usize) -> Result<()> {
+        let partial_processed: Vec<u32> = self
+            .dbcli
+            .get_partial_processed_levels()?;
+        if partial_processed.is_empty() {
+            return Ok(());
+        }
+
+        info!("re-processing {} levels that were not initialized for some contracts", partial_processed.len());
+        self.exec_levels(num_getters, partial_processed)?;
+        Ok(())
+    }
+
     pub fn exec_missing_levels(
         &mut self,
         num_getters: usize,
         acceptable_head_offset: Duration,
     ) -> Result<()> {
+        self.exec_partially_processed(num_getters)?;
         loop {
             let latest_level: LevelMeta = self.node_cli.head()?;
 
@@ -418,10 +436,9 @@ impl Executor {
             if missing_levels.is_empty() {
                 break;
             }
-            let has_gaps = missing_levels.windows(2).any(|w| {
-                println!("{:?}", w);
-                w[0] != w[1] - 1
-            });
+            let has_gaps = missing_levels
+                .windows(2)
+                .any(|w| w[0] != w[1] - 1);
 
             let first_missing: LevelMeta = self
                 .node_cli
@@ -437,6 +454,7 @@ impl Executor {
             }
 
             missing_levels.reverse();
+            info!("processing {} missing levels", missing_levels.len());
             self.exec_levels(num_getters, missing_levels)?;
         }
         self.exec_dependents()?;
@@ -504,9 +522,13 @@ impl Executor {
             !has_gaps,
             anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
         );
-
-        self.dbcli
-            .ensure_all_contracts_equal_sync()?;
+        ensure!(
+            self.dbcli
+                .get_partial_processed_levels()?
+                .len()
+                == 0,
+            anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
+        );
 
         for (contract_id, (rel_ast, _)) in &self.contracts {
             self.dbcli

@@ -146,7 +146,6 @@ Interrupt within 15 seconds to abort"
     }
 
     // We will first load missing levels (if any)
-    info!("processing missing levels");
     executor
         .exec_missing_levels(num_getters, acceptable_head_offset)
         .unwrap();

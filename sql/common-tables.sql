@@ -25,12 +25,10 @@ CREATE TYPE indexer_mode AS ENUM (
     'Bootstrap',
     'Head'
 );
-
 CREATE TABLE indexer_state (
     max_id BIGINT NOT NULL,
     mode indexer_mode NOT NULL
 );
-
 INSERT INTO indexer_state (max_id, mode)
 VALUES (1, 'Bootstrap');
 
