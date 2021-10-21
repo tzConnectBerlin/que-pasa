@@ -164,6 +164,9 @@ fn index_all_contracts(
         executor
             .exec_levels(config.workers_cap, config.levels.clone())
             .unwrap();
+        executor
+            .repopulate_derived_tables(false)
+            .unwrap();
     } else {
         info!("processing missing levels");
         executor
