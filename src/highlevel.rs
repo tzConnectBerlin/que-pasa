@@ -421,7 +421,9 @@ impl Executor {
         num_getters: usize,
         acceptable_head_offset: Duration,
     ) -> Result<()> {
-        self.exec_partially_processed(num_getters)?;
+        if !self.all_contracts {
+            self.exec_partially_processed(num_getters)?;
+        }
         loop {
             let latest_level: LevelMeta = self.node_cli.head()?;
 

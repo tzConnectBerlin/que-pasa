@@ -93,6 +93,21 @@ impl DBClient {
         }
     }
 
+    pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
+        let version: String = self
+            .dbconn
+            .query_one(
+                "
+SELECT
+    quepasa_version
+FROM indexer_state
+            ",
+                &[],
+            )?
+            .get(0);
+        Ok(version)
+    }
+
     pub(crate) fn create_common_tables(&mut self) -> Result<()> {
         self.dbconn.simple_query(
             PostgresqlGenerator::create_common_tables().as_str(),

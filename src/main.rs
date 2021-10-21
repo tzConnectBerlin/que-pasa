@@ -63,6 +63,7 @@ fn main() {
 
     let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
     if config.reinit {
+        assert_sane_db(&mut dbcli);
         println!(
 "Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
 Interrupt within 15 seconds to abort"
@@ -76,6 +77,8 @@ Interrupt within 15 seconds to abort"
     if setup_db {
         dbcli.create_common_tables().unwrap();
         info!("Common tables set up in db");
+    } else {
+        assert_sane_db(&mut dbcli);
     }
 
     let mut executor = highlevel::Executor::new(
@@ -192,5 +195,14 @@ fn assert_contracts_ok(contracts: &[ContractID]) {
             panic!("bad contract settings provided: denylisted contract cannot be indexed ({})", contract_id.name);
         }
         names.insert(contract_id.name.clone(), ());
+    }
+}
+
+fn assert_sane_db(dbcli: &mut DBClient) {
+    let db_version = dbcli.get_quepasa_version().unwrap();
+    if db_version != crate::config::QUEPASA_VERSION {
+        panic!("Cannot target a database that was initialized with a different quepasa version.
+This database was initialized with quepasa {}, current running version is {}.
+A new version of quepasa must target a new database namespace.", db_version, crate::config::QUEPASA_VERSION);
     }
 }

@@ -91,7 +91,7 @@ impl Insert {
                 )
             })?;
             res.push(Column {
-                name: format!("{}_id", parent_name),
+                name: PostgresqlGenerator::parent_ref(&parent_name),
                 value: Value::BigInt(fk_id),
             });
         }

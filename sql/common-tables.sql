@@ -26,11 +26,15 @@ CREATE TYPE indexer_mode AS ENUM (
     'Head'
 );
 CREATE TABLE indexer_state (
+    quepasa_version TEXT NOT NULL,
     max_id BIGINT NOT NULL,
     mode indexer_mode NOT NULL
 );
-INSERT INTO indexer_state (max_id, mode)
-VALUES (1, 'Bootstrap');
+INSERT INTO indexer_state (
+    quepasa_version, max_id, mode
+) VALUES (
+    '{quepasa_version}', 1, 'Bootstrap'
+);
 
 create table tx_contexts (
     id bigint not null primary key,
