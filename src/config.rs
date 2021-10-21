@@ -38,7 +38,7 @@ pub const QUEPASA_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 pub fn init_config() -> Result<Config> {
     let mut config: Config = Default::default();
     let matches = App::new("Tezos Contract Baby Indexer")
-        .version("1.0.0")
+        .version(QUEPASA_VERSION)
         .author("Rick Klomp <rick.klomp@tzconect.com>")
         .about("An indexer for specific contracts")
         .arg(
