@@ -1,4 +1,5 @@
 use anyhow::{anyhow, ensure, Context, Result};
+use chrono::Duration;
 use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -21,7 +22,7 @@ use crate::octez::block::{
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
-use crate::sql::db::DBClient;
+use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::insert::{Insert, Inserts};
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
@@ -102,14 +103,15 @@ impl Executor {
             dbcli,
             contracts: HashMap::new(),
             all_contracts: false,
-            #[cfg(feature = "regression")]
-            always_update_derived: false,
             level_floor: LevelFloor {
                 f: Arc::new(Mutex::new(0)),
             },
             db_url: db_url.to_string(),
             db_ssl,
             db_ca_cert,
+
+            #[cfg(feature = "regression")]
+            always_update_derived: false,
         }
     }
 
@@ -229,6 +231,10 @@ impl Executor {
     pub fn exec_continuous(&mut self) -> Result<()> {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
+        let mode = self.dbcli.get_indexer_mode()?;
+        if mode == IndexerMode::Bootstrap {
+            self.repopulate_derived_tables()?;
+        }
 
         fn wait(first_wait: &mut bool) {
             if *first_wait {
@@ -255,7 +261,7 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(chain_head.level, false, true)?,
+                            &self.exec_level(chain_head.level, false)?,
                         );
                         continue;
                     }
@@ -269,7 +275,7 @@ impl Executor {
                 Ordering::Greater => {
                     wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
-                        match self.exec_level(level, false, true) {
+                        match self.exec_level(level, false) {
                             Ok(res) => Self::print_status(level, &res),
                             Err(e) => {
                                 if !e.is::<BadLevelHash>() {
@@ -283,7 +289,6 @@ impl Executor {
                                 let mut tx = self.dbcli.transaction()?;
                                 DBClient::delete_level(&mut tx, bad_lvl.level)?;
                                 tx.commit()?;
-                                self.repopulate_derived_tables()?;
                                 break;
                             }
                         }
@@ -306,7 +311,6 @@ impl Executor {
                         let mut tx = self.dbcli.transaction()?;
                         DBClient::delete_level(&mut tx, db_head.level)?;
                         tx.commit()?;
-                        self.repopulate_derived_tables()?;
                     }
                     wait(&mut first_wait);
                 }
@@ -319,6 +323,10 @@ impl Executor {
         num_getters: usize,
         levels: Vec<u32>,
     ) -> Result<()> {
+        if levels.is_empty() {
+            return Ok(());
+        }
+
         let level_floor = self.level_floor.clone();
         let have_floor = !self.all_contracts;
         self.exec_parallel(num_getters, move |height_chan| {
@@ -336,6 +344,7 @@ impl Executor {
         &mut self,
         bcd_settings: Option<(String, String)>,
         num_getters: usize,
+        acceptable_head_offset: Duration,
     ) -> Result<Vec<ContractID>> {
         let mut res: Vec<ContractID> = vec![];
         loop {
@@ -375,7 +384,7 @@ impl Executor {
                     if let Some(l) =
                         get_implicit_origination_level(&contract_id.address)
                     {
-                        self.exec_level(l, true, false).unwrap();
+                        self.exec_level(l, true).unwrap();
                     }
 
                     self.fill_in_levels(contract_id)
@@ -384,7 +393,7 @@ impl Executor {
                     info!("contract {} initialized.", contract_id.name)
                 }
             } else {
-                self.exec_missing_levels(num_getters)
+                self.exec_missing_levels(num_getters, acceptable_head_offset)
                     .unwrap();
             }
         }
@@ -394,25 +403,62 @@ impl Executor {
         Ok(res)
     }
 
-    pub fn exec_missing_levels(&mut self, num_getters: usize) -> Result<()> {
-        loop {
-            let latest_level = self.node_cli.head()?.level;
+    fn exec_partially_processed(&mut self, num_getters: usize) -> Result<()> {
+        let partial_processed: Vec<u32> = self
+            .dbcli
+            .get_partial_processed_levels()?;
+        if partial_processed.is_empty() {
+            return Ok(());
+        }
 
-            let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
+        info!("re-processing {} levels that were not initialized for some contracts", partial_processed.len());
+        self.exec_levels(num_getters, partial_processed)?;
+        Ok(())
+    }
+
+    pub fn exec_missing_levels(
+        &mut self,
+        num_getters: usize,
+        acceptable_head_offset: Duration,
+    ) -> Result<()> {
+        self.exec_partially_processed(num_getters)?;
+        loop {
+            let latest_level: LevelMeta = self.node_cli.head()?;
+
+            let mut missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
                 self.contracts
                     .keys()
                     .cloned()
                     .collect::<Vec<ContractID>>()
                     .as_slice(),
-                latest_level,
+                latest_level.level + 1,
             )?;
             if missing_levels.is_empty() {
-                self.exec_dependents()?;
-                return Ok(());
+                break;
+            }
+            let has_gaps = missing_levels
+                .windows(2)
+                .any(|w| w[0] != w[1] - 1);
+
+            let first_missing: LevelMeta = self
+                .node_cli
+                .level_json(missing_levels[0])?
+                .1;
+
+            if !has_gaps
+                && latest_level.baked_at.unwrap()
+                    - first_missing.baked_at.unwrap()
+                    < acceptable_head_offset
+            {
+                break;
             }
 
+            missing_levels.reverse();
+            info!("processing {} missing levels", missing_levels.len());
             self.exec_levels(num_getters, missing_levels)?;
         }
+        self.exec_dependents()?;
+        Ok(())
     }
 
     pub fn exec_parallel<F>(
@@ -423,6 +469,12 @@ impl Executor {
     where
         F: FnOnce(flume::Sender<u32>) + Send + 'static,
     {
+        // a parallel exec has the consequence that we need to re-derive the
+        // _live and _ordered tables when done. therefore we change the mode to
+        // "bootstrap" here
+        self.dbcli
+            .set_indexer_mode(IndexerMode::Bootstrap)?;
+
         // Fetches block data in parallel, processes each block sequentially
 
         let (height_send, height_recv) = flume::bounded::<u32>(num_getters);
@@ -442,7 +494,6 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
-        self.repopulate_derived_tables()?;
         Ok(processed_levels)
     }
 
@@ -454,10 +505,37 @@ impl Executor {
         }
 
         info!("re-populating derived tables (_live, _ordered)");
+
+        let latest_level: LevelMeta = self.node_cli.head()?;
+        let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
+            self.contracts
+                .keys()
+                .cloned()
+                .collect::<Vec<ContractID>>()
+                .as_slice(),
+            latest_level.level + 1,
+        )?;
+        let has_gaps = missing_levels
+            .windows(2)
+            .any(|w| w[0] != w[1] - 1);
+        ensure!(
+            !has_gaps,
+            anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
+        );
+        ensure!(
+            self.dbcli
+                .get_partial_processed_levels()?
+                .len()
+                == 0,
+            anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
+        );
+
         for (contract_id, (rel_ast, _)) in &self.contracts {
             self.dbcli
                 .repopulate_derived_tables(contract_id, rel_ast)?;
         }
+        self.dbcli
+            .set_indexer_mode(IndexerMode::Head)?;
         Ok(())
     }
 
@@ -481,7 +559,7 @@ impl Executor {
             let (meta, block) = *b;
             Self::print_status(
                 meta.level,
-                &self.exec_for_block(&meta, &block, true, false)?,
+                &self.exec_for_block(&meta, &block, true)?,
             );
             processed_levels.push(meta.level);
         }
@@ -535,7 +613,6 @@ impl Executor {
         &mut self,
         level_height: u32,
         cleanup_on_reorg: bool,
-        update_derived_tables: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         let (_json, meta, block) = self
             .node_cli
@@ -547,12 +624,7 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(
-            &meta,
-            &block,
-            cleanup_on_reorg,
-            update_derived_tables,
-        )
+        self.exec_for_block(&meta, &block, cleanup_on_reorg)
     }
 
     fn ensure_level_hash(
@@ -602,7 +674,6 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
         cleanup_on_reorg: bool,
-        update_derived_tables: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         // note: we expect level's values to all be set (no None values in its fields)
         if let Err(e) = self.ensure_level_hash(
@@ -615,9 +686,11 @@ impl Executor {
             }
             let bad_lvl = e.downcast::<BadLevelHash>()?;
             warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
-            self.exec_level(bad_lvl.level, true, update_derived_tables)?;
+            self.exec_level(bad_lvl.level, true)?;
         }
 
+        let update_derived_tables =
+            self.dbcli.get_indexer_mode()? == IndexerMode::Head;
         #[cfg(feature = "regression")]
         let update_derived_tables =
             update_derived_tables | self.always_update_derived;
@@ -705,6 +778,7 @@ impl Executor {
         self.update_level_floor()
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn exec_for_block_contract(
         tx: &mut Transaction,
         meta: &LevelMeta,

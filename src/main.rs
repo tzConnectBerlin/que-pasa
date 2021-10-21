@@ -19,6 +19,7 @@ pub mod storage_update;
 pub mod storage_value;
 
 use anyhow::Context;
+use chrono::Duration;
 use config::CONFIG;
 use env_logger::Env;
 use octez::node;
@@ -115,6 +116,11 @@ Interrupt within 15 seconds to abort"
         return;
     }
 
+    // ensure we bootstrap until at least yesterday, from there it's acceptable
+    // if continuous mode is running (setting an acceptable duration may be
+    // necessary depending on how long it takes to derive the _ordered and _live
+    // tables, unfortunately.
+    let acceptable_head_offset = Duration::days(1);
     let new_initialized = executor
         .exec_new_contracts_historically(
             config
@@ -122,6 +128,7 @@ Interrupt within 15 seconds to abort"
                 .as_ref()
                 .map(|url| (url.clone(), config.network.clone())),
             num_getters,
+            acceptable_head_offset,
         )
         .unwrap();
     if !new_initialized.is_empty() {
@@ -139,9 +146,8 @@ Interrupt within 15 seconds to abort"
     }
 
     // We will first load missing levels (if any)
-    info!("processing missing levels");
     executor
-        .exec_missing_levels(num_getters)
+        .exec_missing_levels(num_getters, acceptable_head_offset)
         .unwrap();
 
     // At last, normal operation.
@@ -161,7 +167,7 @@ fn index_all_contracts(
     } else {
         info!("processing missing levels");
         executor
-            .exec_missing_levels(config.workers_cap)
+            .exec_missing_levels(config.workers_cap, Duration::days(0))
             .unwrap();
 
         info!("processing blocks at the chain head");

@@ -28,7 +28,6 @@ sleep $SETUP_WAIT
 export NODE_URL=https://mainnet-tezos.giganode.io
 export DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE
 
-query_id=0
 function query {
     query_id=$(( query_id + 1 ))
     echo "query $query_id: $1"
@@ -50,6 +49,18 @@ function query {
     fi
 }
 
+function assert {
+    query_id=0
+    query 'select count(1) from tx_contexts' || exit 1
+    query 'select count(1) from contracts' || exit 1
+    query 'select count(1) from contract_levels' || exit 1
+    query 'select count(1) from contract_deps' || exit 1
+
+    query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
+    query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
+    query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat' || exit 1
+}
+
 cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1
 cargo run --features regression -- --index-all-contracts -l 1500002-1500005 --always-update-derived || exit 1
 cargo run --features regression -- --index-all-contracts -l 1700002-1700005 --always-update-derived || exit 1
@@ -68,17 +79,16 @@ if [[ "$MODE" == "generate" ]]; then
     rm test/regression/*.query
 fi
 
-query 'select count(1) from tx_contexts' || exit 1
-query 'select count(1) from contracts' || exit 1
-query 'select count(1) from contract_levels' || exit 1
-query 'select count(1) from contract_deps' || exit 1
+assert
 
-query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
-query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
-query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat' || exit 1
+if [[ "$MODE" == "generate" ]]; then
+    exit
+fi
 
 # verifying here that the repopulate also works with deleted bigmap rows
 cargo run -- --index-all-contracts -l 1768606 || exit 1
+
+assert
 
 if [[ "$MODE" == "assert" ]]; then
     echo 'all good'
