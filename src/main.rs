@@ -25,6 +25,7 @@ use env_logger::Env;
 use octez::node;
 use sql::db::DBClient;
 use std::collections::HashMap;
+use std::io::Read;
 use std::panic;
 use std::process;
 use std::thread;
@@ -64,11 +65,10 @@ fn main() {
     let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
     if config.reinit {
         assert_sane_db(&mut dbcli);
-        println!(
-"Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
-Interrupt within 15 seconds to abort"
-);
-        thread::sleep(std::time::Duration::from_millis(15000));
+        if !prompt_yes("
+Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. Continue?") {
+            process::exit(1);
+        }
         dbcli
             .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
             .with_context(|| "failed to delete the db's content")
@@ -212,6 +212,21 @@ Either drop the old database namespace or keep it and target a different one.",
             )
             .as_str(),
         );
+    }
+}
+
+fn prompt_yes(prompt: &str) -> bool {
+    // returns true if user confirmed, otherwise false.
+
+    loop {
+        info!("{} [y]es or [n]o", prompt);
+        let mut buf: [u8; 1] = [0];
+        std::io::stdin().read(&mut buf).unwrap();
+        match buf[0] as char {
+            'n' => return false,
+            'y' => return true,
+            _ => {}
+        };
     }
 }
 
