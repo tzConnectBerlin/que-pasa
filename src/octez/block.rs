@@ -335,9 +335,9 @@ impl Block {
                                                 operation_hash: operation
                                                     .hash
                                                     .clone(),
-                                                source: internal_op
-                                                    .destination
-                                                    .clone(),
+                                                source: Some(
+                                                    internal_op.source.clone(),
+                                                ),
                                                 destination: Some(
                                                     contract.clone(),
                                                 ),

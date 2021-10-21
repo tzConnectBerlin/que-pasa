@@ -183,16 +183,16 @@ fn index_all_contracts(
 
 fn assert_contracts_ok(contracts: &[ContractID]) {
     if contracts.is_empty() {
-        panic!("zero contracts to index..");
+        exit_with_err("zero contracts to index..");
     }
 
     let mut names: HashMap<String, ()> = HashMap::new();
     for contract_id in contracts {
         if names.contains_key(&contract_id.name) {
-            panic!("bad contract settings provided: name clash (multiple contracts assigned to name '{}'", contract_id.name);
+            exit_with_err(format!("bad contract settings provided: name clash (multiple contracts assigned to name '{}'", contract_id.name).as_str());
         }
         if is_contract_denylisted(&contract_id.address) {
-            panic!("bad contract settings provided: denylisted contract cannot be indexed ({})", contract_id.name);
+            exit_with_err(format!("bad contract settings provided: denylisted contract cannot be indexed ({})", contract_id.name).as_str());
         }
         names.insert(contract_id.name.clone(), ());
     }
@@ -201,8 +201,21 @@ fn assert_contracts_ok(contracts: &[ContractID]) {
 fn assert_sane_db(dbcli: &mut DBClient) {
     let db_version = dbcli.get_quepasa_version().unwrap();
     if db_version != crate::config::QUEPASA_VERSION {
-        panic!("Cannot target a database that was initialized with a different quepasa version.
-This database was initialized with quepasa {}, current running version is {}.
-A new version of quepasa must target a new database namespace.", db_version, crate::config::QUEPASA_VERSION);
+        exit_with_err(
+            format!(
+                "
+Cannot target a database that was initialized with a different quepasa version.
+This database was initialized with quepasa {}, currently running que-pasa {}.
+Either drop the old database namespace or keep it and target a different one.",
+                db_version,
+                crate::config::QUEPASA_VERSION,
+            )
+            .as_str(),
+        );
     }
+}
+
+fn exit_with_err(msg: &str) {
+    error!("{}", msg);
+    process::exit(1);
 }
