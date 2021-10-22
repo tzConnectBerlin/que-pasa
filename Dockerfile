@@ -6,6 +6,7 @@ COPY sql sql
 COPY *.yaml .
 COPY *.sh .
 COPY Cargo.toml .
+COPY askama.toml .
 
 RUN cargo build --release
 
