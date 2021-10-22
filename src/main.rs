@@ -25,7 +25,6 @@ use env_logger::Env;
 use octez::node;
 use sql::db::DBClient;
 use std::collections::HashMap;
-use std::io::Read;
 use std::panic;
 use std::process;
 use std::thread;
@@ -205,7 +204,7 @@ fn assert_sane_db(dbcli: &mut DBClient) {
             format!(
                 "
 Cannot target a database that was initialized with a different quepasa version.
-This database was initialized with quepasa {}, currently running que-pasa {}.
+This database was initialized with que-pasa {}, currently running que-pasa {}.
 Either drop the old database namespace or keep it and target a different one.",
                 db_version,
                 crate::config::QUEPASA_VERSION,
@@ -218,13 +217,23 @@ Either drop the old database namespace or keep it and target a different one.",
 fn prompt_yes(prompt: &str) -> bool {
     // returns true if user confirmed, otherwise false.
 
+    if CONFIG.as_ref().unwrap().always_yes {
+        info!(
+            "{}  -- skipping prompt. running with always_yes enabled",
+            prompt
+        );
+        return true;
+    }
+
     loop {
         info!("{} [y]es or [n]o", prompt);
-        let mut buf: [u8; 1] = [0];
-        std::io::stdin().read(&mut buf).unwrap();
-        match buf[0] as char {
-            'n' => return false,
-            'y' => return true,
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_line(&mut buf)
+            .unwrap();
+        match buf.as_str().trim_end() {
+            "n" | "no" => return false,
+            "y" | "yes" => return true,
             _ => {}
         };
     }
