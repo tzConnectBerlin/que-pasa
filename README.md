@@ -45,7 +45,7 @@ The indexer stores data for only the contracts specified. Each contract's data i
 
 Every updated storage is inserted in its entirety (as a snapshot), with exception to Big map updates; each change is stored. This allows the indexer to be stateless (in other words, it doesn't care about what levels are processed in what order).
 
-For nearly all tables (including bigmap tables, excluding tables nested inside bigmaps) a `_live` view and a `_ordered` view is generated:
+For nearly all tables (including bigmap tables, excluding tables nested inside bigmaps) a `_live` table and a `_ordered` table is derived:
 - `_live` contains the current state.
 - `_ordered` for snapshots (non-bigmap) contains all snapshots in sequence of Tezos' execution order, and for changes (bigmaps) contains all updates in sequence of Tezos' execution order.
 
@@ -123,7 +123,7 @@ It is possible to only process the blocks relevant to the setup. For this to wor
 ### Tables
 The main table in each indexed contract's DB schema is `storage`; all other tables have a prefix which indicates where they are in the contract storage. For instance a map called `foo` in the main storage will live in a table called `storage.foo`, with a foreign key constraint, `storage_id` pointing back to the storage row which relates to it. Deeper levels of nesting will go on, and on.
 
-All tables have a `tx_context_id` field, which enables searching the database for its state at any time, while also making simple queries much more complicated. See the definitions for the `_live` and `_ordered` views for insights on how to create custom queries on the tables directly.
+All tables have a `tx_context_id` field, which enables searching the database for its state at any time, while also making simple queries much more complicated. See the statements used for updating/repopulating the `_live` and `_ordered` tables in `sql/templates` for insights on how to create custom queries on the tables directly.
 
 Variant records come in two varieties. The simplest are those which are simply one or another `unit` types, with different annotations. These become text fields in the database. The other type are true variant records, they become subsidiary tables, as maps and big maps are, with a text field in the parent table indicating which form of the record is present.
 
