@@ -13,8 +13,7 @@ use std::fs;
 use chrono::{DateTime, Utc};
 
 use crate::config::ContractID;
-use crate::octez::block::LevelMeta;
-use crate::octez::block::TxContext;
+use crate::octez::block::{LevelMeta, Tx, TxContext};
 use crate::octez::node::NodeClient;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
@@ -94,6 +93,21 @@ impl DBClient {
         }
     }
 
+    pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
+        let version: String = self
+            .dbconn
+            .query_one(
+                "
+SELECT
+    quepasa_version
+FROM indexer_state
+            ",
+                &[],
+            )?
+            .get(0);
+        Ok(version)
+    }
+
     pub(crate) fn create_common_tables(&mut self) -> Result<()> {
         self.dbconn.simple_query(
             PostgresqlGenerator::create_common_tables().as_str(),
@@ -126,11 +140,18 @@ WHERE table_schema = 'public'
 
         let mut tx = self.transaction()?;
         let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (_name, table) in sorted_tables {
+        for (i, (_name, table)) in sorted_tables.iter().enumerate() {
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
+                info!(
+                    "repopulating {table} _live and _ordered ({contract} table {table_i}/~{table_total})",
+                    contract = contract_id.name,
+                    table = table.name,
+                    table_i = i,
+                    table_total = sorted_tables.len(),
+                );
                 DBClient::repopulate_derived_table(
                     &mut tx,
                     contract_id,
@@ -396,17 +417,13 @@ Values ({})",
             id: i64,
             pub level: i32,
             pub contract: String,
-            pub operation_hash: String,
             pub operation_group_number: i32,
             pub operation_number: i32,
             pub content_number: i32,
             pub internal_number: Option<i32>,
-            pub source: Option<String>,
-            pub destination: Option<String>,
-            pub entrypoint: Option<String>,
         }
         for chunk in tx_contexts.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 11;
+            let num_columns = 7;
             let v_refs = (1..(num_columns * chunk.len()) + 1)
                 .map(|i| format!("${}", i.to_string()))
                 .collect::<Vec<String>>()
@@ -422,11 +439,7 @@ INSERT INTO tx_contexts(
     operation_group_number,
     operation_number,
     content_number,
-    internal_number,
-    operation_hash,
-    source,
-    destination,
-    entrypoint
+    internal_number
 )
 VALUES ( {} )",
                 v_refs
@@ -448,10 +461,6 @@ VALUES ( {} )",
                     internal_number: tx_context
                         .internal_number
                         .map(|n| n as i32),
-                    operation_hash: tx_context.operation_hash.clone(),
-                    source: tx_context.source.clone(),
-                    destination: tx_context.destination.clone(),
-                    entrypoint: tx_context.entrypoint.clone(),
                 })
                 .collect();
             let values: Vec<&dyn postgres::types::ToSql> = tx_contexts_pg
@@ -473,12 +482,63 @@ VALUES ( {} )",
                         tx_context
                             .internal_number
                             .borrow_to_sql(),
-                        tx_context
-                            .operation_hash
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn save_txs(tx: &mut Transaction, txs: &[Tx]) -> Result<()> {
+        for txs_chunk in txs.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 11;
+            let v_refs = (1..(num_columns * txs_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
+INSERT INTO txs(
+    tx_context_id,
+
+    operation_hash,
+    source,
+    destination,
+    entrypoint,
+
+    fee,
+    gas_limit,
+    storage_limit,
+
+    consumed_milligas,
+    storage_size,
+    paid_storage_size_diff
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = txs_chunk
+                .iter()
+                .flat_map(|tx| {
+                    [
+                        tx.tx_context_id.borrow_to_sql(),
+                        tx.operation_hash.borrow_to_sql(),
+                        tx.source.borrow_to_sql(),
+                        tx.destination.borrow_to_sql(),
+                        tx.entrypoint.borrow_to_sql(),
+                        tx.fee.borrow_to_sql(),
+                        tx.gas_limit.borrow_to_sql(),
+                        tx.storage_limit.borrow_to_sql(),
+                        tx.consumed_milligas.borrow_to_sql(),
+                        tx.storage_size.borrow_to_sql(),
+                        tx.paid_storage_size_diff
                             .borrow_to_sql(),
-                        tx_context.source.borrow_to_sql(),
-                        tx_context.destination.borrow_to_sql(),
-                        tx_context.entrypoint.borrow_to_sql(),
                     ]
                 })
                 .collect();
@@ -706,8 +766,11 @@ WHERE table_schema = 'public'
             "
 DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
+DROP VIEW  IF EXISTS txs_ordered;
+DROP TABLE IF EXISTS txs;
 DROP TABLE IF EXISTS tx_contexts;
 DROP TABLE IF EXISTS indexer_state;
+DROP TYPE  IF EXISTS indexer_mode;
 DROP TABLE IF EXISTS contract_levels;
 DROP TABLE IF EXISTS contracts;
 DROP TABLE IF EXISTS levels;

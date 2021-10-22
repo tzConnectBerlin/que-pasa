@@ -63,11 +63,11 @@ fn main() {
 
     let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
     if config.reinit {
-        println!(
-"Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. \
-Interrupt within 15 seconds to abort"
-);
-        thread::sleep(std::time::Duration::from_millis(15000));
+        assert_sane_db(&mut dbcli);
+        if !confirm_request("
+Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. Continue?") {
+            process::exit(1);
+        }
         dbcli
             .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
             .with_context(|| "failed to delete the db's content")
@@ -76,6 +76,8 @@ Interrupt within 15 seconds to abort"
     if setup_db {
         dbcli.create_common_tables().unwrap();
         info!("Common tables set up in db");
+    } else {
+        assert_sane_db(&mut dbcli);
     }
 
     let mut executor = highlevel::Executor::new(
@@ -164,6 +166,9 @@ fn index_all_contracts(
         executor
             .exec_levels(config.workers_cap, config.levels.clone())
             .unwrap();
+        executor
+            .repopulate_derived_tables(false)
+            .unwrap();
     } else {
         info!("processing missing levels");
         executor
@@ -177,17 +182,64 @@ fn index_all_contracts(
 
 fn assert_contracts_ok(contracts: &[ContractID]) {
     if contracts.is_empty() {
-        panic!("zero contracts to index..");
+        exit_with_err("zero contracts to index..");
     }
 
     let mut names: HashMap<String, ()> = HashMap::new();
     for contract_id in contracts {
         if names.contains_key(&contract_id.name) {
-            panic!("bad contract settings provided: name clash (multiple contracts assigned to name '{}'", contract_id.name);
+            exit_with_err(format!("bad contract settings provided: name clash (multiple contracts assigned to name '{}'", contract_id.name).as_str());
         }
         if is_contract_denylisted(&contract_id.address) {
-            panic!("bad contract settings provided: denylisted contract cannot be indexed ({})", contract_id.name);
+            exit_with_err(format!("bad contract settings provided: denylisted contract cannot be indexed ({})", contract_id.name).as_str());
         }
         names.insert(contract_id.name.clone(), ());
     }
+}
+
+fn assert_sane_db(dbcli: &mut DBClient) {
+    let db_version = dbcli.get_quepasa_version().unwrap();
+    if db_version != crate::config::QUEPASA_VERSION {
+        exit_with_err(
+            format!(
+                "
+Cannot target a database that was initialized with a different quepasa version.
+This database was initialized with que-pasa {}, currently running que-pasa {}.
+Either drop the old database namespace or keep it and target a different one.",
+                db_version,
+                crate::config::QUEPASA_VERSION,
+            )
+            .as_str(),
+        );
+    }
+}
+
+fn confirm_request(msg: &str) -> bool {
+    // returns true if user confirmed, otherwise false.
+
+    if CONFIG.as_ref().unwrap().always_yes {
+        info!(
+            "{}  -- skipping confirm request. running with always_yes enabled",
+            msg
+        );
+        return true;
+    }
+
+    loop {
+        info!("{} [y]es or [n]o", msg);
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_line(&mut buf)
+            .unwrap();
+        match buf.as_str().trim_end() {
+            "n" | "no" => return false,
+            "y" | "yes" => return true,
+            _ => {}
+        };
+    }
+}
+
+fn exit_with_err(msg: &str) {
+    error!("{}", msg);
+    process::exit(1);
 }

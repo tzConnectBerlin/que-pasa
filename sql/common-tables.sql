@@ -26,37 +26,75 @@ CREATE TYPE indexer_mode AS ENUM (
     'Head'
 );
 CREATE TABLE indexer_state (
+    quepasa_version TEXT NOT NULL,
     max_id BIGINT NOT NULL,
     mode indexer_mode NOT NULL
 );
-INSERT INTO indexer_state (max_id, mode)
-VALUES (1, 'Bootstrap');
-
-CREATE TABLE tx_contexts(
-    id BIGINT NOT NULL PRIMARY KEY,
-    level INTEGER NOT NULL REFERENCES levels(level) ON DELETE CASCADE,
-    contract TEXT NOT NULL,
-    operation_hash VARCHAR(100) NOT NULL,
-    operation_group_number INTEGER NOT NULL,
-    operation_number INTEGER NOT NULL,
-    content_number INTEGER NOT NULL,
-    internal_number INTEGER,
-    source VARCHAR(100) NOT NULL,
-    destination VARCHAR(100),
-    entrypoint VARCHAR(100)
+INSERT INTO indexer_state (
+    quepasa_version, max_id, mode
+) VALUES (
+    '{quepasa_version}', 1, 'Bootstrap'
 );
 
+create table tx_contexts (
+    id bigint not null primary key,
+    level integer not null references levels(level) on delete cascade,
+    contract text not null,
+    operation_group_number integer not null,
+    operation_number integer not null,
+    content_number integer not null,
+    internal_number integer
+);
 
 CREATE UNIQUE INDEX ON tx_contexts(
     level,
     contract,
-    operation_hash,
     operation_group_number,
     operation_number,
     content_number,
-    coalesce(internal_number, -2));
+    coalesce(internal_number, -1)
+);
 
-CREATE TABLE contract_deps(
+CREATE TABLE txs (
+    id BIGSERIAL PRIMARY KEY,
+    tx_context_id BIGINT NOT NULL REFERENCES tx_contexts(id) ON DELETE CASCADE,
+
+    operation_hash varchar(100) not null,
+    source VARCHAR(100) NOT NULL,
+    destination VARCHAR(100),
+    entrypoint VARCHAR(100),
+
+    fee BIGINT,
+    gas_limit BIGINT,
+    storage_limit BIGINT,
+
+    consumed_milligas BIGINT,
+    storage_size BIGINT,
+    paid_storage_size_diff BIGINT
+);
+
+CREATE VIEW txs_ordered AS (
+    SELECT
+        DENSE_RANK() OVER (
+            ORDER BY
+                ctx.level,
+                ctx.operation_group_number,
+                ctx.operation_number,
+                ctx.content_number,
+                coalesce(ctx.internal_number, -1)
+        ) ordering,
+        ctx.level,
+        meta.baked_at as level_timestamp,
+        tx.*
+    FROM txs tx
+    JOIN tx_contexts ctx
+      ON ctx.id = tx.tx_context_id
+    JOIN levels meta
+      ON meta.level = ctx.level
+    ORDER BY ordering
+);
+
+CREATE TABLE contract_deps (
     level INT NOT NULL,
 
     src_contract TEXT NOT NULL,

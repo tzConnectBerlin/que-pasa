@@ -17,6 +17,7 @@ pub struct Config {
     pub network: String,
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
+    pub always_yes: bool,
     #[cfg(feature = "regression")]
     pub always_update_derived: bool,
 }
@@ -32,12 +33,13 @@ pub struct ContractID {
 lazy_static! {
     pub static ref CONFIG: Result<Config> = init_config();
 }
+pub const QUEPASA_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 // init config and return it also.
 pub fn init_config() -> Result<Config> {
     let mut config: Config = Default::default();
     let matches = App::new("Tezos Contract Baby Indexer")
-        .version("1.0.0")
+        .version(QUEPASA_VERSION)
         .author("Rick Klomp <rick.klomp@tzconect.com>")
         .about("An indexer for specific contracts")
         .arg(
@@ -123,7 +125,14 @@ pub fn init_config() -> Result<Config> {
                 .value_name("REINIT")
                 .help("If set, clear the DB out and recreate global tables")
                 .takes_value(false),
-    );
+        )
+        .arg(
+            Arg::with_name("always_yes")
+                .long("always-yes")
+                .short("y")
+                .value_name("ALWAYS_YES")
+                .help("If set, never prompt for confirmations, always default to 'yes'")
+                .takes_value(false));
     #[cfg(feature = "regression")]
     let matches = matches.arg(
         Arg::with_name("always_update_derived")
@@ -180,6 +189,7 @@ pub fn init_config() -> Result<Config> {
 
     config.reinit = matches.is_present("reinit");
     config.all_contracts = matches.is_present("index_all_contracts");
+    config.always_yes = matches.is_present("always_yes");
 
     config.levels = matches
         .value_of("levels")

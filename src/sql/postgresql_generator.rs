@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::vec::Vec;
 
-use crate::config::ContractID;
+use crate::config::{ContractID, QUEPASA_VERSION};
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 
@@ -98,7 +98,10 @@ impl PostgresqlGenerator {
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
         let mut cols: Vec<String> = match Self::table_parent_name(table) {
-            Some(t) => vec![format!(r#""{table}_id" BIGINT"#, table = t)],
+            Some(t) => vec![format!(
+                r#""{parent_ref}" BIGINT"#,
+                parent_ref = Self::parent_ref(&t)
+            )],
             None => vec![],
         };
         for column in table.get_columns() {
@@ -131,8 +134,8 @@ impl PostgresqlGenerator {
             .map(|x| x.name.clone())
             .collect();
 
-        if let Some(x) = Self::table_parent_name(table) {
-            cols.push(format!("{}_id", x))
+        if let Some(parent) = Self::table_parent_name(table) {
+            cols.push(Self::parent_ref(&parent))
         };
         cols.iter()
             .map(|c| Self::quote_id(c))
@@ -177,10 +180,10 @@ impl PostgresqlGenerator {
         )];
         if let Some(parent) = Self::table_parent_name(table) {
             res.push(format!(
-                r#"CREATE INDEX "{table}_{parent}_id_idx" ON "{contract_schema}"."{table}"("{parent}_id");"#,
+                r#"CREATE INDEX "{table}_{parent_ref}_idx" ON "{contract_schema}"."{table}"("{parent_ref}");"#,
                 contract_schema = self.contract_id.name,
                 table = table.name,
-                parent = parent,
+                parent_ref = Self::parent_ref(&parent),
             ));
         };
         if !table.id_unique {
@@ -195,7 +198,7 @@ impl PostgresqlGenerator {
 
     fn table_parent_name(table: &Table) -> Option<String> {
         if !table.contains_snapshots() {
-            // bigmap table rows do have a direct relation with the parent
+            // bigmap table rows dont have a direct relation with the parent
             // element in the storage type, as they can survive parent row
             // changes at later levels
             return None;
@@ -208,8 +211,16 @@ impl PostgresqlGenerator {
             .map(|pos| name[0..pos].to_string())
     }
 
+    pub(crate) fn parent_ref(parent_table: &str) -> String {
+        let parent_leafname = match parent_table.rfind('.') {
+            None => parent_table.to_string(),
+            Some(pos) => parent_table[pos + 1..].to_string(),
+        };
+        format!("{}_id", parent_leafname)
+    }
+
     fn parent_key(table: &Table) -> Option<String> {
-        Self::table_parent_name(table).map(|parent| format!("{}_id", parent))
+        Self::table_parent_name(table).map(|parent| Self::parent_ref(&parent))
     }
 
     fn create_foreign_key_constraint(&self, table: &Table) -> Vec<String> {
@@ -217,7 +228,7 @@ impl PostgresqlGenerator {
             table.fk.keys().cloned().collect();
 
         if let Some(parent) = Self::table_parent_name(table) {
-            fks.push((format!("{}_id", parent), parent, "id".to_string()));
+            fks.push((Self::parent_ref(&parent), parent, "id".to_string()));
         };
 
         fks.into_iter().map(|(col, ref_table, ref_col)| {
@@ -232,7 +243,11 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn create_common_tables() -> String {
-        include_str!("../../sql/common-tables.sql").to_string()
+        format!(
+            include_str!("../../sql/common-tables.sql"),
+            quepasa_version = QUEPASA_VERSION,
+        )
+        .to_string()
     }
 
     pub(crate) fn create_table_definition(

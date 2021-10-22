@@ -17,7 +17,7 @@ use crate::config::ContractID;
 use crate::debug;
 use crate::octez::bcd;
 use crate::octez::block::{
-    get_implicit_origination_level, Block, LevelMeta, TxContext,
+    get_implicit_origination_level, Block, LevelMeta, Tx, TxContext,
 };
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
@@ -233,7 +233,7 @@ impl Executor {
         // in the db
         let mode = self.dbcli.get_indexer_mode()?;
         if mode == IndexerMode::Bootstrap {
-            self.repopulate_derived_tables()?;
+            self.repopulate_derived_tables(true)?;
         }
 
         fn wait(first_wait: &mut bool) {
@@ -421,7 +421,9 @@ impl Executor {
         num_getters: usize,
         acceptable_head_offset: Duration,
     ) -> Result<()> {
-        self.exec_partially_processed(num_getters)?;
+        if !self.all_contracts {
+            self.exec_partially_processed(num_getters)?;
+        }
         loop {
             let latest_level: LevelMeta = self.node_cli.head()?;
 
@@ -497,38 +499,45 @@ impl Executor {
         Ok(processed_levels)
     }
 
-    fn repopulate_derived_tables(&mut self) -> Result<()> {
+    pub(crate) fn repopulate_derived_tables(
+        &mut self,
+        ensure_sane_input_state: bool,
+    ) -> Result<()> {
         #[cfg(feature = "regression")]
         if self.always_update_derived {
             info!("skipping re-populating of derived tables, always_update_derived enabled");
             return Ok(());
         }
 
-        info!("re-populating derived tables (_live, _ordered)");
+        info!(
+            "re-populating derived tables (_live, _ordered). may take a while (expect minutes-hours, not seconds-minutes)."
+        );
 
-        let latest_level: LevelMeta = self.node_cli.head()?;
-        let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
-            self.contracts
-                .keys()
-                .cloned()
-                .collect::<Vec<ContractID>>()
-                .as_slice(),
-            latest_level.level + 1,
-        )?;
-        let has_gaps = missing_levels
-            .windows(2)
-            .any(|w| w[0] != w[1] - 1);
-        ensure!(
-            !has_gaps,
-            anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
-        );
-        ensure!(
-            self.dbcli
-                .get_partial_processed_levels()?
-                .len()
-                == 0,
-            anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
-        );
+        if ensure_sane_input_state {
+            let latest_level: LevelMeta = self.node_cli.head()?;
+            let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
+                self.contracts
+                    .keys()
+                    .cloned()
+                    .collect::<Vec<ContractID>>()
+                    .as_slice(),
+                latest_level.level + 1,
+            )?;
+            let has_gaps = missing_levels
+                .windows(2)
+                .any(|w| w[0] != w[1] - 1);
+            ensure!(
+                !has_gaps,
+                anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
+            );
+            ensure!(
+                self.dbcli
+                    .get_partial_processed_levels()?
+                    .len()
+                    == 0,
+                anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
+            );
+        }
 
         for (contract_id, (rel_ast, _)) in &self.contracts {
             self.dbcli
@@ -808,7 +817,7 @@ impl Executor {
             });
         }
 
-        let (inserts, tx_contexts, bigmap_contract_deps) = storage_processor
+        let (inserts, tx_contexts, txs, bigmap_contract_deps) = storage_processor
                 .process_block(block, diffs, &contract_id.address, rel_ast)
                 .with_context(|| {
                     format!(
@@ -824,6 +833,7 @@ impl Executor {
             contract_id,
             inserts,
             &tx_contexts,
+            &txs,
             bigmap_contract_deps,
             storage_processor.get_bigmap_keyhashes(),
         )
@@ -888,6 +898,7 @@ impl Executor {
         contract_id: &ContractID,
         inserts: Inserts,
         tx_contexts: &[TxContext],
+        txs: &[Tx],
         bigmap_contract_deps: Vec<String>,
         bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
     ) -> Result<()> {
@@ -895,6 +906,7 @@ impl Executor {
         DBClient::save_contract_level(tx, contract_id, meta.level)?;
 
         DBClient::save_tx_contexts(tx, tx_contexts)?;
+        DBClient::save_txs(tx, txs)?;
         DBClient::apply_inserts(
             tx,
             contract_id,
