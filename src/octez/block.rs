@@ -144,8 +144,7 @@ impl Block {
     }
 
     fn parse_option_i64(x: Option<&String>) -> anyhow::Result<Option<i64>> {
-        let parsed =
-            x.map_or(Ok(None), |s| s.parse::<i64>().map(|p| Some(p)))?;
+        let parsed = x.map_or(Ok(None), |s| s.parse::<i64>().map(Some))?;
         Ok(parsed)
     }
 

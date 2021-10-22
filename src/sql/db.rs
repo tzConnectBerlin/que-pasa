@@ -931,7 +931,7 @@ set max_id = $1",
     }
 
     pub(crate) fn get_partial_processed_levels(&mut self) -> Result<Vec<u32>> {
-        let partial_processed: Vec<i32> = self
+        let partial_processed: Vec<u32> = self
             .dbconn
             .query(
                 "
@@ -958,11 +958,9 @@ order by 1",
             )?
             .iter()
             .map(|row| row.get(0))
+            .map(|lvl: i32| lvl as u32)
             .collect();
-        Ok(partial_processed
-            .into_iter()
-            .map(|lvl| lvl as u32)
-            .collect())
+        Ok(partial_processed)
     }
 
     pub(crate) fn save_level(

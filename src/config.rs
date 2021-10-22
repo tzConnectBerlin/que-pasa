@@ -33,7 +33,7 @@ pub struct ContractID {
 lazy_static! {
     pub static ref CONFIG: Result<Config> = init_config();
 }
-pub const QUEPASA_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+pub const QUEPASA_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // init config and return it also.
 pub fn init_config() -> Result<Config> {

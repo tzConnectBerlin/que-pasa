@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use pg_bigdecimal::PgNumeric;
 use postgres::types::BorrowToSql;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 
@@ -98,19 +98,23 @@ impl Insert {
         Ok(res)
     }
 
-    pub fn get_bigmap_id(&self) -> Option<Result<i32>> {
-        self.get_column("bigmap_id")
-            .map(|column| match column.value {
-                Value::Int(i) => Ok(i),
+    pub fn get_bigmap_id(&self) -> Result<Option<i32>> {
+        match self.get_column("bigmap_id")? {
+            None => Ok(None),
+            Some(col) => match col.value {
+                Value::Int(i) => Ok(Some(i)),
                 _ => Err(anyhow!("bigmap_id column does not have i32 value")),
-            })
+            },
+        }
     }
 
-    pub fn get_column(&self, name: &str) -> Option<&Column> {
-        self.columns
+    pub fn get_column(&self, name: &str) -> Result<Option<Column>> {
+        let col = self.get_columns()?;
+        Ok(col
             .iter()
             .find(|column| column.name == name)
+            .cloned())
     }
 }
 
-pub type Inserts = BTreeMap<InsertKey, Insert>;
+pub type Inserts = HashMap<InsertKey, Insert>;

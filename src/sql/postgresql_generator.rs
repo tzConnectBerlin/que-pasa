@@ -247,7 +247,6 @@ impl PostgresqlGenerator {
             include_str!("../../sql/common-tables.sql"),
             quepasa_version = QUEPASA_VERSION,
         )
-        .to_string()
     }
 
     pub(crate) fn create_table_definition(

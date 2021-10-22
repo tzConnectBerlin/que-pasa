@@ -533,8 +533,7 @@ impl Executor {
             ensure!(
                 self.dbcli
                     .get_partial_processed_levels()?
-                    .len()
-                    == 0,
+                    .is_empty(),
                 anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
             );
         }
@@ -817,15 +816,19 @@ impl Executor {
             });
         }
 
-        let (inserts, tx_contexts, txs, bigmap_contract_deps) = storage_processor
-                .process_block(block, diffs, &contract_id.address, rel_ast)
-                .with_context(|| {
-                    format!(
-                        "execute failed (level={}, contract={}): could not process block",
-                        meta.level, contract_id.name,
-                    )
-                })?;
-        let tx_count = tx_contexts.len() as u32;
+        storage_processor
+            .process_block(block, diffs, &contract_id.address, rel_ast)
+            .with_context(|| {
+                format!(
+                    "execute failed (level={}, contract={}): could not process block",
+                    meta.level, contract_id.name,
+                )
+            })?;
+
+        let inserts = storage_processor.drain_inserts();
+        let (tx_contexts, txs) = storage_processor.drain_txs();
+        let bigmap_contract_deps =
+            storage_processor.drain_bigmap_contract_dependencies();
 
         Self::save_level_processed_contract(
             tx,
@@ -869,7 +872,7 @@ impl Executor {
             level: meta.level,
             contract_id: contract_id.clone(),
             is_origination,
-            tx_count,
+            tx_count: tx_contexts.len() as u32,
         })
     }
 
@@ -892,6 +895,7 @@ impl Executor {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn save_level_processed_contract(
         tx: &mut Transaction,
         meta: &LevelMeta,
