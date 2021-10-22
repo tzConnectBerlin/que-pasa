@@ -64,7 +64,7 @@ fn main() {
     let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
     if config.reinit {
         assert_sane_db(&mut dbcli);
-        if !prompt_yes("
+        if !confirm_request("
 Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. Continue?") {
             process::exit(1);
         }
@@ -214,19 +214,19 @@ Either drop the old database namespace or keep it and target a different one.",
     }
 }
 
-fn prompt_yes(prompt: &str) -> bool {
+fn confirm_request(msg: &str) -> bool {
     // returns true if user confirmed, otherwise false.
 
     if CONFIG.as_ref().unwrap().always_yes {
         info!(
-            "{}  -- skipping prompt. running with always_yes enabled",
-            prompt
+            "{}  -- skipping confirm request. running with always_yes enabled",
+            msg
         );
         return true;
     }
 
     loop {
-        info!("{} [y]es or [n]o", prompt);
+        info!("{} [y]es or [n]o", msg);
         let mut buf = String::new();
         std::io::stdin()
             .read_line(&mut buf)
