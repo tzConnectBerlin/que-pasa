@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Result};
+use askama::Template;
 use itertools::Itertools;
 use std::collections::HashMap;
 
 use native_tls::{Certificate, TlsConnector};
 use postgres::fallible_iterator::FallibleIterator;
-use postgres::types::{BorrowToSql, ToSql};
+use postgres::types::{BorrowToSql, FromSql, ToSql};
 use postgres::{Client, NoTls, Transaction};
 use postgres_native_tls::MakeTlsConnector;
 use std::fs;
@@ -12,13 +13,53 @@ use std::fs;
 use chrono::{DateTime, Utc};
 
 use crate::config::ContractID;
-use crate::octez::block::LevelMeta;
-use crate::octez::block::TxContext;
+use crate::octez::block::{LevelMeta, Tx, TxContext};
 use crate::octez::node::NodeClient;
 use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
+use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
+
+#[derive(PartialEq, Eq, Debug, ToSql, FromSql)]
+#[postgres(name = "indexer_mode")]
+pub(crate) enum IndexerMode {
+    Bootstrap,
+    Head,
+}
+
+#[derive(Template)]
+#[template(path = "repopulate-snapshot-derived.sql", escape = "none")]
+struct RepopulateSnapshotDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+}
+#[derive(Template)]
+#[template(path = "repopulate-changes-derived.sql", escape = "none")]
+struct RepopulateChangesDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    indices: &'a [String],
+}
+#[derive(Template)]
+#[template(path = "update-snapshot-derived.sql", escape = "none")]
+struct UpdateSnapshotDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    tx_context_ids: &'a [i64],
+}
+#[derive(Template)]
+#[template(path = "update-changes-derived.sql", escape = "none")]
+struct UpdateChangesDerivedTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    indices: &'a [String],
+    tx_context_ids: &'a [i64],
+}
 
 pub struct DBClient {
     dbconn: postgres::Client,
@@ -52,6 +93,21 @@ impl DBClient {
         }
     }
 
+    pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
+        let version: String = self
+            .dbconn
+            .query_one(
+                "
+SELECT
+    quepasa_version
+FROM indexer_state
+            ",
+                &[],
+            )?
+            .get(0);
+        Ok(version)
+    }
+
     pub(crate) fn create_common_tables(&mut self) -> Result<()> {
         self.dbconn.simple_query(
             PostgresqlGenerator::create_common_tables().as_str(),
@@ -69,6 +125,132 @@ WHERE table_schema = 'public'
             &[],
         )?;
         Ok(res.is_some())
+    }
+
+    pub(crate) fn repopulate_derived_tables(
+        &mut self,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+    ) -> Result<()> {
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+
+        let mut tx = self.transaction()?;
+        let noview_prefixes = builder.get_viewless_table_prefixes();
+        for (i, (_name, table)) in sorted_tables.iter().enumerate() {
+            if !noview_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                info!(
+                    "repopulating {table} _live and _ordered ({contract} table {table_i}/~{table_total})",
+                    contract = contract_id.name,
+                    table = table.name,
+                    table_i = i,
+                    table_total = sorted_tables.len(),
+                );
+                DBClient::repopulate_derived_table(
+                    &mut tx,
+                    contract_id,
+                    table,
+                )?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn repopulate_derived_table(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        table: &Table,
+    ) -> Result<()> {
+        let columns: Vec<String> =
+            PostgresqlGenerator::table_sql_columns(table, false).to_vec();
+        if table.contains_snapshots() {
+            let tmpl = RepopulateSnapshotDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+            };
+            tx.simple_query(&tmpl.render()?)?;
+        } else {
+            let tmpl = RepopulateChangesDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+                indices: &PostgresqlGenerator::table_sql_indices(table, false)
+                    .to_vec(),
+            };
+            tx.simple_query(&tmpl.render()?)?;
+        };
+        Ok(())
+    }
+
+    pub(crate) fn update_derived_tables(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        rel_ast: &RelationalAST,
+        tx_contexts: &[TxContext],
+    ) -> Result<()> {
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
+
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
+
+        let noview_prefixes = builder.get_viewless_table_prefixes();
+        for (_name, table) in sorted_tables {
+            if !noview_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                DBClient::update_derived_table(
+                    tx,
+                    contract_id,
+                    table,
+                    tx_contexts,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn update_derived_table(
+        tx: &mut Transaction,
+        contract_id: &ContractID,
+        table: &Table,
+        tx_contexts: &[TxContext],
+    ) -> Result<()> {
+        let tx_context_ids: Vec<i64> = tx_contexts
+            .iter()
+            .map(|ctx| ctx.id.unwrap())
+            .collect();
+        let columns: Vec<String> =
+            PostgresqlGenerator::table_sql_columns(table, false).to_vec();
+        if table.contains_snapshots() {
+            let tmpl = UpdateSnapshotDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+                tx_context_ids: &tx_context_ids,
+            };
+            tx.simple_query(&tmpl.render()?)?;
+        } else {
+            let tmpl = UpdateChangesDerivedTmpl {
+                contract_schema: &contract_id.name,
+                table: &table.name,
+                columns: &columns,
+                tx_context_ids: &tx_context_ids,
+                indices: &PostgresqlGenerator::table_sql_indices(table, false)
+                    .to_vec(),
+            };
+            tx.simple_query(&tmpl.render()?)?;
+        };
+        Ok(())
     }
 
     pub(crate) fn create_contract_schema(
@@ -112,8 +294,11 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                     .iter()
                     .any(|prefix| table.name.starts_with(prefix))
                 {
-                    let views_def = generator.create_view_definition(table)?;
-                    tx.simple_query(views_def.as_str())?;
+                    for derived_table_def in
+                        generator.create_derived_table_definitions(table)?
+                    {
+                        tx.simple_query(derived_table_def.as_str())?;
+                    }
                 }
             }
             tx.commit()?;
@@ -121,42 +306,6 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
             return Ok(true);
         }
         Ok(false)
-    }
-
-    pub(crate) fn recreate_contract_views(
-        &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
-    ) -> Result<()> {
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
-
-        let generator = PostgresqlGenerator::new(contract_id);
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-
-        let mut tx = self.transaction()?;
-        for (_, table) in sorted_tables {
-            if table.name == "bigmap_clears" {
-                continue;
-            }
-            tx.simple_query(
-                format!(
-                    r#"
-DROP VIEW "{contract_schema}"."{table}_ordered";
-DROP VIEW "{contract_schema}"."{table}_live";
-"#,
-                    contract_schema = contract_id.name,
-                    table = table.name,
-                )
-                .as_str(),
-            )?;
-            let views_def = generator.create_view_definition(table)?;
-
-            tx.simple_query(views_def.as_str())?;
-        }
-        tx.commit()?;
-        Ok(())
     }
 
     pub(crate) fn delete_contract_schema(
@@ -182,8 +331,8 @@ DROP VIEW "{contract_schema}"."{table}_live";
                 tx.simple_query(
                     format!(
                         r#"
-DROP VIEW "{contract_schema}"."{table}_ordered";
-DROP VIEW "{contract_schema}"."{table}_live";
+DROP TABLE "{contract_schema}"."{table}_ordered";
+DROP TABLE "{contract_schema}"."{table}_live";
 "#,
                         contract_schema = contract_id.name,
                         table = table.name,
@@ -268,17 +417,13 @@ Values ({})",
             id: i64,
             pub level: i32,
             pub contract: String,
-            pub operation_hash: String,
             pub operation_group_number: i32,
             pub operation_number: i32,
             pub content_number: i32,
             pub internal_number: Option<i32>,
-            pub source: Option<String>,
-            pub destination: Option<String>,
-            pub entrypoint: Option<String>,
         }
         for chunk in tx_contexts.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 11;
+            let num_columns = 7;
             let v_refs = (1..(num_columns * chunk.len()) + 1)
                 .map(|i| format!("${}", i.to_string()))
                 .collect::<Vec<String>>()
@@ -294,11 +439,7 @@ INSERT INTO tx_contexts(
     operation_group_number,
     operation_number,
     content_number,
-    internal_number,
-    operation_hash,
-    source,
-    destination,
-    entrypoint
+    internal_number
 )
 VALUES ( {} )",
                 v_refs
@@ -320,10 +461,6 @@ VALUES ( {} )",
                     internal_number: tx_context
                         .internal_number
                         .map(|n| n as i32),
-                    operation_hash: tx_context.operation_hash.clone(),
-                    source: tx_context.source.clone(),
-                    destination: tx_context.destination.clone(),
-                    entrypoint: tx_context.entrypoint.clone(),
                 })
                 .collect();
             let values: Vec<&dyn postgres::types::ToSql> = tx_contexts_pg
@@ -345,12 +482,63 @@ VALUES ( {} )",
                         tx_context
                             .internal_number
                             .borrow_to_sql(),
-                        tx_context
-                            .operation_hash
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn save_txs(tx: &mut Transaction, txs: &[Tx]) -> Result<()> {
+        for txs_chunk in txs.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 11;
+            let v_refs = (1..(num_columns * txs_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
+INSERT INTO txs(
+    tx_context_id,
+
+    operation_hash,
+    source,
+    destination,
+    entrypoint,
+
+    fee,
+    gas_limit,
+    storage_limit,
+
+    consumed_milligas,
+    storage_size,
+    paid_storage_size_diff
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = txs_chunk
+                .iter()
+                .flat_map(|tx| {
+                    [
+                        tx.tx_context_id.borrow_to_sql(),
+                        tx.operation_hash.borrow_to_sql(),
+                        tx.source.borrow_to_sql(),
+                        tx.destination.borrow_to_sql(),
+                        tx.entrypoint.borrow_to_sql(),
+                        tx.fee.borrow_to_sql(),
+                        tx.gas_limit.borrow_to_sql(),
+                        tx.storage_limit.borrow_to_sql(),
+                        tx.consumed_milligas.borrow_to_sql(),
+                        tx.storage_size.borrow_to_sql(),
+                        tx.paid_storage_size_diff
                             .borrow_to_sql(),
-                        tx_context.source.borrow_to_sql(),
-                        tx_context.destination.borrow_to_sql(),
-                        tx_context.entrypoint.borrow_to_sql(),
                     ]
                 })
                 .collect();
@@ -400,7 +588,7 @@ VALUES ( {} )",
     pub(crate) fn get_config_deps(
         &mut self,
         config: &[ContractID],
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<ContractID>> {
         if config.is_empty() {
             return Ok(vec![]);
         }
@@ -425,13 +613,20 @@ WHERE dest_schema IN ({})
                 .map(|c| c.name.borrow_to_sql())
                 .collect::<Vec<&dyn ToSql>>(),
         )?;
-        let mut res: Vec<String> = vec![];
+        let mut res: Vec<ContractID> = vec![];
         while let Some(row) = it.next()? {
-            res.push(row.get(0));
+            res.push(ContractID {
+                address: row.get(0),
+                name: row.get(0),
+            });
         }
         Ok(res
             .into_iter()
-            .filter(|dep| !config.iter().any(|c| c.address == *dep))
+            .filter(|dep| {
+                !config
+                    .iter()
+                    .any(|c| c.address == dep.address)
+            })
             .collect())
     }
 
@@ -571,8 +766,11 @@ WHERE table_schema = 'public'
             "
 DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
+DROP VIEW  IF EXISTS txs_ordered;
+DROP TABLE IF EXISTS txs;
 DROP TABLE IF EXISTS tx_contexts;
-DROP TABLE IF EXISTS max_id;
+DROP TABLE IF EXISTS indexer_state;
+DROP TYPE  IF EXISTS indexer_mode;
 DROP TABLE IF EXISTS contract_levels;
 DROP TABLE IF EXISTS contracts;
 DROP TABLE IF EXISTS levels;
@@ -678,17 +876,40 @@ ORDER BY 1",
         }
         rows.sort_unstable();
         rows.dedup();
-        rows.reverse();
         Ok(rows
             .iter()
             .map(|x| *x as u32)
             .collect::<Vec<u32>>())
     }
 
+    pub(crate) fn get_indexer_mode(&mut self) -> Result<IndexerMode> {
+        let mode: IndexerMode = self
+            .dbconn
+            .query_one("select mode from indexer_state", &[])?
+            .get(0);
+        Ok(mode)
+    }
+
+    pub(crate) fn set_indexer_mode(&mut self, mode: IndexerMode) -> Result<()> {
+        let updated = self.dbconn.execute(
+            "
+update indexer_state
+set mode = $1",
+            &[&mode],
+        )?;
+        if updated == 1 {
+            Ok(())
+        } else {
+            Err(anyhow!(
+            "wrong number of rows in indexer_state table. please fix manually. sorry"
+        ))
+        }
+    }
+
     pub(crate) fn get_max_id(&mut self) -> Result<i64> {
         let max_id: i64 = self
             .dbconn
-            .query("SELECT max_id FROM max_id", &[])?[0]
+            .query_one("select max_id from indexer_state", &[])?
             .get(0);
         Ok(max_id + 1)
     }
@@ -696,17 +917,50 @@ ORDER BY 1",
     pub(crate) fn set_max_id(tx: &mut Transaction, max_id: i64) -> Result<()> {
         let updated = tx.execute(
             "
-UPDATE max_id
-SET max_id = $1",
+update indexer_state
+set max_id = $1",
             &[&max_id],
         )?;
         if updated == 1 {
             Ok(())
         } else {
             Err(anyhow!(
-            "Wrong number of rows in max_id table. Please fix manually. Sorry"
+            "wrong number of rows in indexer_state table. please fix manually. sorry"
         ))
         }
+    }
+
+    pub(crate) fn get_partial_processed_levels(&mut self) -> Result<Vec<u32>> {
+        let partial_processed: Vec<u32> = self
+            .dbconn
+            .query(
+                "
+with all_levels as (
+    select distinct
+        level
+    from contract_levels
+)
+select distinct
+    lvl.level
+from all_levels lvl, contracts c
+left join contract_levels orig
+  on  orig.contract = c.name
+  and orig.is_origination
+where lvl.level >= coalesce(orig.level, 0)
+  and not exists (
+    select 1
+    from contract_levels clvl
+    where clvl.level = lvl.level
+      and clvl.contract = c.name
+)
+order by 1",
+                &[],
+            )?
+            .iter()
+            .map(|row| row.get(0))
+            .map(|lvl: i32| lvl as u32)
+            .collect();
+        Ok(partial_processed)
     }
 
     pub(crate) fn save_level(

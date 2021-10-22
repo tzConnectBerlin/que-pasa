@@ -49,30 +49,40 @@ pub struct Block {
 #[derive(Clone, Debug)]
 pub(crate) struct TxContext {
     pub id: Option<i64>,
-    pub level: u32,
     pub contract: String,
-    pub operation_hash: String,
+    pub level: u32,
     pub operation_group_number: usize,
     pub operation_number: usize,
     pub content_number: usize,
     pub internal_number: Option<i32>,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Tx {
+    pub tx_context_id: i64,
+
+    pub operation_hash: String,
     pub source: Option<String>,
     pub destination: Option<String>,
     pub entrypoint: Option<String>,
+
+    pub fee: Option<i64>,
+    pub gas_limit: Option<i64>,
+    pub storage_limit: Option<i64>,
+
+    pub consumed_milligas: Option<i64>,
+    pub storage_size: Option<i64>,
+    pub paid_storage_size_diff: Option<i64>,
 }
 
 impl Hash for TxContext {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.level.hash(state);
         self.contract.hash(state);
-        self.operation_hash.hash(state);
         self.operation_group_number.hash(state);
         self.operation_number.hash(state);
         self.content_number.hash(state);
         self.internal_number.hash(state);
-        self.source.hash(state);
-        self.destination.hash(state);
-        self.entrypoint.hash(state);
     }
 }
 
@@ -81,14 +91,10 @@ impl PartialEq for TxContext {
     fn eq(&self, other: &Self) -> bool {
         self.level == other.level
             && self.contract == other.contract
-            && self.operation_hash == other.operation_hash
             && self.operation_group_number == other.operation_group_number
             && self.operation_number == other.operation_number
             && self.content_number == other.content_number
             && self.internal_number == other.internal_number
-            && self.source == other.source
-            && self.destination == other.destination
-            && self.entrypoint == other.entrypoint
     }
 }
 impl PartialOrd for TxContext {
@@ -137,6 +143,11 @@ impl Block {
         self.operations.clone()
     }
 
+    fn parse_option_i64(x: Option<&String>) -> anyhow::Result<Option<i64>> {
+        let parsed = x.map_or(Ok(None), |s| s.parse::<i64>().map(Some))?;
+        Ok(parsed)
+    }
+
     pub(crate) fn map_tx_contexts<F, O>(
         &self,
         mut f: F,
@@ -144,6 +155,7 @@ impl Block {
     where
         F: FnMut(
             TxContext,
+            Tx,
             bool,
             &OperationResult,
         ) -> anyhow::Result<Option<O>>,
@@ -171,11 +183,15 @@ impl Block {
                                         id: None,
                                         level: self.header.level,
                                         contract: dest_addr.clone(),
-                                        operation_hash: operation.hash.clone(),
                                         operation_group_number,
                                         operation_number,
                                         content_number,
                                         internal_number: None,
+                                    },
+                                    Tx {
+                                        tx_context_id: -1,
+
+                                        operation_hash: operation.hash.clone(),
                                         source: content.source.clone(),
                                         destination: content
                                             .destination
@@ -184,6 +200,34 @@ impl Block {
                                             .parameters
                                             .clone()
                                             .map(|p| p.entrypoint),
+
+                                        fee: Self::parse_option_i64(
+                                            content.fee.as_ref(),
+                                        )?,
+                                        gas_limit: Self::parse_option_i64(
+                                            content.gas_limit.as_ref(),
+                                        )?,
+                                        storage_limit: Self::parse_option_i64(
+                                            content.storage_limit.as_ref(),
+                                        )?,
+
+                                        consumed_milligas:
+                                            Self::parse_option_i64(
+                                                operation_result
+                                                    .consumed_milligas
+                                                    .as_ref(),
+                                            )?,
+                                        storage_size: Self::parse_option_i64(
+                                            operation_result
+                                                .storage_size
+                                                .as_ref(),
+                                        )?,
+                                        paid_storage_size_diff:
+                                            Self::parse_option_i64(
+                                                operation_result
+                                                    .paid_storage_size_diff
+                                                    .as_ref(),
+                                            )?,
                                     },
                                     false,
                                     operation_result,
@@ -212,15 +256,19 @@ impl Block {
                                                     contract:
                                                         internal_dest_addr
                                                             .to_string(),
-                                                    operation_hash: operation
-                                                        .hash
-                                                        .clone(),
                                                     operation_group_number,
                                                     operation_number,
                                                     content_number,
                                                     internal_number: Some(
                                                         internal_number as i32,
                                                     ),
+                                                },
+                                                Tx {
+                                                    tx_context_id: -1,
+
+                                                    operation_hash: operation
+                                                        .hash
+                                                        .clone(),
                                                     source: Some(
                                                         internal_op
                                                             .source
@@ -233,6 +281,28 @@ impl Block {
                                                         .parameters
                                                         .clone()
                                                         .map(|p| p.entrypoint),
+
+                                                    fee: None,
+                                                    gas_limit: None,
+                                                    storage_limit: None,
+
+                                                    consumed_milligas:
+                                                        Self::parse_option_i64(
+                                                            internal_op.result
+                                                                .consumed_milligas
+                                                                .as_ref(),
+                                                    )?,
+                                                    storage_size: Self::parse_option_i64(
+                                                        internal_op.result
+                                                            .storage_size
+                                                            .as_ref(),
+                                                    )?,
+                                                    paid_storage_size_diff:
+                                                        Self::parse_option_i64(
+                                                            internal_op.result
+                                                                .paid_storage_size_diff
+                                                                .as_ref(),
+                                                    )?,
                                                 },
                                                 false,
                                                 &internal_op.result,
@@ -251,25 +321,34 @@ impl Block {
                                                 id: None,
                                                 level: self.header.level,
                                                 contract: contract.clone(),
-                                                operation_hash: operation
-                                                    .hash
-                                                    .clone(),
                                                 operation_group_number,
                                                 operation_number,
                                                 content_number,
                                                 internal_number: Some(
                                                     internal_number as i32,
                                                 ),
+                                            },
+                                            Tx {
+                                                tx_context_id: -1,
+
+                                                operation_hash: operation
+                                                    .hash
+                                                    .clone(),
                                                 source: Some(
                                                     internal_op.source.clone(),
                                                 ),
-                                                destination: internal_op
-                                                    .destination
-                                                    .clone(),
-                                                entrypoint: internal_op
-                                                    .parameters
-                                                    .clone()
-                                                    .map(|p| p.entrypoint),
+                                                destination: Some(
+                                                    contract.clone(),
+                                                ),
+                                                entrypoint: None,
+
+                                                fee: None,
+                                                gas_limit: None,
+                                                storage_limit: None,
+
+                                                consumed_milligas: None,
+                                                storage_size: None,
+                                                paid_storage_size_diff: None,
                                             },
                                             true,
                                             &internal_op.result,
@@ -288,17 +367,43 @@ impl Block {
                                     id: None,
                                     level: self.header.level,
                                     contract: contract.clone(),
-                                    operation_hash: operation.hash.clone(),
                                     operation_group_number,
                                     operation_number,
                                     content_number,
                                     internal_number: None,
+                                },
+                                Tx {
+                                    tx_context_id: -1,
+
+                                    operation_hash: operation.hash.clone(),
                                     source: content.source.clone(),
-                                    destination: content.destination.clone(),
-                                    entrypoint: content
-                                        .parameters
-                                        .clone()
-                                        .map(|p| p.entrypoint),
+                                    destination: Some(contract.clone()),
+                                    entrypoint: None,
+
+                                    fee: Self::parse_option_i64(
+                                        content.fee.as_ref(),
+                                    )?,
+                                    gas_limit: Self::parse_option_i64(
+                                        content.gas_limit.as_ref(),
+                                    )?,
+                                    storage_limit: Self::parse_option_i64(
+                                        content.storage_limit.as_ref(),
+                                    )?,
+
+                                    consumed_milligas: Self::parse_option_i64(
+                                        operation_result
+                                            .consumed_milligas
+                                            .as_ref(),
+                                    )?,
+                                    storage_size: Self::parse_option_i64(
+                                        operation_result.storage_size.as_ref(),
+                                    )?,
+                                    paid_storage_size_diff:
+                                        Self::parse_option_i64(
+                                            operation_result
+                                                .paid_storage_size_diff
+                                                .as_ref(),
+                                        )?,
                                 },
                                 true,
                                 operation_result,
@@ -364,7 +469,7 @@ impl Block {
     }
 
     fn contract_originations(&self) -> Vec<String> {
-        self.map_tx_contexts(|tx_context, is_origination, _op_res| {
+        self.map_tx_contexts(|tx_context, _tx, is_origination, _op_res| {
             if !is_origination {
                 return Ok(None);
             }
@@ -375,7 +480,7 @@ impl Block {
 
     pub(crate) fn active_contracts(&self) -> Vec<String> {
         let mut res: Vec<String> = self
-            .map_tx_contexts(|tx_context, _is_origination, _op_res| {
+            .map_tx_contexts(|tx_context, _tx, _is_origination, _op_res| {
                 Ok(Some(tx_context.contract))
             })
             .unwrap();
@@ -619,19 +724,16 @@ pub struct Content {
     pub destination: Option<String>,
     pub source: Option<String>,
     pub parameters: Option<Parameters>,
+    pub fee: Option<String>,
+    pub gas_limit: Option<String>,
+    pub storage_limit: Option<String>,
 
     #[serde(skip)]
     kind: String,
     #[serde(skip)]
     endorsement: Option<Endorsement>,
     #[serde(skip)]
-    fee: Option<String>,
-    #[serde(skip)]
     counter: Option<String>,
-    #[serde(skip)]
-    gas_limit: Option<String>,
-    #[serde(skip)]
-    storage_limit: Option<String>,
     #[serde(skip)]
     amount: Option<String>,
     #[serde(skip)]
@@ -704,16 +806,17 @@ pub struct OperationResult {
     pub storage: Option<::serde_json::Value>,
     pub big_map_diff: Option<Vec<BigMapDiff>>,
 
+    #[serde(default)]
+    pub consumed_milligas: Option<String>,
+    #[serde(default)]
+    pub storage_size: Option<String>,
+    #[serde(default)]
+    pub paid_storage_size_diff: Option<String>,
+
     #[serde(skip)]
     balance_updates: Option<Vec<BalanceUpdate>>,
     #[serde(skip)]
     consumed_gas: Option<String>,
-    #[serde(skip)]
-    consumed_milligas: Option<String>,
-    #[serde(skip)]
-    storage_size: Option<String>,
-    #[serde(skip)]
-    paid_storage_size_diff: Option<String>,
     #[serde(skip)]
     lazy_storage_diff: Option<Vec<serde_json::Value>>,
     //    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,

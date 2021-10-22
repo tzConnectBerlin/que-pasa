@@ -1,0 +1,5 @@
+select count(1) from contracts;
+ count 
+-------
+   147
+(1 row)

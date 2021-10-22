@@ -104,7 +104,7 @@ impl IntraBlockBigmapDiffsProcessor {
         };
 
         let tx_bigmap_ops = block
-            .map_tx_contexts(|tx_context, _is_origination, op_res| {
+            .map_tx_contexts(|tx_context, _tx, _is_origination, op_res| {
                 if op_res.big_map_diff.is_none() {
                     Ok(Some((tx_context, vec![])))
                 } else {
@@ -255,17 +255,13 @@ impl IntraBlockBigmapDiffsProcessor {
 fn test_normalizer() {
     fn tx_context(level: u32) -> TxContext {
         TxContext {
+            id: None,
             level,
             operation_group_number: 0,
             operation_number: 0,
             content_number: 0,
             internal_number: None,
             contract: "".to_string(),
-            operation_hash: "".to_string(),
-            source: None,
-            destination: None,
-            entrypoint: None,
-            id: None,
         }
     }
     fn op_update(bigmap: i32, ident: i32) -> Op {

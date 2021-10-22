@@ -17,7 +17,9 @@ pub struct Config {
     pub network: String,
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
-    pub recreate_views: bool,
+    pub always_yes: bool,
+    #[cfg(feature = "regression")]
+    pub always_update_derived: bool,
 }
 
 #[derive(
@@ -31,12 +33,13 @@ pub struct ContractID {
 lazy_static! {
     pub static ref CONFIG: Result<Config> = init_config();
 }
+pub const QUEPASA_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // init config and return it also.
 pub fn init_config() -> Result<Config> {
     let mut config: Config = Default::default();
     let matches = App::new("Tezos Contract Baby Indexer")
-        .version("1.0.0")
+        .version(QUEPASA_VERSION)
         .author("Rick Klomp <rick.klomp@tzconect.com>")
         .about("An indexer for specific contracts")
         .arg(
@@ -124,13 +127,20 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(false),
         )
         .arg(
-            Arg::with_name("recreate_views")
-                .long("recreate-views")
-                .value_name("RECREATE_VIEWS")
-                .help("If set, drop and recreate all _live and _ordered view definitions")
-                .takes_value(false),
-        )
-        .get_matches();
+            Arg::with_name("always_yes")
+                .long("always-yes")
+                .short("y")
+                .value_name("ALWAYS_YES")
+                .help("If set, never prompt for confirmations, always default to 'yes'")
+                .takes_value(false));
+    #[cfg(feature = "regression")]
+    let matches = matches.arg(
+        Arg::with_name("always_update_derived")
+            .long("always-update-derived")
+            .help("If set, after every block (and in every exec_), always update the derived _live and _ordered tables")
+            .takes_value(false),
+    );
+    let matches = matches.get_matches();
 
     let maybe_fpath = matches
         .value_of("contract_settings")
@@ -147,8 +157,8 @@ pub fn init_config() -> Result<Config> {
         matches.values_of("contracts").unwrap().map(|s| {
         match s.split_once("=") {
             Some((name, address)) => ContractID {
-            name: name.to_string(),
-            address: address.to_string(),
+                name: name.to_string(),
+                address: address.to_string(),
             },
             None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
         }
@@ -178,8 +188,8 @@ pub fn init_config() -> Result<Config> {
     }
 
     config.reinit = matches.is_present("reinit");
-    config.recreate_views = matches.is_present("recreate_views");
     config.all_contracts = matches.is_present("index_all_contracts");
+    config.always_yes = matches.is_present("always_yes");
 
     config.levels = matches
         .value_of("levels")
@@ -219,6 +229,15 @@ pub fn init_config() -> Result<Config> {
             config.workers_cap
         );
         config.workers_cap = 1;
+    }
+
+    #[cfg(feature = "regression")]
+    {
+        config.always_update_derived =
+            matches.is_present("always_update_derived");
+        if config.always_update_derived {
+            config.workers_cap = 1;
+        }
     }
 
     debug!("Config={:#?}", config);

@@ -1,6 +1,6 @@
 [package]
 name = "que-pasa"
-version = "1.0.0"
+version = "1.0.2"
 authors = ["Rick Klomp <rick.klomp@tzconnect.com>"]
 edition = "2018"
 
@@ -10,6 +10,7 @@ edition = "2018"
 pretty_assertions = "*"
 
 [dependencies]
+askama = "0.10"
 serde_yaml = "0.8.20"
 backoff = "0.3.0"
 reqwest = { version = "0.11.4", features = ["blocking"] }
@@ -31,7 +32,8 @@ lazy_static = "1.4.0"
 log = "0.4.0"
 native-tls = "0.2.7"
 num = { version = "0.4", features = ["serde"] }
-postgres = { version = "0.19.1", features = ["with-chrono-0_4"] }
+postgres = { version = "0.19.2", features = ["with-chrono-0_4"] }
+postgres-types = { version = "0.2.2", features = ["derive"] }
 postgres-native-tls = "0.5.0"
 pg_bigdecimal = { version = "0.1.1", features = ["serde"] }
 regex = "1.4.5"
@@ -40,3 +42,6 @@ serde = { version = "1.0.125", features = ["derive"] }
 serde_derive = "1.0.125"
 serde_json = { version = "1.0.64", features = ["unbounded_depth"] }
 thiserror = "1.0"
+
+[features]
+regression = []

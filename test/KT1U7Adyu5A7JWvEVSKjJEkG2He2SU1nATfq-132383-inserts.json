@@ -39,11 +39,11 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("15")),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "tokens_nat",
-                value: Numeric(Some("109890109890109890109")),
+                value: Numeric(Some("9890109890109890109")),
             ),
             (
                 name: "bigmap_id",
@@ -91,11 +91,11 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("13")),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "tokens_nat",
-                value: Numeric(Some("9890109890109890109")),
+                value: Numeric(Some("109890109890109890109")),
             ),
             (
                 name: "bigmap_id",
@@ -209,7 +209,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("15")),
+                value: Numeric(Some("13")),
             ),
             (
                 name: "idx_tokens_address",
@@ -217,7 +217,7 @@
             ),
             (
                 name: "tokens_balance",
-                value: Numeric(Some("109890109890109890109")),
+                value: Numeric(Some("9890109890109890109")),
             ),
             (
                 name: "bigmap_id",
@@ -269,7 +269,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("13")),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "idx_tokens_address",
@@ -277,7 +277,7 @@
             ),
             (
                 name: "tokens_balance",
-                value: Numeric(Some("9890109890109890109")),
+                value: Numeric(Some("109890109890109890109")),
             ),
             (
                 name: "bigmap_id",

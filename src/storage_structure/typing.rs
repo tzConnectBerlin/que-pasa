@@ -42,10 +42,10 @@ pub struct Ele {
 }
 
 fn annotation(json: &json::JsonValue) -> Option<String> {
-    if let JsonValue::Short(s) = &json["annots"][0] {
-        Some(String::from(s.as_str())[1..].to_string())
-    } else {
-        None
+    match &json["annots"][0] {
+        JsonValue::String(s) => Some(s[1..].to_string()),
+        JsonValue::Short(s) => Some(String::from(s.as_str())[1..].to_string()),
+        _ => None,
     }
 }
 

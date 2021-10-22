@@ -13,6 +13,8 @@ pub struct Table {
     pub name: String,
     pub indices: Vec<String>,
     pub columns: HashMap<String, Column>,
+    pub fk: HashMap<(String, String, String), ()>,
+    pub id_unique: bool,
     keys: Vec<String>,
     unique: bool,
     snapshots: bool,
@@ -27,6 +29,8 @@ impl Table {
             keys: vec![],
             unique: true,
             snapshots: true,
+            fk: HashMap::new(),
+            id_unique: true,
         }
     }
 
@@ -44,6 +48,16 @@ impl Table {
 
     pub(crate) fn contains_snapshots(&self) -> bool {
         self.snapshots
+    }
+
+    pub(crate) fn add_fk(
+        &mut self,
+        column_name: String,
+        ref_table: String,
+        ref_col: String,
+    ) {
+        self.fk
+            .insert((column_name, ref_table, ref_col), ());
     }
 
     pub(crate) fn add_column(
@@ -126,6 +140,28 @@ impl Table {
             res.push(&self.columns[k]);
         }
         res
+    }
+
+    pub(crate) fn drop_column(&mut self, name: &str) {
+        if self.columns.remove(name).is_some() {
+            self.keys = self
+                .keys
+                .clone()
+                .into_iter()
+                .filter(|k| k != name)
+                .collect::<Vec<String>>();
+
+            self.drop_index(name);
+        }
+    }
+
+    pub(crate) fn drop_index(&mut self, name: &str) {
+        self.indices = self
+            .indices
+            .clone()
+            .into_iter()
+            .filter(|k| k != name)
+            .collect::<Vec<String>>();
     }
 
     pub(crate) fn keywords(&self) -> Vec<String> {

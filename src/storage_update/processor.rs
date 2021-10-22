@@ -1,6 +1,6 @@
 use crate::debug;
 use crate::octez::block;
-use crate::octez::block::TxContext;
+use crate::octez::block::{Tx, TxContext};
 use crate::octez::node::StorageGetter;
 use crate::sql::db::BigmapKeysGetter;
 use crate::sql::insert;
@@ -66,7 +66,7 @@ impl ProcessStorageContext {
     }
 }
 
-pub(crate) type TxContextMap = HashMap<TxContext, TxContext>;
+pub(crate) type TxContextMap = HashMap<TxContext, Tx>;
 
 pub struct IdGenerator {
     id: i64,
@@ -92,7 +92,8 @@ where
     BigmapKeys: BigmapKeysGetter,
 {
     bigmap_map: BigMapMap,
-    bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+    bigmap_keyhashes: HashMap<(TxContext, i32, String), String>,
+    bigmap_contract_deps: HashMap<String, ()>,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
@@ -114,7 +115,8 @@ where
             bigmap_map: BigMapMap::new(),
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
-            bigmap_keyhashes: Vec::new(),
+            bigmap_keyhashes: HashMap::new(),
+            bigmap_contract_deps: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
             node_cli,
             bigmap_keys,
@@ -129,13 +131,22 @@ where
         key: String,
     ) {
         self.bigmap_keyhashes
-            .push((tx_context, bigmap, keyhash, key));
+            .insert((tx_context, bigmap, keyhash), key);
     }
 
     pub(crate) fn get_bigmap_keyhashes(
         &self,
     ) -> Vec<(TxContext, i32, String, String)> {
-        self.bigmap_keyhashes.clone()
+        let mut res: Vec<(TxContext, i32, String, String)> = vec![];
+        for ((tx_context, bigmap_id, keyhash), key) in &self.bigmap_keyhashes {
+            res.push((
+                tx_context.clone(),
+                *bigmap_id,
+                keyhash.clone(),
+                key.clone(),
+            ));
+        }
+        res
     }
 
     pub(crate) fn process_block(
@@ -144,14 +155,12 @@ where
         diffs: &IntraBlockBigmapDiffsProcessor,
         contract_id: &str,
         rel_ast: &RelationalAST,
-    ) -> Result<(Inserts, Vec<TxContext>, Vec<String>)> {
-        self.inserts.clear();
-        self.tx_contexts.clear();
+    ) -> Result<()> {
         self.bigmap_map.clear();
         self.bigmap_keyhashes.clear();
 
         let storages: Vec<(TxContext, parser::Value)> =
-            block.map_tx_contexts(|tx_context, is_origination, op_res| {
+            block.map_tx_contexts(|tx_context, tx, is_origination, op_res| {
                 if tx_context.contract != contract_id {
                     return Ok(None);
                 }
@@ -163,23 +172,21 @@ where
                             tx_context.level,
                         )?,
                     )?;
-                    Ok(Some((self.tx_context(tx_context), storage)))
+                    Ok(Some((self.tx_context(tx_context, tx), storage)))
                 } else if let Some(storage) = &op_res.storage {
                     Ok(Some((
-                        self.tx_context(tx_context),
+                        self.tx_context(tx_context, tx),
                         parser::parse_lexed(&serde2json!(storage))?,
                     )))
                 } else {
                     Err(anyhow!(
-                "bad contract call: no storage update. tx_context={:#?}",
-                tx_context
-            ))
+                        "bad contract call: no storage update. tx_context={:#?}",
+                        tx_context
+                    ))
                 }
             })?;
 
-        let mut bigmap_contract_deps: HashMap<String, ()> = HashMap::new();
         for (tx_context, parsed_storage) in &storages {
-            let tx_context = &self.tx_context(tx_context.clone());
             self.process_storage_value(parsed_storage, rel_ast, tx_context)
                 .with_context(|| {
                     format!(
@@ -193,47 +200,45 @@ where
             bigmaps.sort_unstable();
             for bigmap in bigmaps {
                 let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                for op in ops.iter().rev() {
+                    self.process_bigmap_op(op, tx_context)?;
+                }
                 if self.bigmap_map.contains_key(&bigmap) {
                     for (src_bigmap, src_context) in deps {
-                        bigmap_contract_deps
+                        self.bigmap_contract_deps
                             .insert(src_context.contract.clone(), ());
                         self.process_bigmap_copy(
-                            tx_context.clone(),
-                            src_bigmap,
-                            bigmap,
+                            tx_context, src_bigmap, bigmap,
                         )?;
                     }
-                }
-                for op in &ops {
-                    self.process_bigmap_op(op, tx_context)?;
                 }
             }
         }
 
-        Ok((
-            self.inserts.clone(),
-            self.tx_contexts
-                .keys()
-                .cloned()
-                .collect(),
-            bigmap_contract_deps
-                .into_keys()
-                .collect::<Vec<String>>(),
-        ))
+        Ok(())
+    }
+
+    pub(crate) fn drain_bigmap_contract_dependencies(&mut self) -> Vec<String> {
+        self.bigmap_contract_deps
+            .drain()
+            .map(|(k, _)| k)
+            .collect()
+    }
+
+    pub(crate) fn drain_txs(&mut self) -> (Vec<TxContext>, Vec<Tx>) {
+        self.tx_contexts.drain().unzip()
+    }
+
+    pub(crate) fn drain_inserts(&mut self) -> Inserts {
+        self.inserts.drain().collect()
     }
 
     fn process_bigmap_copy(
         &mut self,
-        mut ctx: TxContext,
+        ctx: &TxContext,
         src_bigmap: i32,
         dest_bigmap: i32,
     ) -> Result<()> {
-        ctx.internal_number = match ctx.internal_number {
-            None => Some(-1),
-            Some(x) => Some(x - 1),
-        };
-        let ctx = &self.tx_context(ctx);
-
         let at_level = ctx.level - 1;
         for (keyhash, key) in self
             .bigmap_keys
@@ -261,13 +266,22 @@ where
         self.id_generator.id
     }
 
-    fn tx_context(&mut self, mut tx_context: TxContext) -> TxContext {
-        if let Some(result) = self.tx_contexts.get(&tx_context) {
+    fn tx_context(
+        &mut self,
+        mut tx_context: TxContext,
+        mut tx: Tx,
+    ) -> TxContext {
+        if let Some((result, _)) = self
+            .tx_contexts
+            .get_key_value(&tx_context)
+        {
             result.clone()
         } else {
-            tx_context.id = Some(self.id_generator.get_id());
+            let id = self.id_generator.get_id();
+            tx_context.id = Some(id);
+            tx.tx_context_id = id;
             self.tx_contexts
-                .insert(tx_context.clone(), tx_context.clone());
+                .insert(tx_context.clone(), tx);
             tx_context
         }
     }
@@ -372,6 +386,13 @@ where
                 key,
                 value,
             } => {
+                if self.bigmap_keyhashes.contains_key(&(
+                    tx_context.clone(),
+                    *bigmap,
+                    keyhash.clone(),
+                )) {
+                    return Ok(());
+                }
                 let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
                     Some((fk, n)) => (fk, n.clone()),
                     None => {
@@ -917,11 +938,6 @@ where
     ) -> Result<()> {
         self.process_storage_value(value, rel_ast, tx_context)
     }
-
-    #[cfg(test)]
-    pub fn get_inserts(&self) -> Inserts {
-        return self.inserts.clone();
-    }
 }
 
 #[test]
@@ -956,14 +972,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![Insert {
                 table_name: "storage".to_string(),
@@ -1000,14 +1012,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![Insert {
                 table_name: "storage".to_string(),
@@ -1041,14 +1049,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![Insert {
                 table_name: "storage".to_string(),
@@ -1083,14 +1087,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![
                 Insert {
@@ -1160,14 +1160,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![
                 Insert {
@@ -1265,14 +1261,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![
                 Insert {
@@ -1342,14 +1334,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![Insert {
                 // note: still generates an entry for the storage table
@@ -1390,14 +1378,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![Insert {
                 // note: still generates an entry for the storage table
@@ -1449,14 +1433,10 @@ fn test_process_storage_value() {
                 id: Some(32),
                 level: 10,
                 contract: "test".to_string(),
-                operation_hash: "foo hash".to_string(),
                 operation_group_number: 1,
                 operation_number: 2,
                 content_number: 3,
                 internal_number: None,
-                source: None,
-                destination: None,
-                entrypoint: None,
             },
             exp_inserts: vec![
                 Insert {
@@ -1541,7 +1521,7 @@ fn test_process_storage_value() {
         );
         assert!(res.is_ok());
 
-        let got = processor.get_inserts();
+        let got = processor.drain_inserts();
         let mut got_ordered: Vec<Insert> = vec![];
         for exp_key in &ordering {
             if !got.contains_key(exp_key) {
@@ -1659,30 +1639,39 @@ fn test_process_block() {
             if tables.contains_key(&insert.table_name) {
                 sort_on = tables[&insert.table_name]
                     .indices
-                    .clone();
+                    .iter()
+                    .filter(|idx| idx != &"id")
+                    .cloned()
+                    .collect();
                 sort_on.extend(
                     tables[&insert.table_name]
                         .columns
                         .keys()
                         .filter(|col| {
-                            !tables[&insert.table_name]
-                                .indices
-                                .iter()
-                                .any(|idx| idx == *col)
+                            col != &"id"
+                                && !tables[&insert.table_name]
+                                    .indices
+                                    .iter()
+                                    .any(|idx| idx == *col)
                         })
                         .cloned()
                         .collect::<Vec<String>>(),
                 );
+                // sort on id last, only relevant when dealing with non-unique
+                // containers (which is only the michelson List type).
+                sort_on.push("id".to_string());
             }
             let mut res: Vec<insert::Value> = sort_on
                 .iter()
                 .map(|idx| {
                     insert
                         .get_column(idx)
+                        .unwrap()
                         .map_or(insert::Value::Null, |col| col.value.clone())
                 })
                 .collect();
             res.insert(0, insert::Value::String(insert.table_name.clone()));
+            println!("sorting by: {:?}", sort_on);
             res
         });
     }
@@ -1724,9 +1713,12 @@ fn test_process_block() {
             .unwrap();
 
             let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
-            let (inserts, _, _) = storage_processor
+            storage_processor
                 .process_block(&block, &diffs, contract.id, &rel_ast)
                 .unwrap();
+            let inserts = storage_processor.drain_inserts();
+            storage_processor.drain_txs();
+            storage_processor.drain_bigmap_contract_dependencies();
 
             let filename =
                 format!("test/{}-{}-inserts.json", contract.id, level);

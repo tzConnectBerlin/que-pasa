@@ -1,6 +1,8 @@
+use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::storage_structure::typing::{
     ComplexExprTy, Ele, ExprTy, SimpleExprTy,
 };
+
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
@@ -201,7 +203,10 @@ impl ASTBuilder {
         let ctx = ctx.start_table(&name);
 
         self.column_names.insert(
-            (ctx.table_name.clone(), format!("{}_id", parent_table)),
+            (
+                ctx.table_name.clone(),
+                PostgresqlGenerator::parent_ref(parent_table),
+            ),
             0,
         );
         for column_name in RESERVED.iter() {
@@ -469,6 +474,13 @@ impl ASTBuilder {
     ) -> Result<RelationalAST> {
         match ele.expr_type {
             ExprTy::ComplexExprTy(ref ety) => match ety {
+                ComplexExprTy::Option(elem_type) => {
+                    let ctx = ctx.next_with_prefix(ele.name.clone());
+                    let elem_ast = self.build_index(&ctx, elem_type)?;
+                    Ok(RelationalAST::Option {
+                        elem_ast: Box::new(elem_ast),
+                    })
+                }
                 ComplexExprTy::Pair(left_type, right_type) => {
                     let ctx = ctx.next_with_prefix(ele.name.clone());
                     let left = self.build_index(&ctx.next(), left_type)?;
@@ -955,7 +967,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "parent_id is a reserved column name in nested child tables".to_string(),
-            ele: list(Some("addresses".to_string()), list(None, simple(Some("storage.addresses_id".to_string()), SimpleExprTy::String))),
+            ele: list(Some("addresses".to_string()), list(None, simple(Some("addresses_id".to_string()), SimpleExprTy::String))),
             exp: Some(RelationalAST::List{
                 table: "storage.addresses".to_string(),
                 elems_unique: false,
@@ -965,7 +977,7 @@ fn test_relational_ast_builder() {
                     elems_ast: Box::new(RelationalAST::Leaf {
                         rel_entry: RelationalEntry {
                             table_name: "storage.addresses.noname".to_string(),
-                            column_name: "storage.addresses_id_1".to_string(),
+                            column_name: "addresses_id_1".to_string(),
                             column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
                             value: None,
                             is_index: false,
