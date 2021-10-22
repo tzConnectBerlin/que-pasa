@@ -607,7 +607,7 @@ impl Executor {
                 "could not initialize storage processor from the db state"
             })?;
         Ok(StorageProcessor::new(
-            id,
+            0,
             self.node_cli.clone(),
             DBClient::connect(
                 &self.db_url,

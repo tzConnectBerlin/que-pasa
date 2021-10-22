@@ -63,6 +63,10 @@ struct UpdateChangesDerivedTmpl<'a> {
 
 pub struct DBClient {
     dbconn: postgres::Client,
+
+    url: String,
+    ssl: bool,
+    ca_cert: Option<String>,
 }
 
 impl DBClient {
@@ -75,9 +79,9 @@ impl DBClient {
     ) -> Result<Self> {
         if ssl {
             let mut builder = TlsConnector::builder();
-            if let Some(ca_cert) = ca_cert {
+            if let Some(ca_cert) = &ca_cert {
                 builder.add_root_certificate(Certificate::from_pem(
-                    &fs::read(ca_cert)?,
+                    &fs::read(ca_cert.cloned())?,
                 )?);
             }
             let connector = builder.build()?;
@@ -89,8 +93,16 @@ impl DBClient {
         } else {
             Ok(DBClient {
                 dbconn: Client::connect(url, NoTls)?,
+
+                url: url.to_string(),
+                ssl,
+                ca_cert,
             })
         }
+    }
+
+    pub(crate) fn reconnect(&self) -> Self {
+        Self::connect(&self.url, self.ssl, self.ca_cert)
     }
 
     pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
