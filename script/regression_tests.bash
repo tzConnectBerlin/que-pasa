@@ -59,6 +59,46 @@ function assert {
     query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
     query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
     query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat' || exit 1
+
+    # This query finds all foreign key references that have no index on the
+    # columns w/ foreign key reference. We have to make sure there are _none_
+    # of these because we delete data with cascade. If there are any missing
+    # indexes, it kills the performance of delete.
+    #
+    # source of query: https://www.cybertec-postgresql.com/en/index-your-foreign-key/
+    sql=`cat <<- EOF
+SELECT c.conrelid::regclass AS "table",
+       /* list of key column names in order */
+       string_agg(a.attname, ',' ORDER BY x.n) AS columns,
+       pg_catalog.pg_size_pretty(
+          pg_catalog.pg_relation_size(c.conrelid)
+       ) AS size,
+       c.conname AS constraint,
+       c.confrelid::regclass AS referenced_table
+FROM pg_catalog.pg_constraint c
+   /* enumerated key column numbers per foreign key */
+   CROSS JOIN LATERAL
+      unnest(c.conkey) WITH ORDINALITY AS x(attnum, n)
+   /* name for each key column */
+   JOIN pg_catalog.pg_attribute a
+      ON a.attnum = x.attnum
+         AND a.attrelid = c.conrelid
+WHERE NOT EXISTS
+        /* is there a matching index for the constraint? */
+        (SELECT 1 FROM pg_catalog.pg_index i
+         WHERE i.indrelid = c.conrelid
+           /* it must not be a partial index */
+           AND i.indpred IS NULL
+           /* the first index columns must be the same as the
+              key columns, but order doesn't matter */
+           AND (i.indkey::smallint[])[0:cardinality(c.conkey)-1]
+               OPERATOR(pg_catalog.@>) c.conkey)
+  AND c.contype = 'f'
+GROUP BY c.conrelid, c.conname, c.confrelid
+ORDER BY pg_catalog.pg_relation_size(c.conrelid) DESC;
+EOF
+`
+    query "$sql" || exit 1
 }
 
 cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1

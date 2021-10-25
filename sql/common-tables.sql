@@ -73,6 +73,8 @@ CREATE TABLE txs (
     paid_storage_size_diff BIGINT
 );
 
+CREATE UNIQUE INDEX ON txs(tx_context_id);
+
 CREATE VIEW txs_ordered AS (
     SELECT
         DENSE_RANK() OVER (
