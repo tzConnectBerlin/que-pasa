@@ -81,7 +81,7 @@ impl DBClient {
             let mut builder = TlsConnector::builder();
             if let Some(ca_cert) = &ca_cert {
                 builder.add_root_certificate(Certificate::from_pem(
-                    &fs::read(ca_cert.cloned())?,
+                    &fs::read(ca_cert)?,
                 )?);
             }
             let connector = builder.build()?;
@@ -89,6 +89,10 @@ impl DBClient {
 
             Ok(DBClient {
                 dbconn: postgres::Client::connect(url, connector)?,
+
+                url: url.to_string(),
+                ssl,
+                ca_cert,
             })
         } else {
             Ok(DBClient {
@@ -101,8 +105,8 @@ impl DBClient {
         }
     }
 
-    pub(crate) fn reconnect(&self) -> Self {
-        Self::connect(&self.url, self.ssl, self.ca_cert)
+    pub(crate) fn reconnect(&self) -> Result<Self> {
+        Self::connect(&self.url, self.ssl, self.ca_cert.clone())
     }
 
     pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
@@ -913,8 +917,8 @@ set mode = $1",
             Ok(())
         } else {
             Err(anyhow!(
-            "wrong number of rows in indexer_state table. please fix manually. sorry"
-        ))
+                "wrong number of rows in indexer_state table. please fix manually. sorry"
+            ))
         }
     }
 
@@ -1052,7 +1056,7 @@ WHERE contract = $1
         tx: &mut Transaction,
         level: u32,
         contract_id: &ContractID,
-        deps: Vec<String>,
+        deps: &[String],
     ) -> Result<()> {
         for dep in deps {
             tx.execute(

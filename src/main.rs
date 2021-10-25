@@ -80,13 +80,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         assert_sane_db(&mut dbcli);
     }
 
-    let mut executor = highlevel::Executor::new(
-        node_cli.clone(),
-        dbcli,
-        &config.database_url,
-        config.ssl,
-        config.ca_cert.clone(),
-    );
+    let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
     #[cfg(feature = "regression")]
     if config.always_update_derived {
         executor.always_update_derived_tables();
