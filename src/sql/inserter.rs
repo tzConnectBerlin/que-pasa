@@ -7,6 +7,7 @@ use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
 use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::insert::{offset_inserts_ids, Insert, Inserts};
+use crate::stats::StatsLogger;
 use crate::storage_structure::relational::RelationalAST;
 
 pub(crate) struct DBInserter {
@@ -17,7 +18,8 @@ pub(crate) struct DBInserter {
     update_derived_tables: bool,
 }
 
-pub(crate) struct ProcessedBlock {
+#[derive(Clone)]
+pub(crate) struct ProcessedContractBlock {
     pub level: LevelMeta,
     pub contract_id: ContractID,
     pub rel_ast: RelationalAST,
@@ -30,6 +32,8 @@ pub(crate) struct ProcessedBlock {
     pub bigmap_contract_deps: Vec<String>,
     pub bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
 }
+
+pub(crate) type ProcessedBlock = Vec<ProcessedContractBlock>;
 
 impl DBInserter {
     pub(crate) fn new(
@@ -68,18 +72,28 @@ impl DBInserter {
         batch_size: usize,
         recv_ch: flume::Receiver<Box<ProcessedBlock>>,
     ) -> Result<()> {
-        let mut batch: Vec<Box<ProcessedBlock>> = vec![];
+        let mut batch: Vec<ProcessedContractBlock> = vec![];
+        let ch = recv_ch.clone();
+
+        let stats = StatsLogger::new(
+            "inserter".to_string(),
+            std::time::Duration::new(60, 0),
+        );
+        stats.run();
+
         for processed in recv_ch {
-            batch.push(processed);
+            batch.extend(*processed);
             if batch.len() >= batch_size {
+                info!("!!! SQL !!! inserting batch..");
                 insert_batch(
                     &mut dbcli,
+                    Some(&stats),
                     update_derived_tables,
                     &batch
                         .drain(..)
-                        .map(|boxed| *boxed)
-                        .collect::<Vec<ProcessedBlock>>(),
+                        .collect::<Vec<ProcessedContractBlock>>(),
                 )?;
+                info!("!!! SQL !!! inserting batch done.");
             }
         }
         Ok(())
@@ -88,8 +102,9 @@ impl DBInserter {
 
 pub(crate) fn insert_batch(
     dbcli: &mut DBClient,
+    stats: Option<&StatsLogger>,
     update_derived_tables: bool,
-    batch: &[ProcessedBlock],
+    batch: &[ProcessedContractBlock],
 ) -> Result<()> {
     let mut c_inserts: HashMap<ContractID, Inserts> = HashMap::new();
     let mut c_tx_contexts: HashMap<
@@ -195,6 +210,7 @@ pub(crate) fn insert_batch(
     DBClient::save_txs(&mut db_tx, &txs)?;
 
     for (contract_id, inserts) in c_inserts {
+        let num_rows = inserts.len();
         DBClient::apply_inserts(
             &mut db_tx,
             &contract_id,
@@ -202,8 +218,11 @@ pub(crate) fn insert_batch(
                 .into_values()
                 .collect::<Vec<Insert>>(),
         )?;
+        if let Some(stats) = stats {
+            stats.add(contract_id.name.clone(), num_rows)?;
+        }
     }
-    DBClient::save_bigmap_keyhashes(&mut db_tx, bigmap_keyhashes)?;
+    DBClient::save_bigmap_keyhashes(&mut db_tx, &bigmap_keyhashes)?;
 
     if update_derived_tables {
         for (contract_id, (rel_ast, ctxs)) in c_tx_contexts {
@@ -222,5 +241,13 @@ pub(crate) fn insert_batch(
     DBClient::set_max_id(&mut db_tx, max_id)?;
 
     db_tx.commit()?;
+
+    if let Some(stats) = stats {
+        stats.add("levels".to_string(), levels.len())?;
+        stats.add("tx_contexts".to_string(), tx_contexts.len())?;
+        stats.add("txs".to_string(), txs.len())?;
+        stats.add("bigmap_keyhashes".to_string(), bigmap_keyhashes.len())?;
+    }
+
     Ok(())
 }

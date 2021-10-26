@@ -395,7 +395,7 @@ WHERE name = $1
 
     pub(crate) fn save_bigmap_keyhashes(
         tx: &mut Transaction,
-        bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+        bigmap_keyhashes: &[(TxContext, i32, String, String)],
     ) -> Result<()> {
         for chunk in bigmap_keyhashes.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 4;

@@ -24,7 +24,10 @@ use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::insert::{Insert, Inserts};
-use crate::sql::inserter::{insert_batch, DBInserter, ProcessedBlock};
+use crate::sql::inserter::{
+    insert_batch, DBInserter, ProcessedBlock, ProcessedContractBlock,
+};
+use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
 use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
@@ -39,7 +42,7 @@ pub struct SaveLevelResult {
 
 impl SaveLevelResult {
     pub(crate) fn from_processed_block(
-        processed_block: &ProcessedBlock,
+        processed_block: &ProcessedContractBlock,
     ) -> Self {
         Self {
             level: processed_block.level.level,
@@ -491,26 +494,37 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        let queue_size = 20;
-        let batch_size = 20;
+        let batch_size = 50;
         let inserter =
             DBInserter::new(self.dbcli.reconnect()?, batch_size, false)?;
         let (processed_send, processed_recv) =
-            flume::bounded::<Box<ProcessedBlock>>(queue_size);
+            flume::bounded::<Box<ProcessedBlock>>(batch_size * 5);
 
         threads.push(inserter.run(processed_recv)?);
 
+        let stats = StatsLogger::new(
+            "executor".to_string(),
+            std::time::Duration::new(10, 0),
+        );
+        info!("starting stats..");
+        threads.push(stats.run());
+        info!("stats running");
+
         let processed_levels: Vec<u32> = vec![];
-        for i in 0..num_getters * 5 {
+        info!("starting workers..");
+        for i in 0..std::cmp::max(1, num_getters / 2) {
+            info!("worker..");
             let clone = self.clone();
             let w_recv_ch = block_recv.clone();
             let w_send_ch = processed_send.clone();
+            let stats_cl = stats.clone();
             threads.push(thread::spawn(move || {
                 clone
-                    .read_block_chan(w_recv_ch, w_send_ch)
+                    .read_block_chan(&stats_cl, w_recv_ch, w_send_ch)
                     .unwrap();
             }));
         }
+        info!("workers running.");
 
         for t in threads {
             t.join().map_err(|e| {
@@ -581,6 +595,7 @@ impl Executor {
 
     fn read_block_chan(
         &self,
+        stats: &StatsLogger,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
         processed_ch: flume::Sender<Box<ProcessedBlock>>,
     ) -> Result<Vec<u32>> {
@@ -588,16 +603,19 @@ impl Executor {
         for b in block_ch {
             let (meta, block) = *b;
 
-            let mut contract_results: Vec<SaveLevelResult> = vec![];
-            for processed_block in self.exec_for_block(&meta, &block, true)? {
-                contract_results.push(SaveLevelResult::from_processed_block(
-                    &processed_block,
-                ));
+            let processed_block = self.exec_for_block(&meta, &block, true)?;
 
-                processed_ch.send(Box::new(processed_block))?;
+            for cres in &processed_block {
+                stats
+                    .add(cres.contract_id.name.clone(), cres.tx_contexts.len());
             }
+            processed_ch.send(Box::new(processed_block))?;
+            stats.add("levels".to_string(), 1);
+            stats.set(
+                "last processed level".to_string(),
+                format!("{} ({:?})", meta.level, meta.baked_at.unwrap()),
+            );
 
-            Self::print_status(meta.level, &contract_results);
             processed_levels.push(meta.level);
         }
 
@@ -658,7 +676,12 @@ impl Executor {
             res.push(SaveLevelResult::from_processed_block(processed_block));
         }
 
-        insert_batch(&mut self.dbcli.reconnect()?, false, &processed_blocks)?;
+        insert_batch(
+            &mut self.dbcli.reconnect()?,
+            None,
+            false,
+            &processed_blocks,
+        )?;
 
         Ok(res)
     }
@@ -710,7 +733,7 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
         cleanup_on_reorg: bool,
-    ) -> Result<Vec<ProcessedBlock>> {
+    ) -> Result<ProcessedBlock> {
         // note: we expect level's values to all be set (no None values in its fields)
         /*
         if let Err(e) = self.ensure_level_hash(
@@ -765,13 +788,15 @@ impl Executor {
                 .cloned()
                 .collect::<Vec<ContractID>>()
         };
-        let mut contract_results: Vec<ProcessedBlock> = vec![];
+        let mut contract_results: Vec<ProcessedContractBlock> = vec![];
 
+        /*
         info!(
             "processing level {}: (baked at {})",
             level.level,
             level.baked_at.unwrap()
         );
+        */
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
         for contract_id in &process_contracts {
@@ -819,12 +844,12 @@ impl Executor {
         diffs: &IntraBlockBigmapDiffsProcessor,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
-    ) -> Result<ProcessedBlock> {
+    ) -> Result<ProcessedContractBlock> {
         let is_origination =
             block.has_contract_origination(&contract_id.address);
 
         if !is_origination && !block.is_contract_active(&contract_id.address) {
-            return Ok(ProcessedBlock {
+            return Ok(ProcessedContractBlock {
                 level: meta.clone(),
                 contract_id: contract_id.clone(),
                 inserts: HashMap::new(),
@@ -852,7 +877,7 @@ impl Executor {
         let bigmap_contract_deps =
             storage_processor.drain_bigmap_contract_dependencies();
 
-        Ok(ProcessedBlock {
+        Ok(ProcessedContractBlock {
             level: meta.clone(),
             contract_id: contract_id.clone(),
             inserts,
