@@ -12,61 +12,6 @@ pub(crate) struct StatsLogger {
     stats: Arc<Mutex<Stats>>,
 }
 
-#[derive(Debug)]
-struct Stats {
-    counters: HashMap<String, usize>,
-    values: HashMap<String, String>,
-}
-
-impl Stats {
-    pub(crate) fn new() -> Self {
-        Self {
-            counters: HashMap::new(),
-            values: HashMap::new(),
-        }
-    }
-
-    pub(crate) fn print_report(&self, ident: &str, at_interval: &Duration) {
-        let mut counters = self
-            .counters
-            .clone()
-            .into_iter()
-            .collect::<Vec<(String, usize)>>();
-        counters.sort_by_key(|(f, _)| f.clone());
-
-        let counters_log: String = counters
-            .iter()
-            .map(|(field, c)| {
-                format!(
-                    "\n\t{}:\t{} total,\t{} per/minute",
-                    field,
-                    c,
-                    ((c * 60) as u64) / at_interval.as_secs()
-                )
-            })
-            .collect::<Vec<String>>()
-            .join("");
-
-        let mut values = self
-            .values
-            .clone()
-            .into_iter()
-            .collect::<Vec<(String, String)>>();
-        values.sort_by_key(|(f, _)| f.clone());
-
-        let values_log: String = values
-            .iter()
-            .map(|(field, value)| format!("\n\t{}: {}", field, value))
-            .collect::<Vec<String>>()
-            .join("");
-
-        info!(
-            "{} {:?} report:{}{}",
-            ident, at_interval, counters_log, values_log
-        );
-    }
-}
-
 impl StatsLogger {
     pub(crate) fn new(ident: String, interval: Duration) -> Self {
         Self {
@@ -124,5 +69,60 @@ impl StatsLogger {
             counters: c,
             values: v,
         })
+    }
+}
+
+#[derive(Debug)]
+struct Stats {
+    counters: HashMap<String, usize>,
+    values: HashMap<String, String>,
+}
+
+impl Stats {
+    pub(crate) fn new() -> Self {
+        Self {
+            counters: HashMap::new(),
+            values: HashMap::new(),
+        }
+    }
+
+    pub(crate) fn print_report(&self, ident: &str, at_interval: &Duration) {
+        let mut counters = self
+            .counters
+            .clone()
+            .into_iter()
+            .collect::<Vec<(String, usize)>>();
+        counters.sort_by_key(|(f, _)| f.clone());
+
+        let counters_log: String = counters
+            .iter()
+            .map(|(field, c)| {
+                format!(
+                    "\n\t{}:\t{} total,\t{} per/minute",
+                    field,
+                    c,
+                    ((c * 60) as u64) / at_interval.as_secs()
+                )
+            })
+            .collect::<Vec<String>>()
+            .join("");
+
+        let mut values = self
+            .values
+            .clone()
+            .into_iter()
+            .collect::<Vec<(String, String)>>();
+        values.sort_by_key(|(f, _)| f.clone());
+
+        let values_log: String = values
+            .iter()
+            .map(|(field, value)| format!("\n\t{}: {}", field, value))
+            .collect::<Vec<String>>()
+            .join("");
+
+        info!(
+            "{} {:?} report:{}{}",
+            ident, at_interval, counters_log, values_log
+        );
     }
 }

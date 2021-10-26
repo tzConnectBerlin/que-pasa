@@ -506,14 +506,10 @@ impl Executor {
             "executor".to_string(),
             std::time::Duration::new(10, 0),
         );
-        info!("starting stats..");
         threads.push(stats.run());
-        info!("stats running");
 
         let processed_levels: Vec<u32> = vec![];
-        info!("starting workers..");
         for i in 0..std::cmp::max(1, num_getters / 2) {
-            info!("worker..");
             let clone = self.clone();
             let w_recv_ch = block_recv.clone();
             let w_send_ch = processed_send.clone();
@@ -524,7 +520,6 @@ impl Executor {
                     .unwrap();
             }));
         }
-        info!("workers running.");
 
         for t in threads {
             t.join().map_err(|e| {
@@ -610,8 +605,12 @@ impl Executor {
                     .add(cres.contract_id.name.clone(), cres.tx_contexts.len());
             }
             stats.set(
-                "ouput channel size".to_string(),
-                format!("{}", processed_ch.len()),
+                "output channel status".to_string(),
+                format!(
+                    "{}/{}",
+                    processed_ch.len(),
+                    processed_ch.capacity().unwrap()
+                ),
             )?;
             processed_ch.send(Box::new(processed_block))?;
             stats.add("levels".to_string(), 1);
