@@ -50,6 +50,7 @@ impl SaveLevelResult {
     }
 }
 
+#[derive(Clone)]
 pub struct Executor {
     node_cli: NodeClient,
     dbcli: DBClient,
@@ -499,8 +500,17 @@ impl Executor {
 
         threads.push(inserter.run(processed_recv)?);
 
-        let processed_levels: Vec<u32> =
-            self.read_block_chan(block_recv, processed_send)?;
+        let processed_levels: Vec<u32> = vec![];
+        for i in 0..10 {
+            let clone = self.clone();
+            let w_recv_ch = block_recv.clone();
+            let w_send_ch = processed_send.clone();
+            threads.push(thread::spawn(move || {
+                clone
+                    .read_block_chan(w_recv_ch, w_send_ch)
+                    .unwrap();
+            }));
+        }
 
         for t in threads {
             t.join().map_err(|e| {
@@ -570,7 +580,7 @@ impl Executor {
     }
 
     fn read_block_chan(
-        &mut self,
+        &self,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
         processed_ch: flume::Sender<Box<ProcessedBlock>>,
     ) -> Result<Vec<u32>> {
@@ -648,7 +658,7 @@ impl Executor {
             res.push(SaveLevelResult::from_processed_block(processed_block));
         }
 
-        insert_batch(&mut self.dbcli, false, &processed_blocks)?;
+        insert_batch(&mut self.dbcli.reconnect()?, false, &processed_blocks)?;
 
         Ok(res)
     }
@@ -696,12 +706,13 @@ impl Executor {
     }
 
     fn exec_for_block(
-        &mut self,
+        &self,
         level: &LevelMeta,
         block: &Block,
         cleanup_on_reorg: bool,
     ) -> Result<Vec<ProcessedBlock>> {
         // note: we expect level's values to all be set (no None values in its fields)
+        /*
         if let Err(e) = self.ensure_level_hash(
             level.level,
             level.hash.as_ref().unwrap(),
@@ -720,6 +731,7 @@ impl Executor {
         #[cfg(feature = "regression")]
         let update_derived_tables =
             update_derived_tables | self.always_update_derived;
+        */
 
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
@@ -744,7 +756,7 @@ impl Executor {
                         .map(|x| &x.address)
                         .collect::<Vec<&String>>()
                 );
-                self.add_missing_contracts(&new_contracts)?;
+                //self.add_missing_contracts(&new_contracts)?;
             }
             active_contracts
         } else {
@@ -772,6 +784,7 @@ impl Executor {
                 rel_ast,
             )?);
         }
+        /*
         for cres in &contract_results {
             if cres.is_origination {
                 self.update_contract_floor(
@@ -780,6 +793,7 @@ impl Executor {
                 )?;
             }
         }
+        */
         Ok(contract_results)
     }
 

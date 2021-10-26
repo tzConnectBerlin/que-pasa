@@ -69,6 +69,12 @@ pub struct DBClient {
     ca_cert: Option<String>,
 }
 
+impl Clone for DBClient {
+    fn clone(&self) -> Self {
+        self.reconnect().unwrap()
+    }
+}
+
 impl DBClient {
     const INSERT_BATCH_SIZE: usize = 100;
 
