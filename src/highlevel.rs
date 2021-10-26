@@ -609,6 +609,10 @@ impl Executor {
                 stats
                     .add(cres.contract_id.name.clone(), cres.tx_contexts.len());
             }
+            stats.set(
+                "ouput channel size".to_string(),
+                format!("{}", processed_ch.len()),
+            )?;
             processed_ch.send(Box::new(processed_block))?;
             stats.add("levels".to_string(), 1);
             stats.set(
