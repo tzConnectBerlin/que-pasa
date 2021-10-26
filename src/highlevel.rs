@@ -501,7 +501,7 @@ impl Executor {
         threads.push(inserter.run(processed_recv)?);
 
         let processed_levels: Vec<u32> = vec![];
-        for i in 0..10 {
+        for i in 0..num_getters * 5 {
             let clone = self.clone();
             let w_recv_ch = block_recv.clone();
             let w_send_ch = processed_send.clone();
