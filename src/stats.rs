@@ -1,5 +1,6 @@
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -10,6 +11,8 @@ pub(crate) struct StatsLogger {
     interval: Duration,
 
     stats: Arc<Mutex<Stats>>,
+
+    is_cancelled: Arc<AtomicBool>,
 }
 
 impl StatsLogger {
@@ -19,6 +22,8 @@ impl StatsLogger {
             interval,
 
             stats: Arc::new(Mutex::new(Stats::new())),
+
+            is_cancelled: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -48,13 +53,19 @@ impl StatsLogger {
         thread::spawn(move || cl.exec().unwrap())
     }
 
+    pub(crate) fn cancel(&self) {
+        self.is_cancelled
+            .swap(true, Ordering::Relaxed);
+    }
+
     fn exec(&self) -> Result<()> {
-        loop {
-            thread::sleep(self.interval);
+        while !self.cancelled() {
+            thread::park_timeout(self.interval);
 
             let stats = self.drain_stats()?;
             stats.print_report(&self.ident, &self.interval);
         }
+        Ok(())
     }
 
     fn drain_stats(&self) -> Result<Stats> {
@@ -69,6 +80,11 @@ impl StatsLogger {
             counters: c,
             values: v,
         })
+    }
+
+    fn cancelled(&self) -> bool {
+        self.is_cancelled
+            .load(Ordering::Relaxed)
     }
 }
 
@@ -120,7 +136,7 @@ impl Stats {
             .collect::<Vec<String>>()
             .join("");
 
-        let header = format!("\t{:<20}  {:<9}  {}", "", "sum", "per/minute");
+        let header = format!("\t{:<20}  {:<9}  {}", "", "sum", "per minute");
         info!(
             "\n{} {:?} report:\n{}{}\n\t--{}",
             ident, at_interval, header, counters_log, values_log

@@ -142,37 +142,3 @@ impl Insert {
 }
 
 pub type Inserts = HashMap<InsertKey, Insert>;
-
-pub(crate) fn offset_inserts_ids(
-    inserts: &Inserts,
-    offset: i64,
-) -> (Inserts, i64) {
-    let mut res = Inserts::new();
-
-    let mut max = offset;
-    for (k, v) in inserts {
-        let mut k = k.clone();
-        let mut v = v.clone();
-
-        v.map_column("tx_context_id", |v| match v {
-            Value::BigInt(i) => Value::BigInt(i + offset),
-            _ => panic!(".."),
-        });
-
-        k.id += offset;
-        v.id += offset;
-        v.fk_id = v.fk_id.map(|fk_id| fk_id + offset);
-        max = vec![
-            k.id,
-            v.id,
-            v.fk_id.unwrap_or(0),
-            v.get_tx_context_id().unwrap(),
-            max,
-        ]
-        .into_iter()
-        .max()
-        .unwrap();
-        res.insert(k, v);
-    }
-    (res, max)
-}

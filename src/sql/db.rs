@@ -576,7 +576,7 @@ VALUES ( {} )",
         contract_id: &ContractID,
         inserts: &[Insert],
     ) -> Result<()> {
-        let mut table_grouped: HashMap<(String, Vec<String>), Vec<Insert>> =
+        let mut table_grouped: HashMap<(String, Vec<String>), Vec<&Insert>> =
             HashMap::new();
         for insert in inserts {
             let key = &(
@@ -593,7 +593,7 @@ VALUES ( {} )",
             table_grouped
                 .get_mut(key)
                 .unwrap()
-                .push(insert.clone());
+                .push(insert);
         }
         let mut keys: Vec<&(String, Vec<String>)> =
             table_grouped.keys().collect();
@@ -694,7 +694,7 @@ WHERE dest_schema IN ({})
     pub(crate) fn apply_inserts_for_table(
         tx: &mut postgres::Transaction,
         contract_id: &ContractID,
-        inserts: &[Insert],
+        inserts: &[&Insert],
     ) -> Result<()> {
         let meta = &inserts[0];
 
@@ -985,61 +985,155 @@ order by 1",
         Ok(partial_processed)
     }
 
-    pub(crate) fn save_level(
+    pub(crate) fn save_levels(
         tx: &mut Transaction,
-        meta: &LevelMeta,
+        levels: &[&LevelMeta],
     ) -> Result<()> {
-        tx.execute(
-            "
+        Self::delete_levels(
+            tx,
+            &levels
+                .iter()
+                .map(|meta| meta.level as i32)
+                .collect::<Vec<i32>>(),
+        )?;
+
+        for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 4;
+            let v_refs = (1..(num_columns * lvls_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
 INSERT INTO levels(
     level, hash, prev_hash, baked_at
-) VALUES ($1, $2, $3, $4)
-",
-            &[
-                &(meta.level as i32),
-                &meta.hash,
-                &meta.prev_hash,
-                &meta.baked_at,
-            ],
-        )?;
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
+
+            let v_: Vec<(
+                i32,
+                Option<String>,
+                Option<String>,
+                Option<DateTime<Utc>>,
+            )> = lvls_chunk
+                .iter()
+                .map(|m| {
+                    (
+                        m.level as i32,
+                        m.hash.clone(),
+                        m.prev_hash.clone(),
+                        m.baked_at.clone(),
+                    )
+                })
+                .collect();
+
+            let values: Vec<&dyn postgres::types::ToSql> = v_
+                .iter()
+                .flat_map(|(lvl, hash, prev_hash, baked_at)| {
+                    [
+                        lvl.borrow_to_sql(),
+                        hash.borrow_to_sql(),
+                        prev_hash.borrow_to_sql(),
+                        baked_at.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 
-    pub(crate) fn delete_level(tx: &mut Transaction, level: u32) -> Result<()> {
-        tx.execute(
-            "
-DELETE FROM contract_deps
-WHERE level = $1",
-            &[&(level as i32)],
-        )?;
-        tx.execute(
-            "
-DELETE FROM contract_levels
-WHERE level = $1",
-            &[&(level as i32)],
-        )?;
-        tx.execute(
-            "
-DELETE FROM levels
-WHERE level = $1",
-            &[&(level as i32)],
-        )?;
-        Ok(())
-    }
-
-    pub(crate) fn save_contract_level(
+    pub(crate) fn delete_levels(
         tx: &mut Transaction,
-        contract_id: &ContractID,
-        level: u32,
+        levels: &[i32],
     ) -> Result<()> {
-        tx.execute(
-            "
-INSERT INTO contract_levels(
-    contract, level
-) VALUES ($1, $2)
+        for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
+            let v_refs = (1..lvls_chunk.len() + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            let values: Vec<&dyn postgres::types::ToSql> = lvls_chunk
+                .iter()
+                .map(|level| level.borrow_to_sql())
+                .collect();
+            let stmt = tx.prepare(&format!(
+                "
+DELETE FROM contract_deps
+WHERE level IN ( {} )
 ",
-            &[&contract_id.name, &(level as i32)],
-        )?;
+                v_refs
+            ))?;
+            tx.query_raw(&stmt, values)?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = lvls_chunk
+                .iter()
+                .map(|level| level.borrow_to_sql())
+                .collect();
+            let stmt = tx.prepare(&format!(
+                "
+DELETE FROM contract_levels
+WHERE level IN ( {} )
+",
+                v_refs
+            ))?;
+            tx.query_raw(&stmt, values)?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = lvls_chunk
+                .iter()
+                .map(|level| level.borrow_to_sql())
+                .collect();
+            let stmt = tx.prepare(&format!(
+                "
+DELETE FROM levels
+WHERE level IN ( {} )
+",
+                v_refs
+            ))?;
+            tx.query_raw(&stmt, values)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn save_contract_levels(
+        tx: &mut Transaction,
+        clvls: &[(ContractID, i32, bool)],
+    ) -> Result<()> {
+        for clvls_chunk in clvls.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 3;
+            let v_refs = (1..(num_columns * clvls_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
+INSERT INTO contract_levels(
+    contract, level, is_origination
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = clvls_chunk
+                .iter()
+                .flat_map(|(contract, level, is_origination)| {
+                    [
+                        contract.name.borrow_to_sql(),
+                        level.borrow_to_sql(),
+                        is_origination.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 
@@ -1060,44 +1154,37 @@ WHERE contract = $1
 
     pub(crate) fn save_contract_deps(
         tx: &mut Transaction,
-        level: u32,
-        contract_id: &ContractID,
-        deps: &[String],
+        deps: &[(i32, String, ContractID)],
     ) -> Result<()> {
-        for dep in deps {
-            tx.execute(
+        for deps_chunk in deps.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 3;
+            let v_refs = (1..(num_columns * deps_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
                 "
 INSERT INTO contract_deps (level, src_contract, dest_schema)
-VALUES ($1, $2, $3)
+VALUES ( {} )
 ON CONFLICT DO NOTHING",
-                &[&(level as i32), &dep, &contract_id.name],
-            )?;
-        }
-        Ok(())
-    }
+                v_refs
+            ))?;
 
-    /// get the origination of the contract, which is currently store in the levels (will change)
-    pub(crate) fn set_origination(
-        tx: &mut Transaction,
-        contract_id: &ContractID,
-        level: u32,
-    ) -> Result<()> {
-        tx.execute(
-            "
-UPDATE contract_levels
-SET is_origination = FALSE
-WHERE is_origination = TRUE
-  AND contract = $1",
-            &[&contract_id.name],
-        )?;
-        tx.execute(
-            "
-UPDATE contract_levels
-SET is_origination = TRUE
-WHERE contract = $1
-  AND level = $2",
-            &[&contract_id.name, &(level as i32)],
-        )?;
+            let values: Vec<&dyn postgres::types::ToSql> = deps_chunk
+                .iter()
+                .flat_map(|(level, src_addr, dest)| {
+                    [
+                        level.borrow_to_sql(),
+                        src_addr.borrow_to_sql(),
+                        dest.name.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 

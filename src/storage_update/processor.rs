@@ -262,10 +262,6 @@ where
         Ok(())
     }
 
-    pub(crate) fn get_id_value(&self) -> i64 {
-        self.id_generator.id
-    }
-
     fn tx_context(
         &mut self,
         mut tx_context: TxContext,

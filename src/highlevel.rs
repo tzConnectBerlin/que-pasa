@@ -1,6 +1,5 @@
 use anyhow::{anyhow, ensure, Context, Result};
 use chrono::Duration;
-use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
@@ -16,16 +15,13 @@ use pretty_assertions::assert_eq;
 use crate::config::ContractID;
 use crate::debug;
 use crate::octez::bcd;
-use crate::octez::block::{
-    get_implicit_origination_level, Block, LevelMeta, Tx, TxContext,
-};
+use crate::octez::block::{get_implicit_origination_level, Block, LevelMeta};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::db::{DBClient, IndexerMode};
-use crate::sql::insert::{Insert, Inserts};
 use crate::sql::inserter::{
-    insert_batch, DBInserter, ProcessedBlock, ProcessedContractBlock,
+    insert_processed, DBInserter, ProcessedBlock, ProcessedContractBlock,
 };
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
@@ -292,7 +288,12 @@ impl Executor {
                                     bad_lvl.err, bad_lvl.level
                                 );
                                 let mut tx = self.dbcli.transaction()?;
-                                DBClient::delete_level(&mut tx, bad_lvl.level)?;
+                                DBClient::delete_levels(
+                                    &mut tx,
+                                    &(bad_lvl.level as i32
+                                        ..db_head.level as i32)
+                                        .collect::<Vec<i32>>(),
+                                )?;
                                 tx.commit()?;
                                 break;
                             }
@@ -314,7 +315,10 @@ impl Executor {
                             db_head.hash, chain_head.hash
                         );
                         let mut tx = self.dbcli.transaction()?;
-                        DBClient::delete_level(&mut tx, db_head.level)?;
+                        DBClient::delete_levels(
+                            &mut tx,
+                            &[db_head.level as i32],
+                        )?;
                         tx.commit()?;
                     }
                     wait(&mut first_wait);
@@ -482,7 +486,7 @@ impl Executor {
         self.dbcli
             .set_indexer_mode(IndexerMode::Bootstrap)?;
 
-        // Fetches block data in parallel, processes each block sequentially
+        // Fetches block data and processes them in parallel
 
         let (height_send, height_recv) = flume::bounded::<u32>(num_getters);
         let (block_send, block_recv) =
@@ -495,37 +499,56 @@ impl Executor {
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
         let batch_size = 50;
-        let inserter =
-            DBInserter::new(self.dbcli.reconnect()?, batch_size, false)?;
+        let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size);
 
         threads.push(inserter.run(processed_recv)?);
 
         let stats = StatsLogger::new(
-            "executor".to_string(),
+            "processor".to_string(),
             std::time::Duration::new(10, 0),
         );
-        threads.push(stats.run());
+        let stats_thread = stats.run();
 
-        let processed_levels: Vec<u32> = vec![];
-        for i in 0..std::cmp::max(1, num_getters / 2) {
-            let clone = self.clone();
+        let processed_levels: Arc<Mutex<Vec<u32>>> =
+            Arc::new(Mutex::new(vec![]));
+        let num_processors = std::cmp::max(1, num_getters / 2);
+        info!("starting {} concurrent processor(s)", num_processors);
+        for _ in 0..num_processors {
+            let mut exec = self.clone();
             let w_recv_ch = block_recv.clone();
             let w_send_ch = processed_send.clone();
             let stats_cl = stats.clone();
+            let res_arc = processed_levels.clone();
             threads.push(thread::spawn(move || {
-                clone
+                let processed = exec
                     .read_block_chan(&stats_cl, w_recv_ch, w_send_ch)
                     .unwrap();
+
+                let mut res = res_arc.lock().unwrap();
+                info!("processor thread done: {:?}", &processed);
+                res.extend(processed);
             }));
         }
+        drop(processed_send);
 
         for t in threads {
             t.join().map_err(|e| {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
+        info!("executor killing stats..");
+        stats.cancel();
+        stats_thread.thread().unpark();
+        stats_thread.join().map_err(|e| {
+            anyhow!("failed to stop processor statistics logger, err: {:?}", e)
+        })?;
+        info!("executor killing stats done.");
+
+        let processed_levels = Arc::try_unwrap(processed_levels)
+            .map_err(|e| anyhow!("{:?}", e))?
+            .into_inner()?;
         Ok(processed_levels)
     }
 
@@ -589,11 +612,13 @@ impl Executor {
     }
 
     fn read_block_chan(
-        &self,
+        &mut self,
         stats: &StatsLogger,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
         processed_ch: flume::Sender<Box<ProcessedBlock>>,
     ) -> Result<Vec<u32>> {
+        let in_ch = block_ch.clone();
+
         let mut processed_levels: Vec<u32> = vec![];
         for b in block_ch {
             let (meta, block) = *b;
@@ -601,23 +626,27 @@ impl Executor {
             let processed_block = self.exec_for_block(&meta, &block, true)?;
 
             for cres in &processed_block {
-                stats
-                    .add(cres.contract_id.name.clone(), cres.tx_contexts.len());
+                stats.add(
+                    cres.contract_id.name.clone(),
+                    cres.tx_contexts.len(),
+                )?;
             }
             stats.set(
-                "output channel status".to_string(),
+                "channels size (input - output)".to_string(),
                 format!(
-                    "{}/{}",
+                    "{}/{} - {}/{}",
+                    in_ch.len(),
+                    in_ch.capacity().unwrap(),
                     processed_ch.len(),
                     processed_ch.capacity().unwrap()
                 ),
             )?;
             processed_ch.send(Box::new(processed_block))?;
-            stats.add("levels".to_string(), 1);
+            stats.add("levels".to_string(), 1)?;
             stats.set(
                 "last processed level".to_string(),
                 format!("{} ({:?})", meta.level, meta.baked_at.unwrap()),
-            );
+            )?;
 
             processed_levels.push(meta.level);
         }
@@ -673,17 +702,22 @@ impl Executor {
             })?;
 
         let mut res: Vec<SaveLevelResult> = vec![];
-        let processed_blocks =
+        let processed_block =
             self.exec_for_block(&meta, &block, cleanup_on_reorg)?;
-        for processed_block in &processed_blocks {
-            res.push(SaveLevelResult::from_processed_block(processed_block));
+        for cres in &processed_block {
+            res.push(SaveLevelResult::from_processed_block(cres));
         }
 
-        insert_batch(
+        let update_derived_tables =
+            self.dbcli.get_indexer_mode()? == IndexerMode::Head;
+        #[cfg(feature = "regression")]
+        let update_derived_tables =
+            update_derived_tables | self.always_update_derived;
+
+        insert_processed(
             &mut self.dbcli.reconnect()?,
-            None,
-            false,
-            &processed_blocks,
+            update_derived_tables,
+            processed_block,
         )?;
 
         Ok(res)
@@ -732,13 +766,12 @@ impl Executor {
     }
 
     fn exec_for_block(
-        &self,
+        &mut self,
         level: &LevelMeta,
         block: &Block,
         cleanup_on_reorg: bool,
     ) -> Result<ProcessedBlock> {
         // note: we expect level's values to all be set (no None values in its fields)
-        /*
         if let Err(e) = self.ensure_level_hash(
             level.level,
             level.hash.as_ref().unwrap(),
@@ -751,13 +784,6 @@ impl Executor {
             warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
             self.exec_level(bad_lvl.level, true)?;
         }
-
-        let update_derived_tables =
-            self.dbcli.get_indexer_mode()? == IndexerMode::Head;
-        #[cfg(feature = "regression")]
-        let update_derived_tables =
-            update_derived_tables | self.always_update_derived;
-        */
 
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
@@ -782,7 +808,7 @@ impl Executor {
                         .map(|x| &x.address)
                         .collect::<Vec<&String>>()
                 );
-                //self.add_missing_contracts(&new_contracts)?;
+                self.add_missing_contracts(&new_contracts)?;
             }
             active_contracts
         } else {
@@ -812,7 +838,6 @@ impl Executor {
                 rel_ast,
             )?);
         }
-        /*
         for cres in &contract_results {
             if cres.is_origination {
                 self.update_contract_floor(
@@ -821,7 +846,6 @@ impl Executor {
                 )?;
             }
         }
-        */
         Ok(contract_results)
     }
 
@@ -855,7 +879,7 @@ impl Executor {
             return Ok(ProcessedContractBlock {
                 level: meta.clone(),
                 contract_id: contract_id.clone(),
-                inserts: HashMap::new(),
+                inserts: vec![],
                 tx_contexts: vec![],
                 txs: vec![],
                 bigmap_contract_deps: vec![],
@@ -883,7 +907,7 @@ impl Executor {
         Ok(ProcessedContractBlock {
             level: meta.clone(),
             contract_id: contract_id.clone(),
-            inserts,
+            inserts: inserts.values().cloned().collect(),
             tx_contexts,
             txs,
             bigmap_contract_deps,

@@ -19,7 +19,7 @@ impl NodeClient {
         Self {
             node_url,
             chain,
-            timeout: Duration::from_secs(5),
+            timeout: Duration::from_secs(20),
         }
     }
 
