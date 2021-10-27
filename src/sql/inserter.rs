@@ -84,7 +84,6 @@ impl DBInserter {
         for processed in recv_ch {
             batch.extend(*processed);
             if batch.len() >= batch_size {
-                info!("!!! SQL !!! inserting batch..");
                 insert_batch(
                     &mut dbcli,
                     Some(&stats),
@@ -93,7 +92,6 @@ impl DBInserter {
                         .drain(..)
                         .collect::<Vec<ProcessedContractBlock>>(),
                 )?;
-                info!("!!! SQL !!! inserting batch done.");
             }
         }
         Ok(())

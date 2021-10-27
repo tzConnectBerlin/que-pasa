@@ -98,7 +98,7 @@ impl Stats {
             .iter()
             .map(|(field, c)| {
                 format!(
-                    "\n\t{}:\t{} total,\t{} per/minute",
+                    "\n\t{:<20}| {:<9}| {}",
                     field,
                     c,
                     ((c * 60) as u64) / at_interval.as_secs()
@@ -120,9 +120,10 @@ impl Stats {
             .collect::<Vec<String>>()
             .join("");
 
+        let header = format!("\t{:<20}  {:<9}  {}", "", "sum", "per/minute");
         info!(
-            "{} {:?} report:{}{}",
-            ident, at_interval, counters_log, values_log
+            "\n{} {:?} report:\n{}{}\n\t--{}",
+            ident, at_interval, header, counters_log, values_log
         );
     }
 }

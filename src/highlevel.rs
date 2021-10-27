@@ -486,7 +486,7 @@ impl Executor {
 
         let (height_send, height_recv) = flume::bounded::<u32>(num_getters);
         let (block_send, block_recv) =
-            flume::bounded::<Box<(LevelMeta, Block)>>(num_getters);
+            flume::bounded::<Box<(LevelMeta, Block)>>(num_getters * 5);
 
         let block_getter =
             ConcurrentBlockGetter::new(self.node_cli.clone(), num_getters);
@@ -498,7 +498,7 @@ impl Executor {
         let inserter =
             DBInserter::new(self.dbcli.reconnect()?, batch_size, false)?;
         let (processed_send, processed_recv) =
-            flume::bounded::<Box<ProcessedBlock>>(batch_size * 5);
+            flume::bounded::<Box<ProcessedBlock>>(batch_size);
 
         threads.push(inserter.run(processed_recv)?);
 
