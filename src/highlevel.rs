@@ -538,13 +538,11 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
-        info!("executor killing stats..");
         stats.cancel();
         stats_thread.thread().unpark();
         stats_thread.join().map_err(|e| {
             anyhow!("failed to stop processor statistics logger, err: {:?}", e)
         })?;
-        info!("executor killing stats done.");
 
         let processed_levels = Arc::try_unwrap(processed_levels)
             .map_err(|e| anyhow!("{:?}", e))?

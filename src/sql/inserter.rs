@@ -77,18 +77,13 @@ impl DBInserter {
                 accum_begin = Instant::now();
             }
         }
-        info!("inserter thread done, inserting last batch..");
         insert_batch(&mut dbcli, Some(&stats), update_derived, &batch)?;
-
-        info!("inserter thread done, killing stats..");
 
         stats.cancel();
         stats_thread.thread().unpark();
         stats_thread.join().map_err(|e| {
             anyhow!("failed to stop inserter statistics logger, err: {:?}", e)
         })?;
-
-        info!("inserter thread done");
 
         Ok(())
     }
@@ -136,9 +131,7 @@ fn insert_batch(
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
 
     if update_derived_tables {
-        info!("updating derived tables..");
         for (contract_id, (rel_ast, ctxs)) in &batch.contract_tx_contexts {
-            info!("updating derived tables for {}", contract_id.name);
             DBClient::update_derived_tables(
                 &mut db_tx,
                 contract_id,
