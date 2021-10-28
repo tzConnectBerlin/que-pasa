@@ -494,22 +494,18 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
+        let stats = StatsLogger::new(std::time::Duration::new(
+            self.reports_interval as u64,
+            0,
+        ));
+        let stats_thread = stats.run();
+
         let batch_size = 10;
-        let inserter = DBInserter::new(
-            self.dbcli.reconnect()?,
-            batch_size,
-            self.reports_interval,
-        );
+        let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
 
-        threads.push(inserter.run(processed_recv)?);
-
-        let stats = StatsLogger::new(
-            "processor".to_string(),
-            std::time::Duration::new(self.reports_interval as u64, 0),
-        );
-        let stats_thread = stats.run();
+        threads.push(inserter.run(&stats, processed_recv)?);
 
         let processed_levels: Arc<Mutex<Vec<u32>>> =
             Arc::new(Mutex::new(vec![]));
@@ -630,12 +626,14 @@ impl Executor {
 
             for cres in &processed_block {
                 stats.add(
-                    cres.contract_id.name.clone(),
+                    "processor",
+                    &cres.contract_id.name,
                     cres.tx_contexts.len(),
                 )?;
             }
             stats.set(
-                "channel sizes (input - output)".to_string(),
+                "processor",
+                "channel sizes (input - output)",
                 format!(
                     "{}/{} - {}/{}",
                     in_ch.len(),
@@ -645,9 +643,10 @@ impl Executor {
                 ),
             )?;
             processed_ch.send(Box::new(processed_block))?;
-            stats.add("levels".to_string(), 1)?;
+            stats.add("processor", "levels", 1)?;
             stats.set(
-                "last processed level".to_string(),
+                "processor",
+                "last processed level",
                 format!("{} ({:?})", meta.level, meta.baked_at.unwrap()),
             )?;
 

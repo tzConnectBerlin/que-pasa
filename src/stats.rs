@@ -7,49 +7,81 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub(crate) struct StatsLogger {
-    ident: String,
     interval: Duration,
 
-    stats: Arc<Mutex<Stats>>,
+    stats: Arc<Mutex<HashMap<String, Stats>>>,
 
     is_cancelled: Arc<AtomicBool>,
 }
 
 impl StatsLogger {
-    pub(crate) fn new(ident: String, interval: Duration) -> Self {
+    pub(crate) fn new(interval: Duration) -> Self {
         Self {
-            ident,
             interval,
 
-            stats: Arc::new(Mutex::new(Stats::new())),
+            stats: Arc::new(Mutex::new(HashMap::new())),
 
             is_cancelled: Arc::new(AtomicBool::new(false)),
         }
     }
 
-    pub(crate) fn add(&self, field: String, n: usize) -> Result<()> {
+    pub(crate) fn add(
+        &self,
+        report: &str,
+        field: &str,
+        n: usize,
+    ) -> Result<()> {
+        self.touch_report(report)?;
         let mut stats = self
             .stats
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+
         let (c, total) = stats
+            .get_mut(report)
+            .unwrap()
             .counters
-            .get(&field)
+            .get(field)
             .unwrap_or(&(0, 0));
         let c = c + n;
         let total = total + (n as u64);
         (*stats)
+            .get_mut(report)
+            .unwrap()
             .counters
-            .insert(field, (c, total));
+            .insert(field.to_string(), (c, total));
+
         Ok(())
     }
 
-    pub(crate) fn set(&self, field: String, value: String) -> Result<()> {
+    fn touch_report(&self, report: &str) -> Result<()> {
         let mut stats = self
             .stats
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-        (*stats).values.insert(field, value);
+
+        if !stats.contains_key(report) {
+            stats.insert(report.to_string(), Stats::new());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn set(
+        &self,
+        report: &str,
+        field: &str,
+        value: String,
+    ) -> Result<()> {
+        self.touch_report(report)?;
+        let mut stats = self
+            .stats
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+        (*stats)
+            .get_mut(report)
+            .unwrap()
+            .values
+            .insert(field.to_string(), value);
         Ok(())
     }
 
@@ -68,36 +100,58 @@ impl StatsLogger {
             return Ok(());
         }
 
-        info!("starting {:?} reporter for {}", self.interval, self.ident);
+        info!("starting {:?} reporter", self.interval);
         while !self.cancelled() {
             thread::park_timeout(self.interval);
 
             let stats = self.drain_stats()?;
-            stats.print_report(&self.ident, &self.interval);
+            Self::print_report(&self.interval, stats);
         }
         Ok(())
     }
 
-    fn drain_stats(&self) -> Result<Stats> {
+    fn drain_stats(&self) -> Result<HashMap<String, Stats>> {
         let mut stats = self
             .stats
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
 
-        let c: HashMap<String, (usize, u64)> = stats.counters.clone();
-        for (_, (c, _)) in stats.counters.iter_mut() {
-            *c = 0
+        let mut res: HashMap<String, Stats> = HashMap::new();
+        for (report, stats) in stats.iter_mut() {
+            let c: HashMap<String, (usize, u64)> = stats.counters.clone();
+            for (_, (c, _)) in stats.counters.iter_mut() {
+                *c = 0
+            }
+            let v: HashMap<String, String> = stats.values.clone();
+
+            res.insert(
+                report.clone(),
+                Stats {
+                    counters: c,
+                    values: v,
+                },
+            );
         }
-        let v: HashMap<String, String> = stats.values.clone();
-        Ok(Stats {
-            counters: c,
-            values: v,
-        })
+        Ok(res)
     }
 
     fn cancelled(&self) -> bool {
         self.is_cancelled
             .load(Ordering::Relaxed)
+    }
+
+    fn print_report(at_interval: &Duration, stats: HashMap<String, Stats>) {
+        let mut stats_ordered: Vec<(String, Stats)> =
+            stats.into_iter().collect();
+        stats_ordered.sort_by_key(|(section_name, _)| section_name.clone());
+
+        let sections = stats_ordered
+            .iter()
+            .map(|(ident, stats)| stats.generate_report(ident))
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        info!("\n=============\n{:?} report\n{}", at_interval, sections);
     }
 }
 
@@ -115,7 +169,7 @@ impl Stats {
         }
     }
 
-    pub(crate) fn print_report(&self, ident: &str, at_interval: &Duration) {
+    pub(crate) fn generate_report(&self, ident: &str) -> String {
         let mut counters = self
             .counters
             .clone()
@@ -150,9 +204,9 @@ impl Stats {
             .join("");
 
         let header = format!("\t{:<20}  {:<9}  {}", "", "interval", "total");
-        info!(
-            "\n{} {:?} report:\n{}{}\n\t--{}",
-            ident, at_interval, header, counters_log, values_log
-        );
+        format!(
+            "\n{}:\n{}{}\n\t--{}",
+            ident, header, counters_log, values_log
+        )
     }
 }

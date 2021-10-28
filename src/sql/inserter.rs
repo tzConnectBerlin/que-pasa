@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
@@ -17,35 +17,26 @@ pub(crate) struct DBInserter {
 
     // the number of processed blocks to collect before inserting into the db
     batch_size: usize,
-
-    reports_interval: usize,
 }
 
 pub(crate) type ProcessedBlock = Vec<ProcessedContractBlock>;
 
 impl DBInserter {
-    pub(crate) fn new(
-        dbcli: DBClient,
-        batch_size: usize,
-        reports_interval: usize,
-    ) -> Self {
-        Self {
-            dbcli,
-            batch_size,
-            reports_interval,
-        }
+    pub(crate) fn new(dbcli: DBClient, batch_size: usize) -> Self {
+        Self { dbcli, batch_size }
     }
 
     pub(crate) fn run(
         &self,
+        stats: &StatsLogger,
         recv_ch: flume::Receiver<Box<ProcessedBlock>>,
     ) -> Result<thread::JoinHandle<()>> {
         let batch_size = self.batch_size;
         let dbcli = self.dbcli.reconnect()?;
-        let reports_interval = self.reports_interval;
+        let stats_cl = stats.clone();
 
         let thread_handle = thread::spawn(move || {
-            Self::exec(dbcli, batch_size, reports_interval, recv_ch).unwrap();
+            Self::exec(dbcli, batch_size, &stats_cl, recv_ch).unwrap();
         });
         Ok(thread_handle)
     }
@@ -53,15 +44,9 @@ impl DBInserter {
     fn exec(
         mut dbcli: DBClient,
         batch_size: usize,
-        reports_interval: usize,
+        stats: &StatsLogger,
         recv_ch: flume::Receiver<Box<ProcessedBlock>>,
     ) -> Result<()> {
-        let stats = StatsLogger::new(
-            "inserter".to_string(),
-            Duration::new(reports_interval as u64, 0),
-        );
-        let stats_thread = stats.run();
-
         let update_derived = false;
         #[cfg(feature = "regression_force_update_derived")]
         let update_derived = true | update_derived;
@@ -80,11 +65,13 @@ impl DBInserter {
                 let insert_elapsed = insert_begin.elapsed();
 
                 stats.set(
-                    "accumulation time".to_string(),
+                    "inserter",
+                    "accumulation time",
                     format!("{:?}", accum_elapsed),
                 )?;
                 stats.set(
-                    "insert time".to_string(),
+                    "inserter",
+                    "insert time",
                     format!("{:?}", insert_elapsed),
                 )?;
                 batch.clear();
@@ -92,12 +79,6 @@ impl DBInserter {
             }
         }
         insert_batch(&mut dbcli, Some(&stats), update_derived, &batch)?;
-
-        stats.cancel();
-        stats_thread.thread().unpark();
-        stats_thread.join().map_err(|e| {
-            anyhow!("failed to stop inserter statistics logger, err: {:?}", e)
-        })?;
 
         Ok(())
     }
@@ -139,7 +120,7 @@ fn insert_batch(
         let num_rows = inserts.len();
         DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
         if let Some(stats) = stats {
-            stats.add(contract_id.name.clone(), num_rows)?;
+            stats.add("inserter", &contract_id.name, num_rows)?;
         }
     }
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
@@ -163,11 +144,12 @@ fn insert_batch(
     db_tx.commit()?;
 
     if let Some(stats) = stats {
-        stats.add("levels".to_string(), batch.levels.len())?;
-        stats.add("tx_contexts".to_string(), batch.tx_contexts.len())?;
-        stats.add("txs".to_string(), batch.txs.len())?;
+        stats.add("inserter", "levels", batch.levels.len())?;
+        stats.add("inserter", "tx_contexts", batch.tx_contexts.len())?;
+        stats.add("inserter", "txs", batch.txs.len())?;
         stats.add(
-            "bigmap_keyhashes".to_string(),
+            "inserter",
+            "bigmap_keyhashes",
             batch.bigmap_keyhashes.len(),
         )?;
     }
