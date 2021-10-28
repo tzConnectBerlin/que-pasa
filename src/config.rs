@@ -119,10 +119,10 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("report_interval")
+            Arg::with_name("reports_interval")
                 .short("i")
-                .long("report-interval")
-                .value_name("REPORT_INTERVAL")
+                .long("reports-interval")
+                .value_name("REPORTS_INTERVAL")
                 .help("set the frequency of progress reports during bootstrap (unit: seconds, default: 60). set to <=0 to disable reports.")
                 .takes_value(true),
         )

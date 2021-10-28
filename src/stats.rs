@@ -48,7 +48,6 @@ impl StatsLogger {
     }
 
     pub(crate) fn run(&self) -> thread::JoinHandle<()> {
-        info!("starting {:?} reporter for {}", self.interval, self.ident);
         let cl = self.clone();
         thread::spawn(move || cl.exec().unwrap())
     }
@@ -59,6 +58,11 @@ impl StatsLogger {
     }
 
     fn exec(&self) -> Result<()> {
+        if self.interval == Duration::new(0, 0) {
+            return Ok(());
+        }
+
+        info!("starting {:?} reporter for {}", self.interval, self.ident);
         while !self.cancelled() {
             thread::park_timeout(self.interval);
 
@@ -122,7 +126,7 @@ impl Stats {
                     "\n\t{:<20}| {:<9}| {}",
                     field_,
                     c,
-                    ((c * 60) as u64) / at_interval.as_secs()
+                    ((c * 60 * 60) as u64) / at_interval.as_secs()
                 )
             })
             .collect::<Vec<String>>()
@@ -141,7 +145,7 @@ impl Stats {
             .collect::<Vec<String>>()
             .join("");
 
-        let header = format!("\t{:<20}  {:<9}  {}", "", "sum", "per minute");
+        let header = format!("\t{:<20}  {:<9}  {}", "", "sum", "per hour");
         info!(
             "\n{} {:?} report:\n{}{}\n\t--{}",
             ident, at_interval, header, counters_log, values_log
