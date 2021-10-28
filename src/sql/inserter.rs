@@ -49,7 +49,7 @@ impl DBInserter {
 
         let mut batch = ProcessedBatch::new(dbcli.get_max_id()?);
 
-        let accum_begin = Instant::now();
+        let mut accum_begin = Instant::now();
         for processed_block in recv_ch {
             batch.add(*processed_block);
 
@@ -69,6 +69,7 @@ impl DBInserter {
                     format!("{:?}", insert_elapsed),
                 )?;
                 batch.clear();
+                accum_begin = Instant::now();
             }
         }
         info!("inserter thread done, inserting last batch..");
