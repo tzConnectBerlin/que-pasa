@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
@@ -42,19 +43,31 @@ impl DBInserter {
         batch_size: usize,
         recv_ch: flume::Receiver<Box<ProcessedBlock>>,
     ) -> Result<()> {
-        let stats = StatsLogger::new(
-            "inserter".to_string(),
-            std::time::Duration::new(60, 0),
-        );
+        let stats =
+            StatsLogger::new("inserter".to_string(), Duration::new(60, 0));
         let stats_thread = stats.run();
 
         let mut batch = ProcessedBatch::new(dbcli.get_max_id()?);
 
+        let accum_begin = Instant::now();
         for processed_block in recv_ch {
             batch.add(*processed_block);
 
             if batch.len() >= batch_size {
+                let accum_elapsed = accum_begin.elapsed();
+
+                let insert_begin = Instant::now();
                 insert_batch(&mut dbcli, Some(&stats), false, &batch)?;
+                let insert_elapsed = insert_begin.elapsed();
+
+                stats.set(
+                    "accumulation time".to_string(),
+                    format!("{:?}", accum_elapsed),
+                )?;
+                stats.set(
+                    "insert time".to_string(),
+                    format!("{:?}", insert_elapsed),
+                )?;
                 batch.clear();
             }
         }

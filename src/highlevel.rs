@@ -632,7 +632,7 @@ impl Executor {
                 )?;
             }
             stats.set(
-                "channels size (input - output)".to_string(),
+                "channel sizes (input - output)".to_string(),
                 format!(
                     "{}/{} - {}/{}",
                     in_ch.len(),
