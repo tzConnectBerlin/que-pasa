@@ -75,7 +75,7 @@ impl StatsLogger {
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
 
         let c: HashMap<String, usize> = stats.counters.drain().collect();
-        let v: HashMap<String, String> = stats.values.drain().collect();
+        let v: HashMap<String, String> = stats.values.clone();
         Ok(Stats {
             counters: c,
             values: v,

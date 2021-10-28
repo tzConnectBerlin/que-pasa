@@ -498,10 +498,10 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        let batch_size = 50;
+        let batch_size = 10;
         let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
         let (processed_send, processed_recv) =
-            flume::bounded::<Box<ProcessedBlock>>(batch_size);
+            flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
 
         threads.push(inserter.run(processed_recv)?);
 
