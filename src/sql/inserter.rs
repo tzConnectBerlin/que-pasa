@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use std::collections::hash_map::Entry::Vacant;
 use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -47,6 +48,10 @@ impl DBInserter {
             StatsLogger::new("inserter".to_string(), Duration::new(60, 0));
         let stats_thread = stats.run();
 
+        let update_derived = false;
+        #[cfg(feature = "regression_force_update_derived")]
+        let update_derived = true | update_derived;
+
         let mut batch = ProcessedBatch::new(dbcli.get_max_id()?);
 
         let mut accum_begin = Instant::now();
@@ -57,7 +62,7 @@ impl DBInserter {
                 let accum_elapsed = accum_begin.elapsed();
 
                 let insert_begin = Instant::now();
-                insert_batch(&mut dbcli, Some(&stats), false, &batch)?;
+                insert_batch(&mut dbcli, Some(&stats), update_derived, &batch)?;
                 let insert_elapsed = insert_begin.elapsed();
 
                 stats.set(
@@ -73,7 +78,7 @@ impl DBInserter {
             }
         }
         info!("inserter thread done, inserting last batch..");
-        insert_batch(&mut dbcli, Some(&stats), false, &batch)?;
+        insert_batch(&mut dbcli, Some(&stats), update_derived, &batch)?;
 
         info!("inserter thread done, killing stats..");
 
@@ -123,7 +128,7 @@ fn insert_batch(
 
     for (contract_id, inserts) in &batch.contract_inserts {
         let num_rows = inserts.len();
-        DBClient::apply_inserts(&mut db_tx, &contract_id, inserts)?;
+        DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
         if let Some(stats) = stats {
             stats.add(contract_id.name.clone(), num_rows)?;
         }
@@ -131,7 +136,9 @@ fn insert_batch(
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
 
     if update_derived_tables {
+        info!("updating derived tables..");
         for (contract_id, (rel_ast, ctxs)) in &batch.contract_tx_contexts {
+            info!("updating derived tables for {}", contract_id.name);
             DBClient::update_derived_tables(
                 &mut db_tx,
                 contract_id,
@@ -290,9 +297,8 @@ impl ProcessedBatch {
 
     fn add_cres(&mut self, cres: ProcessedContractBlock) {
         let level: i32 = cres.level.level as i32;
-        if !self.levels.contains_key(&level) {
-            self.levels
-                .insert(level, cres.level.clone());
+        if let Vacant(e) = self.levels.entry(level) {
+            e.insert(cres.level.clone());
         }
         self.tx_contexts
             .extend(cres.tx_contexts.clone());
@@ -338,5 +344,8 @@ impl ProcessedBatch {
                 .iter()
                 .map(|dep| (level, dep.clone(), cres.contract_id.clone())),
         );
+
+        self.bigmap_keyhashes
+            .extend(cres.bigmap_keyhashes);
     }
 }

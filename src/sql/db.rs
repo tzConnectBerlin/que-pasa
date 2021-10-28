@@ -1014,6 +1014,7 @@ VALUES ( {} )",
                 v_refs
             ))?;
 
+            #[allow(clippy::type_complexity)]
             let v_: Vec<(
                 i32,
                 Option<String>,
@@ -1026,7 +1027,7 @@ VALUES ( {} )",
                         m.level as i32,
                         m.hash.clone(),
                         m.prev_hash.clone(),
-                        m.baked_at.clone(),
+                        m.baked_at,
                     )
                 })
                 .collect();
@@ -1134,21 +1135,6 @@ VALUES ( {} )",
 
             tx.query_raw(&stmt, values)?;
         }
-        Ok(())
-    }
-
-    pub(crate) fn delete_contract_level(
-        tx: &mut Transaction,
-        contract_id: &ContractID,
-        level: u32,
-    ) -> Result<()> {
-        tx.execute(
-            "
-DELETE FROM contract_levels
-WHERE contract = $1
-  AND level = $2",
-            &[&contract_id.name, &(level as i32)],
-        )?;
         Ok(())
     }
 

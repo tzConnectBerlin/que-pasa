@@ -21,7 +21,7 @@ WHERE id IN (
     SELECT
         live.id
     FROM (
-        SELECT DISTINCT ON ({% call unfold(indices, "t", false) %})
+        SELECT DISTINCT
             {% call unfold(indices, "t", false) %}
         FROM "{{ contract_schema }}"."{{ table }}" t
         JOIN tx_contexts ctx
@@ -29,18 +29,12 @@ WHERE id IN (
         JOIN levels level_meta
           ON level_meta.level = ctx.level
         WHERE t.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
-        ORDER BY
-            {% call unfold(indices, "t", false) %},
-            ctx.operation_group_number DESC,
-            ctx.operation_number DESC,
-            ctx.content_number DESC,
-            COALESCE(ctx.internal_number, -1) DESC
-    ) as deleted_indices
+    ) as overwritten_indices
     JOIN "{{ contract_schema }}"."{{ table }}_live" live
       ON
         {% for idx in indices %}
             {% if !loop.first %} AND {% endif %}
-            deleted_indices.{{ idx }} = live.{{ idx }}
+            overwritten_indices.{{ idx }} = live.{{ idx }}
         {%- endfor %}
 );
 
@@ -67,6 +61,7 @@ FROM (
     WHERE t.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
     ORDER BY
         {% call unfold(indices, "t", false) %},
+        ctx.level DESC,
         ctx.operation_group_number DESC,
         ctx.operation_number DESC,
         ctx.content_number DESC,
@@ -90,6 +85,7 @@ FROM (
     SELECT
         DENSE_RANK() OVER (
             ORDER BY
+                ctx.level,
                 ctx.operation_group_number,
                 ctx.operation_number,
                 ctx.content_number,

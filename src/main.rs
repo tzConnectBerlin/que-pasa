@@ -82,10 +82,6 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     }
 
     let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
-    #[cfg(feature = "regression")]
-    if config.always_update_derived {
-        executor.always_update_derived_tables();
-    }
     if config.all_contracts {
         index_all_contracts(config, executor);
         return;
@@ -161,6 +157,11 @@ fn index_all_contracts(
         executor
             .exec_levels(config.workers_cap, config.levels.clone())
             .unwrap();
+        #[cfg(feature = "regression_force_update_derived")]
+        if true {
+            info!("skipping re-populating of derived tables, always_update_derived enabled");
+            return;
+        }
         executor
             .repopulate_derived_tables(false)
             .unwrap();

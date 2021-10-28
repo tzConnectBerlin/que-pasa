@@ -18,8 +18,6 @@ pub struct Config {
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
     pub always_yes: bool,
-    #[cfg(feature = "regression")]
-    pub always_update_derived: bool,
 }
 
 #[derive(
@@ -133,13 +131,6 @@ pub fn init_config() -> Result<Config> {
                 .value_name("ALWAYS_YES")
                 .help("If set, never prompt for confirmations, always default to 'yes'")
                 .takes_value(false));
-    #[cfg(feature = "regression")]
-    let matches = matches.arg(
-        Arg::with_name("always_update_derived")
-            .long("always-update-derived")
-            .help("If set, after every block (and in every exec_), always update the derived _live and _ordered tables")
-            .takes_value(false),
-    );
     let matches = matches.get_matches();
 
     let maybe_fpath = matches
@@ -231,13 +222,9 @@ pub fn init_config() -> Result<Config> {
         config.workers_cap = 1;
     }
 
-    #[cfg(feature = "regression")]
+    #[cfg(feature = "regression_force_update_derived")]
     {
-        config.always_update_derived =
-            matches.is_present("always_update_derived");
-        if config.always_update_derived {
-            config.workers_cap = 1;
-        }
+        config.workers_cap = 1;
     }
 
     debug!("Config={:#?}", config);

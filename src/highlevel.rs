@@ -57,9 +57,6 @@ pub struct Executor {
     contracts: HashMap<ContractID, (RelationalAST, Option<u32>)>,
     all_contracts: bool,
 
-    #[cfg(feature = "regression")]
-    always_update_derived: bool,
-
     // Everything below this level has nothing to do with what we are indexing
     level_floor: LevelFloor,
 }
@@ -110,9 +107,6 @@ impl Executor {
             level_floor: LevelFloor {
                 f: Arc::new(Mutex::new(0)),
             },
-
-            #[cfg(feature = "regression")]
-            always_update_derived: false,
         }
     }
 
@@ -136,11 +130,6 @@ impl Executor {
 
     pub fn index_all_contracts(&mut self) {
         self.all_contracts = true
-    }
-
-    #[cfg(feature = "regression")]
-    pub fn always_update_derived_tables(&mut self) {
-        self.always_update_derived = true
     }
 
     pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
@@ -513,25 +502,36 @@ impl Executor {
 
         let processed_levels: Arc<Mutex<Vec<u32>>> =
             Arc::new(Mutex::new(vec![]));
-        let num_processors = std::cmp::max(1, num_getters / 2);
-        info!("starting {} concurrent processor(s)", num_processors);
-        for _ in 0..num_processors {
-            let mut exec = self.clone();
-            let w_recv_ch = block_recv.clone();
-            let w_send_ch = processed_send.clone();
-            let stats_cl = stats.clone();
-            let res_arc = processed_levels.clone();
-            threads.push(thread::spawn(move || {
-                let processed = exec
-                    .read_block_chan(&stats_cl, w_recv_ch, w_send_ch)
-                    .unwrap();
+        let num_processors = if self.all_contracts {
+            1
+        } else {
+            std::cmp::max(1, num_getters / 2)
+        };
 
-                let mut res = res_arc.lock().unwrap();
-                info!("processor thread done: {:?}", &processed);
-                res.extend(processed);
-            }));
+        if num_processors <= 1 {
+            let processed =
+                self.read_block_chan(&stats, block_recv, processed_send)?;
+            let mut res = processed_levels.lock().unwrap();
+            res.extend(processed);
+        } else {
+            info!("starting {} concurrent processors", num_processors);
+            for _ in 0..num_processors {
+                let mut exec = self.clone();
+                let w_recv_ch = block_recv.clone();
+                let w_send_ch = processed_send.clone();
+                let stats_cl = stats.clone();
+                let res_arc = processed_levels.clone();
+                threads.push(thread::spawn(move || {
+                    let processed = exec
+                        .read_block_chan(&stats_cl, w_recv_ch, w_send_ch)
+                        .unwrap();
+
+                    let mut res = res_arc.lock().unwrap();
+                    res.extend(processed);
+                }));
+            }
+            drop(processed_send);
         }
-        drop(processed_send);
 
         for t in threads {
             t.join().map_err(|e| {
@@ -556,12 +556,6 @@ impl Executor {
         &mut self,
         ensure_sane_input_state: bool,
     ) -> Result<()> {
-        #[cfg(feature = "regression")]
-        if self.always_update_derived {
-            info!("skipping re-populating of derived tables, always_update_derived enabled");
-            return Ok(());
-        }
-
         info!(
             "re-populating derived tables (_live, _ordered). may take a while (expect minutes-hours, not seconds-minutes)."
         );
@@ -710,9 +704,8 @@ impl Executor {
 
         let update_derived_tables =
             self.dbcli.get_indexer_mode()? == IndexerMode::Head;
-        #[cfg(feature = "regression")]
-        let update_derived_tables =
-            update_derived_tables | self.always_update_derived;
+        #[cfg(feature = "regression_force_update_derived")]
+        let update_derived_tables = true | update_derived_tables;
 
         insert_processed(
             &mut self.dbcli.reconnect()?,

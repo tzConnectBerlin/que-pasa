@@ -113,9 +113,14 @@ impl Stats {
         let counters_log: String = counters
             .iter()
             .map(|(field, c)| {
+                let field_ = if field.len() <= 20 {
+                    field.clone()
+                } else {
+                    format!("{}..", &field[..18])
+                };
                 format!(
                     "\n\t{:<20}| {:<9}| {}",
-                    field,
+                    field_,
                     c,
                     ((c * 60) as u64) / at_interval.as_secs()
                 )

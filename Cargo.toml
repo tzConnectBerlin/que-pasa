@@ -44,4 +44,4 @@ serde_json = { version = "1.0.64", features = ["unbounded_depth"] }
 thiserror = "1.0"
 
 [features]
-regression = []
+regression_force_update_derived = []
