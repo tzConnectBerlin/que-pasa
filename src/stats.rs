@@ -32,9 +32,15 @@ impl StatsLogger {
             .stats
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-        let c = stats.counters.get(&field).unwrap_or(&0);
-        let c_ = c + n;
-        (*stats).counters.insert(field, c_);
+        let (c, total) = stats
+            .counters
+            .get(&field)
+            .unwrap_or(&(0, 0));
+        let c = c + n;
+        let total = total + (n as u64);
+        (*stats)
+            .counters
+            .insert(field, (c, total));
         Ok(())
     }
 
@@ -78,7 +84,10 @@ impl StatsLogger {
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
 
-        let c: HashMap<String, usize> = stats.counters.drain().collect();
+        let c: HashMap<String, (usize, u64)> = stats.counters.clone();
+        for (_, (c, _)) in stats.counters.iter_mut() {
+            *c = 0
+        }
         let v: HashMap<String, String> = stats.values.clone();
         Ok(Stats {
             counters: c,
@@ -94,7 +103,7 @@ impl StatsLogger {
 
 #[derive(Debug)]
 struct Stats {
-    counters: HashMap<String, usize>,
+    counters: HashMap<String, (usize, u64)>,
     values: HashMap<String, String>,
 }
 
@@ -111,23 +120,18 @@ impl Stats {
             .counters
             .clone()
             .into_iter()
-            .collect::<Vec<(String, usize)>>();
+            .collect::<Vec<(String, (usize, u64))>>();
         counters.sort_by_key(|(f, _)| f.clone());
 
         let counters_log: String = counters
             .iter()
-            .map(|(field, c)| {
+            .map(|(field, (c, t))| {
                 let field_ = if field.len() <= 20 {
                     field.clone()
                 } else {
                     format!("{}..", &field[..18])
                 };
-                format!(
-                    "\n\t{:<20}| {:<9}| {}",
-                    field_,
-                    c,
-                    ((c * 60 * 60) as u64) / at_interval.as_secs()
-                )
+                format!("\n\t{:<20}| {:<9}| {}", field_, c, t,)
             })
             .collect::<Vec<String>>()
             .join("");
@@ -145,7 +149,7 @@ impl Stats {
             .collect::<Vec<String>>()
             .join("");
 
-        let header = format!("\t{:<20}  {:<9}  {}", "", "sum", "per hour");
+        let header = format!("\t{:<20}  {:<9}  {}", "", "interval", "total");
         info!(
             "\n{} {:?} report:\n{}{}\n\t--{}",
             ident, at_interval, header, counters_log, values_log
