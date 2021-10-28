@@ -59,6 +59,8 @@ pub struct Executor {
 
     // Everything below this level has nothing to do with what we are indexing
     level_floor: LevelFloor,
+
+    reports_interval: usize,
 }
 
 #[derive(Clone)]
@@ -98,7 +100,11 @@ impl fmt::Display for BadLevelHash {
 }
 
 impl Executor {
-    pub fn new(node_cli: NodeClient, dbcli: DBClient) -> Self {
+    pub fn new(
+        node_cli: NodeClient,
+        dbcli: DBClient,
+        reports_interval: usize,
+    ) -> Self {
         Self {
             node_cli,
             dbcli,
@@ -107,6 +113,7 @@ impl Executor {
             level_floor: LevelFloor {
                 f: Arc::new(Mutex::new(0)),
             },
+            reports_interval,
         }
     }
 
@@ -488,7 +495,11 @@ impl Executor {
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
         let batch_size = 10;
-        let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
+        let inserter = DBInserter::new(
+            self.dbcli.reconnect()?,
+            batch_size,
+            self.reports_interval,
+        );
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
 
@@ -496,7 +507,7 @@ impl Executor {
 
         let stats = StatsLogger::new(
             "processor".to_string(),
-            std::time::Duration::new(10, 0),
+            std::time::Duration::new(self.reports_interval as u64, 0),
         );
         let stats_thread = stats.run();
 

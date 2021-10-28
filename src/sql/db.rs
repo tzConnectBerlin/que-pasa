@@ -218,6 +218,9 @@ WHERE table_schema = 'public'
         rel_ast: &RelationalAST,
         tx_contexts: &[TxContext],
     ) -> Result<()> {
+        if tx_contexts.is_empty() {
+            return Ok(());
+        }
         let mut builder = TableBuilder::new();
         builder.populate(rel_ast);
 

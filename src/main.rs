@@ -81,7 +81,11 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         assert_sane_db(&mut dbcli);
     }
 
-    let mut executor = highlevel::Executor::new(node_cli.clone(), dbcli);
+    let mut executor = highlevel::Executor::new(
+        node_cli.clone(),
+        dbcli,
+        config.reports_interval,
+    );
     if config.all_contracts {
         index_all_contracts(config, executor);
         return;

@@ -17,13 +17,23 @@ pub(crate) struct DBInserter {
 
     // the number of processed blocks to collect before inserting into the db
     batch_size: usize,
+
+    reports_interval: usize,
 }
 
 pub(crate) type ProcessedBlock = Vec<ProcessedContractBlock>;
 
 impl DBInserter {
-    pub(crate) fn new(dbcli: DBClient, batch_size: usize) -> Self {
-        Self { dbcli, batch_size }
+    pub(crate) fn new(
+        dbcli: DBClient,
+        batch_size: usize,
+        reports_interval: usize,
+    ) -> Self {
+        Self {
+            dbcli,
+            batch_size,
+            reports_interval,
+        }
     }
 
     pub(crate) fn run(
@@ -32,9 +42,10 @@ impl DBInserter {
     ) -> Result<thread::JoinHandle<()>> {
         let batch_size = self.batch_size;
         let dbcli = self.dbcli.reconnect()?;
+        let reports_interval = self.reports_interval;
 
         let thread_handle = thread::spawn(move || {
-            Self::exec(dbcli, batch_size, recv_ch).unwrap();
+            Self::exec(dbcli, batch_size, reports_interval, recv_ch).unwrap();
         });
         Ok(thread_handle)
     }
@@ -42,10 +53,13 @@ impl DBInserter {
     fn exec(
         mut dbcli: DBClient,
         batch_size: usize,
+        reports_interval: usize,
         recv_ch: flume::Receiver<Box<ProcessedBlock>>,
     ) -> Result<()> {
-        let stats =
-            StatsLogger::new("inserter".to_string(), Duration::new(60, 0));
+        let stats = StatsLogger::new(
+            "inserter".to_string(),
+            Duration::new(reports_interval as u64, 0),
+        );
         let stats_thread = stats.run();
 
         let update_derived = false;

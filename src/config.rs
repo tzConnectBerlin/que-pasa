@@ -18,6 +18,7 @@ pub struct Config {
     pub bcd_url: Option<String>,
     pub workers_cap: usize,
     pub always_yes: bool,
+    pub reports_interval: usize, // in seconds
 }
 
 #[derive(
@@ -118,6 +119,14 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(true),
         )
         .arg(
+            Arg::with_name("report_interval")
+                .short("i")
+                .long("report-interval")
+                .value_name("REPORT_INTERVAL")
+                .help("set the frequency of progress reports during bootstrap (unit: seconds, default: 60). set to <=0 to disable reports.")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("reinit")
                 .long("reinit")
                 .value_name("REINIT")
@@ -206,6 +215,15 @@ pub fn init_config() -> Result<Config> {
         .value_of("network")
         .map_or_else(|| std::env::var("NETWORK"), |s| Ok(s.to_string()))
         .unwrap_or_else(|_| "mainnet".to_string());
+
+    config.reports_interval = matches
+        .value_of("reports_interval")
+        .map_or_else(
+            || std::env::var("REPORTS_INTERVAL"),
+            |s| Ok(s.to_string()),
+        )
+        .unwrap_or_else(|_| "60".to_string())
+        .parse::<usize>()?;
 
     let workers_cap = match matches.value_of("workers_cap") {
         Some(s) => s.to_string(),
