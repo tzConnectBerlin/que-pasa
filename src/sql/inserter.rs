@@ -97,7 +97,7 @@ pub(crate) fn insert_processed(
 
 fn insert_batch(
     dbcli: &mut DBClient,
-    stats: Option<&StatsLogger>,
+    _stats: Option<&StatsLogger>,
     update_derived_tables: bool,
     batch: &ProcessedBatch,
 ) -> Result<()> {
@@ -119,9 +119,6 @@ fn insert_batch(
     for (contract_id, inserts) in &batch.contract_inserts {
         let num_rows = inserts.len();
         DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
-        if let Some(stats) = stats {
-            stats.add("inserter", &contract_id.name, num_rows)?;
-        }
     }
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
 
@@ -142,17 +139,6 @@ fn insert_batch(
     DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
 
     db_tx.commit()?;
-
-    if let Some(stats) = stats {
-        stats.add("inserter", "levels", batch.levels.len())?;
-        stats.add("inserter", "tx_contexts", batch.tx_contexts.len())?;
-        stats.add("inserter", "txs", batch.txs.len())?;
-        stats.add(
-            "inserter",
-            "bigmap_keyhashes",
-            batch.bigmap_keyhashes.len(),
-        )?;
-    }
 
     Ok(())
 }

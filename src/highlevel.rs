@@ -597,7 +597,7 @@ impl Executor {
         ));
         let stats_thread = stats.run();
 
-        let batch_size = 10;
+        let batch_size = 1;
         let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
@@ -715,11 +715,19 @@ impl Executor {
             let processed_block = self.exec_for_block(&meta, &block, true)?;
 
             for cres in &processed_block {
-                stats.add(
-                    "processor",
-                    &cres.contract_id.name,
-                    cres.tx_contexts.len(),
-                )?;
+                if self.all_contracts {
+                    stats.add(
+                        "processor",
+                        "contract calls",
+                        cres.tx_contexts.len(),
+                    )?;
+                } else {
+                    stats.add(
+                        "processor",
+                        &cres.contract_id.name,
+                        cres.tx_contexts.len(),
+                    )?;
+                }
             }
             stats.set(
                 "processor",
