@@ -541,7 +541,7 @@ impl Executor {
             let first_missing: LevelMeta = self
                 .node_cli
                 .level_json(missing_levels[0])?
-                .1;
+                .0;
 
             if !has_gaps
                 && latest_level.baked_at.unwrap()
@@ -778,7 +778,7 @@ impl Executor {
         level_height: u32,
         cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
-        let (_json, meta, block) = self
+        let (meta, block) = self
             .node_cli
             .level_json(level_height)
             .with_context(|| {

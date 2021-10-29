@@ -25,25 +25,17 @@ impl NodeClient {
 
     /// Return the highest level on the chain
     pub(crate) fn head(&self) -> Result<LevelMeta> {
-        let json = self
-            .load("blocks/head")
-            .with_context(|| "failed to get block head")?;
-        Ok(LevelMeta {
-            level: json["header"]["level"]
-                .as_u32()
-                .ok_or_else(|| anyhow!("Couldn't get level from node"))?,
-            hash: Some(json["hash"].to_string()),
-            prev_hash: Some(json["header"]["predecessor"].to_string()),
-            baked_at: Some(Self::timestamp_from_block(&json)?),
-        })
+        let (meta, _) = self.level_json_internal("head")?;
+        Ok(meta)
     }
 
-    pub(crate) fn level_json(
-        &self,
-        level: u32,
-    ) -> Result<(JsonValue, LevelMeta, Block)> {
+    pub(crate) fn level_json(&self, level: u32) -> Result<(LevelMeta, Block)> {
+        self.level_json_internal(&format!("{}", level))
+    }
+
+    fn level_json_internal(&self, level: &str) -> Result<(LevelMeta, Block)> {
         let resp = self
-            .load(&format!("blocks/{}", level))
+            .load_retry_on_nonjson(&format!("blocks/{}", level))
             .with_context(|| {
                 format!("failed to get level_json for level={}", level)
             })?;
@@ -57,9 +49,9 @@ impl NodeClient {
             level: block.header.level as u32,
             hash: Some(block.hash.clone()),
             prev_hash: Some(block.header.predecessor.clone()),
-            baked_at: Some(Self::timestamp_from_block(&resp)?),
+            baked_at: Some(Self::timestamp_from_block(&block)?),
         };
-        Ok((resp, meta, block))
+        Ok((meta, block))
     }
 
     /// Get all of the data for the contract.
@@ -68,38 +60,33 @@ impl NodeClient {
         contract_id: &str,
         level: Option<u32>,
     ) -> Result<JsonValue> {
-        retry(ExponentialBackoff::default(), || {
-            fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
-                warn!("transient node communication error, retrying.. err='script definition missing in response'");
-                Error::Transient(e)
-            }
+        let level = match level {
+            Some(x) => format!("{}", x),
+            None => "head".to_string(),
+        };
 
-            let level = match level {
-                Some(x) => format!("{}", x),
-                None => "head".to_string(),
-            };
+        let resp = self
+            .load_jsonvalue(&format!(
+                "blocks/{}/context/contracts/{}/script",
+                level, contract_id
+            ))
+            .with_context(|| {
+                format!(
+                    "failed to get script data for contract='{}', level={}",
+                    contract_id, level
+                )
+            })?;
 
-            let resp = self
-                .load(&format!(
-                    "blocks/{}/context/contracts/{}/script",
-                    level, contract_id
-                ))
-                .with_context(|| {
-                    format!(
-                        "failed to get script data for contract='{}', level={}",
-                        contract_id, level
-                    )
-                })
-                .map_err(Error::Permanent)?;
+        let res = resp["code"]
+            .members()
+            .find(|x| x["prim"] == "storage")
+            .unwrap_or(&JsonValue::Null)["args"][0]
+            .clone();
 
-            let res = resp["code"].members().find(|x| x["prim"] == "storage").unwrap_or(&JsonValue::Null)["args"][0].clone();
-
-            if res == JsonValue::Null {
-                return Err(anyhow!("got invalid script data (got 'null') for contract='{}', level={}", contract_id, level)).map_err(transient_err);
-            }
-            Ok(res)
-        })
-        .map_err(|e| anyhow!(e))
+        if res == JsonValue::Null {
+            return Err(anyhow!("got invalid script data (got 'null') for contract='{}', level={}", contract_id, level));
+        }
+        Ok(res)
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {
@@ -107,34 +94,37 @@ impl NodeClient {
         Ok(fixedoffset.with_timezone(&Utc))
     }
 
-    fn timestamp_from_block(json: &JsonValue) -> Result<DateTime<Utc>> {
-        Self::parse_rfc3339(
-            json["header"]["timestamp"]
-                .as_str()
-                .ok_or_else(|| {
-                    anyhow!(
-                        "Couldn't parse string {:?}",
-                        json["header"]["timestamp"]
-                    )
-                })?,
-        )
+    fn timestamp_from_block(block: &Block) -> Result<DateTime<Utc>> {
+        Self::parse_rfc3339(block.header.timestamp.as_str())
     }
 
-    fn load(&self, endpoint: &str) -> Result<JsonValue> {
+    fn load_jsonvalue(&self, endpoint: &str) -> Result<JsonValue> {
+        let body = self.load_retry_on_nonjson(endpoint)?;
+
+        let json = json::parse(&body).with_context(|| {
+            format!(
+                "failed to parse json for endpoint='{}', body: {}",
+                endpoint, body
+            )
+        })?;
+        Ok(json)
+    }
+
+    fn load_retry_on_nonjson(&self, endpoint: &str) -> Result<String> {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
             warn!("transient node communication error, retrying.. err={}", e);
             Error::Transient(e)
         }
-        let op = || -> Result<JsonValue> {
-            let body = self.load_body(endpoint)?;
+        let op = || -> Result<String> {
+            let body = self.load(endpoint)?;
 
-            let json = json::parse(&body).with_context(|| {
-                format!(
-                    "failed to parse json for endpoint='{}', body: {}",
-                    endpoint, body
-                )
-            })?;
-            Ok(json)
+            let mut deserializer = serde_json::Deserializer::from_str(&body);
+            deserializer.disable_recursion_limit();
+            let deserializer =
+                serde_stacker::Deserializer::new(&mut deserializer);
+            serde_json::Value::deserialize(deserializer)?;
+
+            Ok(body)
         };
         retry(ExponentialBackoff::default(), || {
             op().map_err(transient_err)
@@ -142,7 +132,7 @@ impl NodeClient {
         .map_err(|e| anyhow!(e))
     }
 
-    fn load_body(&self, endpoint: &str) -> Result<String> {
+    fn load(&self, endpoint: &str) -> Result<String> {
         let uri =
             format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
         debug!("loading: {}", uri);
@@ -188,7 +178,7 @@ impl StorageGetter for NodeClient {
         contract_id: &str,
         level: u32,
     ) -> Result<JsonValue> {
-        self.load(&format!(
+        self.load_jsonvalue(&format!(
             "blocks/{}/context/contracts/{}/storage",
             level, contract_id
         ))
@@ -206,7 +196,7 @@ impl StorageGetter for NodeClient {
         bigmap_id: i32,
         keyhash: &str,
     ) -> Result<Option<JsonValue>> {
-        let body = self.load_body(&format!(
+        let body = self.load(&format!(
             "blocks/{}/context/big_maps/{}/{}",
             level, bigmap_id, keyhash,
         ))
