@@ -283,54 +283,56 @@ WHERE table_schema = 'public'
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<bool> {
-        if !self.contract_schema_defined(contract_id)? {
-            info!("creating schema for contract {}", contract_id.name);
-            // Generate the SQL schema for this contract
-            let mut builder = TableBuilder::new();
-            builder.populate(rel_ast);
+        let mut tx = self.transaction()?;
+        tx.simple_query("LOCK contracts IN EXCLUSIVE MODE")?;
+        if Self::contract_schema_defined(&mut tx, contract_id)? {
+            tx.rollback()?;
+            return Ok(false);
+        }
+        debug!("creating schema for contract {}", contract_id.name);
+        // Generate the SQL schema for this contract
+        let mut builder = TableBuilder::new();
+        builder.populate(rel_ast);
 
-            let generator = PostgresqlGenerator::new(contract_id);
-            let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-            sorted_tables.sort_by_key(|a| a.0);
+        let generator = PostgresqlGenerator::new(contract_id);
+        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+        sorted_tables.sort_by_key(|a| a.0);
 
-            let mut tx = self.transaction()?;
-            tx.execute(
-                "
+        tx.execute(
+            "
 INSERT INTO contracts (name, address)
 VALUES ($1, $2)",
-                &[&contract_id.name, &contract_id.address],
-            )?;
-            tx.simple_query(
-                format!(
-                    r#"
+            &[&contract_id.name, &contract_id.address],
+        )?;
+        tx.simple_query(
+            format!(
+                r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 "#,
-                    contract_schema = contract_id.name
-                )
-                .as_str(),
-            )?;
+                contract_schema = contract_id.name
+            )
+            .as_str(),
+        )?;
 
-            let noview_prefixes = builder.get_viewless_table_prefixes();
-            for (_name, table) in sorted_tables {
-                let table_def = generator.create_table_definition(table)?;
-                tx.simple_query(table_def.as_str())?;
+        let noview_prefixes = builder.get_viewless_table_prefixes();
+        for (_name, table) in sorted_tables {
+            let table_def = generator.create_table_definition(table)?;
+            tx.simple_query(table_def.as_str())?;
 
-                if !noview_prefixes
-                    .iter()
-                    .any(|prefix| table.name.starts_with(prefix))
+            if !noview_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                for derived_table_def in
+                    generator.create_derived_table_definitions(table)?
                 {
-                    for derived_table_def in
-                        generator.create_derived_table_definitions(table)?
-                    {
-                        tx.simple_query(derived_table_def.as_str())?;
-                    }
+                    tx.simple_query(derived_table_def.as_str())?;
                 }
             }
-            tx.commit()?;
-
-            return Ok(true);
         }
-        Ok(false)
+        tx.commit()?;
+
+        return Ok(true);
     }
 
     pub(crate) fn delete_contract_schema(
@@ -381,10 +383,10 @@ DROP TABLE "{contract_schema}"."{table}";
     }
 
     fn contract_schema_defined(
-        &mut self,
+        tx: &mut Transaction,
         contract_id: &ContractID,
     ) -> Result<bool> {
-        let res = self.dbconn.query_opt(
+        let res = tx.query_opt(
             "
 SELECT
     1

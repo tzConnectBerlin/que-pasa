@@ -235,14 +235,19 @@ impl Executor {
         contracts: &[ContractID],
     ) -> Result<()> {
         for contract_id in contracts {
-            if self.add_contract(contract_id)? {
-                self.dbcli.create_contract_schema(
-                    contract_id,
-                    &self
-                        .get_contract_rel_ast(contract_id)?
-                        .unwrap(),
-                )?;
-            }
+            let rel_ast =
+                get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+            let contract_floor = self
+                .dbcli
+                .get_origination(contract_id)?;
+
+            self.dbcli
+                .create_contract_schema(contract_id, &rel_ast)?;
+            self.mutexed_state.add_contract(
+                contract_id.clone(),
+                rel_ast,
+                contract_floor,
+            )?;
         }
         Ok(())
     }
@@ -885,7 +890,7 @@ impl Executor {
                 .get_missing_contracts(&active_contracts)?;
 
             if !new_contracts.is_empty() {
-                info!(
+                debug!(
                     "level {}, analyzing contracts: {:#?}..",
                     block.header.level,
                     new_contracts
