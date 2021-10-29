@@ -597,7 +597,7 @@ impl Executor {
         ));
         let stats_thread = stats.run();
 
-        let batch_size = 1;
+        let batch_size = 5;
         let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);

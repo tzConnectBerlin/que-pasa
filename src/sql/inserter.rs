@@ -97,7 +97,7 @@ pub(crate) fn insert_processed(
 
 fn insert_batch(
     dbcli: &mut DBClient,
-    _stats: Option<&StatsLogger>,
+    stats: Option<&StatsLogger>,
     update_derived_tables: bool,
     batch: &ProcessedBatch,
 ) -> Result<()> {
@@ -118,6 +118,9 @@ fn insert_batch(
 
     for (contract_id, inserts) in &batch.contract_inserts {
         let num_rows = inserts.len();
+        if let Some(stats) = stats {
+            stats.add("inserter", "contract data rows", num_rows)?;
+        }
         DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
     }
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
