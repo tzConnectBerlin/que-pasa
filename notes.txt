@@ -1,0 +1,3 @@
+has sapling state: KT1E3kx2Wc7qoSfR4zZmTMA7P84nQnKENwW5
+
+GETTERS_CAP=1 WORKERS_CAP=6 p run .env --contracts=test=KT1NN1NgmKFTW5FUWiyxVjUt3kH9bCiqgxLW -l 1765736

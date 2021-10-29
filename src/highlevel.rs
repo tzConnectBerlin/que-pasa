@@ -713,9 +713,13 @@ impl Executor {
             let (meta, block) = *b;
 
             let processed_block = self.exec_for_block(&meta, &block, true)?;
-
             for cres in &processed_block {
                 if self.all_contracts {
+                    stats.set(
+                        "processor",
+                        "unique contracts",
+                        format!("{}", self.get_config()?.len()),
+                    )?;
                     stats.add(
                         "processor",
                         "contract calls",

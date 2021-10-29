@@ -158,6 +158,7 @@ pub fn init_config() -> Result<Config> {
         )
         .ok();
     if let Some(fpath) = maybe_fpath {
+        info!("loading contract settings from {}", fpath);
         config.contracts = parse_contract_settings_file(fpath).unwrap();
     }
     if matches.is_present("contracts") {

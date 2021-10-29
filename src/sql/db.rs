@@ -285,7 +285,14 @@ WHERE table_schema = 'public'
     ) -> Result<bool> {
         let mut tx = self.transaction()?;
         tx.simple_query("LOCK contracts IN EXCLUSIVE MODE")?;
-        if Self::contract_schema_defined(&mut tx, contract_id)? {
+        let num_inserted = tx.execute(
+            "
+INSERT INTO contracts (name, address)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING",
+            &[&contract_id.name, &contract_id.address],
+        )?;
+        if num_inserted == 0 {
             tx.rollback()?;
             return Ok(false);
         }
@@ -298,12 +305,6 @@ WHERE table_schema = 'public'
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
 
-        tx.execute(
-            "
-INSERT INTO contracts (name, address)
-VALUES ($1, $2)",
-            &[&contract_id.name, &contract_id.address],
-        )?;
         tx.simple_query(
             format!(
                 r#"

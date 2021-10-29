@@ -163,7 +163,18 @@ impl IntraBlockBigmapDiffsProcessor {
         keys.reverse();
 
         let mut targets: Vec<i32> = vec![bigmap_target];
+        let mut prev_content_number = keys[0].content_number;
         for tx_context in keys {
+            if tx_context.content_number != prev_content_number {
+                // temporary bigmaps (ie those with id < 0) only live in the
+                // scope of tx contents (the content operation itself +
+                // the internal operations)
+                targets = targets
+                    .into_iter()
+                    .filter(|d| d >= &0)
+                    .collect();
+                prev_content_number = tx_context.content_number;
+            }
             if targets.is_empty() {
                 break;
             }

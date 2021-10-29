@@ -432,12 +432,14 @@ where
                                 insert::Value::Bool(true),
                                 tx_context,
                             ),
-                            Some(val) => self.process_storage_value_internal(
-                                ctx,
-                                &parser::parse_lexed(&serde2json!(&val))?,
-                                &value_ast,
-                                tx_context,
-                            )?,
+                            Some(val) => {
+                                self.process_storage_value_internal(
+                                    ctx,
+                                    &parser::parse_lexed(&serde2json!(&val))?,
+                                    &value_ast,
+                                    tx_context,
+                                )?;
+                            }
                         };
                         self.sql_add_cell(
                             ctx,
@@ -768,7 +770,12 @@ where
                             ))
                         }
                     }
-                    _ => Ok(()),
+                    //_ => Ok(())
+                    _ => Err(anyhow!(
+                        "failed to match {:#?} with {:#?}",
+                        v,
+                        rel_ast
+                    )),
                 }
             }
         }
@@ -1593,13 +1600,13 @@ fn test_process_block() {
                 228525, 228526, 228527,
             ],
         },
-        Contract {
-            id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
-            levels: vec![
-                147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813,
-                147814, 147815, 147816,
-            ],
-        },
+        // Contract {
+        //     id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
+        //     levels: vec![
+        //         147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813,
+        //         147814, 147815, 147816,
+        //     ],
+        // },
         Contract {
             // Hic et Nunc hDAO contract (has "set" type in storage)
             id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
@@ -1693,6 +1700,7 @@ fn test_process_block() {
         )))
         .unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
+        debug!("rel ast: {:#?}", rel_ast);
 
         // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
