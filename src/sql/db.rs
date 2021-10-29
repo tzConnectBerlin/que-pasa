@@ -657,7 +657,7 @@ WHERE dest_schema IN ({})
 
     pub(crate) fn get_dependent_levels(
         &mut self,
-        config: &[&ContractID],
+        config: &[ContractID],
     ) -> Result<Vec<u32>> {
         if config.is_empty() {
             return Ok(vec![]);

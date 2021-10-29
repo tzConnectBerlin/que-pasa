@@ -37,19 +37,10 @@ impl StatsLogger {
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
 
-        let (c, total) = stats
+        stats
             .get_mut(report)
             .unwrap()
-            .counters
-            .get(field)
-            .unwrap_or(&(0, 0));
-        let c = c + n;
-        let total = total + (n as u64);
-        (*stats)
-            .get_mut(report)
-            .unwrap()
-            .counters
-            .insert(field.to_string(), (c, total));
+            .add(field, n);
 
         Ok(())
     }
@@ -77,11 +68,10 @@ impl StatsLogger {
             .stats
             .lock()
             .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-        (*stats)
+        stats
             .get_mut(report)
             .unwrap()
-            .values
-            .insert(field.to_string(), value);
+            .set(field, value);
         Ok(())
     }
 
@@ -100,7 +90,7 @@ impl StatsLogger {
             return Ok(());
         }
 
-        info!("starting {:?} reporter", self.interval);
+        info!("reporting statistics every {:?}", self.interval);
         while !self.cancelled() {
             thread::park_timeout(self.interval);
 
@@ -151,7 +141,7 @@ impl StatsLogger {
             .collect::<Vec<String>>()
             .join("\n");
 
-        info!("\n=============\n{:?} report\n{}", at_interval, sections);
+        info!("\n=============\n{:?} report\n{}\n", at_interval, sections);
     }
 }
 
@@ -167,6 +157,22 @@ impl Stats {
             counters: HashMap::new(),
             values: HashMap::new(),
         }
+    }
+
+    pub(crate) fn add(&mut self, field: &str, n: usize) {
+        let (c, total) = self
+            .counters
+            .get(field)
+            .unwrap_or(&(0, 0));
+        let c = c + n;
+        let total = total + (n as u64);
+        self.counters
+            .insert(field.to_string(), (c, total));
+    }
+
+    pub(crate) fn set(&mut self, field: &str, value: String) {
+        self.values
+            .insert(field.to_string(), value);
     }
 
     pub(crate) fn generate_report(&self, ident: &str) -> String {

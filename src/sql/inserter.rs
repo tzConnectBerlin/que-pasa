@@ -61,24 +61,24 @@ impl DBInserter {
                 let accum_elapsed = accum_begin.elapsed();
 
                 let insert_begin = Instant::now();
-                insert_batch(&mut dbcli, Some(&stats), update_derived, &batch)?;
+                insert_batch(&mut dbcli, Some(stats), update_derived, &batch)?;
                 let insert_elapsed = insert_begin.elapsed();
 
                 stats.set(
                     "inserter",
-                    "accumulation time",
+                    "prev batch's accumulation time",
                     format!("{:?}", accum_elapsed),
                 )?;
                 stats.set(
                     "inserter",
-                    "insert time",
+                    "prev batch's insert time",
                     format!("{:?}", insert_elapsed),
                 )?;
                 batch.clear();
                 accum_begin = Instant::now();
             }
         }
-        insert_batch(&mut dbcli, Some(&stats), update_derived, &batch)?;
+        insert_batch(&mut dbcli, Some(stats), update_derived, &batch)?;
 
         Ok(())
     }

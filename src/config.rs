@@ -16,6 +16,7 @@ pub struct Config {
     pub node_url: String,
     pub network: String,
     pub bcd_url: Option<String>,
+    pub getters_cap: usize,
     pub workers_cap: usize,
     pub always_yes: bool,
     pub reports_interval: usize, // in seconds
@@ -104,10 +105,17 @@ pub fn init_config() -> Result<Config> {
                 .help("Optional: better-call.dev api url (enables fast bootstrap)")
                 .takes_value(true))
         .arg(
+            Arg::with_name("getters_cap")
+                .long("getters-cap")
+                .value_name("GETTERS_CAP")
+                .help("max number of processes used to concurrently fetch block data from the node (enables fast bootstrap)")
+                .takes_value(true),
+        )
+        .arg(
             Arg::with_name("workers_cap")
                 .long("workers-cap")
                 .value_name("WORKERS_CAP")
-                .help("max number of workers used to concurrently fetch block data from the node (enables fast bootstrap)")
+                .help("max number of processes used to concurrently process block data (enables fast bootstrap)")
                 .takes_value(true),
         )
         .arg(
@@ -225,13 +233,27 @@ pub fn init_config() -> Result<Config> {
         .unwrap_or_else(|_| "60".to_string())
         .parse::<usize>()?;
 
-    let workers_cap = match matches.value_of("workers_cap") {
+    config.getters_cap = match matches.value_of("getters_cap") {
         Some(s) => s.to_string(),
         None => {
-            std::env::var("WORKERS_CAP").unwrap_or_else(|_| "10".to_string())
+            std::env::var("GETTERS_CAP").unwrap_or_else(|_| "2".to_string())
         }
-    };
-    config.workers_cap = workers_cap.parse::<usize>()?;
+    }
+    .parse::<usize>()?;
+    if config.getters_cap == 0 {
+        warn!(
+            "set getters_cap ({}) is invalid. defaulting to 1",
+            config.getters_cap
+        );
+        config.getters_cap = 1;
+    }
+    config.workers_cap = match matches.value_of("workers_cap") {
+        Some(s) => s.to_string(),
+        None => {
+            std::env::var("WORKERS_CAP").unwrap_or_else(|_| "4".to_string())
+        }
+    }
+    .parse::<usize>()?;
     if config.workers_cap == 0 {
         warn!(
             "set workers_cap ({}) is invalid. defaulting to 1",

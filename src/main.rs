@@ -96,10 +96,11 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             .add_contract(contract_id)
             .unwrap();
     }
-    let contracts = executor.get_config();
+    let contracts = executor.get_config().unwrap();
     assert_contracts_ok(&contracts);
 
-    let num_getters = config.workers_cap;
+    let num_getters = config.getters_cap;
+    let num_processors = config.workers_cap;
     if !config.levels.is_empty() {
         executor
             .add_dependency_contracts()
@@ -108,7 +109,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             .create_contract_schemas()
             .unwrap();
         executor
-            .exec_levels(num_getters, config.levels.clone())
+            .exec_levels(num_getters, num_processors, config.levels.clone())
             .unwrap();
         return;
     }
@@ -125,6 +126,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
                 .as_ref()
                 .map(|url| (url.clone(), config.network.clone())),
             num_getters,
+            num_processors,
             acceptable_head_offset,
         )
         .unwrap();
@@ -136,7 +138,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     info!("running for contracts: {:#?}", contracts);
     if !config.levels.is_empty() {
         executor
-            .exec_levels(num_getters, config.levels.clone())
+            .exec_levels(num_getters, num_processors, config.levels.clone())
             .unwrap();
         executor.exec_dependents().unwrap();
         return;
@@ -144,7 +146,11 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
 
     // We will first load missing levels (if any)
     executor
-        .exec_missing_levels(num_getters, acceptable_head_offset)
+        .exec_missing_levels(
+            num_getters,
+            num_processors,
+            acceptable_head_offset,
+        )
         .unwrap();
 
     // At last, normal operation.
@@ -159,7 +165,11 @@ fn index_all_contracts(
     executor.index_all_contracts();
     if !config.levels.is_empty() {
         executor
-            .exec_levels(config.workers_cap, config.levels.clone())
+            .exec_levels(
+                config.getters_cap,
+                config.workers_cap,
+                config.levels.clone(),
+            )
             .unwrap();
         #[cfg(feature = "regression_force_update_derived")]
         if true {
@@ -172,7 +182,11 @@ fn index_all_contracts(
     } else {
         info!("processing missing levels");
         executor
-            .exec_missing_levels(config.workers_cap, Duration::days(0))
+            .exec_missing_levels(
+                config.getters_cap,
+                config.workers_cap,
+                Duration::days(0),
+            )
             .unwrap();
 
         info!("processing blocks at the chain head");
