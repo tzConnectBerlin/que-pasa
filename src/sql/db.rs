@@ -305,20 +305,18 @@ ON CONFLICT DO NOTHING",
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
 
-        tx.simple_query(
-            format!(
-                r#"
+        let mut stmnts: Vec<String> = vec![];
+        stmnts.push(format!(
+            r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 "#,
-                contract_schema = contract_id.name
-            )
-            .as_str(),
-        )?;
+            contract_schema = contract_id.name
+        ));
 
         let noview_prefixes = builder.get_viewless_table_prefixes();
         for (_name, table) in sorted_tables {
             let table_def = generator.create_table_definition(table)?;
-            tx.simple_query(table_def.as_str())?;
+            stmnts.push(table_def);
 
             if !noview_prefixes
                 .iter()
@@ -327,10 +325,11 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                 for derived_table_def in
                     generator.create_derived_table_definitions(table)?
                 {
-                    tx.simple_query(derived_table_def.as_str())?;
+                    stmnts.push(derived_table_def);
                 }
             }
         }
+        tx.simple_query(stmnts.join("\n").as_str())?;
         tx.commit()?;
 
         return Ok(true);
@@ -939,7 +938,7 @@ set mode = $1",
             .dbconn
             .query_one("select max_id from indexer_state", &[])?
             .get(0);
-        Ok(max_id + 1)
+        Ok(max_id)
     }
 
     pub(crate) fn set_max_id(tx: &mut Transaction, max_id: i64) -> Result<()> {

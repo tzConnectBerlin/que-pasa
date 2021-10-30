@@ -784,7 +784,7 @@ impl Executor {
         &self,
     ) -> Result<StorageProcessor<NodeClient, DBClient>> {
         Ok(StorageProcessor::new(
-            0,
+            1,
             self.node_cli.clone(),
             self.dbcli.reconnect()?,
         ))
