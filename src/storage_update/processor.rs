@@ -1600,13 +1600,6 @@ fn test_process_block() {
                 228525, 228526, 228527,
             ],
         },
-        // Contract {
-        //     id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
-        //     levels: vec![
-        //         147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813,
-        //         147814, 147815, 147816,
-        //     ],
-        // },
         Contract {
             // Hic et Nunc hDAO contract (has "set" type in storage)
             id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
