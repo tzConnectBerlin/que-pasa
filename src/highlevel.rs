@@ -1060,7 +1060,9 @@ fn test_generate() {
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
-    let json = json::parse(&debug::load_test(
+    use std::str::FromStr;
+
+    let json = serde_json::Value::from_str(&debug::load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
     ))
     .unwrap();

@@ -1547,16 +1547,20 @@ fn test_process_block() {
     use crate::sql::table_builder::{TableBuilder, TableMap};
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
-    use json::JsonValue;
     use ron::ser::{to_string_pretty, PrettyConfig};
+    use std::str::FromStr;
 
     env_logger::init();
 
-    fn get_rel_ast_from_script_json(json: &JsonValue) -> Result<RelationalAST> {
+    fn get_rel_ast_from_script_json(
+        json: &serde_json::Value,
+    ) -> Result<RelationalAST> {
         let storage_definition = json["code"]
-            .members()
+            .as_array()
+            .unwrap()
+            .iter()
             .find(|x| x["prim"] == "storage")
-            .unwrap_or(&JsonValue::Null)["args"][0]
+            .unwrap()["args"][0]
             .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
@@ -1681,10 +1685,9 @@ fn test_process_block() {
         unique_levels.dedup();
         assert_eq!(contract.levels.len(), unique_levels.len());
 
-        let script_json = json::parse(&debug::load_test(&format!(
-            "test/{}.script",
-            contract.id
-        )))
+        let script_json = serde_json::Value::from_str(&debug::load_test(
+            &format!("test/{}.script", contract.id),
+        ))
         .unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
         debug!("rel ast: {:#?}", rel_ast);
@@ -1756,7 +1759,7 @@ impl crate::octez::node::StorageGetter for DummyStorageGetter {
         &self,
         _contract_id: &str,
         _level: u32,
-    ) -> Result<json::JsonValue> {
+    ) -> Result<serde_json::Value> {
         Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
     }
 
@@ -1765,7 +1768,7 @@ impl crate::octez::node::StorageGetter for DummyStorageGetter {
         _level: u32,
         _bigmap_id: i32,
         _keyhash: &str,
-    ) -> Result<Option<json::JsonValue>> {
+    ) -> Result<Option<serde_json::Value>> {
         Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
     }
 }
