@@ -59,130 +59,7 @@ pub struct Executor {
     // Everything below this level has nothing to do with what we are indexing
     mutexed_state: MutexedState,
 
-    reports_interval: usize,
-}
-
-#[derive(Clone)]
-struct MutexedState {
-    contracts: Arc<Mutex<HashMap<ContractID, (RelationalAST, Option<u32>)>>>,
-    level_floor: Arc<Mutex<u32>>,
-}
-
-impl MutexedState {
-    pub fn new() -> Self {
-        Self {
-            contracts: Arc::new(Mutex::new(HashMap::new())),
-            level_floor: Arc::new(Mutex::new(0)),
-        }
-    }
-
-    pub fn set_level_floor(&self) -> Result<()> {
-        let contracts = self
-            .contracts
-            .lock()
-            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-        let mut level_floor = self
-            .level_floor
-            .lock()
-            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-
-        *level_floor = contracts
-            .values()
-            .map(|(_, lfloor)| lfloor.unwrap_or(0))
-            .min()
-            .unwrap_or(0);
-        Ok(())
-    }
-
-    pub fn get_level_floor(&self) -> Result<u32> {
-        let level_floor = self
-            .level_floor
-            .lock()
-            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-        Ok(*level_floor)
-    }
-
-    pub fn add_contract(
-        &self,
-        contract_id: ContractID,
-        rel_ast: RelationalAST,
-        floor: Option<u32>,
-    ) -> Result<bool> {
-        let mut contracts = self
-            .contracts
-            .lock()
-            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-
-        if contracts.contains_key(&contract_id) {
-            return Ok(false);
-        }
-
-        contracts.insert(contract_id.clone(), (rel_ast, floor));
-        Ok(true)
-    }
-
-    pub fn update_contract_floor(
-        &self,
-        contract_id: &ContractID,
-        level: u32,
-    ) -> Result<()> {
-        let mut contracts = self
-            .contracts
-            .lock()
-            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-
-        let mut v = contracts.get_mut(contract_id).unwrap();
-        v.1 = Some(level);
-        Ok(())
-    }
-
-    pub fn get_contract(
-        &self,
-        contract_id: &ContractID,
-    ) -> Result<Option<(RelationalAST, Option<u32>)>> {
-        let contracts = self
-            .contracts
-            .lock()
-            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-        Ok(contracts.get(contract_id).cloned())
-    }
-
-    pub fn get_contracts(
-        &self,
-    ) -> Result<HashMap<ContractID, (RelationalAST, Option<u32>)>> {
-        let contracts = self
-            .contracts
-            .lock()
-            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-        Ok(contracts.clone())
-    }
-
-    pub fn get_missing_contracts(
-        &self,
-        l: &[ContractID],
-    ) -> Result<Vec<ContractID>> {
-        let contracts = self
-            .contracts
-            .lock()
-            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-
-        Ok(l.iter()
-            .filter(|contract_id| !contracts.contains_key(contract_id))
-            .cloned()
-            .collect::<Vec<ContractID>>())
-    }
-}
-
-#[derive(Error, Debug)]
-pub struct BadLevelHash {
-    level: u32,
-    err: anyhow::Error,
-}
-
-impl fmt::Display for BadLevelHash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.err)
-    }
+    stats: StatsLogger,
 }
 
 impl Executor {
@@ -196,7 +73,10 @@ impl Executor {
             dbcli,
             all_contracts: false,
             mutexed_state: MutexedState::new(),
-            reports_interval,
+            stats: StatsLogger::new(std::time::Duration::new(
+                reports_interval as u64,
+                0,
+            )),
         }
     }
 
@@ -217,7 +97,7 @@ impl Executor {
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let rel_ast = get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
         debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
@@ -234,20 +114,30 @@ impl Executor {
         &mut self,
         contracts: &[ContractID],
     ) -> Result<()> {
+        let mut l: Vec<(ContractID, RelationalAST)> = vec![];
+
         for contract_id in contracts {
-            let rel_ast =
-                get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+            let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
+            l.push((contract_id.clone(), rel_ast));
+        }
+
+        self.dbcli
+            .create_contract_schemas(&mut l)?;
+
+        for (contract_id, rel_ast) in l {
             let contract_floor = self
                 .dbcli
-                .get_origination(contract_id)?;
+                .get_origination(&contract_id)?;
 
-            self.dbcli
-                .create_contract_schema(contract_id, &rel_ast)?;
-            self.mutexed_state.add_contract(
+            if self.mutexed_state.add_contract(
                 contract_id.clone(),
                 rel_ast,
                 contract_floor,
-            )?;
+            )? && self.all_contracts
+            {
+                self.stats
+                    .add("processor", "unique contracts", 1)?;
+            }
         }
         Ok(())
     }
@@ -257,7 +147,10 @@ impl Executor {
         for (contract_id, rel_ast) in &self.mutexed_state.get_contracts()? {
             if self
                 .dbcli
-                .create_contract_schema(contract_id, &rel_ast.0)?
+                .create_contract_schemas(&mut vec![(
+                    contract_id.clone(),
+                    rel_ast.0.clone(),
+                )])?
             {
                 new_contracts.push(contract_id.clone());
             }
@@ -591,25 +484,21 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        let stats = StatsLogger::new(std::time::Duration::new(
-            self.reports_interval as u64,
-            0,
-        ));
-        let stats_thread = stats.run();
+        self.stats.reset()?;
+        let stats_thread = self.stats.run();
 
-        let batch_size = 5;
+        let batch_size = 10;
         let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
 
-        threads.push(inserter.run(&stats, processed_recv)?);
+        threads.push(inserter.run(&self.stats, processed_recv)?);
 
         let processed_levels: Arc<Mutex<Vec<u32>>> =
             Arc::new(Mutex::new(vec![]));
 
         if num_processors <= 1 {
-            let processed =
-                self.read_block_chan(&stats, block_recv, processed_send)?;
+            let processed = self.read_block_chan(block_recv, processed_send)?;
             let mut res = processed_levels.lock().unwrap();
             res.extend(processed);
         } else {
@@ -618,11 +507,10 @@ impl Executor {
                 let mut exec = self.clone();
                 let w_recv_ch = block_recv.clone();
                 let w_send_ch = processed_send.clone();
-                let stats_cl = stats.clone();
                 let res_arc = processed_levels.clone();
                 threads.push(thread::spawn(move || {
                     let processed = exec
-                        .read_block_chan(&stats_cl, w_recv_ch, w_send_ch)
+                        .read_block_chan(w_recv_ch, w_send_ch)
                         .unwrap();
 
                     let mut res = res_arc.lock().unwrap();
@@ -637,7 +525,7 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
-        stats.cancel();
+        self.stats.stop();
         stats_thread.thread().unpark();
         stats_thread.join().map_err(|e| {
             anyhow!("failed to stop processor statistics logger, err: {:?}", e)
@@ -702,7 +590,6 @@ impl Executor {
 
     fn read_block_chan(
         &mut self,
-        stats: &StatsLogger,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
         processed_ch: flume::Sender<Box<ProcessedBlock>>,
     ) -> Result<Vec<u32>> {
@@ -715,25 +602,20 @@ impl Executor {
             let processed_block = self.exec_for_block(&meta, &block, true)?;
             for cres in &processed_block {
                 if self.all_contracts {
-                    stats.set(
-                        "processor",
-                        "unique contracts",
-                        format!("{}", self.get_config()?.len()),
-                    )?;
-                    stats.add(
+                    self.stats.add(
                         "processor",
                         "contract calls",
                         cres.tx_contexts.len(),
                     )?;
                 } else {
-                    stats.add(
+                    self.stats.add(
                         "processor",
                         &cres.contract_id.name,
                         cres.tx_contexts.len(),
                     )?;
                 }
             }
-            stats.set(
+            self.stats.set(
                 "processor",
                 "channel sizes (input - output)",
                 format!(
@@ -745,8 +627,9 @@ impl Executor {
                 ),
             )?;
             processed_ch.send(Box::new(processed_block))?;
-            stats.add("processor", "levels", 1)?;
-            stats.set(
+            self.stats
+                .add("processor", "levels", 1)?;
+            self.stats.set(
                 "processor",
                 "last processed level",
                 format!("{} ({:?})", meta.level, meta.baked_at.unwrap()),
@@ -1014,13 +897,135 @@ impl Executor {
     }
 }
 
+#[derive(Clone)]
+struct MutexedState {
+    contracts: Arc<Mutex<HashMap<ContractID, (RelationalAST, Option<u32>)>>>,
+    level_floor: Arc<Mutex<u32>>,
+}
+
+impl MutexedState {
+    pub fn new() -> Self {
+        Self {
+            contracts: Arc::new(Mutex::new(HashMap::new())),
+            level_floor: Arc::new(Mutex::new(0)),
+        }
+    }
+
+    pub fn set_level_floor(&self) -> Result<()> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+        let mut level_floor = self
+            .level_floor
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+
+        *level_floor = contracts
+            .values()
+            .map(|(_, lfloor)| lfloor.unwrap_or(0))
+            .min()
+            .unwrap_or(0);
+        Ok(())
+    }
+
+    pub fn get_level_floor(&self) -> Result<u32> {
+        let level_floor = self
+            .level_floor
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+        Ok(*level_floor)
+    }
+
+    pub fn add_contract(
+        &self,
+        contract_id: ContractID,
+        rel_ast: RelationalAST,
+        floor: Option<u32>,
+    ) -> Result<bool> {
+        let mut contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+
+        if contracts.contains_key(&contract_id) {
+            return Ok(false);
+        }
+
+        contracts.insert(contract_id.clone(), (rel_ast, floor));
+        Ok(true)
+    }
+
+    pub fn update_contract_floor(
+        &self,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        let mut contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+
+        let mut v = contracts.get_mut(contract_id).unwrap();
+        v.1 = Some(level);
+        Ok(())
+    }
+
+    pub fn get_contract(
+        &self,
+        contract_id: &ContractID,
+    ) -> Result<Option<(RelationalAST, Option<u32>)>> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+        Ok(contracts.get(contract_id).cloned())
+    }
+
+    pub fn get_contracts(
+        &self,
+    ) -> Result<HashMap<ContractID, (RelationalAST, Option<u32>)>> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+        Ok(contracts.clone())
+    }
+
+    pub fn get_missing_contracts(
+        &self,
+        l: &[ContractID],
+    ) -> Result<Vec<ContractID>> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+
+        Ok(l.iter()
+            .filter(|contract_id| !contracts.contains_key(contract_id))
+            .cloned()
+            .collect::<Vec<ContractID>>())
+    }
+}
+
+#[derive(Error, Debug)]
+pub struct BadLevelHash {
+    level: u32,
+    err: anyhow::Error,
+}
+
+impl fmt::Display for BadLevelHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.err)
+    }
+}
+
 pub(crate) fn get_rel_ast(
-    node_cli: &mut NodeClient,
+    node_cli: &NodeClient,
     contract_address: &str,
 ) -> Result<RelationalAST> {
     let storage_def =
         &node_cli.get_contract_storage_definition(contract_address, None)?;
-    debug!("storage_def: {:#?}", storage_def);
     let type_ast =
         typing::storage_ast_from_json(storage_def).with_context(|| {
             "failed to derive a storage type from the storage definition"

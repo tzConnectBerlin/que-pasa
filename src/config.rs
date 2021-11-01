@@ -231,7 +231,7 @@ pub fn init_config() -> Result<Config> {
             || std::env::var("REPORTS_INTERVAL"),
             |s| Ok(s.to_string()),
         )
-        .unwrap_or_else(|_| "60".to_string())
+        .unwrap_or_else(|_| "10".to_string())
         .parse::<usize>()?;
 
     config.getters_cap = match matches.value_of("getters_cap") {

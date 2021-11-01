@@ -3,8 +3,8 @@ use anyhow::{anyhow, Context, Result};
 use backoff::{retry, Error, ExponentialBackoff};
 use chrono::{DateTime, Utc};
 use curl::easy::Easy;
-use json::JsonValue;
 use serde::Deserialize;
+use std::str::FromStr;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -34,14 +34,13 @@ impl NodeClient {
     }
 
     fn level_json_internal(&self, level: &str) -> Result<(LevelMeta, Block)> {
-        let resp = self
+        let (body, _) = self
             .load_retry_on_nonjson(&format!("blocks/{}", level))
             .with_context(|| {
                 format!("failed to get level_json for level={}", level)
             })?;
-        let resp_data = resp.to_string();
 
-        let mut deserializer = serde_json::Deserializer::from_str(&resp_data);
+        let mut deserializer = serde_json::Deserializer::from_str(&body);
         deserializer.disable_recursion_limit();
         let block: Block = Block::deserialize(&mut deserializer)?;
 
@@ -59,14 +58,14 @@ impl NodeClient {
         &self,
         contract_id: &str,
         level: Option<u32>,
-    ) -> Result<JsonValue> {
+    ) -> Result<serde_json::Value> {
         let level = match level {
             Some(x) => format!("{}", x),
             None => "head".to_string(),
         };
 
-        let resp = self
-            .load_jsonvalue(&format!(
+        let (_, json) = self
+            .load_retry_on_nonjson(&format!(
                 "blocks/{}/context/contracts/{}/script",
                 level, contract_id
             ))
@@ -77,16 +76,19 @@ impl NodeClient {
                 )
             })?;
 
-        let res = resp["code"]
-            .members()
-            .find(|x| x["prim"] == "storage")
-            .unwrap_or(&JsonValue::Null)["args"][0]
-            .clone();
-
-        if res == JsonValue::Null {
-            return Err(anyhow!("got invalid script data (got 'null') for contract='{}', level={}", contract_id, level));
+        for entry in json["code"].as_array().ok_or(anyhow!(
+            "malformed script response (missing 'code' field)"
+        ))? {
+            if let Some(prim) = entry.as_object().ok_or(anyhow!("malformed script response ('code' array element is not an object)"))?.get("prim") {
+                if prim == &serde_json::Value::String("storage".to_string()) {
+                return Ok(entry["args"].as_array().ok_or(anyhow!("malformed script response ('storage' entry does not have 'args' field)"))?[0].clone());
+                }
+            } else {
+                return Err(anyhow!("malformed script response ('code' array element does not have a field 'prim')"));
+            }
         }
-        Ok(res)
+
+        Err(anyhow!("malformed script response ('code' array does not have 'storage' entry)"))
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {
@@ -98,33 +100,24 @@ impl NodeClient {
         Self::parse_rfc3339(block.header.timestamp.as_str())
     }
 
-    fn load_jsonvalue(&self, endpoint: &str) -> Result<JsonValue> {
-        let body = self.load_retry_on_nonjson(endpoint)?;
-
-        let json = json::parse(&body).with_context(|| {
-            format!(
-                "failed to parse json for endpoint='{}', body: {}",
-                endpoint, body
-            )
-        })?;
-        Ok(json)
-    }
-
-    fn load_retry_on_nonjson(&self, endpoint: &str) -> Result<String> {
+    fn load_retry_on_nonjson(
+        &self,
+        endpoint: &str,
+    ) -> Result<(String, serde_json::Value)> {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
             warn!("transient node communication error, retrying.. err={}", e);
             Error::Transient(e)
         }
-        let op = || -> Result<String> {
+        let op = || -> Result<(String, serde_json::Value)> {
             let body = self.load(endpoint)?;
 
             let mut deserializer = serde_json::Deserializer::from_str(&body);
             deserializer.disable_recursion_limit();
             let deserializer =
                 serde_stacker::Deserializer::new(&mut deserializer);
-            serde_json::Value::deserialize(deserializer)?;
+            let json = serde_json::Value::deserialize(deserializer)?;
 
-            Ok(body)
+            Ok((body, json))
         };
         retry(ExponentialBackoff::default(), || {
             op().map_err(transient_err)
@@ -162,14 +155,14 @@ pub(crate) trait StorageGetter {
         &self,
         contract_id: &str,
         level: u32,
-    ) -> Result<JsonValue>;
+    ) -> Result<serde_json::Value>;
 
     fn get_bigmap_value(
         &self,
         level: u32,
         bigmap_id: i32,
         keyhash: &str,
-    ) -> Result<Option<JsonValue>>;
+    ) -> Result<Option<serde_json::Value>>;
 }
 
 impl StorageGetter for NodeClient {
@@ -177,11 +170,12 @@ impl StorageGetter for NodeClient {
         &self,
         contract_id: &str,
         level: u32,
-    ) -> Result<JsonValue> {
-        self.load_jsonvalue(&format!(
+    ) -> Result<serde_json::Value> {
+        self.load_retry_on_nonjson(&format!(
             "blocks/{}/context/contracts/{}/storage",
             level, contract_id
         ))
+        .map(|(_, json)| json)
         .with_context(|| {
             format!(
                 "failed to get storage for contract='{}', level={}",
@@ -195,7 +189,7 @@ impl StorageGetter for NodeClient {
         level: u32,
         bigmap_id: i32,
         keyhash: &str,
-    ) -> Result<Option<JsonValue>> {
+    ) -> Result<Option<serde_json::Value>> {
         let body = self.load(&format!(
             "blocks/{}/context/big_maps/{}/{}",
             level, bigmap_id, keyhash,
@@ -207,6 +201,6 @@ impl StorageGetter for NodeClient {
             )
         })?;
 
-        Ok(json::parse(&body).ok())
+        Ok(serde_json::Value::from_str(&body).ok())
     }
 }

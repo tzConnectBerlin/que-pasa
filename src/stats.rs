@@ -80,9 +80,22 @@ impl StatsLogger {
         thread::spawn(move || cl.exec().unwrap())
     }
 
-    pub(crate) fn cancel(&self) {
+    pub(crate) fn stop(&self) {
         self.is_cancelled
             .swap(true, Ordering::Relaxed);
+    }
+
+    pub(crate) fn reset(&mut self) -> Result<()> {
+        let mut stats = self
+            .stats
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+
+        stats.clear();
+        self.is_cancelled
+            .swap(false, Ordering::Relaxed);
+
+        Ok(())
     }
 
     fn exec(&self) -> Result<()> {

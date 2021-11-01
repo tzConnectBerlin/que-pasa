@@ -278,54 +278,81 @@ WHERE table_schema = 'public'
         Ok(())
     }
 
-    pub(crate) fn create_contract_schema(
+    pub(crate) fn create_contract_schemas(
         &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contracts: &mut Vec<(ContractID, RelationalAST)>,
     ) -> Result<bool> {
         let mut tx = self.transaction()?;
-        tx.simple_query("LOCK contracts IN EXCLUSIVE MODE")?;
-        let num_inserted = tx.execute(
+
+        contracts.sort_by_key(|(cid, _)| cid.name.clone());
+
+        let num_columns = 2;
+        let v_refs = (1..(num_columns * contracts.len()) + 1)
+            .map(|i| format!("${}", i.to_string()))
+            .collect::<Vec<String>>()
+            .chunks(num_columns)
+            .map(|x| x.join(", "))
+            .join("), (");
+        let stmt = tx.prepare(&format!(
             "
 INSERT INTO contracts (name, address)
-VALUES ($1, $2)
-ON CONFLICT DO NOTHING",
-            &[&contract_id.name, &contract_id.address],
-        )?;
-        if num_inserted == 0 {
+VALUES ({})
+ON CONFLICT DO NOTHING
+RETURNING name",
+            v_refs
+        ))?;
+
+        let values: Vec<&dyn postgres::types::ToSql> = contracts
+            .iter()
+            .flat_map(|(c, _)| {
+                [c.name.borrow_to_sql(), c.address.borrow_to_sql()]
+            })
+            .collect();
+
+        let new_contracts = tx
+            .query_raw(&stmt, values)?
+            .map(|x| x.try_get(0))
+            .collect::<Vec<String>>()?;
+        if new_contracts.is_empty() {
             tx.rollback()?;
             return Ok(false);
         }
-        debug!("creating schema for contract {}", contract_id.name);
-        // Generate the SQL schema for this contract
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
-
-        let generator = PostgresqlGenerator::new(contract_id);
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-
         let mut stmnts: Vec<String> = vec![];
-        stmnts.push(format!(
-            r#"
+        for name in &new_contracts {
+            let (contract_id, rel_ast) = contracts
+                .iter()
+                .find(|(c, _)| &c.name == name)
+                .unwrap();
+
+            // Generate the SQL schema for this contract
+            let mut builder = TableBuilder::new();
+            builder.populate(rel_ast);
+
+            let generator = PostgresqlGenerator::new(contract_id);
+            let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
+            sorted_tables.sort_by_key(|a| a.0);
+
+            stmnts.push(format!(
+                r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 "#,
-            contract_schema = contract_id.name
-        ));
+                contract_schema = contract_id.name
+            ));
 
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (_name, table) in sorted_tables {
-            let table_def = generator.create_table_definition(table)?;
-            stmnts.push(table_def);
+            let noview_prefixes = builder.get_viewless_table_prefixes();
+            for (_name, table) in &sorted_tables {
+                let table_def = generator.create_table_definition(table)?;
+                stmnts.push(table_def);
 
-            if !noview_prefixes
-                .iter()
-                .any(|prefix| table.name.starts_with(prefix))
-            {
-                for derived_table_def in
-                    generator.create_derived_table_definitions(table)?
+                if !noview_prefixes
+                    .iter()
+                    .any(|prefix| table.name.starts_with(prefix))
                 {
-                    stmnts.push(derived_table_def);
+                    for derived_table_def in
+                        generator.create_derived_table_definitions(table)?
+                    {
+                        stmnts.push(derived_table_def);
+                    }
                 }
             }
         }
@@ -380,22 +407,6 @@ DROP TABLE "{contract_schema}"."{table}";
             )?;
         }
         Ok(())
-    }
-
-    fn contract_schema_defined(
-        tx: &mut Transaction,
-        contract_id: &ContractID,
-    ) -> Result<bool> {
-        let res = tx.query_opt(
-            "
-SELECT
-    1
-FROM contracts
-WHERE name = $1
-",
-            &[&contract_id.name],
-        )?;
-        Ok(res.is_some())
     }
 
     pub(crate) fn save_bigmap_keyhashes(
@@ -762,11 +773,11 @@ VALUES ( {v_refs} )"#,
 
     pub(crate) fn delete_everything<F>(
         &mut self,
-        node_cli: &mut NodeClient,
-        mut get_rel_ast: F,
+        node_cli: &NodeClient,
+        get_rel_ast: F,
     ) -> Result<()>
     where
-        F: FnMut(&mut NodeClient, &str) -> Result<RelationalAST>,
+        F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
     {
         let mut tx = self.transaction()?;
         let contracts_table = tx.query_opt(

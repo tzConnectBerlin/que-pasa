@@ -18,12 +18,6 @@ use std::collections::HashMap;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-macro_rules! serde2json {
-    ($serde:expr) => {
-        json::parse(&serde_json::to_string(&$serde)?)?
-    };
-}
-
 macro_rules! must_match_rel {
     ($rel_ast:expr, $typ:path { $($fields:tt),+ }, $impl:block) => {
         match $rel_ast {
@@ -176,7 +170,7 @@ where
                 } else if let Some(storage) = &op_res.storage {
                     Ok(Some((
                         self.tx_context(tx_context, tx),
-                        parser::parse_lexed(&serde2json!(storage))?,
+                        parser::parse_lexed(&storage)?,
                     )))
                 } else {
                     Err(anyhow!(
@@ -420,7 +414,7 @@ where
                         );
                         self.process_storage_value_internal(
                             ctx,
-                            &parser::parse_lexed(&serde2json!(&key))?,
+                            &parser::parse_lexed(&key)?,
                             &key_ast,
                             tx_context,
                         )?;
@@ -435,7 +429,7 @@ where
                             Some(val) => {
                                 self.process_storage_value_internal(
                                     ctx,
-                                    &parser::parse_lexed(&serde2json!(&val))?,
+                                    &parser::parse_lexed(&val)?,
                                     &value_ast,
                                     tx_context,
                                 )?;

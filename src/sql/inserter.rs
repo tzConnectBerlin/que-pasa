@@ -103,6 +103,7 @@ fn insert_batch(
 ) -> Result<()> {
     let mut db_tx = dbcli.transaction()?;
 
+    DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
     DBClient::save_levels(
         &mut db_tx,
         &batch
@@ -110,8 +111,8 @@ fn insert_batch(
             .values()
             .collect::<Vec<&LevelMeta>>(),
     )?;
-    DBClient::save_contract_levels(&mut db_tx, &batch.contract_levels)?;
     DBClient::save_contract_deps(&mut db_tx, &batch.contract_deps)?;
+    DBClient::save_contract_levels(&mut db_tx, &batch.contract_levels)?;
 
     DBClient::save_tx_contexts(&mut db_tx, &batch.tx_contexts)?;
     DBClient::save_txs(&mut db_tx, &batch.txs)?;
@@ -139,7 +140,6 @@ fn insert_batch(
                 )})?;
         }
     }
-    DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
 
     db_tx.commit()?;
 
