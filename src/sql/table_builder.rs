@@ -1,3 +1,4 @@
+use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
@@ -7,18 +8,15 @@ pub type TableMap = HashMap<String, Table>;
 
 pub struct TableBuilder {
     pub tables: TableMap,
-}
 
-impl Default for TableBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
+    sql_gen: PostgresqlGenerator,
 }
 
 impl TableBuilder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(sql_gen: PostgresqlGenerator) -> Self {
         let mut res = Self {
             tables: TableMap::new(),
+            sql_gen,
         };
         res.touch_table("storage");
         res
@@ -37,7 +35,11 @@ impl TableBuilder {
                     if t.contains_snapshots() {
                         None
                     } else {
-                        Some(format!("{}.", t.name))
+                        Some(format!(
+                            "{}{}",
+                            t.name,
+                            self.sql_gen.get_separator()
+                        ))
                     }
                 })
                 .collect::<Vec<String>>(),
@@ -122,7 +124,6 @@ impl TableBuilder {
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
                 self.store_table(t);
-
                 self.touch_bigmap_meta_tables();
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),

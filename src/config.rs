@@ -10,6 +10,7 @@ pub struct Config {
     pub database_url: String,
     pub ssl: bool,
     pub ca_cert: Option<String>,
+    pub separator: String,
     pub reinit: bool,
     pub levels: Vec<u32>,
     pub node_url: String,
@@ -170,7 +171,16 @@ pub fn init_config() -> Result<Config> {
                 .short("y")
                 .value_name("ALWAYS_YES")
                 .help("If set, never prompt for confirmations, always default to 'yes'")
-                .takes_value(false));
+                .takes_value(false))
+        .arg(
+            Arg::with_name("separator")
+                .short("s")
+                .long("separator")
+                .value_name("SEPARATOR")
+                .env("SEPARATOR")
+                .default_value(".")
+                .help("string used to separate naming of parent<->child tables, only applicable when (re)-initializing the database.")
+                .takes_value(true));
     let matches = matches.get_matches();
 
     let maybe_fpath = matches.value_of("contract_settings");
@@ -208,6 +218,10 @@ pub fn init_config() -> Result<Config> {
     }
 
     config.reinit = matches.is_present("reinit");
+    config.separator = matches
+        .value_of("separator")
+        .unwrap()
+        .to_string();
     config.all_contracts = matches.is_present("index_all_contracts");
     config.always_yes = matches.is_present("always_yes");
 

@@ -1,16 +1,11 @@
-{
+[
     (
         table_name: "storage",
         id: 63,
-    ): (
-        table_name: "storage",
-        id: 63,
+        tx_context_id: 62,
+        bigmap_id: None,
         fk_id: None,
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(62),
-            ),
             (
                 name: "stablecoin",
                 value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
@@ -25,4 +20,4 @@
             ),
         ],
     ),
-}
+]

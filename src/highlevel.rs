@@ -23,6 +23,7 @@ use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::inserter::{
     insert_processed, DBInserter, ProcessedBlock, ProcessedContractBlock,
 };
+use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
@@ -51,6 +52,8 @@ impl SaveLevelResult {
 
 #[derive(Clone)]
 pub struct Executor {
+    pub sql_gen: PostgresqlGenerator,
+
     node_cli: NodeClient,
     dbcli: DBClient,
 
@@ -67,6 +70,7 @@ impl Executor {
         node_cli: NodeClient,
         dbcli: DBClient,
         reports_interval: usize,
+        sql_gen: PostgresqlGenerator,
     ) -> Self {
         Self {
             node_cli,
@@ -77,6 +81,7 @@ impl Executor {
                 reports_interval as u64,
                 0,
             )),
+            sql_gen,
         }
     }
 
@@ -97,7 +102,11 @@ impl Executor {
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
+        let rel_ast = get_rel_ast(
+            &self.node_cli,
+            &contract_id.address,
+            self.sql_gen.clone(),
+        )?;
         debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
@@ -117,7 +126,11 @@ impl Executor {
         let mut l: Vec<(ContractID, RelationalAST)> = vec![];
 
         for contract_id in contracts {
-            let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
+            let rel_ast = get_rel_ast(
+                &self.node_cli,
+                &contract_id.address,
+                self.sql_gen.clone(),
+            )?;
             l.push((contract_id.clone(), rel_ast));
         }
 
@@ -1023,6 +1036,7 @@ impl fmt::Display for BadLevelHash {
 pub(crate) fn get_rel_ast(
     node_cli: &NodeClient,
     contract_address: &str,
+    sql_gen: PostgresqlGenerator,
 ) -> Result<RelationalAST> {
     let storage_def =
         &node_cli.get_contract_storage_definition(contract_address, None)?;
@@ -1041,7 +1055,7 @@ pub(crate) fn get_rel_ast(
 
     // Build the internal representation from the storage defition
     let ctx = relational::Context::init();
-    let rel_ast = relational::ASTBuilder::new()
+    let rel_ast = relational::ASTBuilder::new(sql_gen)
         .build_relational_ast(&ctx, &type_ast)
         .with_context(|| {
             "failed to build a relational AST from the storage type"
@@ -1074,14 +1088,15 @@ fn test_generate() {
     use crate::relational::Context;
     let context = Context::init();
 
-    let rel_ast = ASTBuilder::new()
+    let generator = PostgresqlGenerator::new(".".to_string());
+    let rel_ast = ASTBuilder::new(generator.clone())
         .build_relational_ast(&context, &type_ast)
         .unwrap();
     println!("{:#?}", rel_ast);
-    let generator = PostgresqlGenerator::new(&ContractID {
+    let contract_id = &ContractID {
         name: "testcontract".to_string(),
         address: "".to_string(),
-    });
+    };
     let mut builder = crate::sql::table_builder::TableBuilder::new();
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -1091,7 +1106,7 @@ fn test_generate() {
         print!(
             "{}",
             generator
-                .create_table_definition(table)
+                .create_table_definition(contract_id, table)
                 .unwrap()
         );
         tables.push(table.clone());

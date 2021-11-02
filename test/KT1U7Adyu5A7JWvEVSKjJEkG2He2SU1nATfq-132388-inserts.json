@@ -1,16 +1,11 @@
-{
+[
     (
         table_name: "storage",
         id: 238,
-    ): (
-        table_name: "storage",
-        id: 238,
+        tx_context_id: 237,
+        bigmap_id: None,
         fk_id: None,
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(237),
-            ),
             (
                 name: "stablecoin",
                 value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
@@ -28,15 +23,10 @@
     (
         table_name: "storage.questions",
         id: 244,
-    ): (
-        table_name: "storage.questions",
-        id: 244,
+        tx_context_id: 237,
+        bigmap_id: Some(48012),
         fk_id: None,
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(237),
-            ),
             (
                 name: "idx_string",
                 value: String("QmUCGwUZZ9pRszpTv38jviF9QKPZR6KRofvZqxtokL2YYx"),
@@ -85,24 +75,15 @@
                 name: "owner",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
-            (
-                name: "bigmap_id",
-                value: Int(48012),
-            ),
         ],
     ),
     (
         table_name: "storage.questions.auction_bids",
         id: 245,
-    ): (
-        table_name: "storage.questions.auction_bids",
-        id: 245,
+        tx_context_id: 237,
+        bigmap_id: None,
         fk_id: Some(244),
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(237),
-            ),
             (
                 name: "idx_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
@@ -121,4 +102,4 @@
             ),
         ],
     ),
-}
+]

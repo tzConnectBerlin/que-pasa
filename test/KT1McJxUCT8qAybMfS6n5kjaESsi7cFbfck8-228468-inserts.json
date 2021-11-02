@@ -1,16 +1,10 @@
-{
+[
     (
         table_name: "storage",
         id: 74,
-    ): (
-        table_name: "storage",
-        id: 74,
+        tx_context_id: 73,
+        bigmap_id: None,
         fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(73),
-            ),
-        ],
+        columns: [],
     ),
-}
+]

@@ -1,30 +1,57 @@
-{
+[
     (
         table_name: "storage",
         id: 165,
-    ): (
-        table_name: "storage",
-        id: 165,
+        tx_context_id: 164,
+        bigmap_id: None,
+        fk_id: None,
+        columns: [],
+    ),
+    (
+        table_name: "storage.liquidity_provider_map",
+        id: 174,
+        tx_context_id: 164,
+        bigmap_id: Some(90986),
         fk_id: None,
         columns: [
             (
-                name: "tx_context_id",
-                value: BigInt(164),
+                name: "idx_markets_market_id",
+                value: Numeric(Some("60019725")),
+            ),
+            (
+                name: "idx_markets_originator",
+                value: String("tz1Q3eT3kwr1hfvK49HK8YqPadNXzxdxnE7u"),
+            ),
+            (
+                name: "markets_noname",
+                value: String("storage.liquidity_provider_map.bet"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.liquidity_provider_map.bet",
+        id: 175,
+        tx_context_id: 164,
+        bigmap_id: None,
+        fk_id: Some(174),
+        columns: [
+            (
+                name: "bet_quantity",
+                value: Numeric(Some("500000000")),
+            ),
+            (
+                name: "bet_predicted_probability",
+                value: Numeric(Some("78000000")),
             ),
         ],
     ),
     (
         table_name: "storage.market_map",
         id: 171,
-    ): (
-        table_name: "storage.market_map",
-        id: 171,
+        tx_context_id: 164,
+        bigmap_id: Some(90985),
         fk_id: None,
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(164),
-            ),
             (
                 name: "idx_markets_nat",
                 value: Numeric(Some("60019725")),
@@ -49,42 +76,15 @@
                 name: "metadata_ipfs_hash",
                 value: String("Qmauaqx7i71AoxCbWQbMsqrXJNvchsbKZytTfjRsW1JMq5"),
             ),
-            (
-                name: "bigmap_id",
-                value: Int(90985),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.market_map.fa12",
-        id: 173,
-    ): (
-        table_name: "storage.market_map.fa12",
-        id: 173,
-        fk_id: Some(171),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(164),
-            ),
-            (
-                name: "metadata_fa12",
-                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
-            ),
         ],
     ),
     (
         table_name: "storage.market_map.auctionRunning",
         id: 172,
-    ): (
-        table_name: "storage.market_map.auctionRunning",
-        id: 172,
+        tx_context_id: 164,
+        bigmap_id: None,
         fk_id: Some(171),
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(164),
-            ),
             (
                 name: "auctionRunning_uniswap_contribution",
                 value: Numeric(Some("272999999984400000")),
@@ -104,55 +104,16 @@
         ],
     ),
     (
-        table_name: "storage.liquidity_provider_map",
-        id: 174,
-    ): (
-        table_name: "storage.liquidity_provider_map",
-        id: 174,
-        fk_id: None,
+        table_name: "storage.market_map.fa12",
+        id: 173,
+        tx_context_id: 164,
+        bigmap_id: None,
+        fk_id: Some(171),
         columns: [
             (
-                name: "tx_context_id",
-                value: BigInt(164),
-            ),
-            (
-                name: "idx_markets_market_id",
-                value: Numeric(Some("60019725")),
-            ),
-            (
-                name: "idx_markets_originator",
-                value: String("tz1Q3eT3kwr1hfvK49HK8YqPadNXzxdxnE7u"),
-            ),
-            (
-                name: "markets_noname",
-                value: String("storage.liquidity_provider_map.bet"),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(90986),
+                name: "metadata_fa12",
+                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
             ),
         ],
     ),
-    (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 175,
-    ): (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 175,
-        fk_id: Some(174),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(164),
-            ),
-            (
-                name: "bet_quantity",
-                value: Numeric(Some("500000000")),
-            ),
-            (
-                name: "bet_predicted_probability",
-                value: Numeric(Some("78000000")),
-            ),
-        ],
-    ),
-}
+]

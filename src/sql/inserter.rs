@@ -7,7 +7,6 @@ use std::time::Instant;
 use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
 use crate::sql::db::DBClient;
-use crate::sql::insert;
 use crate::sql::insert::Insert;
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational::RelationalAST;
@@ -101,6 +100,7 @@ fn insert_batch(
     update_derived_tables: bool,
     batch: &ProcessedBatch,
 ) -> Result<()> {
+    let sql_gen = &dbcli.sql_gen.clone();
     let mut db_tx = dbcli.transaction()?;
 
     DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
@@ -122,7 +122,7 @@ fn insert_batch(
         if let Some(stats) = stats {
             stats.add("inserter", "contract data rows", num_rows)?;
         }
-        DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
+        DBClient::apply_inserts(&mut db_tx, sql_gen, contract_id, inserts)?;
     }
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
 
@@ -130,6 +130,7 @@ fn insert_batch(
         for (contract_id, (rel_ast, ctxs)) in &batch.contract_tx_contexts {
             DBClient::update_derived_tables(
                 &mut db_tx,
+                sql_gen,
                 contract_id,
                 rel_ast,
                 ctxs,
@@ -171,17 +172,14 @@ impl ProcessedContractBlock {
     fn offset_inserts(&mut self, offset: i64) -> i64 {
         let mut max = offset;
         for insert in self.inserts.iter_mut() {
-            insert.map_column("tx_context_id", |v| match v {
-                insert::Value::BigInt(i) => insert::Value::BigInt(i + offset),
-                _ => panic!(".."),
-            });
+            insert.tx_context_id += offset;
 
             insert.id += offset;
             insert.fk_id = insert.fk_id.map(|fk_id| fk_id + offset);
             max = vec![
                 insert.id,
                 insert.fk_id.unwrap_or(0),
-                insert.get_tx_context_id().unwrap(),
+                insert.tx_context_id,
                 max,
             ]
             .into_iter()

@@ -7,14 +7,18 @@ use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
-    contract_id: ContractID,
+    separator: String,
 }
 
 impl PostgresqlGenerator {
-    pub(crate) fn new(contract_id: &ContractID) -> Self {
+    pub(crate) fn new(table_name_separator: String) -> Self {
         Self {
-            contract_id: contract_id.clone(),
+            separator: table_name_separator,
         }
+    }
+
+    pub(crate) fn get_separator(&self) -> &str {
+        &self.separator
     }
 
     pub(crate) fn create_sql(column: &Column) -> Option<String> {
@@ -84,11 +88,15 @@ impl PostgresqlGenerator {
         format!("{} VARCHAR(128) NULL", name)
     }
 
-    pub(crate) fn start_table(&self, name: &str) -> String {
+    pub(crate) fn start_table(
+        &self,
+        contract_id: &ContractID,
+        table_name: &str,
+    ) -> String {
         format!(
             include_str!("../../sql/table-header.sql"),
-            contract_schema = self.contract_id.name,
-            table = name
+            contract_schema = contract_id.name,
+            table = table_name
         )
     }
 
@@ -97,10 +105,10 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
-        let mut cols: Vec<String> = match Self::table_parent_name(table) {
+        let mut cols: Vec<String> = match self.table_parent_name(table) {
             Some(t) => vec![format!(
                 r#""{parent_ref}" BIGINT"#,
-                parent_ref = Self::parent_ref(&t)
+                parent_ref = self.parent_ref(&t)
             )],
             None => vec![],
         };
@@ -117,6 +125,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn table_sql_columns(
+        &self,
         table: &Table,
         with_keywords: bool,
     ) -> Vec<String> {
@@ -134,8 +143,8 @@ impl PostgresqlGenerator {
             .map(|x| x.name.clone())
             .collect();
 
-        if let Some(parent) = Self::table_parent_name(table) {
-            cols.push(Self::parent_ref(&parent))
+        if let Some(parent) = self.table_parent_name(table) {
+            cols.push(self.parent_ref(&parent))
         };
         cols.iter()
             .map(|c| Self::quote_id(c))
@@ -143,11 +152,13 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn table_sql_indices(
+        &self,
         table: &Table,
         with_keywords: bool,
     ) -> Vec<String> {
         let mut indices = table.indices.clone();
-        if let Some(parent_key) = Self::parent_key(table) {
+        if let Some(parent_key) = self.parent_key(table) {
+            info!("{}: parent key {}", table.name, parent_key);
             indices.push(parent_key);
         }
         indices
@@ -163,7 +174,11 @@ impl PostgresqlGenerator {
             .collect()
     }
 
-    pub(crate) fn create_index(&self, table: &Table) -> Vec<String> {
+    pub(crate) fn create_index(
+        &self,
+        contract_id: &ContractID,
+        table: &Table,
+    ) -> Vec<String> {
         if table.indices.is_empty() {
             return vec![];
         }
@@ -174,67 +189,75 @@ impl PostgresqlGenerator {
         let mut res: Vec<String> = vec![format!(
             r#"CREATE {unique} INDEX ON "{contract_schema}"."{table}"({columns});"#,
             unique = uniqueness_constraint,
-            contract_schema = self.contract_id.name,
+            contract_schema = contract_id.name,
             table = table.name,
-            columns = Self::table_sql_indices(table, true).join(", ")
+            columns = self
+                .table_sql_indices(table, true)
+                .join(", ")
         )];
-        if let Some(parent) = Self::table_parent_name(table) {
+        if let Some(parent) = self.table_parent_name(table) {
+            info!("parent.. {}", parent);
             res.push(format!(
                 r#"CREATE INDEX ON "{contract_schema}"."{table}"("{parent_ref}");"#,
-                contract_schema = self.contract_id.name,
+                contract_schema = contract_id.name,
                 table = table.name,
-                parent_ref = Self::parent_ref(&parent),
+                parent_ref = self.parent_ref(&parent),
             ));
         };
         if !table.id_unique {
             res.push(format!(
                 r#"CREATE INDEX ON "{contract_schema}"."{table}"(id);"#,
-                contract_schema = self.contract_id.name,
+                contract_schema = contract_id.name,
                 table = table.name,
             ));
         }
         res
     }
 
-    fn table_parent_name(table: &Table) -> Option<String> {
+    fn table_parent_name(&self, table: &Table) -> Option<String> {
         if !table.contains_snapshots() {
             // bigmap table rows dont have a direct relation with the parent
             // element in the storage type, as they can survive parent row
             // changes at later levels
             return None;
         }
-        Self::parent_name(&table.name)
+        self.parent_name(&table.name)
     }
 
-    pub(crate) fn parent_name(name: &str) -> Option<String> {
-        name.rfind('.')
+    pub(crate) fn parent_name(&self, name: &str) -> Option<String> {
+        name.rfind(&self.separator)
             .map(|pos| name[0..pos].to_string())
     }
 
-    pub(crate) fn parent_ref(parent_table: &str) -> String {
-        let parent_leafname = match parent_table.rfind('.') {
+    pub(crate) fn parent_ref(&self, parent_table: &str) -> String {
+        let parent_leafname = match parent_table.rfind(&self.separator) {
             None => parent_table.to_string(),
-            Some(pos) => parent_table[pos + 1..].to_string(),
+            Some(pos) => parent_table[pos + self.separator.len()..].to_string(),
         };
         format!("{}_id", parent_leafname)
     }
 
-    fn parent_key(table: &Table) -> Option<String> {
-        Self::table_parent_name(table).map(|parent| Self::parent_ref(&parent))
+    fn parent_key(&self, table: &Table) -> Option<String> {
+        self.table_parent_name(table)
+            .map(|parent| self.parent_ref(&parent))
     }
 
-    fn create_foreign_key_constraint(&self, table: &Table) -> Vec<String> {
+    fn create_foreign_key_constraint(
+        &self,
+        contract_id: &ContractID,
+        table: &Table,
+    ) -> Vec<String> {
         let mut fks: Vec<(String, String, String)> =
             table.fk.keys().cloned().collect();
 
-        if let Some(parent) = Self::table_parent_name(table) {
-            fks.push((Self::parent_ref(&parent), parent, "id".to_string()));
+        if let Some(parent) = self.table_parent_name(table) {
+            fks.push((self.parent_ref(&parent), parent, "id".to_string()));
         };
 
         fks.into_iter().map(|(col, ref_table, ref_col)| {
             format!(
                 r#"FOREIGN KEY ("{col}") REFERENCES "{contract_schema}"."{ref_table}"({ref_col})"#,
-                contract_schema = self.contract_id.name,
+                contract_schema = contract_id.name,
                 col = col,
                 ref_table = ref_table,
                 ref_col = ref_col,
@@ -242,31 +265,35 @@ impl PostgresqlGenerator {
         }).collect::<Vec<String>>()
     }
 
-    pub(crate) fn create_common_tables() -> String {
+    pub(crate) fn create_common_tables(&self) -> String {
         format!(
             include_str!("../../sql/common-tables.sql"),
             quepasa_version = QUEPASA_VERSION,
+            separator = self.separator,
         )
     }
 
     pub(crate) fn create_table_definition(
         &self,
+        contract_id: &ContractID,
         table: &Table,
     ) -> Result<String> {
-        let mut v: Vec<String> = vec![self.start_table(&table.name)];
+        let mut v: Vec<String> =
+            vec![self.start_table(contract_id, &table.name)];
         let mut columns: Vec<String> = self.create_columns(table)?;
         columns[0] = format!("\t{}", columns[0]);
-        columns.extend(self.create_foreign_key_constraint(table));
+        columns.extend(self.create_foreign_key_constraint(contract_id, table));
         let mut s = columns.join(",\n\t");
         s.push_str(",\n\t");
         v.push(s);
         v.push(self.end_table());
-        v.extend(self.create_index(table));
+        v.extend(self.create_index(contract_id, table));
         Ok(v.join("\n"))
     }
 
     pub(crate) fn create_derived_table_definitions(
         &self,
+        contract_id: &ContractID,
         table: &Table,
     ) -> Result<Vec<String>> {
         let mut live = table.clone();
@@ -301,16 +328,8 @@ impl PostgresqlGenerator {
         ordered.id_unique = false;
 
         Ok(vec![
-            self.create_table_definition(&live)?,
-            self.create_table_definition(&ordered)?,
+            self.create_table_definition(contract_id, &live)?,
+            self.create_table_definition(contract_id, &ordered)?,
         ])
     }
-
-    /*
-    fn escape(s: &str) -> String {
-        s.to_string()
-            .replace("'", "''")
-            .replace("\\", "\\\\")
-    }
-    */
 }

@@ -34,6 +34,7 @@ pub struct ProcessStorageContext {
     pub last_table: String,
     pub id: i64,
     pub fk_id: Option<i64>,
+    pub bigmap_id: Option<i32>,
 }
 impl ProcessStorageContext {
     pub fn new(id: i64, root_table: String) -> ProcessStorageContext {
@@ -41,6 +42,7 @@ impl ProcessStorageContext {
             id,
             last_table: root_table,
             fk_id: None,
+            bigmap_id: None,
         }
     }
     pub fn with_id(&self, id: i64) -> Self {
@@ -53,9 +55,15 @@ impl ProcessStorageContext {
         c.fk_id = Some(fk_id);
         c
     }
+    pub fn with_bigmap_id(&self, bigmap_id: i32) -> Self {
+        let mut c = self.clone();
+        c.bigmap_id = Some(bigmap_id);
+        c
+    }
     pub fn with_last_table(&self, last_table: String) -> Self {
         let mut c = self.clone();
         c.last_table = last_table;
+        c.bigmap_id = None;
         c
     }
 }
@@ -411,7 +419,8 @@ where
                         let ctx = &ProcessStorageContext::new(
                             self.id_generator.get_id(),
                             table.clone(),
-                        );
+                        )
+                        .with_bigmap_id(*bigmap);
                         self.process_storage_value_internal(
                             ctx,
                             &parser::parse_lexed(&key)?,
@@ -435,13 +444,6 @@ where
                                 )?;
                             }
                         };
-                        self.sql_add_cell(
-                            ctx,
-                            &table,
-                            &"bigmap_id".to_string(),
-                            insert::Value::Int(*bigmap),
-                            tx_context,
-                        );
                         Ok(())
                     }
                 )
@@ -450,12 +452,11 @@ where
                 let ctx = &ProcessStorageContext::new(
                     self.id_generator.get_id(),
                     "bigmap_clears".to_string(),
-                );
-                self.sql_add_cell(
+                )
+                .with_bigmap_id(*bigmap);
+                self.sql_touch_insert(
                     ctx,
                     &"bigmap_clears".to_string(),
-                    &"bigmap_id".to_string(),
-                    insert::Value::Int(*bigmap),
                     tx_context,
                 );
                 Ok(())
@@ -863,11 +864,10 @@ where
                 let value = Insert {
                     table_name: table_name.to_string(),
                     id: ctx.id,
+                    tx_context_id: tx_context.id.unwrap(),
+                    bigmap_id: ctx.bigmap_id.clone(),
                     fk_id: ctx.fk_id,
-                    columns: vec![Column {
-                        name: "tx_context_id".to_string(),
-                        value: insert::Value::BigInt(tx_context.id.unwrap()),
-                    }],
+                    columns: vec![],
                 };
                 self.inserts.insert(
                     InsertKey {
@@ -900,12 +900,7 @@ where
                 table_name: table_name.to_string(),
                 id: ctx.id,
             },
-            Insert {
-                table_name: table_name.to_string(),
-                id: ctx.id,
-                fk_id: ctx.fk_id,
-                columns: insert.columns,
-            },
+            insert,
         );
     }
 
@@ -977,12 +972,10 @@ fn test_process_storage_value() {
             exp_inserts: vec![Insert {
                 table_name: "storage".to_string(),
                 id: 1,
+                bigmap_id: None,
                 fk_id: None,
+                tx_context_id: 32,
                 columns: vec![
-                    Column {
-                        name: "tx_context_id".to_string(),
-                        value: insert::Value::BigInt(32),
-                    },
                     Column {
                         name: "contract_owner".to_string(),
                         value: insert::Value::String("test value".to_string()),
@@ -1017,11 +1010,10 @@ fn test_process_storage_value() {
             exp_inserts: vec![Insert {
                 table_name: "storage".to_string(),
                 id: 1,
+                bigmap_id: None,
                 fk_id: None,
+                tx_context_id: 32,
                 columns: vec![Column {
-                    name: "tx_context_id".to_string(),
-                    value: insert::Value::BigInt(32),
-                }, Column {
                     name: "contract_owner".to_string(),
                     value: insert::Value::String("the value".to_string()),
                 }],
@@ -1054,11 +1046,10 @@ fn test_process_storage_value() {
             exp_inserts: vec![Insert {
                 table_name: "storage".to_string(),
                 id: 1,
+                bigmap_id: None,
                 fk_id: None,
-                columns: vec![Column {
-                    name: "tx_context_id".to_string(),
-                    value: insert::Value::BigInt(32),
-                }],
+                tx_context_id: 32,
+                columns: vec![],
             }],
         },
         TestCase {
@@ -1094,20 +1085,17 @@ fn test_process_storage_value() {
                     table_name: "storage".to_string(),
                     id: 1,
                     fk_id: None,
-                    columns: vec![Column {
-                        name: "tx_context_id".to_string(),
-                        value: insert::Value::BigInt(32),
-                    }],
+                tx_context_id: 32,
+                bigmap_id: None,
+                    columns: vec![],
                 },
                 Insert {
                     table_name: "storage.the_set".to_string(),
                     id: 2,
                     fk_id: Some(1),
+                tx_context_id: 32,
+                bigmap_id: None,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(0),
@@ -1118,11 +1106,9 @@ fn test_process_storage_value() {
                     table_name: "storage.the_set".to_string(),
                     id: 3,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(-5),
@@ -1167,20 +1153,17 @@ fn test_process_storage_value() {
                     table_name: "storage".to_string(),
                     id: 1,
                     fk_id: None,
-                    columns: vec![Column {
-                        name: "tx_context_id".to_string(),
-                        value: insert::Value::BigInt(32),
-                    }],
+                bigmap_id: None,
+                tx_context_id: 32,
+                    columns: vec![],
                 },
                 Insert {
                     table_name: "storage.the_set".to_string(),
                     id: 2,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(0),
@@ -1191,11 +1174,9 @@ fn test_process_storage_value() {
                     table_name: "storage.the_set".to_string(),
                     id: 3,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(-5),
@@ -1206,11 +1187,9 @@ fn test_process_storage_value() {
                     table_name: "storage.the_set".to_string(),
                     id: 4,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(-2),
@@ -1268,11 +1247,9 @@ fn test_process_storage_value() {
                     table_name: "storage".to_string(),
                     id: 1,
                     fk_id: None,
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "bar".to_string(),
                             value: insert::Value::String("value".to_string()),
@@ -1283,11 +1260,9 @@ fn test_process_storage_value() {
                     table_name: "storage.the_set".to_string(),
                     id: 2,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(0),
@@ -1298,11 +1273,9 @@ fn test_process_storage_value() {
                     table_name: "storage.the_set".to_string(),
                     id: 3,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(-5),
@@ -1341,10 +1314,9 @@ fn test_process_storage_value() {
                 table_name: "storage".to_string(),
                 id: 1,
                 fk_id: None,
-                columns: vec![Column {
-                    name: "tx_context_id".to_string(),
-                    value: insert::Value::BigInt(32),
-                }],
+                bigmap_id: None,
+                tx_context_id: 32,
+                columns: vec![],
             }],
         },
         TestCase {
@@ -1385,10 +1357,9 @@ fn test_process_storage_value() {
                 table_name: "storage".to_string(),
                 id: 1,
                 fk_id: None,
-                columns: vec![Column {
-                    name: "tx_context_id".to_string(),
-                    value: insert::Value::BigInt(32),
-                }],
+                bigmap_id: None,
+                tx_context_id: 32,
+                columns: vec![],
             }],
         },
         TestCase {
@@ -1440,20 +1411,17 @@ fn test_process_storage_value() {
                     table_name: "storage".to_string(),
                     id: 1,
                     fk_id: None,
-                    columns: vec![Column {
-                        name: "tx_context_id".to_string(),
-                        value: insert::Value::BigInt(32),
-                    }],
+                bigmap_id: None,
+                tx_context_id: 32,
+                    columns: vec![],
                 },
                 Insert {
                     table_name: "storage.the_bigmap".to_string(),
                     id: 2,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(3),
@@ -1470,11 +1438,9 @@ fn test_process_storage_value() {
                     table_name: "storage.the_bigmap".to_string(),
                     id: 3,
                     fk_id: Some(1),
+                bigmap_id: None,
+                tx_context_id: 32,
                     columns: vec![
-                        Column {
-                            name: "tx_context_id".to_string(),
-                            value: insert::Value::BigInt(32),
-                        },
                         Column {
                             name: "idx_foo".to_string(),
                             value: numeric(1),
@@ -1544,6 +1510,7 @@ fn test_process_block() {
     use crate::octez::block::Block;
     use crate::sql::insert;
     use crate::sql::insert::Insert;
+    use crate::sql::postgresql_generator::PostgresqlGenerator;
     use crate::sql::table_builder::{TableBuilder, TableMap};
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
@@ -1564,12 +1531,13 @@ fn test_process_block() {
             .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
-        let rel_ast = ASTBuilder::new()
-            .build_relational_ast(
-                &crate::relational::Context::init(),
-                &type_ast,
-            )
-            .unwrap();
+        let rel_ast =
+            ASTBuilder::new(PostgresqlGenerator::new(".".to_string()))
+                .build_relational_ast(
+                    &crate::relational::Context::init(),
+                    &type_ast,
+                )
+                .unwrap();
         Ok(rel_ast)
     }
 
@@ -1627,6 +1595,10 @@ fn test_process_block() {
         },
     ];
 
+    fn sql_gen() -> PostgresqlGenerator {
+        PostgresqlGenerator::new(".".to_string())
+    }
+
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {
             let mut sort_on: Vec<String> = vec![];
@@ -1659,7 +1631,7 @@ fn test_process_block() {
                 .iter()
                 .map(|idx| {
                     insert
-                        .get_column(idx)
+                        .get_column(&sql_gen(), idx)
                         .unwrap()
                         .map_or(insert::Value::Null, |col| col.value.clone())
                 })
@@ -1714,20 +1686,22 @@ fn test_process_block() {
             storage_processor.drain_txs();
             storage_processor.drain_bigmap_contract_dependencies();
 
+            let mut result: Vec<Insert> = inserts.values().cloned().collect();
+            sort_inserts(tables, &mut result);
+
             let filename =
                 format!("test/{}-{}-inserts.json", contract.id, level);
             println!("cat > {} <<ENDOFJSON", filename);
             println!(
                 "{}",
-                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+                to_string_pretty(&result, PrettyConfig::new()).unwrap()
             );
             println!(
                 "ENDOFJSON
     "
             );
+            continue;
 
-            let mut result: Vec<Insert> = inserts.values().cloned().collect();
-            sort_inserts(tables, &mut result);
             results.push((contract.id, *level, result));
 
             use std::path::Path;
@@ -1738,11 +1712,8 @@ fn test_process_block() {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
                 println!("filename: {}", filename);
-                let v: Inserts = ron::de::from_reader(reader).unwrap();
-
-                let mut expected_result: Vec<Insert> =
-                    v.values().cloned().collect();
-                sort_inserts(tables, &mut expected_result);
+                let expected_result: Vec<Insert> =
+                    ron::de::from_reader(reader).unwrap();
 
                 expected.push((contract.id, *level, expected_result));
             }

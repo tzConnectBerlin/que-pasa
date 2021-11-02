@@ -67,17 +67,18 @@ impl Context {
         c
     }
 
-    pub(crate) fn start_table(&self, name: &str) -> Self {
+    pub(crate) fn start_table(&self, name: &str, separator: &str) -> Self {
         let mut c = self.next();
-        c.table_name = format!("{}.{}", self.table_name, name);
+        c.table_name = format!("{}{}{}", self.table_name, separator, name);
         c
     }
 
-    pub(crate) fn table_leaf_name(&self) -> String {
+    pub(crate) fn table_leaf_name(&self, separator: &str) -> String {
         self.table_name
-            .rfind('.')
+            .rfind(separator)
             .map(|pos| {
-                self.table_name[pos + 1..self.table_name.len()].to_string()
+                self.table_name[pos + separator.len()..self.table_name.len()]
+                    .to_string()
             })
             .unwrap_or_else(|| self.table_name.clone())
     }
@@ -142,6 +143,8 @@ pub struct RelationalEntry {
 pub struct ASTBuilder {
     table_names: HashMap<String, u32>,
     column_names: HashMap<(String, String), u32>,
+
+    sql_gen: PostgresqlGenerator,
 }
 
 lazy_static! {
@@ -156,10 +159,11 @@ lazy_static! {
 }
 
 impl ASTBuilder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(sql_gen: PostgresqlGenerator) -> Self {
         let mut res = Self {
             table_names: HashMap::new(),
             column_names: HashMap::new(),
+            sql_gen,
         };
         for column_name in RESERVED.iter() {
             res.column_names
@@ -174,7 +178,9 @@ impl ASTBuilder {
             None => "noname".to_string(),
         };
 
-        let full_name = ctx.start_table(&name).table_name;
+        let full_name = ctx
+            .start_table(&name, self.sql_gen.get_separator())
+            .table_name;
         let mut c = 0;
         if self
             .table_names
@@ -200,12 +206,12 @@ impl ASTBuilder {
         };
 
         let parent_table = &ctx.table_name;
-        let ctx = ctx.start_table(&name);
+        let ctx = ctx.start_table(&name, self.sql_gen.get_separator());
 
         self.column_names.insert(
             (
                 ctx.table_name.clone(),
-                PostgresqlGenerator::parent_ref(parent_table),
+                self.sql_gen.parent_ref(parent_table),
             ),
             0,
         );
@@ -454,7 +460,10 @@ impl ASTBuilder {
 
                 let ctx =
                     self.start_table(ctx, &ele_set_annot(ele, Some(name)));
-                let ele = &ele_set_annot(ele, Some(ctx.table_leaf_name()));
+                let ele = &ele_set_annot(
+                    ele,
+                    Some(ctx.table_leaf_name(self.sql_gen.get_separator())),
+                );
                 Ok((
                     if is_index {
                         self.build_index(&ctx, ele)?
@@ -1353,8 +1362,8 @@ fn test_relational_ast_builder() {
     for tc in tests {
         println!("test case: {}", tc.name);
 
-        let got =
-            ASTBuilder::new().build_relational_ast(&Context::init(), &tc.ele);
+        let got = ASTBuilder::new(PostgresqlGenerator::new(".".to_string()))
+            .build_relational_ast(&Context::init(), &tc.ele);
         if tc.exp.is_none() {
             assert!(got.is_err());
             continue;

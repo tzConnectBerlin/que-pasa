@@ -28,12 +28,13 @@ CREATE TYPE indexer_mode AS ENUM (
 CREATE TABLE indexer_state (
     quepasa_version TEXT NOT NULL,
     max_id BIGINT NOT NULL,
-    mode indexer_mode NOT NULL
+    mode indexer_mode NOT NULL,
+    separator TEXT NOT NULL
 );
 INSERT INTO indexer_state (
-    quepasa_version, max_id, mode
+    quepasa_version, max_id, mode, separator
 ) VALUES (
-    '{quepasa_version}', 1, 'Bootstrap'
+    '{quepasa_version}', 1, 'Bootstrap', '{separator}'
 );
 
 create table tx_contexts (

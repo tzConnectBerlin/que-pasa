@@ -1,16 +1,11 @@
-{
+[
     (
         table_name: "storage",
         id: 42,
-    ): (
-        table_name: "storage",
-        id: 42,
+        tx_context_id: 41,
+        bigmap_id: None,
         fk_id: None,
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(41),
-            ),
             (
                 name: "lambda_repository_creator",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
@@ -20,23 +15,14 @@
     (
         table_name: "storage.lambda_map",
         id: 48,
-    ): (
-        table_name: "storage.lambda_map",
-        id: 48,
+        tx_context_id: 41,
+        bigmap_id: Some(90982),
         fk_id: None,
         columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(41),
-            ),
             (
                 name: "idx_lambda_repository_string",
                 value: String("auction_clear_endpoint"),
             ),
-            (
-                name: "bigmap_id",
-                value: Int(90982),
-            ),
         ],
     ),
-}
+]

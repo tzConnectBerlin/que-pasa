@@ -23,6 +23,7 @@ use config::CONFIG;
 use env_logger::Env;
 use octez::node;
 use sql::db::DBClient;
+use sql::postgresql_generator::PostgresqlGenerator;
 use std::collections::HashMap;
 use std::panic;
 use std::process;
@@ -55,6 +56,7 @@ fn main() {
         &config.database_url,
         config.ssl,
         config.ca_cert.clone(),
+        PostgresqlGenerator::new(config.separator.clone()),
     )
     .with_context(|| "failed to connect to the db")
     .unwrap();
@@ -66,10 +68,12 @@ fn main() {
 Re-initializing -- all data in DB related to ever set-up contracts, including those set-up in prior runs (!), will be destroyed. Continue?") {
             process::exit(1);
         }
+        dbcli.load_table_separator().unwrap();
         dbcli
             .delete_everything(&mut node_cli.clone(), highlevel::get_rel_ast)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
+        dbcli.sql_gen = PostgresqlGenerator::new(config.separator.clone());
     }
     if setup_db {
         dbcli.create_common_tables().unwrap();
@@ -78,10 +82,14 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         assert_sane_db(&mut dbcli);
     }
 
+    let separator = dbcli.load_table_separator().unwrap();
+    let sql_gen = PostgresqlGenerator::new(separator);
+
     let mut executor = highlevel::Executor::new(
         node_cli.clone(),
         dbcli,
         config.reports_interval,
+        sql_gen,
     );
     if config.all_contracts {
         index_all_contracts(config, executor);

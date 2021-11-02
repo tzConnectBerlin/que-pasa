@@ -62,6 +62,8 @@ struct UpdateChangesDerivedTmpl<'a> {
 }
 
 pub struct DBClient {
+    pub sql_gen: PostgresqlGenerator,
+
     dbconn: postgres::Client,
 
     url: String,
@@ -82,6 +84,7 @@ impl DBClient {
         url: &str,
         ssl: bool,
         ca_cert: Option<String>,
+        sql_gen: PostgresqlGenerator,
     ) -> Result<Self> {
         if ssl {
             let mut builder = TlsConnector::builder();
@@ -99,6 +102,8 @@ impl DBClient {
                 url: url.to_string(),
                 ssl,
                 ca_cert,
+
+                sql_gen,
             })
         } else {
             Ok(DBClient {
@@ -107,12 +112,19 @@ impl DBClient {
                 url: url.to_string(),
                 ssl,
                 ca_cert,
+
+                sql_gen,
             })
         }
     }
 
     pub(crate) fn reconnect(&self) -> Result<Self> {
-        Self::connect(&self.url, self.ssl, self.ca_cert.clone())
+        Self::connect(
+            &self.url,
+            self.ssl,
+            self.ca_cert.clone(),
+            self.sql_gen.clone(),
+        )
     }
 
     pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
@@ -130,9 +142,27 @@ FROM indexer_state
         Ok(version)
     }
 
+    pub(crate) fn load_table_separator(&mut self) -> Result<String> {
+        let separator: String = self
+            .dbconn
+            .query_one(
+                "
+SELECT
+    separator
+FROM indexer_state
+            ",
+                &[],
+            )?
+            .get(0);
+        self.sql_gen = PostgresqlGenerator::new(separator.clone());
+        Ok(separator)
+    }
+
     pub(crate) fn create_common_tables(&mut self) -> Result<()> {
         self.dbconn.simple_query(
-            PostgresqlGenerator::create_common_tables().as_str(),
+            self.sql_gen
+                .create_common_tables()
+                .as_str(),
         )?;
         Ok(())
     }
@@ -154,12 +184,13 @@ WHERE table_schema = 'public'
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<()> {
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new(self.sql_gen.clone());
         builder.populate(rel_ast);
 
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
 
+        let sql_gen = &self.sql_gen.clone();
         let mut tx = self.transaction()?;
         let noview_prefixes = builder.get_viewless_table_prefixes();
         for (i, (_name, table)) in sorted_tables.iter().enumerate() {
@@ -174,8 +205,9 @@ WHERE table_schema = 'public'
                     table_i = i,
                     table_total = sorted_tables.len(),
                 );
-                DBClient::repopulate_derived_table(
+                Self::repopulate_derived_table(
                     &mut tx,
+                    sql_gen,
                     contract_id,
                     table,
                 )?;
@@ -187,11 +219,13 @@ WHERE table_schema = 'public'
 
     fn repopulate_derived_table(
         tx: &mut Transaction,
+        sql_gen: &PostgresqlGenerator,
         contract_id: &ContractID,
         table: &Table,
     ) -> Result<()> {
-        let columns: Vec<String> =
-            PostgresqlGenerator::table_sql_columns(table, false).to_vec();
+        let columns: Vec<String> = sql_gen
+            .table_sql_columns(table, false)
+            .to_vec();
         if table.contains_snapshots() {
             let tmpl = RepopulateSnapshotDerivedTmpl {
                 contract_schema: &contract_id.name,
@@ -204,7 +238,8 @@ WHERE table_schema = 'public'
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 columns: &columns,
-                indices: &PostgresqlGenerator::table_sql_indices(table, false)
+                indices: &sql_gen
+                    .table_sql_indices(table, false)
                     .to_vec(),
             };
             tx.simple_query(&tmpl.render()?)?;
@@ -214,6 +249,7 @@ WHERE table_schema = 'public'
 
     pub(crate) fn update_derived_tables(
         tx: &mut Transaction,
+        sql_gen: &PostgresqlGenerator,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
         tx_contexts: &[TxContext],
@@ -221,7 +257,7 @@ WHERE table_schema = 'public'
         if tx_contexts.is_empty() {
             return Ok(());
         }
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new(sql_gen.clone());
         builder.populate(rel_ast);
 
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -233,8 +269,9 @@ WHERE table_schema = 'public'
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
-                DBClient::update_derived_table(
+                Self::update_derived_table(
                     tx,
+                    sql_gen,
                     contract_id,
                     table,
                     tx_contexts,
@@ -246,6 +283,7 @@ WHERE table_schema = 'public'
 
     fn update_derived_table(
         tx: &mut Transaction,
+        sql_gen: &PostgresqlGenerator,
         contract_id: &ContractID,
         table: &Table,
         tx_contexts: &[TxContext],
@@ -254,8 +292,9 @@ WHERE table_schema = 'public'
             .iter()
             .map(|ctx| ctx.id.unwrap())
             .collect();
-        let columns: Vec<String> =
-            PostgresqlGenerator::table_sql_columns(table, false).to_vec();
+        let columns: Vec<String> = sql_gen
+            .table_sql_columns(table, false)
+            .to_vec();
         if table.contains_snapshots() {
             let tmpl = UpdateSnapshotDerivedTmpl {
                 contract_schema: &contract_id.name,
@@ -270,7 +309,8 @@ WHERE table_schema = 'public'
                 table: &table.name,
                 columns: &columns,
                 tx_context_ids: &tx_context_ids,
-                indices: &PostgresqlGenerator::table_sql_indices(table, false)
+                indices: &sql_gen
+                    .table_sql_indices(table, false)
                     .to_vec(),
             };
             tx.simple_query(&tmpl.render()?)?;
@@ -282,6 +322,7 @@ WHERE table_schema = 'public'
         &mut self,
         contracts: &mut Vec<(ContractID, RelationalAST)>,
     ) -> Result<bool> {
+        let sql_gen = &self.sql_gen.clone();
         let mut tx = self.transaction()?;
 
         contracts.sort_by_key(|(cid, _)| cid.name.clone());
@@ -325,12 +366,13 @@ RETURNING name",
                 .unwrap();
 
             // Generate the SQL schema for this contract
-            let mut builder = TableBuilder::new();
+            let mut builder = TableBuilder::new(sql_gen.clone());
             builder.populate(rel_ast);
 
-            let generator = PostgresqlGenerator::new(contract_id);
             let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
             sorted_tables.sort_by_key(|a| a.0);
+
+            info!("generated: {:#?}", sorted_tables);
 
             stmnts.push(format!(
                 r#"
@@ -341,15 +383,17 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
             let noview_prefixes = builder.get_viewless_table_prefixes();
             for (_name, table) in &sorted_tables {
-                let table_def = generator.create_table_definition(table)?;
+                let table_def =
+                    sql_gen.create_table_definition(contract_id, table)?;
+                info!("{} => {}", _name, table_def);
                 stmnts.push(table_def);
 
                 if !noview_prefixes
                     .iter()
                     .any(|prefix| table.name.starts_with(prefix))
                 {
-                    for derived_table_def in
-                        generator.create_derived_table_definitions(table)?
+                    for derived_table_def in sql_gen
+                        .create_derived_table_definitions(contract_id, table)?
                     {
                         stmnts.push(derived_table_def);
                     }
@@ -364,12 +408,13 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
     pub(crate) fn delete_contract_schema(
         tx: &mut Transaction,
+        sql_gen: &PostgresqlGenerator,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<()> {
         info!("deleting schema for contract {}", contract_id.name);
         // Generate the SQL schema for this contract
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new(sql_gen.clone());
         builder.populate(rel_ast);
 
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -589,6 +634,7 @@ VALUES ( {} )",
 
     pub(crate) fn apply_inserts(
         tx: &mut postgres::Transaction,
+        sql_gen: &PostgresqlGenerator,
         contract_id: &ContractID,
         inserts: &[Insert],
     ) -> Result<()> {
@@ -617,7 +663,7 @@ VALUES ( {} )",
         for k in keys {
             let table_inserts = table_grouped.get(k).unwrap();
             for chunk in table_inserts.chunks(Self::INSERT_BATCH_SIZE) {
-                Self::apply_inserts_for_table(tx, contract_id, chunk)?;
+                Self::apply_inserts_for_table(tx, sql_gen, contract_id, chunk)?;
             }
         }
         Ok(())
@@ -709,12 +755,13 @@ WHERE dest_schema IN ({})
 
     pub(crate) fn apply_inserts_for_table(
         tx: &mut postgres::Transaction,
+        sql_gen: &PostgresqlGenerator,
         contract_id: &ContractID,
         inserts: &[&Insert],
     ) -> Result<()> {
         let meta = &inserts[0];
 
-        let columns = inserts[0].get_columns()?;
+        let columns = inserts[0].get_columns(sql_gen)?;
 
         let v_names: String = columns
             .iter()
@@ -742,7 +789,7 @@ VALUES ( {v_refs} )"#,
 
         let all_columns: Vec<Column> = inserts
             .iter()
-            .map(|insert| insert.get_columns())
+            .map(|insert| insert.get_columns(sql_gen))
             .collect::<Result<Vec<_>>>()?
             .iter()
             .flatten()
@@ -777,8 +824,9 @@ VALUES ( {v_refs} )"#,
         get_rel_ast: F,
     ) -> Result<()>
     where
-        F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
+        F: Fn(&NodeClient, &str, PostgresqlGenerator) -> Result<RelationalAST>,
     {
+        let sql_gen = self.sql_gen.clone();
         let mut tx = self.transaction()?;
         let contracts_table = tx.query_opt(
             "
@@ -796,8 +844,17 @@ WHERE table_schema = 'public'
                     name: row.get(0),
                     address: row.get(1),
                 };
-                let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
-                Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
+                let rel_ast = get_rel_ast(
+                    node_cli,
+                    &contract_id.address,
+                    sql_gen.clone(),
+                )?;
+                Self::delete_contract_schema(
+                    &mut tx,
+                    &sql_gen,
+                    &contract_id,
+                    &rel_ast,
+                )?
             }
         }
         tx.simple_query(
