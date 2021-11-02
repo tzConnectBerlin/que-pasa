@@ -121,7 +121,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             config
                 .bcd_url
                 .as_ref()
-                .map(|url| (url.clone(), config.network.clone())),
+                .map(|url| (url.clone(), config.bcd_network.clone())),
             num_getters,
             num_processors,
             acceptable_head_offset,
