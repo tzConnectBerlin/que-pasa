@@ -108,12 +108,36 @@ impl Insert {
         }
     }
 
+    pub fn get_tx_context_id(&self) -> Result<i64> {
+        match self.get_column("tx_context_id")? {
+            None => Err(anyhow!("tx_context_id column is missing")),
+            Some(col) => match col.value {
+                Value::BigInt(i) => Ok(i),
+                _ => {
+                    Err(anyhow!("tx_context_id column does not have i64 value"))
+                }
+            },
+        }
+    }
+
     pub fn get_column(&self, name: &str) -> Result<Option<Column>> {
         let col = self.get_columns()?;
         Ok(col
             .iter()
             .find(|column| column.name == name)
             .cloned())
+    }
+
+    pub fn map_column<F>(&mut self, col_name: &str, f: F)
+    where
+        F: FnOnce(&Value) -> Value,
+    {
+        for col in self.columns.iter_mut() {
+            if col.name == col_name {
+                col.value = f(&col.value);
+                break;
+            }
+        }
     }
 }
 

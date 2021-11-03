@@ -22,12 +22,10 @@ bs58 = { version = "0.4.0", features = ["check"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = "2.33.3"
 curl = "0.4.36"
-dotenv = "0.15.0"
 env_logger = "0.8.3"
 hex = "0.3.0"
 indicatif = "0.16.0"
 itertools = "*"
-json = "0.12.4"
 lazy_static = "1.4.0"
 log = "0.4.0"
 native-tls = "0.2.7"
@@ -41,7 +39,8 @@ ron = "0.6.4"
 serde = { version = "1.0.125", features = ["derive"] }
 serde_derive = "1.0.125"
 serde_json = { version = "1.0.64", features = ["unbounded_depth"] }
+serde_stacker = "0.1.4"
 thiserror = "1.0"
 
 [features]
-regression = []
+regression_force_update_derived = []

@@ -28,6 +28,7 @@ FROM (
       ON level_meta.level = ctx.level
     WHERE t.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
     ORDER BY
+        ctx.level DESC,
         ctx.operation_group_number DESC,
         ctx.operation_number DESC,
         ctx.content_number DESC,
@@ -50,6 +51,7 @@ FROM (
     SELECT
         DENSE_RANK() OVER (
             ORDER BY
+                ctx.level,
                 ctx.operation_group_number,
                 ctx.operation_number,
                 ctx.content_number,

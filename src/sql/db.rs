@@ -63,6 +63,16 @@ struct UpdateChangesDerivedTmpl<'a> {
 
 pub struct DBClient {
     dbconn: postgres::Client,
+
+    url: String,
+    ssl: bool,
+    ca_cert: Option<String>,
+}
+
+impl Clone for DBClient {
+    fn clone(&self) -> Self {
+        self.reconnect().unwrap()
+    }
 }
 
 impl DBClient {
@@ -75,7 +85,7 @@ impl DBClient {
     ) -> Result<Self> {
         if ssl {
             let mut builder = TlsConnector::builder();
-            if let Some(ca_cert) = ca_cert {
+            if let Some(ca_cert) = &ca_cert {
                 builder.add_root_certificate(Certificate::from_pem(
                     &fs::read(ca_cert)?,
                 )?);
@@ -85,12 +95,24 @@ impl DBClient {
 
             Ok(DBClient {
                 dbconn: postgres::Client::connect(url, connector)?,
+
+                url: url.to_string(),
+                ssl,
+                ca_cert,
             })
         } else {
             Ok(DBClient {
                 dbconn: Client::connect(url, NoTls)?,
+
+                url: url.to_string(),
+                ssl,
+                ca_cert,
             })
         }
+    }
+
+    pub(crate) fn reconnect(&self) -> Result<Self> {
+        Self::connect(&self.url, self.ssl, self.ca_cert.clone())
     }
 
     pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
@@ -196,6 +218,9 @@ WHERE table_schema = 'public'
         rel_ast: &RelationalAST,
         tx_contexts: &[TxContext],
     ) -> Result<()> {
+        if tx_contexts.is_empty() {
+            return Ok(());
+        }
         let mut builder = TableBuilder::new();
         builder.populate(rel_ast);
 
@@ -253,13 +278,52 @@ WHERE table_schema = 'public'
         Ok(())
     }
 
-    pub(crate) fn create_contract_schema(
+    pub(crate) fn create_contract_schemas(
         &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contracts: &mut Vec<(ContractID, RelationalAST)>,
     ) -> Result<bool> {
-        if !self.contract_schema_defined(contract_id)? {
-            info!("creating schema for contract {}", contract_id.name);
+        let mut tx = self.transaction()?;
+
+        contracts.sort_by_key(|(cid, _)| cid.name.clone());
+
+        let num_columns = 2;
+        let v_refs = (1..(num_columns * contracts.len()) + 1)
+            .map(|i| format!("${}", i.to_string()))
+            .collect::<Vec<String>>()
+            .chunks(num_columns)
+            .map(|x| x.join(", "))
+            .join("), (");
+        let stmt = tx.prepare(&format!(
+            "
+INSERT INTO contracts (name, address)
+VALUES ({})
+ON CONFLICT DO NOTHING
+RETURNING name",
+            v_refs
+        ))?;
+
+        let values: Vec<&dyn postgres::types::ToSql> = contracts
+            .iter()
+            .flat_map(|(c, _)| {
+                [c.name.borrow_to_sql(), c.address.borrow_to_sql()]
+            })
+            .collect();
+
+        let new_contracts = tx
+            .query_raw(&stmt, values)?
+            .map(|x| x.try_get(0))
+            .collect::<Vec<String>>()?;
+        if new_contracts.is_empty() {
+            tx.rollback()?;
+            return Ok(false);
+        }
+        let mut stmnts: Vec<String> = vec![];
+        for name in &new_contracts {
+            let (contract_id, rel_ast) = contracts
+                .iter()
+                .find(|(c, _)| &c.name == name)
+                .unwrap();
+
             // Generate the SQL schema for this contract
             let mut builder = TableBuilder::new();
             builder.populate(rel_ast);
@@ -268,27 +332,17 @@ WHERE table_schema = 'public'
             let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
             sorted_tables.sort_by_key(|a| a.0);
 
-            let mut tx = self.transaction()?;
-            tx.execute(
-                "
-INSERT INTO contracts (name, address)
-VALUES ($1, $2)",
-                &[&contract_id.name, &contract_id.address],
-            )?;
-            tx.simple_query(
-                format!(
-                    r#"
+            stmnts.push(format!(
+                r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 "#,
-                    contract_schema = contract_id.name
-                )
-                .as_str(),
-            )?;
+                contract_schema = contract_id.name
+            ));
 
             let noview_prefixes = builder.get_viewless_table_prefixes();
-            for (_name, table) in sorted_tables {
+            for (_name, table) in &sorted_tables {
                 let table_def = generator.create_table_definition(table)?;
-                tx.simple_query(table_def.as_str())?;
+                stmnts.push(table_def);
 
                 if !noview_prefixes
                     .iter()
@@ -297,15 +351,15 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                     for derived_table_def in
                         generator.create_derived_table_definitions(table)?
                     {
-                        tx.simple_query(derived_table_def.as_str())?;
+                        stmnts.push(derived_table_def);
                     }
                 }
             }
-            tx.commit()?;
-
-            return Ok(true);
         }
-        Ok(false)
+        tx.simple_query(stmnts.join("\n").as_str())?;
+        tx.commit()?;
+
+        return Ok(true);
     }
 
     pub(crate) fn delete_contract_schema(
@@ -355,25 +409,9 @@ DROP TABLE "{contract_schema}"."{table}";
         Ok(())
     }
 
-    fn contract_schema_defined(
-        &mut self,
-        contract_id: &ContractID,
-    ) -> Result<bool> {
-        let res = self.dbconn.query_opt(
-            "
-SELECT
-    1
-FROM contracts
-WHERE name = $1
-",
-            &[&contract_id.name],
-        )?;
-        Ok(res.is_some())
-    }
-
     pub(crate) fn save_bigmap_keyhashes(
         tx: &mut Transaction,
-        bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+        bigmap_keyhashes: &[(TxContext, i32, String, String)],
     ) -> Result<()> {
         for chunk in bigmap_keyhashes.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 4;
@@ -554,7 +592,7 @@ VALUES ( {} )",
         contract_id: &ContractID,
         inserts: &[Insert],
     ) -> Result<()> {
-        let mut table_grouped: HashMap<(String, Vec<String>), Vec<Insert>> =
+        let mut table_grouped: HashMap<(String, Vec<String>), Vec<&Insert>> =
             HashMap::new();
         for insert in inserts {
             let key = &(
@@ -571,7 +609,7 @@ VALUES ( {} )",
             table_grouped
                 .get_mut(key)
                 .unwrap()
-                .push(insert.clone());
+                .push(insert);
         }
         let mut keys: Vec<&(String, Vec<String>)> =
             table_grouped.keys().collect();
@@ -632,7 +670,7 @@ WHERE dest_schema IN ({})
 
     pub(crate) fn get_dependent_levels(
         &mut self,
-        config: &[&ContractID],
+        config: &[ContractID],
     ) -> Result<Vec<u32>> {
         if config.is_empty() {
             return Ok(vec![]);
@@ -672,7 +710,7 @@ WHERE dest_schema IN ({})
     pub(crate) fn apply_inserts_for_table(
         tx: &mut postgres::Transaction,
         contract_id: &ContractID,
-        inserts: &[Insert],
+        inserts: &[&Insert],
     ) -> Result<()> {
         let meta = &inserts[0];
 
@@ -735,11 +773,11 @@ VALUES ( {v_refs} )"#,
 
     pub(crate) fn delete_everything<F>(
         &mut self,
-        node_cli: &mut NodeClient,
-        mut get_rel_ast: F,
+        node_cli: &NodeClient,
+        get_rel_ast: F,
     ) -> Result<()>
     where
-        F: FnMut(&mut NodeClient, &str) -> Result<RelationalAST>,
+        F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
     {
         let mut tx = self.transaction()?;
         let contracts_table = tx.query_opt(
@@ -901,8 +939,8 @@ set mode = $1",
             Ok(())
         } else {
             Err(anyhow!(
-            "wrong number of rows in indexer_state table. please fix manually. sorry"
-        ))
+                "wrong number of rows in indexer_state table. please fix manually. sorry"
+            ))
         }
     }
 
@@ -911,7 +949,7 @@ set mode = $1",
             .dbconn
             .query_one("select max_id from indexer_state", &[])?
             .get(0);
-        Ok(max_id + 1)
+        Ok(max_id)
     }
 
     pub(crate) fn set_max_id(tx: &mut Transaction, max_id: i64) -> Result<()> {
@@ -963,119 +1001,192 @@ order by 1",
         Ok(partial_processed)
     }
 
-    pub(crate) fn save_level(
+    pub(crate) fn save_levels(
         tx: &mut Transaction,
-        meta: &LevelMeta,
+        levels: &[&LevelMeta],
     ) -> Result<()> {
-        tx.execute(
-            "
+        Self::delete_levels(
+            tx,
+            &levels
+                .iter()
+                .map(|meta| meta.level as i32)
+                .collect::<Vec<i32>>(),
+        )?;
+
+        for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 4;
+            let v_refs = (1..(num_columns * lvls_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
 INSERT INTO levels(
     level, hash, prev_hash, baked_at
-) VALUES ($1, $2, $3, $4)
-",
-            &[
-                &(meta.level as i32),
-                &meta.hash,
-                &meta.prev_hash,
-                &meta.baked_at,
-            ],
-        )?;
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
+
+            #[allow(clippy::type_complexity)]
+            let v_: Vec<(
+                i32,
+                Option<String>,
+                Option<String>,
+                Option<DateTime<Utc>>,
+            )> = lvls_chunk
+                .iter()
+                .map(|m| {
+                    (
+                        m.level as i32,
+                        m.hash.clone(),
+                        m.prev_hash.clone(),
+                        m.baked_at,
+                    )
+                })
+                .collect();
+
+            let values: Vec<&dyn postgres::types::ToSql> = v_
+                .iter()
+                .flat_map(|(lvl, hash, prev_hash, baked_at)| {
+                    [
+                        lvl.borrow_to_sql(),
+                        hash.borrow_to_sql(),
+                        prev_hash.borrow_to_sql(),
+                        baked_at.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 
-    pub(crate) fn delete_level(tx: &mut Transaction, level: u32) -> Result<()> {
-        tx.execute(
-            "
+    pub(crate) fn delete_levels(
+        tx: &mut Transaction,
+        levels: &[i32],
+    ) -> Result<()> {
+        for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
+            let v_refs = (1..lvls_chunk.len() + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            let values: Vec<&dyn postgres::types::ToSql> = lvls_chunk
+                .iter()
+                .map(|level| level.borrow_to_sql())
+                .collect();
+            let stmt = tx.prepare(&format!(
+                "
 DELETE FROM contract_deps
-WHERE level = $1",
-            &[&(level as i32)],
-        )?;
-        tx.execute(
-            "
-DELETE FROM contract_levels
-WHERE level = $1",
-            &[&(level as i32)],
-        )?;
-        tx.execute(
-            "
-DELETE FROM levels
-WHERE level = $1",
-            &[&(level as i32)],
-        )?;
-        Ok(())
-    }
-
-    pub(crate) fn save_contract_level(
-        tx: &mut Transaction,
-        contract_id: &ContractID,
-        level: u32,
-    ) -> Result<()> {
-        tx.execute(
-            "
-INSERT INTO contract_levels(
-    contract, level
-) VALUES ($1, $2)
+WHERE level IN ( {} )
 ",
-            &[&contract_id.name, &(level as i32)],
-        )?;
+                v_refs
+            ))?;
+            tx.query_raw(&stmt, values)?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = lvls_chunk
+                .iter()
+                .map(|level| level.borrow_to_sql())
+                .collect();
+            let stmt = tx.prepare(&format!(
+                "
+DELETE FROM contract_levels
+WHERE level IN ( {} )
+",
+                v_refs
+            ))?;
+            tx.query_raw(&stmt, values)?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = lvls_chunk
+                .iter()
+                .map(|level| level.borrow_to_sql())
+                .collect();
+            let stmt = tx.prepare(&format!(
+                "
+DELETE FROM levels
+WHERE level IN ( {} )
+",
+                v_refs
+            ))?;
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 
-    pub(crate) fn delete_contract_level(
+    pub(crate) fn save_contract_levels(
         tx: &mut Transaction,
-        contract_id: &ContractID,
-        level: u32,
+        clvls: &[(ContractID, i32, bool)],
     ) -> Result<()> {
-        tx.execute(
-            "
-DELETE FROM contract_levels
-WHERE contract = $1
-  AND level = $2",
-            &[&contract_id.name, &(level as i32)],
-        )?;
+        for clvls_chunk in clvls.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 3;
+            let v_refs = (1..(num_columns * clvls_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
+INSERT INTO contract_levels(
+    contract, level, is_origination
+)
+VALUES ( {} )",
+                v_refs
+            ))?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = clvls_chunk
+                .iter()
+                .flat_map(|(contract, level, is_origination)| {
+                    [
+                        contract.name.borrow_to_sql(),
+                        level.borrow_to_sql(),
+                        is_origination.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 
     pub(crate) fn save_contract_deps(
         tx: &mut Transaction,
-        level: u32,
-        contract_id: &ContractID,
-        deps: Vec<String>,
+        deps: &[(i32, String, ContractID)],
     ) -> Result<()> {
-        for dep in deps {
-            tx.execute(
+        for deps_chunk in deps.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 3;
+            let v_refs = (1..(num_columns * deps_chunk.len()) + 1)
+                .map(|i| format!("${}", i.to_string()))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
                 "
 INSERT INTO contract_deps (level, src_contract, dest_schema)
-VALUES ($1, $2, $3)
+VALUES ( {} )
 ON CONFLICT DO NOTHING",
-                &[&(level as i32), &dep, &contract_id.name],
-            )?;
-        }
-        Ok(())
-    }
+                v_refs
+            ))?;
 
-    /// get the origination of the contract, which is currently store in the levels (will change)
-    pub(crate) fn set_origination(
-        tx: &mut Transaction,
-        contract_id: &ContractID,
-        level: u32,
-    ) -> Result<()> {
-        tx.execute(
-            "
-UPDATE contract_levels
-SET is_origination = FALSE
-WHERE is_origination = TRUE
-  AND contract = $1",
-            &[&contract_id.name],
-        )?;
-        tx.execute(
-            "
-UPDATE contract_levels
-SET is_origination = TRUE
-WHERE contract = $1
-  AND level = $2",
-            &[&contract_id.name, &(level as i32)],
-        )?;
+            let values: Vec<&dyn postgres::types::ToSql> = deps_chunk
+                .iter()
+                .flat_map(|(level, src_addr, dest)| {
+                    [
+                        level.borrow_to_sql(),
+                        src_addr.borrow_to_sql(),
+                        dest.name.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
         Ok(())
     }
 

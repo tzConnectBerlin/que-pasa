@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, LocalResult, TimeZone, Utc};
-use json;
-use json::JsonValue;
 use num::{BigInt, ToPrimitive};
+use serde_json::json;
 use std::str::from_utf8;
 use std::str::FromStr;
 
@@ -99,7 +98,7 @@ impl Value {
     }
 }
 
-pub(crate) fn parse_json(storage_json: &JsonValue) -> Result<Value> {
+pub(crate) fn parse_json(storage_json: &serde_json::Value) -> Result<Value> {
     let lexed = lex(storage_json);
     parse_lexed(&lexed)
         .with_context(|| "failed to parse storage json into Value")
@@ -144,8 +143,8 @@ fn decode_bs58_address(hex: &str) -> Result<String> {
     Ok(encoded)
 }
 
-fn lex(json: &JsonValue) -> JsonValue {
-    if let JsonValue::Array(mut a) = json.clone() {
+fn lex(json: &serde_json::Value) -> serde_json::Value {
+    if let serde_json::Value::Array(mut a) = json.clone() {
         if a.is_empty() {
             return json.clone();
         }
@@ -158,16 +157,16 @@ fn lex(json: &JsonValue) -> JsonValue {
 
 /// Goes through the actual stored data and builds up a structure which can be used in combination with the node
 /// data to stash it in the database.
-pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
-    if let JsonValue::Array(a) = json {
+pub(crate) fn parse_lexed(json: &serde_json::Value) -> Result<Value> {
+    if let serde_json::Value::Array(a) = json {
         return Ok(Value::List(
             a.iter()
                 .map(|x| parse_lexed(x).unwrap())
                 .collect(),
         ));
     }
-    let args: Vec<JsonValue> = match &json["args"] {
-        JsonValue::Array(a) => a.clone(),
+    let args: Vec<serde_json::Value> = match &json["args"] {
+        serde_json::Value::Array(a) => a.clone(),
         _ => vec![],
     };
     if let Some(s) = &json["prim"].as_str() {
@@ -226,7 +225,9 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
     }
 
     let keys: Vec<String> = json
-        .entries()
+        .as_object()
+        .unwrap()
+        .iter()
         .map(|(a, _)| String::from(a))
         .collect();
     if keys.len() == 1 {
@@ -257,7 +258,7 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
         };
     }
 
-    if let JsonValue::Array(a) = json {
+    if let serde_json::Value::Array(a) = json {
         let mut array = a.clone();
         array.reverse();
         return parse_lexed(&lexer_unfold_many_pair(&mut array));
@@ -267,20 +268,19 @@ pub(crate) fn parse_lexed(json: &JsonValue) -> Result<Value> {
     Ok(Value::None)
 }
 
-pub(crate) fn lexer_unfold_many_pair(v: &mut Vec<JsonValue>) -> JsonValue {
+pub(crate) fn lexer_unfold_many_pair(
+    v: &mut Vec<serde_json::Value>,
+) -> serde_json::Value {
     match v.len() {
         0 => panic!("Called empty"),
         1 => v[0].clone(),
         _ => {
-            let ele = v.pop();
+            let ele = v.pop().unwrap();
             let rest = lexer_unfold_many_pair(v);
-            return object! {
+            json!({
                 "prim": "Pair",
-                "args": [
-                    ele,
-                    rest,
-                ]
-            };
+                "args": json!([ele, rest]),
+            })
         }
     }
 }

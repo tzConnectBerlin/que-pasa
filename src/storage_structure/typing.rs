@@ -1,6 +1,5 @@
 use crate::storage_value::parser;
 use anyhow::{anyhow, Result};
-use json::JsonValue;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SimpleExprTy {
@@ -41,17 +40,17 @@ pub struct Ele {
     pub name: Option<String>,
 }
 
-fn annotation(json: &json::JsonValue) -> Option<String> {
+fn annotation(json: &serde_json::Value) -> Option<String> {
     match &json["annots"][0] {
-        JsonValue::String(s) => Some(s[1..].to_string()),
-        JsonValue::Short(s) => Some(String::from(s.as_str())[1..].to_string()),
-        _ => None,
+        serde_json::Value::String(s) => Some(s[1..].to_string()),
+        serde_json::Value::Null => None,
+        _ => panic!("unexpected annot type!: {:?}", json["annots"]),
     }
 }
 
-fn args(json: &JsonValue) -> Option<Vec<JsonValue>> {
+fn args(json: &serde_json::Value) -> Option<Vec<serde_json::Value>> {
     match &json["args"] {
-        JsonValue::Array(a) => Some(a.clone()),
+        serde_json::Value::Array(a) => Some(a.clone()),
         _ => None,
     }
 }
@@ -79,10 +78,9 @@ macro_rules! complex_expr {
 }
 
 /// An or can be a variant record, or a simple enumeration.
-pub(crate) fn is_enumeration_or(json: &JsonValue) -> bool {
+pub(crate) fn is_enumeration_or(json: &serde_json::Value) -> bool {
     let prim = match &json["prim"] {
-        JsonValue::Short(s) => s.as_str(),
-        JsonValue::String(s) => s.as_str(),
+        serde_json::Value::String(s) => s.as_str(),
         _ => return false,
     };
     match prim {
@@ -92,10 +90,10 @@ pub(crate) fn is_enumeration_or(json: &JsonValue) -> bool {
     }
 }
 
-pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
+pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
     let annot = annotation(json);
     let args = args(json);
-    if let JsonValue::Short(prim) = json["prim"] {
+    if let serde_json::Value::String(prim) = &json["prim"] {
         match prim.to_ascii_lowercase().as_str() {
             "address" => Ok(simple_expr!(SimpleExprTy::Address, annot)),
             "big_map" => Ok(complex_expr!(ComplexExprTy::BigMap, annot, args)),
@@ -177,7 +175,7 @@ pub(crate) fn storage_ast_from_json(json: &JsonValue) -> Result<Ele> {
             }
             "contract" | "signature" => {
                 Ok(simple_expr!(SimpleExprTy::KeyHash, annot))
-            } // TODO?
+            }
             _ => Err(anyhow!(
                 "unexpected storage json: {} {:#?}",
                 prim.as_str(),

@@ -18,12 +18,6 @@ use std::collections::HashMap;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-macro_rules! serde2json {
-    ($serde:expr) => {
-        json::parse(&serde_json::to_string(&$serde)?)?
-    };
-}
-
 macro_rules! must_match_rel {
     ($rel_ast:expr, $typ:path { $($fields:tt),+ }, $impl:block) => {
         match $rel_ast {
@@ -176,7 +170,7 @@ where
                 } else if let Some(storage) = &op_res.storage {
                     Ok(Some((
                         self.tx_context(tx_context, tx),
-                        parser::parse_lexed(&serde2json!(storage))?,
+                        parser::parse_lexed(&storage)?,
                     )))
                 } else {
                     Err(anyhow!(
@@ -260,10 +254,6 @@ where
             self.process_bigmap_op(&op, ctx)?;
         }
         Ok(())
-    }
-
-    pub(crate) fn get_id_value(&self) -> i64 {
-        self.id_generator.id
     }
 
     fn tx_context(
@@ -424,7 +414,7 @@ where
                         );
                         self.process_storage_value_internal(
                             ctx,
-                            &parser::parse_lexed(&serde2json!(&key))?,
+                            &parser::parse_lexed(&key)?,
                             &key_ast,
                             tx_context,
                         )?;
@@ -436,12 +426,14 @@ where
                                 insert::Value::Bool(true),
                                 tx_context,
                             ),
-                            Some(val) => self.process_storage_value_internal(
-                                ctx,
-                                &parser::parse_lexed(&serde2json!(&val))?,
-                                &value_ast,
-                                tx_context,
-                            )?,
+                            Some(val) => {
+                                self.process_storage_value_internal(
+                                    ctx,
+                                    &parser::parse_lexed(&val)?,
+                                    &value_ast,
+                                    tx_context,
+                                )?;
+                            }
                         };
                         self.sql_add_cell(
                             ctx,
@@ -772,7 +764,12 @@ where
                             ))
                         }
                     }
-                    _ => Ok(()),
+                    //_ => Ok(())
+                    _ => Err(anyhow!(
+                        "failed to match {:#?} with {:#?}",
+                        v,
+                        rel_ast
+                    )),
                 }
             }
         }
@@ -1550,16 +1547,20 @@ fn test_process_block() {
     use crate::sql::table_builder::{TableBuilder, TableMap};
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
-    use json::JsonValue;
     use ron::ser::{to_string_pretty, PrettyConfig};
+    use std::str::FromStr;
 
     env_logger::init();
 
-    fn get_rel_ast_from_script_json(json: &JsonValue) -> Result<RelationalAST> {
+    fn get_rel_ast_from_script_json(
+        json: &serde_json::Value,
+    ) -> Result<RelationalAST> {
         let storage_definition = json["code"]
-            .members()
+            .as_array()
+            .unwrap()
+            .iter()
             .find(|x| x["prim"] == "storage")
-            .unwrap_or(&JsonValue::Null)["args"][0]
+            .unwrap()["args"][0]
             .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::storage_ast_from_json(&storage_definition)?;
@@ -1595,13 +1596,6 @@ fn test_process_block() {
                 228467, 228468, 228490, 228505, 228506, 228507, 228508, 228509,
                 228510, 228511, 228512, 228516, 228521, 228522, 228523, 228524,
                 228525, 228526, 228527,
-            ],
-        },
-        Contract {
-            id: "KT1LYbgNsG2GYMfChaVCXunjECqY59UJRWBf",
-            levels: vec![
-                147806, 147807, 147808, 147809, 147810, 147811, 147812, 147813,
-                147814, 147815, 147816,
             ],
         },
         Contract {
@@ -1691,12 +1685,12 @@ fn test_process_block() {
         unique_levels.dedup();
         assert_eq!(contract.levels.len(), unique_levels.len());
 
-        let script_json = json::parse(&debug::load_test(&format!(
-            "test/{}.script",
-            contract.id
-        )))
+        let script_json = serde_json::Value::from_str(&debug::load_test(
+            &format!("test/{}.script", contract.id),
+        ))
         .unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
+        debug!("rel ast: {:#?}", rel_ast);
 
         // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
@@ -1765,7 +1759,7 @@ impl crate::octez::node::StorageGetter for DummyStorageGetter {
         &self,
         _contract_id: &str,
         _level: u32,
-    ) -> Result<json::JsonValue> {
+    ) -> Result<serde_json::Value> {
         Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
     }
 
@@ -1774,7 +1768,7 @@ impl crate::octez::node::StorageGetter for DummyStorageGetter {
         _level: u32,
         _bigmap_id: i32,
         _keyhash: &str,
-    ) -> Result<Option<json::JsonValue>> {
+    ) -> Result<Option<serde_json::Value>> {
         Err(anyhow!("dummy storage getter was not expected to be called in test_block tests"))
     }
 }

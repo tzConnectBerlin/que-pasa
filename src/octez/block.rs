@@ -518,9 +518,8 @@ fn is_contract(address: &str) -> bool {
 pub struct Header {
     pub level: u32,
     pub predecessor: String,
+    pub timestamp: String,
 
-    #[serde(skip)]
-    timestamp: String,
     #[serde(skip)]
     validation_pass: i64,
     #[serde(skip)]

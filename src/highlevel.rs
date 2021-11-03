@@ -1,6 +1,5 @@
 use anyhow::{anyhow, ensure, Context, Result};
 use chrono::Duration;
-use postgres::Transaction;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
@@ -16,14 +15,15 @@ use pretty_assertions::assert_eq;
 use crate::config::ContractID;
 use crate::debug;
 use crate::octez::bcd;
-use crate::octez::block::{
-    get_implicit_origination_level, Block, LevelMeta, Tx, TxContext,
-};
+use crate::octez::block::{get_implicit_origination_level, Block, LevelMeta};
 use crate::octez::block_getter::ConcurrentBlockGetter;
 use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::db::{DBClient, IndexerMode};
-use crate::sql::insert::{Insert, Inserts};
+use crate::sql::inserter::{
+    insert_processed, DBInserter, ProcessedBlock, ProcessedContractBlock,
+};
+use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
 use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
@@ -33,85 +33,50 @@ pub struct SaveLevelResult {
     pub level: u32,
     pub contract_id: ContractID,
     pub is_origination: bool,
-    pub tx_count: u32,
+    pub tx_count: usize,
 }
 
+impl SaveLevelResult {
+    pub(crate) fn from_processed_block(
+        processed_block: &ProcessedContractBlock,
+    ) -> Self {
+        Self {
+            level: processed_block.level.level,
+            contract_id: processed_block.contract_id.clone(),
+            is_origination: processed_block.is_origination,
+            tx_count: processed_block.tx_contexts.len(),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct Executor {
     node_cli: NodeClient,
     dbcli: DBClient,
 
-    contracts: HashMap<ContractID, (RelationalAST, Option<u32>)>,
     all_contracts: bool,
 
-    #[cfg(feature = "regression")]
-    always_update_derived: bool,
-
     // Everything below this level has nothing to do with what we are indexing
-    level_floor: LevelFloor,
+    mutexed_state: MutexedState,
 
-    db_url: String,
-    db_ssl: bool,
-    db_ca_cert: Option<String>,
-}
-
-#[derive(Clone)]
-struct LevelFloor {
-    f: Arc<Mutex<u32>>,
-}
-
-impl LevelFloor {
-    pub fn set(&self, floor: u32) -> Result<()> {
-        let mut level_floor = self
-            .f
-            .lock()
-            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-        *level_floor = floor;
-        Ok(())
-    }
-
-    pub fn get(&self) -> Result<u32> {
-        let level_floor = self
-            .f
-            .lock()
-            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
-        Ok(*level_floor)
-    }
-}
-
-#[derive(Error, Debug)]
-pub struct BadLevelHash {
-    level: u32,
-    err: anyhow::Error,
-}
-
-impl fmt::Display for BadLevelHash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.err)
-    }
+    stats: StatsLogger,
 }
 
 impl Executor {
     pub fn new(
         node_cli: NodeClient,
         dbcli: DBClient,
-        db_url: &str,
-        db_ssl: bool,
-        db_ca_cert: Option<String>,
+        reports_interval: usize,
     ) -> Self {
         Self {
             node_cli,
             dbcli,
-            contracts: HashMap::new(),
             all_contracts: false,
-            level_floor: LevelFloor {
-                f: Arc::new(Mutex::new(0)),
-            },
-            db_url: db_url.to_string(),
-            db_ssl,
-            db_ca_cert,
-
-            #[cfg(feature = "regression")]
-            always_update_derived: false,
+            mutexed_state: MutexedState::new(),
+            stats: StatsLogger::new(std::time::Duration::new(
+                reports_interval as u64,
+                0,
+            )),
         }
     }
 
@@ -120,63 +85,72 @@ impl Executor {
             return Ok(());
         }
 
-        let mut floor = 0;
-        if !self.all_contracts {
-            floor = self
-                .contracts
-                .values()
-                .map(|(_, lfloor)| lfloor.unwrap_or(0_u32))
-                .min()
-                .unwrap_or(0);
-        }
-
-        self.level_floor.set(floor)
+        self.mutexed_state.set_level_floor()
     }
 
     pub fn index_all_contracts(&mut self) {
         self.all_contracts = true
     }
 
-    #[cfg(feature = "regression")]
-    pub fn always_update_derived_tables(&mut self) {
-        self.always_update_derived = true
-    }
-
-    pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<()> {
+    pub fn add_contract(&mut self, contract_id: &ContractID) -> Result<bool> {
         debug!(
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let rel_ast = get_rel_ast(&mut self.node_cli, &contract_id.address)?;
+        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
         debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
             .get_origination(contract_id)?;
-        self.contracts
-            .insert(contract_id.clone(), (rel_ast, contract_floor));
-        Ok(())
+
+        self.mutexed_state.add_contract(
+            contract_id.clone(),
+            rel_ast,
+            contract_floor,
+        )
     }
 
     pub fn add_missing_contracts(
         &mut self,
-        contracts: &[&ContractID],
+        contracts: &[ContractID],
     ) -> Result<()> {
+        let mut l: Vec<(ContractID, RelationalAST)> = vec![];
+
         for contract_id in contracts {
-            self.add_contract(contract_id)?;
-            self.dbcli.create_contract_schema(
-                contract_id,
-                &self.contracts[contract_id].0,
-            )?;
+            let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
+            l.push((contract_id.clone(), rel_ast));
+        }
+
+        self.dbcli
+            .create_contract_schemas(&mut l)?;
+
+        for (contract_id, rel_ast) in l {
+            let contract_floor = self
+                .dbcli
+                .get_origination(&contract_id)?;
+
+            if self.mutexed_state.add_contract(
+                contract_id.clone(),
+                rel_ast,
+                contract_floor,
+            )? && self.all_contracts
+            {
+                self.stats
+                    .add("processor", "unique contracts", 1)?;
+            }
         }
         Ok(())
     }
 
     pub fn create_contract_schemas(&mut self) -> Result<Vec<ContractID>> {
         let mut new_contracts: Vec<ContractID> = vec![];
-        for (contract_id, rel_ast) in &self.contracts {
+        for (contract_id, rel_ast) in &self.mutexed_state.get_contracts()? {
             if self
                 .dbcli
-                .create_contract_schema(contract_id, &rel_ast.0)?
+                .create_contract_schemas(&mut vec![(
+                    contract_id.clone(),
+                    rel_ast.0.clone(),
+                )])?
             {
                 new_contracts.push(contract_id.clone());
             }
@@ -187,24 +161,26 @@ impl Executor {
     pub fn get_contract_rel_ast(
         &self,
         contract_id: &ContractID,
-    ) -> Option<&RelationalAST> {
-        self.contracts
-            .get(contract_id)
-            .map(|x| &x.0)
+    ) -> Result<Option<RelationalAST>> {
+        Ok(self
+            .mutexed_state
+            .get_contract(contract_id)?
+            .map(|x| x.0))
     }
 
-    pub fn get_config(&self) -> Vec<ContractID> {
-        self.contracts
+    pub fn get_config(&self) -> Result<Vec<ContractID>> {
+        Ok(self
+            .mutexed_state
+            .get_contracts()?
             .keys()
             .cloned()
-            .collect::<Vec<ContractID>>()
+            .collect::<Vec<ContractID>>())
     }
 
     pub fn add_dependency_contracts(&mut self) -> Result<()> {
-        let config = self.get_config();
         let deps = self
             .dbcli
-            .get_config_deps(&config)
+            .get_config_deps(&self.get_config()?)
             .unwrap();
 
         for dep in &deps {
@@ -215,17 +191,16 @@ impl Executor {
     }
 
     pub fn exec_dependents(&mut self) -> Result<()> {
-        let config: Vec<&ContractID> = self.contracts.keys().collect();
         let mut levels = self
             .dbcli
-            .get_dependent_levels(&config)?;
+            .get_dependent_levels(&self.get_config()?)?;
         if levels.is_empty() {
             return Ok(());
         }
         levels.sort_unstable();
 
         info!("reprocessing following levels, they have bigmap copies whose keys are now fully known: {:?}", levels);
-        self.exec_levels(1, levels)
+        self.exec_levels(1, 1, levels)
     }
 
     pub fn exec_continuous(&mut self) -> Result<()> {
@@ -287,7 +262,12 @@ impl Executor {
                                     bad_lvl.err, bad_lvl.level
                                 );
                                 let mut tx = self.dbcli.transaction()?;
-                                DBClient::delete_level(&mut tx, bad_lvl.level)?;
+                                DBClient::delete_levels(
+                                    &mut tx,
+                                    &(bad_lvl.level as i32
+                                        ..db_head.level as i32)
+                                        .collect::<Vec<i32>>(),
+                                )?;
                                 tx.commit()?;
                                 break;
                             }
@@ -309,7 +289,10 @@ impl Executor {
                             db_head.hash, chain_head.hash
                         );
                         let mut tx = self.dbcli.transaction()?;
-                        DBClient::delete_level(&mut tx, db_head.level)?;
+                        DBClient::delete_levels(
+                            &mut tx,
+                            &[db_head.level as i32],
+                        )?;
                         tx.commit()?;
                     }
                     wait(&mut first_wait);
@@ -321,17 +304,18 @@ impl Executor {
     pub fn exec_levels(
         &mut self,
         num_getters: usize,
+        num_processors: usize,
         levels: Vec<u32>,
     ) -> Result<()> {
         if levels.is_empty() {
             return Ok(());
         }
 
-        let level_floor = self.level_floor.clone();
+        let st = self.mutexed_state.clone();
         let have_floor = !self.all_contracts;
-        self.exec_parallel(num_getters, move |height_chan| {
+        self.exec_parallel(num_getters, num_processors, move |height_chan| {
             for l in levels {
-                if have_floor && l < level_floor.get().unwrap() {
+                if have_floor && l < st.get_level_floor().unwrap() {
                     continue;
                 }
                 height_chan.send(l).unwrap();
@@ -344,6 +328,7 @@ impl Executor {
         &mut self,
         bcd_settings: Option<(String, String)>,
         num_getters: usize,
+        num_processors: usize,
         acceptable_head_offset: Duration,
     ) -> Result<Vec<ContractID>> {
         let mut res: Vec<ContractID> = vec![];
@@ -373,11 +358,15 @@ impl Executor {
 
                     let excl = exclude_levels.clone();
                     let processed_levels = self
-                        .exec_parallel(num_getters, move |height_chan| {
-                            bcd_cli
-                                .populate_levels_chan(height_chan, &excl)
-                                .unwrap()
-                        })
+                        .exec_parallel(
+                            num_getters,
+                            num_processors,
+                            move |height_chan| {
+                                bcd_cli
+                                    .populate_levels_chan(height_chan, &excl)
+                                    .unwrap()
+                            },
+                        )
                         .unwrap();
                     exclude_levels.extend(processed_levels);
 
@@ -393,8 +382,12 @@ impl Executor {
                     info!("contract {} initialized.", contract_id.name)
                 }
             } else {
-                self.exec_missing_levels(num_getters, acceptable_head_offset)
-                    .unwrap();
+                self.exec_missing_levels(
+                    num_getters,
+                    num_processors,
+                    acceptable_head_offset,
+                )
+                .unwrap();
             }
         }
         if !res.is_empty() {
@@ -403,7 +396,11 @@ impl Executor {
         Ok(res)
     }
 
-    fn exec_partially_processed(&mut self, num_getters: usize) -> Result<()> {
+    fn exec_partially_processed(
+        &mut self,
+        num_getters: usize,
+        num_processors: usize,
+    ) -> Result<()> {
         let partial_processed: Vec<u32> = self
             .dbcli
             .get_partial_processed_levels()?;
@@ -412,27 +409,24 @@ impl Executor {
         }
 
         info!("re-processing {} levels that were not initialized for some contracts", partial_processed.len());
-        self.exec_levels(num_getters, partial_processed)?;
+        self.exec_levels(num_getters, num_processors, partial_processed)?;
         Ok(())
     }
 
     pub fn exec_missing_levels(
         &mut self,
         num_getters: usize,
+        num_processors: usize,
         acceptable_head_offset: Duration,
     ) -> Result<()> {
         if !self.all_contracts {
-            self.exec_partially_processed(num_getters)?;
+            self.exec_partially_processed(num_getters, num_processors)?;
         }
         loop {
             let latest_level: LevelMeta = self.node_cli.head()?;
 
             let mut missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
-                self.contracts
-                    .keys()
-                    .cloned()
-                    .collect::<Vec<ContractID>>()
-                    .as_slice(),
+                &self.get_config()?,
                 latest_level.level + 1,
             )?;
             if missing_levels.is_empty() {
@@ -445,7 +439,7 @@ impl Executor {
             let first_missing: LevelMeta = self
                 .node_cli
                 .level_json(missing_levels[0])?
-                .1;
+                .0;
 
             if !has_gaps
                 && latest_level.baked_at.unwrap()
@@ -457,7 +451,7 @@ impl Executor {
 
             missing_levels.reverse();
             info!("processing {} missing levels", missing_levels.len());
-            self.exec_levels(num_getters, missing_levels)?;
+            self.exec_levels(num_getters, num_processors, missing_levels)?;
         }
         self.exec_dependents()?;
         Ok(())
@@ -466,6 +460,7 @@ impl Executor {
     pub fn exec_parallel<F>(
         &mut self,
         num_getters: usize,
+        num_processors: usize,
         levels_selector: F,
     ) -> Result<Vec<u32>>
     where
@@ -477,11 +472,11 @@ impl Executor {
         self.dbcli
             .set_indexer_mode(IndexerMode::Bootstrap)?;
 
-        // Fetches block data in parallel, processes each block sequentially
+        // Fetches block data and processes them in parallel
 
         let (height_send, height_recv) = flume::bounded::<u32>(num_getters);
         let (block_send, block_recv) =
-            flume::bounded::<Box<(LevelMeta, Block)>>(num_getters);
+            flume::bounded::<Box<(LevelMeta, Block)>>(num_getters * 5);
 
         let block_getter =
             ConcurrentBlockGetter::new(self.node_cli.clone(), num_getters);
@@ -489,13 +484,56 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        let processed_levels: Vec<u32> = self.read_block_chan(block_recv)?;
+        self.stats.reset()?;
+        let stats_thread = self.stats.run();
+
+        let batch_size = 10;
+        let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
+        let (processed_send, processed_recv) =
+            flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
+
+        threads.push(inserter.run(&self.stats, processed_recv)?);
+
+        let processed_levels: Arc<Mutex<Vec<u32>>> =
+            Arc::new(Mutex::new(vec![]));
+
+        if num_processors <= 1 {
+            let processed = self.read_block_chan(block_recv, processed_send)?;
+            let mut res = processed_levels.lock().unwrap();
+            res.extend(processed);
+        } else {
+            info!("starting {} concurrent processors", num_processors);
+            for _ in 0..num_processors {
+                let mut exec = self.clone();
+                let w_recv_ch = block_recv.clone();
+                let w_send_ch = processed_send.clone();
+                let res_arc = processed_levels.clone();
+                threads.push(thread::spawn(move || {
+                    let processed = exec
+                        .read_block_chan(w_recv_ch, w_send_ch)
+                        .unwrap();
+
+                    let mut res = res_arc.lock().unwrap();
+                    res.extend(processed);
+                }));
+            }
+            drop(processed_send);
+        }
 
         for t in threads {
             t.join().map_err(|e| {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
+        self.stats.stop();
+        stats_thread.thread().unpark();
+        stats_thread.join().map_err(|e| {
+            anyhow!("failed to stop processor statistics logger, err: {:?}", e)
+        })?;
+
+        let processed_levels = Arc::try_unwrap(processed_levels)
+            .map_err(|e| anyhow!("{:?}", e))?
+            .into_inner()?;
         Ok(processed_levels)
     }
 
@@ -503,12 +541,6 @@ impl Executor {
         &mut self,
         ensure_sane_input_state: bool,
     ) -> Result<()> {
-        #[cfg(feature = "regression")]
-        if self.always_update_derived {
-            info!("skipping re-populating of derived tables, always_update_derived enabled");
-            return Ok(());
-        }
-
         info!(
             "re-populating derived tables (_live, _ordered). may take a while (expect minutes-hours, not seconds-minutes)."
         );
@@ -516,11 +548,7 @@ impl Executor {
         if ensure_sane_input_state {
             let latest_level: LevelMeta = self.node_cli.head()?;
             let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
-                self.contracts
-                    .keys()
-                    .cloned()
-                    .collect::<Vec<ContractID>>()
-                    .as_slice(),
+                &self.get_config()?,
                 latest_level.level + 1,
             )?;
             let has_gaps = missing_levels
@@ -538,7 +566,9 @@ impl Executor {
             );
         }
 
-        for (contract_id, (rel_ast, _)) in &self.contracts {
+        for (contract_id, (rel_ast, _)) in
+            &self.mutexed_state.get_contracts()?
+        {
             self.dbcli
                 .repopulate_derived_tables(contract_id, rel_ast)?;
         }
@@ -560,15 +590,51 @@ impl Executor {
 
     fn read_block_chan(
         &mut self,
-        block_recv: flume::Receiver<Box<(LevelMeta, Block)>>,
+        block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
+        processed_ch: flume::Sender<Box<ProcessedBlock>>,
     ) -> Result<Vec<u32>> {
+        let in_ch = block_ch.clone();
+
         let mut processed_levels: Vec<u32> = vec![];
-        for b in block_recv {
+        for b in block_ch {
             let (meta, block) = *b;
-            Self::print_status(
-                meta.level,
-                &self.exec_for_block(&meta, &block, true)?,
-            );
+
+            let processed_block = self.exec_for_block(&meta, &block, true)?;
+            for cres in &processed_block {
+                if self.all_contracts {
+                    self.stats.add(
+                        "processor",
+                        "contract calls",
+                        cres.tx_contexts.len(),
+                    )?;
+                } else {
+                    self.stats.add(
+                        "processor",
+                        &cres.contract_id.name,
+                        cres.tx_contexts.len(),
+                    )?;
+                }
+            }
+            self.stats.set(
+                "processor",
+                "channel sizes (input - output)",
+                format!(
+                    "{}/{} - {}/{}",
+                    in_ch.len(),
+                    in_ch.capacity().unwrap(),
+                    processed_ch.len(),
+                    processed_ch.capacity().unwrap()
+                ),
+            )?;
+            processed_ch.send(Box::new(processed_block))?;
+            self.stats
+                .add("processor", "levels", 1)?;
+            self.stats.set(
+                "processor",
+                "last processed level",
+                format!("{} ({:?})", meta.level, meta.baked_at.unwrap()),
+            )?;
+
             processed_levels.push(meta.level);
         }
 
@@ -598,22 +664,12 @@ impl Executor {
     }
 
     fn get_storage_processor(
-        &mut self,
+        &self,
     ) -> Result<StorageProcessor<NodeClient, DBClient>> {
-        let id = self
-            .dbcli
-            .get_max_id()
-            .with_context(|| {
-                "could not initialize storage processor from the db state"
-            })?;
         Ok(StorageProcessor::new(
-            id,
+            1,
             self.node_cli.clone(),
-            DBClient::connect(
-                &self.db_url,
-                self.db_ssl,
-                self.db_ca_cert.clone(),
-            )?,
+            self.dbcli.reconnect()?,
         ))
     }
 
@@ -622,7 +678,7 @@ impl Executor {
         level_height: u32,
         cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
-        let (_json, meta, block) = self
+        let (meta, block) = self
             .node_cli
             .level_json(level_height)
             .with_context(|| {
@@ -632,7 +688,25 @@ impl Executor {
                 )
             })?;
 
-        self.exec_for_block(&meta, &block, cleanup_on_reorg)
+        let mut res: Vec<SaveLevelResult> = vec![];
+        let processed_block =
+            self.exec_for_block(&meta, &block, cleanup_on_reorg)?;
+        for cres in &processed_block {
+            res.push(SaveLevelResult::from_processed_block(cres));
+        }
+
+        let update_derived_tables =
+            self.dbcli.get_indexer_mode()? == IndexerMode::Head;
+        #[cfg(feature = "regression_force_update_derived")]
+        let update_derived_tables = true | update_derived_tables;
+
+        insert_processed(
+            &mut self.dbcli.reconnect()?,
+            update_derived_tables,
+            processed_block,
+        )?;
+
+        Ok(res)
     }
 
     fn ensure_level_hash(
@@ -682,7 +756,7 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
         cleanup_on_reorg: bool,
-    ) -> Result<Vec<SaveLevelResult>> {
+    ) -> Result<ProcessedBlock> {
         // note: we expect level's values to all be set (no None values in its fields)
         if let Err(e) = self.ensure_level_hash(
             level.level,
@@ -697,12 +771,6 @@ impl Executor {
             self.exec_level(bad_lvl.level, true)?;
         }
 
-        let update_derived_tables =
-            self.dbcli.get_indexer_mode()? == IndexerMode::Head;
-        #[cfg(feature = "regression")]
-        let update_derived_tables =
-            update_derived_tables | self.always_update_derived;
-
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
                 .active_contracts()
@@ -712,13 +780,12 @@ impl Executor {
                     address: address.clone(),
                 })
                 .collect();
-            let new_contracts: Vec<&ContractID> = active_contracts
-                .iter()
-                .filter(|contract_id| !self.contracts.contains_key(contract_id))
-                .collect();
+            let new_contracts: Vec<ContractID> = self
+                .mutexed_state
+                .get_missing_contracts(&active_contracts)?;
 
             if !new_contracts.is_empty() {
-                info!(
+                debug!(
                     "level {}, analyzing contracts: {:#?}..",
                     block.header.level,
                     new_contracts
@@ -730,42 +797,37 @@ impl Executor {
             }
             active_contracts
         } else {
-            self.contracts
-                .keys()
-                .cloned()
-                .collect::<Vec<ContractID>>()
+            self.get_config()?
         };
-        let mut contract_results: Vec<SaveLevelResult> = vec![];
+        let mut contract_results: Vec<ProcessedContractBlock> = vec![];
 
+        /*
         info!(
             "processing level {}: (baked at {})",
             level.level,
             level.baked_at.unwrap()
         );
-
-        let mut storage_processor = self.get_storage_processor()?;
-        let mut tx = self.dbcli.transaction()?;
-        DBClient::delete_level(&mut tx, level.level)?;
-        DBClient::save_level(&mut tx, level)?;
+        */
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
         for contract_id in &process_contracts {
-            let (rel_ast, _) = &self.contracts[contract_id];
-            contract_results.push(Self::exec_for_block_contract(
-                &mut tx,
+            let rel_ast = self
+                .get_contract_rel_ast(contract_id)?
+                .unwrap();
+            contract_results.push(self.exec_for_block_contract(
                 level,
                 block,
                 &diffs,
-                &mut storage_processor,
                 contract_id,
-                rel_ast,
-                update_derived_tables,
+                &rel_ast,
             )?);
         }
-        tx.commit()?;
         for cres in &contract_results {
             if cres.is_origination {
-                self.update_contract_floor(&cres.contract_id, cres.level)?;
+                self.update_contract_floor(
+                    &cres.contract_id,
+                    cres.level.level,
+                )?;
             }
         }
         Ok(contract_results)
@@ -776,46 +838,37 @@ impl Executor {
         contract_id: &ContractID,
         level: u32,
     ) -> Result<()> {
-        let (rel_ast, _) = self
-            .contracts
-            .get(contract_id)
-            .unwrap()
-            .clone();
-        self.contracts
-            .insert(contract_id.clone(), (rel_ast, Some(level)));
+        self.mutexed_state
+            .update_contract_floor(contract_id, level)?;
         self.update_level_floor()
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn exec_for_block_contract(
-        tx: &mut Transaction,
+        &self,
         meta: &LevelMeta,
         block: &Block,
         diffs: &IntraBlockBigmapDiffsProcessor,
-        storage_processor: &mut StorageProcessor<NodeClient, DBClient>,
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
-        update_derived_tables: bool,
-    ) -> Result<SaveLevelResult> {
+    ) -> Result<ProcessedContractBlock> {
         let is_origination =
             block.has_contract_origination(&contract_id.address);
 
         if !is_origination && !block.is_contract_active(&contract_id.address) {
-            Self::mark_level_empty(tx, meta, contract_id)
-            .with_context(|| {
-                format!(
-                    "execute failed (level={}, contract={}): could not mark level as empty in db",
-                    meta.level, contract_id.name)
-            })?;
-
-            return Ok(SaveLevelResult {
-                level: meta.level,
+            return Ok(ProcessedContractBlock {
+                level: meta.clone(),
                 contract_id: contract_id.clone(),
+                inserts: vec![],
+                tx_contexts: vec![],
+                txs: vec![],
+                bigmap_contract_deps: vec![],
+                bigmap_keyhashes: vec![],
                 is_origination: false,
-                tx_count: 0,
+                rel_ast: rel_ast.clone(),
             });
         }
 
+        let mut storage_processor = self.get_storage_processor()?;
         storage_processor
             .process_block(block, diffs, &contract_id.address, rel_ast)
             .with_context(|| {
@@ -830,112 +883,149 @@ impl Executor {
         let bigmap_contract_deps =
             storage_processor.drain_bigmap_contract_dependencies();
 
-        Self::save_level_processed_contract(
-            tx,
-            meta,
-            contract_id,
-            inserts,
-            &tx_contexts,
-            &txs,
-            bigmap_contract_deps,
-            storage_processor.get_bigmap_keyhashes(),
-        )
-        .with_context(|| {
-            format!(
-                "execute failed (level={}, contract={}): could not save processed block",
-                meta.level, contract_id.name,
-            )
-        })?;
-        if update_derived_tables {
-            DBClient::update_derived_tables(
-                tx,
-                contract_id,
-                rel_ast,
-                &tx_contexts,
-            ).with_context(|| {
-            format!(
-                "execute failed (level={}, contract={}): could not update derived tables",
-                meta.level, contract_id.name,
-            )})?;
-        }
-        DBClient::set_max_id(tx, storage_processor.get_id_value() + 1)?;
-
-        if is_origination {
-            Self::mark_level_contract_origination(tx, meta, contract_id)
-            .with_context(|| {
-                format!(
-                    "execute for level={} failed: could not mark level as contract origination in db",
-                    meta.level)
-            })?;
-        }
-        Ok(SaveLevelResult {
-            level: meta.level,
+        Ok(ProcessedContractBlock {
+            level: meta.clone(),
             contract_id: contract_id.clone(),
+            inserts: inserts.values().cloned().collect(),
+            tx_contexts,
+            txs,
+            bigmap_contract_deps,
+            bigmap_keyhashes: storage_processor.get_bigmap_keyhashes(),
+            rel_ast: rel_ast.clone(),
             is_origination,
-            tx_count: tx_contexts.len() as u32,
         })
     }
+}
 
-    fn mark_level_contract_origination(
-        tx: &mut Transaction,
-        meta: &LevelMeta,
-        contract_id: &ContractID,
-    ) -> Result<()> {
-        DBClient::set_origination(tx, contract_id, meta.level)?;
+#[derive(Clone)]
+struct MutexedState {
+    contracts: Arc<Mutex<HashMap<ContractID, (RelationalAST, Option<u32>)>>>,
+    level_floor: Arc<Mutex<u32>>,
+}
+
+impl MutexedState {
+    pub fn new() -> Self {
+        Self {
+            contracts: Arc::new(Mutex::new(HashMap::new())),
+            level_floor: Arc::new(Mutex::new(0)),
+        }
+    }
+
+    pub fn set_level_floor(&self) -> Result<()> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+        let mut level_floor = self
+            .level_floor
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+
+        *level_floor = contracts
+            .values()
+            .map(|(_, lfloor)| lfloor.unwrap_or(0))
+            .min()
+            .unwrap_or(0);
         Ok(())
     }
 
-    fn mark_level_empty(
-        tx: &mut Transaction,
-        meta: &LevelMeta,
+    pub fn get_level_floor(&self) -> Result<u32> {
+        let level_floor = self
+            .level_floor
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+        Ok(*level_floor)
+    }
+
+    pub fn add_contract(
+        &self,
+        contract_id: ContractID,
+        rel_ast: RelationalAST,
+        floor: Option<u32>,
+    ) -> Result<bool> {
+        let mut contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+
+        if contracts.contains_key(&contract_id) {
+            return Ok(false);
+        }
+
+        contracts.insert(contract_id.clone(), (rel_ast, floor));
+        Ok(true)
+    }
+
+    pub fn update_contract_floor(
+        &self,
         contract_id: &ContractID,
+        level: u32,
     ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
-        DBClient::save_contract_level(tx, contract_id, meta.level)?;
+        let mut contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+
+        let mut v = contracts.get_mut(contract_id).unwrap();
+        v.1 = Some(level);
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn save_level_processed_contract(
-        tx: &mut Transaction,
-        meta: &LevelMeta,
+    pub fn get_contract(
+        &self,
         contract_id: &ContractID,
-        inserts: Inserts,
-        tx_contexts: &[TxContext],
-        txs: &[Tx],
-        bigmap_contract_deps: Vec<String>,
-        bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
-    ) -> Result<()> {
-        DBClient::delete_contract_level(tx, contract_id, meta.level)?;
-        DBClient::save_contract_level(tx, contract_id, meta.level)?;
+    ) -> Result<Option<(RelationalAST, Option<u32>)>> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+        Ok(contracts.get(contract_id).cloned())
+    }
 
-        DBClient::save_tx_contexts(tx, tx_contexts)?;
-        DBClient::save_txs(tx, txs)?;
-        DBClient::apply_inserts(
-            tx,
-            contract_id,
-            &inserts
-                .into_values()
-                .collect::<Vec<Insert>>(),
-        )?;
-        DBClient::save_contract_deps(
-            tx,
-            meta.level,
-            contract_id,
-            bigmap_contract_deps,
-        )?;
-        DBClient::save_bigmap_keyhashes(tx, bigmap_keyhashes)?;
-        Ok(())
+    pub fn get_contracts(
+        &self,
+    ) -> Result<HashMap<ContractID, (RelationalAST, Option<u32>)>> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+        Ok(contracts.clone())
+    }
+
+    pub fn get_missing_contracts(
+        &self,
+        l: &[ContractID],
+    ) -> Result<Vec<ContractID>> {
+        let contracts = self
+            .contracts
+            .lock()
+            .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
+
+        Ok(l.iter()
+            .filter(|contract_id| !contracts.contains_key(contract_id))
+            .cloned()
+            .collect::<Vec<ContractID>>())
+    }
+}
+
+#[derive(Error, Debug)]
+pub struct BadLevelHash {
+    level: u32,
+    err: anyhow::Error,
+}
+
+impl fmt::Display for BadLevelHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.err)
     }
 }
 
 pub(crate) fn get_rel_ast(
-    node_cli: &mut NodeClient,
+    node_cli: &NodeClient,
     contract_address: &str,
 ) -> Result<RelationalAST> {
     let storage_def =
         &node_cli.get_contract_storage_definition(contract_address, None)?;
-    debug!("storage_def: {:#?}", storage_def);
     let type_ast =
         typing::storage_ast_from_json(storage_def).with_context(|| {
             "failed to derive a storage type from the storage definition"
@@ -970,7 +1060,9 @@ fn test_generate() {
     use std::fs::File;
     use std::io::BufReader;
     use std::path::Path;
-    let json = json::parse(&debug::load_test(
+    use std::str::FromStr;
+
+    let json = serde_json::Value::from_str(&debug::load_test(
         "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.script",
     ))
     .unwrap();

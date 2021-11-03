@@ -370,12 +370,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
-
-[[package]]
 name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -796,12 +790,6 @@ checksum = "ce791b7ca6638aae45be056e068fc756d871eb3b3b10b8efa62d1c9cec616752"
 dependencies = [
  "wasm-bindgen",
 ]
-
-[[package]]
-name = "json"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
 
 [[package]]
 name = "lazy_static"
@@ -1339,8 +1327,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "psm"
+version = "0.1.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd136ff4382c4753fc061cb9e4712ab2af263376b95bbd5bd8cd50c020b78e69"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "que-pasa"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "anyhow",
  "askama",
@@ -1351,13 +1348,11 @@ dependencies = [
  "chrono",
  "clap",
  "curl",
- "dotenv",
  "env_logger",
  "flume",
  "hex",
  "indicatif",
  "itertools",
- "json",
  "lazy_static",
  "log",
  "native-tls",
@@ -1373,6 +1368,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "serde_stacker",
  "serde_yaml",
  "thiserror",
 ]
@@ -1595,6 +1591,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_stacker"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4c92391a63e3b83f77334d8beaaf11bac4c900f3769483e543bf76a81bf8ee2"
+dependencies = [
+ "serde",
+ "stacker",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1666,6 +1672,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75adad84ee84b521fb2cca2d4fd0f1dab1d8d026bda3c5bea4ca63b5f9f9293c"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "stacker"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90939d5171a4420b3ff5fbc8954d641e7377335454c259dcb80786f3f21dc9b4"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "libc",
+ "psm",
+ "winapi",
 ]
 
 [[package]]

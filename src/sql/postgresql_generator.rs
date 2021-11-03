@@ -172,7 +172,7 @@ impl PostgresqlGenerator {
             false => "",
         };
         let mut res: Vec<String> = vec![format!(
-            r#"CREATE {unique} INDEX "{table}_uniq" ON "{contract_schema}"."{table}"({columns});"#,
+            r#"CREATE {unique} INDEX ON "{contract_schema}"."{table}"({columns});"#,
             unique = uniqueness_constraint,
             contract_schema = self.contract_id.name,
             table = table.name,
@@ -180,7 +180,7 @@ impl PostgresqlGenerator {
         )];
         if let Some(parent) = Self::table_parent_name(table) {
             res.push(format!(
-                r#"CREATE INDEX "{table}_{parent_ref}_idx" ON "{contract_schema}"."{table}"("{parent_ref}");"#,
+                r#"CREATE INDEX ON "{contract_schema}"."{table}"("{parent_ref}");"#,
                 contract_schema = self.contract_id.name,
                 table = table.name,
                 parent_ref = Self::parent_ref(&parent),
@@ -188,7 +188,7 @@ impl PostgresqlGenerator {
         };
         if !table.id_unique {
             res.push(format!(
-                r#"CREATE INDEX "{table}_id_idx" ON "{contract_schema}"."{table}"(id);"#,
+                r#"CREATE INDEX ON "{contract_schema}"."{table}"(id);"#,
                 contract_schema = self.contract_id.name,
                 table = table.name,
             ));
