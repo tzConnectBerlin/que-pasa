@@ -1337,7 +1337,7 @@ dependencies = [
 
 [[package]]
 name = "que-pasa"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "anyhow",
  "askama",
