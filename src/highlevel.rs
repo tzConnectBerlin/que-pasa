@@ -258,14 +258,14 @@ impl Executor {
                                 }
                                 let bad_lvl = e.downcast::<BadLevelHash>()?;
                                 warn!(
-                                    "{}, deleting level {} from database",
+                                    "{}, deleting levels >= {} from database",
                                     bad_lvl.err, bad_lvl.level
                                 );
                                 let mut tx = self.dbcli.transaction()?;
                                 DBClient::delete_levels(
                                     &mut tx,
                                     &(bad_lvl.level as i32
-                                        ..db_head.level as i32)
+                                        ..(db_head.level + 1) as i32)
                                         .collect::<Vec<i32>>(),
                                 )?;
                                 tx.commit()?;
