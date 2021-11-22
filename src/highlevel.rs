@@ -245,7 +245,7 @@ impl Executor {
                     ))
                 }
             }?;
-            debug!("db: {} chain: {}", db_head.level, chain_head.level);
+            println!("db: {} chain: {}", db_head.level, chain_head.level);
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
                     wait_done(&mut first_wait);
@@ -599,7 +599,11 @@ impl Executor {
         for b in block_ch {
             let (meta, block) = *b;
 
-            let processed_block = self.exec_for_block(&meta, &block, true)?;
+            let processed_block = self
+                .exec_for_block(&meta, &block, true)
+                .with_context(|| {
+                    anyhow!("execute for level={} failed: could not process")
+                })?;
             for cres in &processed_block {
                 if self.all_contracts {
                     self.stats.add(
@@ -689,8 +693,14 @@ impl Executor {
             })?;
 
         let mut res: Vec<SaveLevelResult> = vec![];
-        let processed_block =
-            self.exec_for_block(&meta, &block, cleanup_on_reorg)?;
+        let processed_block = self
+            .exec_for_block(&meta, &block, cleanup_on_reorg)
+            .with_context(|| {
+                anyhow!(
+                    "execute for level={} failed: could not process",
+                    level_height
+                )
+            })?;
         for cres in &processed_block {
             res.push(SaveLevelResult::from_processed_block(cres));
         }
@@ -715,13 +725,14 @@ impl Executor {
         hash: &str,
         prev_hash: &str,
     ) -> Result<()> {
-        let prev = self.dbcli.get_level(level - 1)?;
-        if let Some(db_prev_hash) = prev
-            .as_ref()
-            .map(|l| l.hash.as_ref())
-            .flatten()
-        {
-            ensure!(
+        if level != 0 {
+            let prev = self.dbcli.get_level(level - 1)?;
+            if let Some(db_prev_hash) = prev
+                .as_ref()
+                .map(|l| l.hash.as_ref())
+                .flatten()
+            {
+                ensure!(
                 db_prev_hash == prev_hash, BadLevelHash{
                     level: prev.as_ref().unwrap().level,
                     err: anyhow!(
@@ -729,6 +740,7 @@ impl Executor {
                         level, prev_hash, db_prev_hash),
                 }
             );
+            }
         }
 
         let next = self.dbcli.get_level(level + 1)?;
@@ -814,13 +826,18 @@ impl Executor {
             let rel_ast = self
                 .get_contract_rel_ast(contract_id)?
                 .unwrap();
-            contract_results.push(self.exec_for_block_contract(
-                level,
-                block,
-                &diffs,
-                contract_id,
-                &rel_ast,
-            )?);
+            contract_results.push(
+                self.exec_for_block_contract(
+                    level,
+                    block,
+                    &diffs,
+                    contract_id,
+                    &rel_ast,
+                )
+                .with_context(|| {
+                    anyhow!("err on processing contract={}", contract_id.name)
+                })?,
+            );
         }
         for cres in &contract_results {
             if cres.is_origination {
@@ -1026,10 +1043,11 @@ pub(crate) fn get_rel_ast(
 ) -> Result<RelationalAST> {
     let storage_def =
         &node_cli.get_contract_storage_definition(contract_address, None)?;
-    let type_ast =
-        typing::storage_ast_from_json(storage_def).with_context(|| {
+    let type_ast = typing::storage_ast_from_json(storage_def)
+        .with_context(|| {
             "failed to derive a storage type from the storage definition"
-        })?;
+        })
+        .with_context(|| anyhow!("contract address={}", contract_address))?;
     debug!("storage definition retrieved, and type derived");
     debug!("type_ast: {:#?}", type_ast);
 

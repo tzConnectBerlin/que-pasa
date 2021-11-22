@@ -146,7 +146,7 @@ fn insert_batch(
     Ok(())
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct ProcessedContractBlock {
     pub level: LevelMeta,
     pub contract_id: ContractID,

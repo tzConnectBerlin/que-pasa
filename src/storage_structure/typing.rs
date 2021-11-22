@@ -168,6 +168,16 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 })
             }
             "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),
+            "bls12_381_g1" | "bls12_381_g2" | "bls12_381_fr" => {
+                Ok(simple_expr!(
+                    SimpleExprTy::String,
+                    annot.or_else(|| Some(
+                        prim.to_ascii_lowercase()
+                            .as_str()
+                            .to_string()
+                    ))
+                ))
+            }
             "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),
             "unit" => Ok(simple_expr!(SimpleExprTy::Unit, annot)),
             "ticket" | "sapling_state" | "lambda" => {
