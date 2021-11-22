@@ -602,7 +602,10 @@ impl Executor {
             let processed_block = self
                 .exec_for_block(&meta, &block, true)
                 .with_context(|| {
-                    anyhow!("execute for level={} failed: could not process")
+                    anyhow!(
+                        "execute for level={} failed: could not process",
+                        meta.level
+                    )
                 })?;
             for cres in &processed_block {
                 if self.all_contracts {
