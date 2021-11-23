@@ -79,12 +79,12 @@ impl NodeClient {
                 )
             })?;
 
-        for entry in json["code"].as_array().ok_or(anyhow!(
-            "malformed script response (missing 'code' field)"
-        ))? {
-            if let Some(prim) = entry.as_object().ok_or(anyhow!("malformed script response ('code' array element is not an object)"))?.get("prim") {
+        for entry in json["code"].as_array().ok_or_else(|| {
+            anyhow!("malformed script response (missing 'code' field)")
+        })? {
+            if let Some(prim) = entry.as_object().ok_or_else(|| anyhow!("malformed script response ('code' array element is not an object)"))?.get("prim") {
                 if prim == &serde_json::Value::String("storage".to_string()) {
-                return Ok(entry["args"].as_array().ok_or(anyhow!("malformed script response ('storage' entry does not have 'args' field)"))?[0].clone());
+                return Ok(entry["args"].as_array().ok_or_else(|| anyhow!("malformed script response ('storage' entry does not have 'args' field)"))?[0].clone());
                 }
             } else {
                 return Err(anyhow!("malformed script response ('code' array element does not have a field 'prim')"));

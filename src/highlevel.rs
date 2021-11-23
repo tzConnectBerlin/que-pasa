@@ -919,6 +919,7 @@ impl Executor {
 
 #[derive(Clone)]
 struct MutexedState {
+    #[allow(clippy::type_complexity)]
     contracts: Arc<Mutex<HashMap<ContractID, (RelationalAST, Option<u32>)>>>,
     level_floor: Arc<Mutex<u32>>,
 }
@@ -972,7 +973,7 @@ impl MutexedState {
             return Ok(false);
         }
 
-        contracts.insert(contract_id.clone(), (rel_ast, floor));
+        contracts.insert(contract_id, (rel_ast, floor));
         Ok(true)
     }
 

@@ -359,7 +359,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
         tx.simple_query(stmnts.join("\n").as_str())?;
         tx.commit()?;
 
-        return Ok(true);
+        Ok(true)
     }
 
     pub(crate) fn delete_contract_schema(
