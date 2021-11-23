@@ -4,7 +4,9 @@ use std::collections::HashMap;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-use crate::octez::block::{BigMapDiff, Block, TxContext};
+use crate::octez::block::{
+    BigMapDiff, Block, Diff, LazyStorageDiff, TxContext,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Op {
@@ -40,7 +42,60 @@ impl Op {
         }
     }
 
+    pub fn from_raw_lazy(raw: &LazyStorageDiff) -> Result<Vec<Self>> {
+        // The structure that replaced the deprecated "big_map_diff"
+        if raw.kind != "big_map" {
+            return Ok(vec![]);
+        }
+        let bigmap = raw.id.parse::<i32>()?;
+        match raw.diff.action.as_str() {
+            "update" => raw
+                .diff
+                .updates
+                .as_ref()
+                .ok_or_else(|| {
+                    anyhow!(
+                        "'updates' field missing in big_map update {:?}",
+                        raw
+                    )
+                })?
+                .iter()
+                .map(|update| {
+                    Ok(Op::Update {
+                        bigmap,
+                        keyhash: update.key_hash.clone().ok_or_else(|| {
+                            anyhow!("no key_hash in big map update {:?}", raw)
+                        })?,
+                        key: update
+                            .key
+                            .as_ref()
+                            .cloned()
+                            .ok_or_else(|| {
+                                anyhow!("no key in big map update {:?}", raw)
+                            })?,
+                        value: update.value.clone(),
+                    })
+                })
+                .collect::<Result<Vec<Self>>>(),
+            "copy" => Ok(vec![Op::Copy {
+                bigmap,
+                source: raw
+                    .diff
+                    .source
+                    .clone()
+                    .ok_or_else(|| {
+                        anyhow!("'source' missing in big_map copy {:?}", raw)
+                    })?
+                    .parse()?,
+            }]),
+            "remove" => Ok(vec![Op::Clear { bigmap }]),
+            "alloc" => Ok(vec![]),
+            _ => Err(anyhow!("unknown big_map action: {}", raw.diff.action)),
+        }
+    }
+
     pub fn from_raw(raw: &BigMapDiff) -> Result<Option<Self>> {
+        // From the depricated "big_map_diff" entries
         match raw.action.as_str() {
             "update" => Ok(Some(Op::Update {
                 bigmap: raw
@@ -98,26 +153,37 @@ pub struct IntraBlockBigmapDiffsProcessor {
 }
 
 impl IntraBlockBigmapDiffsProcessor {
-    pub(crate) fn from_block(block: &Block) -> Self {
+    pub(crate) fn from_block(block: &Block) -> Result<Self> {
         let mut res = Self {
             tx_bigmap_ops: HashMap::new(),
         };
 
-        let tx_bigmap_ops = block
-            .map_tx_contexts(|tx_context, _tx, _is_origination, op_res| {
+        let tx_bigmap_ops = block.map_tx_contexts(
+            |tx_context, _tx, _is_origination, op_res| {
                 if op_res.big_map_diff.is_none() {
                     Ok(Some((tx_context, vec![])))
                 } else {
                     let mut ops: Vec<Op> = vec![];
-                    for op in op_res.big_map_diff.as_ref().unwrap() {
-                        if let Some(op_parsed) = Op::from_raw(op)? {
-                            ops.push(op_parsed);
+                    const FROM_LAZY: bool = true;
+                    if FROM_LAZY {
+                        for lazy_diff in op_res
+                            .lazy_storage_diff
+                            .as_ref()
+                            .unwrap()
+                        {
+                            ops.extend(Op::from_raw_lazy(lazy_diff)?);
+                        }
+                    } else {
+                        for op in op_res.big_map_diff.as_ref().unwrap() {
+                            if let Some(op_parsed) = Op::from_raw(op)? {
+                                ops.push(op_parsed);
+                            }
                         }
                     }
                     Ok(Some((tx_context, ops)))
                 }
-            })
-            .unwrap();
+            },
+        )?;
         for (tx_context, ops) in tx_bigmap_ops {
             res.tx_bigmap_ops
                 .insert(tx_context, ops);
@@ -131,7 +197,7 @@ impl IntraBlockBigmapDiffsProcessor {
             }
         }
 
-        res
+        Ok(res)
     }
 
     #[cfg(test)]

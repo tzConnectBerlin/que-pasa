@@ -824,7 +824,7 @@ impl Executor {
         );
         */
 
-        let diffs = IntraBlockBigmapDiffsProcessor::from_block(block);
+        let diffs = IntraBlockBigmapDiffsProcessor::from_block(block)?;
         for contract_id in &process_contracts {
             let rel_ast = self
                 .get_contract_rel_ast(contract_id)?

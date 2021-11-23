@@ -1706,7 +1706,7 @@ fn test_process_block() {
             ))
             .unwrap();
 
-            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
+            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block)?;
             storage_processor
                 .process_block(&block, &diffs, contract.id, &rel_ast)
                 .unwrap();

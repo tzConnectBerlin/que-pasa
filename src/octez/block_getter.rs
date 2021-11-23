@@ -1,6 +1,6 @@
 use crate::octez::block::{Block, LevelMeta};
 use crate::octez::node;
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use std::thread;
 
 #[derive(Clone)]
@@ -41,7 +41,9 @@ impl ConcurrentBlockGetter {
         for level_height in recv_ch {
             let (level, block) = node_cli
                 .level_json(level_height)
-                .unwrap();
+                .with_context(|| {
+                    anyhow!("failed to get json for block {}", level_height)
+                })?;
             send_ch.send(Box::new((level, block)))?;
         }
         Ok(())

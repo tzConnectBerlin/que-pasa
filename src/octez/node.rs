@@ -42,7 +42,10 @@ impl NodeClient {
 
         let mut deserializer = serde_json::Deserializer::from_str(&body);
         deserializer.disable_recursion_limit();
-        let block: Block = Block::deserialize(&mut deserializer)?;
+        let block: Block =
+            Block::deserialize(&mut deserializer).with_context(|| {
+                anyhow!("failed to deserialize block json, block data={}", body)
+            })?;
 
         let meta = LevelMeta {
             level: block.header.level as u32,
