@@ -1,10 +1,10 @@
 {
     (
-        table_name: "storage",
-        id: 180,
+        table_name: "storage.ledger",
+        id: 188,
     ): (
-        table_name: "storage",
-        id: 180,
+        table_name: "storage.ledger",
+        id: 188,
         fk_id: None,
         columns: [
             (
@@ -12,16 +12,20 @@
                 value: BigInt(179),
             ),
             (
-                name: "stablecoin",
-                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+                name: "idx_tokens_nat",
+                value: Numeric(Some("9")),
             ),
             (
-                name: "owner",
+                name: "idx_tokens_address",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
-                name: "last_token_created",
-                value: Numeric(Some("9")),
+                name: "tokens_balance",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
             ),
         ],
     ),
@@ -52,11 +56,11 @@
         ],
     ),
     (
-        table_name: "storage.ledger",
-        id: 188,
+        table_name: "storage",
+        id: 180,
     ): (
-        table_name: "storage.ledger",
-        id: 188,
+        table_name: "storage",
+        id: 180,
         fk_id: None,
         columns: [
             (
@@ -64,20 +68,16 @@
                 value: BigInt(179),
             ),
             (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("7")),
+                name: "stablecoin",
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
             ),
             (
-                name: "idx_tokens_address",
+                name: "owner",
                 value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
-                name: "tokens_balance",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48013),
+                name: "last_token_created",
+                value: Numeric(Some("9")),
             ),
         ],
     ),
@@ -95,7 +95,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("9")),
+                value: Numeric(Some("7")),
             ),
             (
                 name: "idx_tokens_address",

@@ -4,9 +4,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-use crate::octez::block::{
-    BigMapDiff, Block, Diff, LazyStorageDiff, TxContext,
-};
+use crate::octez::block::{BigMapDiff, Block, LazyStorageDiff, TxContext};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Op {
@@ -165,7 +163,7 @@ impl IntraBlockBigmapDiffsProcessor {
                 } else {
                     let mut ops: Vec<Op> = vec![];
                     const FROM_LAZY: bool = true;
-                    if FROM_LAZY {
+                    if FROM_LAZY && op_res.lazy_storage_diff.is_some() {
                         for lazy_diff in op_res
                             .lazy_storage_diff
                             .as_ref()
