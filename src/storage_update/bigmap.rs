@@ -4,7 +4,9 @@ use std::collections::HashMap;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-use crate::octez::block::{BigMapDiff, Block, LazyStorageDiff, TxContext};
+use crate::octez::block::{
+    BigMapDiff, Block, LazyStorageDiff, TxContext, Updates::*,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Op {
@@ -47,34 +49,46 @@ impl Op {
         }
         let bigmap = raw.id.parse::<i32>()?;
         match raw.diff.action.as_str() {
-            "update" => raw
-                .diff
-                .updates
-                .as_ref()
-                .ok_or_else(|| {
-                    anyhow!(
-                        "'updates' field missing in big_map update {:?}",
-                        raw
-                    )
-                })?
-                .iter()
-                .map(|update| {
-                    Ok(Op::Update {
-                        bigmap,
-                        keyhash: update.key_hash.clone().ok_or_else(|| {
-                            anyhow!("no key_hash in big map update {:?}", raw)
-                        })?,
-                        key: update
-                            .key
-                            .as_ref()
-                            .cloned()
-                            .ok_or_else(|| {
-                                anyhow!("no key in big map update {:?}", raw)
-                            })?,
-                        value: update.value.clone(),
+            "update" => {
+                let updates = match &raw.diff.updates {
+                    Some(Update(u)) => vec![u],
+                    Some(Updates(us)) => us.iter().map(|u| u).collect(),
+                    _ => {
+                        return Err(anyhow!(
+                            "unknown updates shape: {:#?}",
+                            raw.diff.updates
+                        ))
+                    }
+                };
+
+                updates
+                    .iter()
+                    .map(|update| {
+                        Ok(Op::Update {
+                            bigmap,
+                            keyhash: update.key_hash.clone().ok_or_else(
+                                || {
+                                    anyhow!(
+                                        "no key_hash in big map update {:?}",
+                                        raw
+                                    )
+                                },
+                            )?,
+                            key: update
+                                .key
+                                .as_ref()
+                                .cloned()
+                                .ok_or_else(|| {
+                                    anyhow!(
+                                        "no key in big map update {:?}",
+                                        raw
+                                    )
+                                })?,
+                            value: update.value.clone(),
+                        })
                     })
-                })
-                .collect::<Result<Vec<Self>>>(),
+                    .collect::<Result<Vec<Self>>>()
+            }
             "copy" => Ok(vec![Op::Copy {
                 bigmap,
                 source: raw

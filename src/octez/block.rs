@@ -942,8 +942,16 @@ pub struct LazyStorageDiff {
 )]
 pub struct Diff {
     pub action: String,
-    pub updates: Option<Vec<Update>>,
+    pub updates: Option<Updates>,
     pub source: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum Updates {
+    Updates(Vec<Update>),
+    Update(Update),
+    Unknown(serde_json::Value),
 }
 
 #[derive(
