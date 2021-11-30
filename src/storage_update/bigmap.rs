@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 
 use crate::octez::block::{
-    BigMapDiff, Block, LazyStorageDiff, TxContext, Updates::*,
+    BigMapDiff, Block, LazyStorageDiff, TxContext, Update, Updates::*,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -50,7 +50,7 @@ impl Op {
         let bigmap = raw.id.parse::<i32>()?;
         match raw.diff.action.as_str() {
             "update" => {
-                let updates = match &raw.diff.updates {
+                let updates: Vec<&Update> = match &raw.diff.updates {
                     Some(Update(u)) => vec![u],
                     Some(Updates(us)) => us.iter().map(|u| u).collect(),
                     _ => {
