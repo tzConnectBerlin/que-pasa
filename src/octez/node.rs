@@ -44,7 +44,7 @@ impl NodeClient {
         deserializer.disable_recursion_limit();
         let block: Block =
             Block::deserialize(&mut deserializer).with_context(|| {
-                anyhow!("failed to deserialize block json, block data={}", body)
+                anyhow!("failed to deserialize block json")
             })?;
 
         let meta = LevelMeta {
