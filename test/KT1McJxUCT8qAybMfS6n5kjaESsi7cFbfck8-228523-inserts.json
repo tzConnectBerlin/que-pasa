@@ -1,15 +1,31 @@
 {
     (
-        table_name: "storage",
-        id: 237,
+        table_name: "storage.liquidity_provider_map",
+        id: 246,
     ): (
-        table_name: "storage",
-        id: 237,
+        table_name: "storage.liquidity_provider_map",
+        id: 246,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
                 value: BigInt(236),
+            ),
+            (
+                name: "idx_markets_market_id",
+                value: Numeric(Some("82195281")),
+            ),
+            (
+                name: "idx_markets_originator",
+                value: String("tz1aSkwEot3L2kmUvcoxzjMomb9mvBNuzFK6"),
+            ),
+            (
+                name: "markets_noname",
+                value: String("storage.liquidity_provider_map.bet"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(90986),
             ),
         ],
     ),
@@ -52,6 +68,20 @@
             (
                 name: "bigmap_id",
                 value: Int(90985),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage",
+        id: 237,
+    ): (
+        table_name: "storage",
+        id: 237,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(236),
             ),
         ],
     ),
@@ -100,36 +130,6 @@
             (
                 name: "auctionRunning_auction_period_end",
                 value: Timestamp(Some("2021-05-04T13:40:04Z")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.liquidity_provider_map",
-        id: 246,
-    ): (
-        table_name: "storage.liquidity_provider_map",
-        id: 246,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(236),
-            ),
-            (
-                name: "idx_markets_market_id",
-                value: Numeric(Some("82195281")),
-            ),
-            (
-                name: "idx_markets_originator",
-                value: String("tz1aSkwEot3L2kmUvcoxzjMomb9mvBNuzFK6"),
-            ),
-            (
-                name: "markets_noname",
-                value: String("storage.liquidity_provider_map.bet"),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(90986),
             ),
         ],
     ),

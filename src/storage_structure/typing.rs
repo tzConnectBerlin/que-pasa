@@ -146,8 +146,7 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 }
             }
             "set" => {
-                let inner_ast =
-                    storage_ast_from_json(&args.unwrap()[0]).unwrap();
+                let inner_ast = storage_ast_from_json(&args.unwrap()[0])?;
                 Ok(Ele {
                     name: annot,
                     expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
@@ -157,8 +156,7 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 })
             }
             "list" => {
-                let inner_ast =
-                    storage_ast_from_json(&args.unwrap()[0]).unwrap();
+                let inner_ast = storage_ast_from_json(&args.unwrap()[0])?;
                 Ok(Ele {
                     name: annot,
                     expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
@@ -168,9 +166,19 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 })
             }
             "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),
+            "bls12_381_g1" | "bls12_381_g2" | "bls12_381_fr" => {
+                Ok(simple_expr!(
+                    SimpleExprTy::String,
+                    annot.or_else(|| Some(
+                        prim.to_ascii_lowercase()
+                            .as_str()
+                            .to_string()
+                    ))
+                ))
+            }
             "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),
             "unit" => Ok(simple_expr!(SimpleExprTy::Unit, annot)),
-            "ticket" | "sapling_state" | "lambda" => {
+            "never" | "ticket" | "sapling_state" | "lambda" => {
                 Ok(simple_expr!(SimpleExprTy::Stop, annot))
             }
             "contract" | "signature" => {

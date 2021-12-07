@@ -5,7 +5,7 @@
 [ -z $PGUSER ] && export PGUSER=quepasa
 [ -z $PGDATABASE ] && export PGDATABASE=tezos
 
-docker run \
+docker run $DOCKER_ARGS  \
     -p $PGPORT:5432 \
     -e POSTGRES_PASSWORD=$PGPASSWORD \
     -e POSTGRES_USER=$PGUSER \

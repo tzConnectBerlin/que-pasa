@@ -26,12 +26,12 @@
         ],
     ),
     (
-        table_name: "storage.vaults",
-        id: 22,
+        table_name: "storage.serviceFeeWhitelist",
+        id: 5,
     ): (
-        table_name: "storage.vaults",
-        id: 22,
-        fk_id: None,
+        table_name: "storage.serviceFeeWhitelist",
+        id: 5,
+        fk_id: Some(2),
         columns: [
             (
                 name: "tx_context_id",
@@ -39,24 +39,16 @@
             ),
             (
                 name: "idx_address",
-                value: String("tz1bZ8vsMAXmaWEV7FRnyhcuUs2fYMaQ6Hkk"),
-            ),
-            (
-                name: "address",
-                value: String("KT1N1xUhaQiE6U3ysmaca364is8cf7rYCFbR"),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(4875),
+                value: String("tz1WaUrTPocfZfBZzKh6crZzC8rjbS2XNNxt"),
             ),
         ],
     ),
     (
-        table_name: "storage.serviceFees",
-        id: 13,
+        table_name: "storage.serviceFeeWhitelist",
+        id: 9,
     ): (
-        table_name: "storage.serviceFees",
-        id: 13,
+        table_name: "storage.serviceFeeWhitelist",
+        id: 9,
         fk_id: Some(2),
         columns: [
             (
@@ -64,37 +56,17 @@
                 value: BigInt(1),
             ),
             (
-                name: "idx_nat",
-                value: Numeric(Some("2")),
-            ),
-            (
-                name: "pct",
-                value: Numeric(Some("50")),
-            ),
-            (
-                name: "flat_tokenType",
-                value: String("fa2"),
-            ),
-            (
-                name: "flat_tokenId",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "flat_address",
-                value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
-            ),
-            (
-                name: "flat_nat",
-                value: Numeric(Some("1000000000000")),
+                name: "idx_address",
+                value: String("tz1hD63wN8p9V8o5ARU7wA7RKAQvBAwkeTr7"),
             ),
         ],
     ),
     (
-        table_name: "storage.serviceFees",
-        id: 12,
+        table_name: "storage.serviceFeeWhitelist",
+        id: 4,
     ): (
-        table_name: "storage.serviceFees",
-        id: 12,
+        table_name: "storage.serviceFeeWhitelist",
+        id: 4,
         fk_id: Some(2),
         columns: [
             (
@@ -102,28 +74,8 @@
                 value: BigInt(1),
             ),
             (
-                name: "idx_nat",
-                value: Numeric(Some("1")),
-            ),
-            (
-                name: "pct",
-                value: Numeric(Some("100")),
-            ),
-            (
-                name: "flat_tokenType",
-                value: String("fa2"),
-            ),
-            (
-                name: "flat_tokenId",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "flat_address",
-                value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
-            ),
-            (
-                name: "flat_nat",
-                value: Numeric(Some("100000000000")),
+                name: "idx_address",
+                value: String("tz1NqD9SfhiUxuwfNHYBRn4yqH2EmKrQrsoJ"),
             ),
         ],
     ),
@@ -167,60 +119,6 @@
     ),
     (
         table_name: "storage.serviceFeeWhitelist",
-        id: 9,
-    ): (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 9,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1hD63wN8p9V8o5ARU7wA7RKAQvBAwkeTr7"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 8,
-    ): (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 8,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1codeYURj5z49HKX9zmLHms2vJN2qDjrtt"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 7,
-    ): (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 7,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1ZZZPNqHprYjJzxXS6HfucYKKgHZUsVu1z"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.serviceFeeWhitelist",
         id: 6,
     ): (
         table_name: "storage.serviceFeeWhitelist",
@@ -239,10 +137,10 @@
     ),
     (
         table_name: "storage.serviceFeeWhitelist",
-        id: 5,
+        id: 7,
     ): (
         table_name: "storage.serviceFeeWhitelist",
-        id: 5,
+        id: 7,
         fk_id: Some(2),
         columns: [
             (
@@ -251,43 +149,7 @@
             ),
             (
                 name: "idx_address",
-                value: String("tz1WaUrTPocfZfBZzKh6crZzC8rjbS2XNNxt"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 4,
-    ): (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 4,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1NqD9SfhiUxuwfNHYBRn4yqH2EmKrQrsoJ"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 3,
-    ): (
-        table_name: "storage.serviceFeeWhitelist",
-        id: 3,
-        fk_id: Some(2),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1Kewu2GSEQXePDr3geEgcHCzgibjoTye3S"),
+                value: String("tz1ZZZPNqHprYjJzxXS6HfucYKKgHZUsVu1z"),
             ),
         ],
     ),
@@ -326,6 +188,88 @@
             (
                 name: "bigmap_id",
                 value: Int(4874),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.serviceFees",
+        id: 13,
+    ): (
+        table_name: "storage.serviceFees",
+        id: 13,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_nat",
+                value: Numeric(Some("2")),
+            ),
+            (
+                name: "pct",
+                value: Numeric(Some("50")),
+            ),
+            (
+                name: "flat_tokenType",
+                value: String("fa2"),
+            ),
+            (
+                name: "flat_tokenId",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "flat_address",
+                value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
+            ),
+            (
+                name: "flat_nat",
+                value: Numeric(Some("1000000000000")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.vaults",
+        id: 22,
+    ): (
+        table_name: "storage.vaults",
+        id: 22,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1bZ8vsMAXmaWEV7FRnyhcuUs2fYMaQ6Hkk"),
+            ),
+            (
+                name: "address",
+                value: String("KT1N1xUhaQiE6U3ysmaca364is8cf7rYCFbR"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(4875),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.serviceFeeWhitelist",
+        id: 3,
+    ): (
+        table_name: "storage.serviceFeeWhitelist",
+        id: 3,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1Kewu2GSEQXePDr3geEgcHCzgibjoTye3S"),
             ),
         ],
     ),
@@ -412,6 +356,62 @@
             (
                 name: "bigmap_id",
                 value: Int(4873),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.serviceFeeWhitelist",
+        id: 8,
+    ): (
+        table_name: "storage.serviceFeeWhitelist",
+        id: 8,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1codeYURj5z49HKX9zmLHms2vJN2qDjrtt"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.serviceFees",
+        id: 12,
+    ): (
+        table_name: "storage.serviceFees",
+        id: 12,
+        fk_id: Some(2),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "idx_nat",
+                value: Numeric(Some("1")),
+            ),
+            (
+                name: "pct",
+                value: Numeric(Some("100")),
+            ),
+            (
+                name: "flat_tokenType",
+                value: String("fa2"),
+            ),
+            (
+                name: "flat_tokenId",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "flat_address",
+                value: String("KT1BHCumksALJQJ8q8to2EPigPW6qpyTr7Ng"),
+            ),
+            (
+                name: "flat_nat",
+                value: Numeric(Some("100000000000")),
             ),
         ],
     ),

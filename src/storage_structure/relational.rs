@@ -504,6 +504,17 @@ impl ASTBuilder {
                     ele
                 )),
             },
+            ExprTy::SimpleExprTy(SimpleExprTy::Stop) => {
+                Ok(RelationalAST::Leaf {
+                    rel_entry: RelationalEntry {
+                        table_name: ctx.table_name.clone(),
+                        column_name: self.column_name(ctx, ele, true),
+                        column_type: ele.expr_type.clone(),
+                        value: None,
+                        is_index: false,
+                    },
+                })
+            }
             ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: ctx.table_name.clone(),

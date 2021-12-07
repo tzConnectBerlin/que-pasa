@@ -4,7 +4,9 @@ use std::collections::HashMap;
 #[cfg(test)]
 use pretty_assertions::assert_eq;
 
-use crate::octez::block::{BigMapDiff, Block, TxContext};
+use crate::octez::block::{
+    BigMapDiff, Block, LazyStorageDiff, TxContext, Update, Updates::*,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Op {
@@ -40,7 +42,72 @@ impl Op {
         }
     }
 
+    pub fn from_raw_lazy(raw: &LazyStorageDiff) -> Result<Vec<Self>> {
+        // The structure that replaced the deprecated "big_map_diff"
+        if raw.kind != "big_map" {
+            return Ok(vec![]);
+        }
+        let bigmap = raw.id.parse::<i32>()?;
+        match raw.diff.action.as_str() {
+            "update" => {
+                let updates: Vec<&Update> = match &raw.diff.updates {
+                    Some(Update(u)) => vec![u],
+                    Some(Updates(us)) => us.iter().map(|u| u).collect(),
+                    _ => {
+                        return Err(anyhow!(
+                            "unknown updates shape: {:#?}",
+                            raw.diff.updates
+                        ))
+                    }
+                };
+
+                updates
+                    .iter()
+                    .map(|update| {
+                        Ok(Op::Update {
+                            bigmap,
+                            keyhash: update.key_hash.clone().ok_or_else(
+                                || {
+                                    anyhow!(
+                                        "no key_hash in big map update {:?}",
+                                        raw
+                                    )
+                                },
+                            )?,
+                            key: update
+                                .key
+                                .as_ref()
+                                .cloned()
+                                .ok_or_else(|| {
+                                    anyhow!(
+                                        "no key in big map update {:?}",
+                                        raw
+                                    )
+                                })?,
+                            value: update.value.clone(),
+                        })
+                    })
+                    .collect::<Result<Vec<Self>>>()
+            }
+            "copy" => Ok(vec![Op::Copy {
+                bigmap,
+                source: raw
+                    .diff
+                    .source
+                    .clone()
+                    .ok_or_else(|| {
+                        anyhow!("'source' missing in big_map copy {:?}", raw)
+                    })?
+                    .parse()?,
+            }]),
+            "remove" => Ok(vec![Op::Clear { bigmap }]),
+            "alloc" => Ok(vec![]),
+            _ => Err(anyhow!("unknown big_map action: {}", raw.diff.action)),
+        }
+    }
+
     pub fn from_raw(raw: &BigMapDiff) -> Result<Option<Self>> {
+        // From the depricated "big_map_diff" entries
         match raw.action.as_str() {
             "update" => Ok(Some(Op::Update {
                 bigmap: raw
@@ -98,26 +165,37 @@ pub struct IntraBlockBigmapDiffsProcessor {
 }
 
 impl IntraBlockBigmapDiffsProcessor {
-    pub(crate) fn from_block(block: &Block) -> Self {
+    pub(crate) fn from_block(block: &Block) -> Result<Self> {
         let mut res = Self {
             tx_bigmap_ops: HashMap::new(),
         };
 
-        let tx_bigmap_ops = block
-            .map_tx_contexts(|tx_context, _tx, _is_origination, op_res| {
+        let tx_bigmap_ops = block.map_tx_contexts(
+            |tx_context, _tx, _is_origination, op_res| {
                 if op_res.big_map_diff.is_none() {
                     Ok(Some((tx_context, vec![])))
                 } else {
                     let mut ops: Vec<Op> = vec![];
-                    for op in op_res.big_map_diff.as_ref().unwrap() {
-                        if let Some(op_parsed) = Op::from_raw(op)? {
-                            ops.push(op_parsed);
+                    const FROM_LAZY: bool = true;
+                    if FROM_LAZY && op_res.lazy_storage_diff.is_some() {
+                        for lazy_diff in op_res
+                            .lazy_storage_diff
+                            .as_ref()
+                            .unwrap()
+                        {
+                            ops.extend(Op::from_raw_lazy(lazy_diff)?);
+                        }
+                    } else {
+                        for op in op_res.big_map_diff.as_ref().unwrap() {
+                            if let Some(op_parsed) = Op::from_raw(op)? {
+                                ops.push(op_parsed);
+                            }
                         }
                     }
                     Ok(Some((tx_context, ops)))
                 }
-            })
-            .unwrap();
+            },
+        )?;
         for (tx_context, ops) in tx_bigmap_ops {
             res.tx_bigmap_ops
                 .insert(tx_context, ops);
@@ -131,7 +209,7 @@ impl IntraBlockBigmapDiffsProcessor {
             }
         }
 
-        res
+        Ok(res)
     }
 
     #[cfg(test)]
@@ -163,9 +241,12 @@ impl IntraBlockBigmapDiffsProcessor {
         keys.reverse();
 
         let mut targets: Vec<i32> = vec![bigmap_target];
-        let mut prev_content_number = keys[0].content_number;
+        let mut prev_scope = keys[0].clone();
+        prev_scope.internal_number = None;
         for tx_context in keys {
-            if tx_context.content_number != prev_content_number {
+            let mut current_scope = tx_context.clone();
+            current_scope.internal_number = None;
+            if prev_scope != current_scope {
                 // temporary bigmaps (ie those with id < 0) only live in the
                 // scope of tx contents (the content operation itself +
                 // the internal operations)
@@ -173,7 +254,7 @@ impl IntraBlockBigmapDiffsProcessor {
                     .into_iter()
                     .filter(|d| d >= &0)
                     .collect();
-                prev_content_number = tx_context.content_number;
+                prev_scope = current_scope;
             }
             if targets.is_empty() {
                 break;

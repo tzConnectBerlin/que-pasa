@@ -14,48 +14,6 @@
         ],
     ),
     (
-        table_name: "storage.market_map",
-        id: 255,
-    ): (
-        table_name: "storage.market_map",
-        id: 255,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(248),
-            ),
-            (
-                name: "idx_markets_nat",
-                value: Numeric(Some("82195281")),
-            ),
-            (
-                name: "markets_state",
-                value: String("storage.market_map.auctionRunning"),
-            ),
-            (
-                name: "metadata_currency",
-                value: String("metadata_fa12"),
-            ),
-            (
-                name: "metadata_adjudicator",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "metadata_description",
-                value: String("Question: who Answer: when"),
-            ),
-            (
-                name: "metadata_ipfs_hash",
-                value: String("QmSQL1yJrQbpQnWnbvo3Syzhh2w6NiBmxExFGwbS2dJ6nw"),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(90985),
-            ),
-        ],
-    ),
-    (
         table_name: "storage.market_map.fa12",
         id: 257,
     ): (
@@ -70,36 +28,6 @@
             (
                 name: "metadata_fa12",
                 value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.market_map.auctionRunning",
-        id: 256,
-    ): (
-        table_name: "storage.market_map.auctionRunning",
-        id: 256,
-        fk_id: Some(255),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(248),
-            ),
-            (
-                name: "auctionRunning_uniswap_contribution",
-                value: Numeric(Some("94999999740100000")),
-            ),
-            (
-                name: "auctionRunning_yes_preference",
-                value: Numeric(Some("95000000002500000")),
-            ),
-            (
-                name: "auctionRunning_quantity",
-                value: Numeric(Some("2500100000")),
-            ),
-            (
-                name: "auctionRunning_auction_period_end",
-                value: Timestamp(Some("2021-05-04T13:40:04Z")),
             ),
         ],
     ),
@@ -152,6 +80,78 @@
             (
                 name: "bet_predicted_probability",
                 value: Numeric(Some("37992401")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map",
+        id: 255,
+    ): (
+        table_name: "storage.market_map",
+        id: 255,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(248),
+            ),
+            (
+                name: "idx_markets_nat",
+                value: Numeric(Some("82195281")),
+            ),
+            (
+                name: "markets_state",
+                value: String("storage.market_map.auctionRunning"),
+            ),
+            (
+                name: "metadata_currency",
+                value: String("metadata_fa12"),
+            ),
+            (
+                name: "metadata_adjudicator",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "metadata_description",
+                value: String("Question: who Answer: when"),
+            ),
+            (
+                name: "metadata_ipfs_hash",
+                value: String("QmSQL1yJrQbpQnWnbvo3Syzhh2w6NiBmxExFGwbS2dJ6nw"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(90985),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.auctionRunning",
+        id: 256,
+    ): (
+        table_name: "storage.market_map.auctionRunning",
+        id: 256,
+        fk_id: Some(255),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(248),
+            ),
+            (
+                name: "auctionRunning_uniswap_contribution",
+                value: Numeric(Some("94999999740100000")),
+            ),
+            (
+                name: "auctionRunning_yes_preference",
+                value: Numeric(Some("95000000002500000")),
+            ),
+            (
+                name: "auctionRunning_quantity",
+                value: Numeric(Some("2500100000")),
+            ),
+            (
+                name: "auctionRunning_auction_period_end",
+                value: Timestamp(Some("2021-05-04T13:40:04Z")),
             ),
         ],
     ),

@@ -116,7 +116,7 @@ pub fn init_config() -> Result<Config> {
                 .long("bcd-network")
                 .value_name("BCD_NETWORK")
                 .env("BCD_NETWORK")
-                .possible_values(&["mainnet", "hangzhounet", "granadanet", "florencenet"])
+                .possible_values(&["mainnet", "hangzhou2net", "hangzhounet", "granadanet", "florencenet"])
                 .default_value("mainnet")
                 .help("For better-call.dev: name of the Tezos network to target")
                 .takes_value(true))

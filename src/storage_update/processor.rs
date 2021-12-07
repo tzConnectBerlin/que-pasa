@@ -170,7 +170,7 @@ where
                 } else if let Some(storage) = &op_res.storage {
                     Ok(Some((
                         self.tx_context(tx_context, tx),
-                        parser::parse_lexed(&storage)?,
+                        parser::parse_lexed(storage)?,
                     )))
                 } else {
                     Err(anyhow!(
@@ -414,7 +414,7 @@ where
                         );
                         self.process_storage_value_internal(
                             ctx,
-                            &parser::parse_lexed(&key)?,
+                            &parser::parse_lexed(key)?,
                             &key_ast,
                             tx_context,
                         )?;
@@ -429,7 +429,7 @@ where
                             Some(val) => {
                                 self.process_storage_value_internal(
                                     ctx,
-                                    &parser::parse_lexed(&val)?,
+                                    &parser::parse_lexed(val)?,
                                     &value_ast,
                                     tx_context,
                                 )?;
@@ -1706,7 +1706,8 @@ fn test_process_block() {
             ))
             .unwrap();
 
-            let diffs = IntraBlockBigmapDiffsProcessor::from_block(&block);
+            let diffs =
+                IntraBlockBigmapDiffsProcessor::from_block(&block).unwrap();
             storage_processor
                 .process_block(&block, &diffs, contract.id, &rel_ast)
                 .unwrap();

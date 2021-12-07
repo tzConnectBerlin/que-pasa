@@ -804,6 +804,7 @@ pub struct OperationResult {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
     pub big_map_diff: Option<Vec<BigMapDiff>>,
+    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
 
     #[serde(default)]
     pub consumed_milligas: Option<String>,
@@ -816,8 +817,6 @@ pub struct OperationResult {
     balance_updates: Option<Vec<BalanceUpdate>>,
     #[serde(skip)]
     consumed_gas: Option<String>,
-    #[serde(skip)]
-    lazy_storage_diff: Option<Vec<serde_json::Value>>,
     //    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
 }
 
@@ -943,9 +942,16 @@ pub struct LazyStorageDiff {
 )]
 pub struct Diff {
     pub action: String,
-    pub updates: Vec<Update>,
-    pub key_type: Option<KeyType>,
-    pub value_type: Option<ValueType2>,
+    pub updates: Option<Updates>,
+    pub source: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(untagged)]
+pub enum Updates {
+    Updates(Vec<Update>),
+    Update(Update),
+    Unknown(serde_json::Value),
 }
 
 #[derive(
@@ -957,8 +963,8 @@ pub struct Diff {
     serde_derive::Deserialize,
 )]
 pub struct Update {
-    pub key_hash: String,
-    pub key: serde_json::Value,
+    pub key_hash: Option<String>,
+    pub key: Option<serde_json::Value>,
     pub value: Option<serde_json::Value>,
 }
 
@@ -1009,6 +1015,8 @@ pub struct Parameters {
     value: Option<serde_json::Value>,
 }
 
+/*
+ * TODO: probably unused. check
 #[derive(
     Default,
     Debug,
@@ -1021,6 +1029,7 @@ pub struct Result {
     pub status: String,
     pub storage: Option<::serde_json::Value>,
     pub big_map_diff: Option<Vec<BigMapDiff>>,
+    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
 
     #[serde(skip)]
     balance_updates: Option<Vec<BalanceUpdate>>,
@@ -1032,9 +1041,8 @@ pub struct Result {
     storage_size: Option<String>,
     #[serde(skip)]
     paid_storage_size_diff: Option<String>,
-    #[serde(skip)]
-    lazy_storage_diff: Option<Vec<serde_json::Value>>,
 }
+*/
 
 #[derive(
     Default,
