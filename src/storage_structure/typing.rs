@@ -98,7 +98,7 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
             "address" => Ok(simple_expr!(SimpleExprTy::Address, annot)),
             "big_map" => Ok(complex_expr!(ComplexExprTy::BigMap, annot, args)),
             "bool" => Ok(simple_expr!(SimpleExprTy::Bool, annot)),
-            "bytes" => Ok(simple_expr!(SimpleExprTy::Bytes, annot)),
+            "bytes" | "chest" => Ok(simple_expr!(SimpleExprTy::Bytes, annot)),
             "int" => Ok(simple_expr!(SimpleExprTy::Int, annot)),
             "key" => Ok(simple_expr!(SimpleExprTy::KeyHash, annot)), // TODO: check this is correct
             "key_hash" => Ok(simple_expr!(SimpleExprTy::KeyHash, annot)),
@@ -178,7 +178,13 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
             }
             "timestamp" => Ok(simple_expr!(SimpleExprTy::Timestamp, annot)),
             "unit" => Ok(simple_expr!(SimpleExprTy::Unit, annot)),
-            "never" | "ticket" | "sapling_state" | "lambda" => {
+            // - ignoring constants, as far as we can see now there's no reason
+            // to index these
+            // - ignoring tickets and sapling_state because it's not clear to
+            // us right now how this info would be used exactly
+            // - ignoring lambdas because they're a pandoras box. probably are
+            // impossible to index in a meaningful way
+            "constant" | "never" | "ticket" | "sapling_state" | "lambda" => {
                 Ok(simple_expr!(SimpleExprTy::Stop, annot))
             }
             "contract" | "signature" => {
