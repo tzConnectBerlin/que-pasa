@@ -173,7 +173,7 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 })
             }
             "string" => Ok(simple_expr!(SimpleExprTy::String, annot)),
-            "bls12_381_g1" | "bls12_381_g2" | "bls12_381_fr" => {
+            "chain_id" | "bls12_381_g1" | "bls12_381_g2" | "bls12_381_fr" => {
                 Ok(simple_expr!(
                     SimpleExprTy::String,
                     annot.or_else(|| Some(
