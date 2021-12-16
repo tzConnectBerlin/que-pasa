@@ -324,6 +324,20 @@ impl Executor {
         Ok(())
     }
 
+    pub fn uninitialized_contracts(&mut self) -> Result<Vec<ContractID>> {
+        let mut res = vec![];
+        for (contract_id, _) in &self.mutexed_state.get_contracts()? {
+            if self
+                .dbcli
+                .get_origination(contract_id)?
+                .is_none()
+            {
+                res.push(contract_id.clone());
+            }
+        }
+        return res;
+    }
+
     pub fn exec_new_contracts_historically(
         &mut self,
         bcd_settings: Option<(String, String)>,
@@ -334,21 +348,26 @@ impl Executor {
         let mut res: Vec<ContractID> = vec![];
         loop {
             self.add_dependency_contracts().unwrap();
-            let new_contracts = self.create_contract_schemas().unwrap();
+            self.create_contract_schemas().unwrap();
 
-            if new_contracts.is_empty() {
+            let init_contracts = self.uninitialized_contracts()?;
+
+            if init_contracts.is_empty() {
                 break;
             }
-            res.extend(new_contracts.clone());
+            res.extend(init_contracts.clone());
 
             info!(
                 "initializing the following contracts historically: {:#?}",
-                new_contracts
+                init_contracts
             );
 
             if let Some((bcd_url, network)) = &bcd_settings {
-                let mut exclude_levels: Vec<u32> = vec![];
-                for contract_id in &new_contracts {
+                let mut exclude_levels: Vec<u32> = self
+                    .dbcli
+                    .get_fully_processed_levels()?;
+
+                for contract_id in &init_contracts {
                     info!("Initializing contract {}..", contract_id.name);
                     let bcd_cli = bcd::BCDClient::new(
                         bcd_url.clone(),

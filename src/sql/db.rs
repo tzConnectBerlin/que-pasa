@@ -968,6 +968,26 @@ set max_id = $1",
         }
     }
 
+    pub(crate) fn get_fully_processed_levels(&mut self) -> Result<Vec<u32>> {
+        let fully_processed: Vec<u32> = self
+            .dbconn
+            .query(
+                "
+select
+    lvl.level
+from contract_levels clvl
+group by 1
+order by 1
+having count(1) = (select count(1) from contracts)",
+                &[],
+            )?
+            .iter()
+            .map(|row| row.get(0))
+            .map(|lvl: i32| lvl as u32)
+            .collect();
+        Ok(fully_processed)
+    }
+
     pub(crate) fn get_partial_processed_levels(&mut self) -> Result<Vec<u32>> {
         let partial_processed: Vec<u32> = self
             .dbconn
