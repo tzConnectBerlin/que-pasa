@@ -78,13 +78,18 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         assert_sane_db(&mut dbcli);
     }
 
+    let bcd_settings = config
+        .bcd_url
+        .as_ref()
+        .map(|url| (url.clone(), config.bcd_network.clone()));
+
     let mut executor = highlevel::Executor::new(
         node_cli.clone(),
         dbcli,
         config.reports_interval,
     );
     if config.all_contracts {
-        index_all_contracts(config, executor);
+        index_all_contracts(config, &bcd_settings, executor);
         return;
     }
 
@@ -118,10 +123,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     let acceptable_head_offset = Duration::days(1);
     let new_initialized = executor
         .exec_new_contracts_historically(
-            config
-                .bcd_url
-                .as_ref()
-                .map(|url| (url.clone(), config.bcd_network.clone())),
+            &bcd_settings,
             num_getters,
             num_processors,
             acceptable_head_offset,
@@ -144,6 +146,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     // We will first load missing levels (if any)
     executor
         .exec_missing_levels(
+            &bcd_settings,
             num_getters,
             num_processors,
             acceptable_head_offset,
@@ -157,6 +160,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
 
 fn index_all_contracts(
     config: &config::Config,
+    bcd_settings: &Option<(String, String)>,
     mut executor: highlevel::Executor,
 ) {
     executor.index_all_contracts();
@@ -180,6 +184,7 @@ fn index_all_contracts(
         info!("processing missing levels");
         executor
             .exec_missing_levels(
+                bcd_settings,
                 config.getters_cap,
                 config.workers_cap,
                 Duration::days(0),

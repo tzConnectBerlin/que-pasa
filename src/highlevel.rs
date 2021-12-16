@@ -326,7 +326,7 @@ impl Executor {
 
     pub fn exec_new_contracts_historically(
         &mut self,
-        bcd_settings: Option<(String, String)>,
+        bcd_settings: &Option<(String, String)>,
         num_getters: usize,
         num_processors: usize,
         acceptable_head_offset: Duration,
@@ -346,10 +346,79 @@ impl Executor {
                 new_contracts
             );
 
+            self.exec_missing_levels(
+                bcd_settings,
+                num_getters,
+                num_processors,
+                acceptable_head_offset,
+            )
+            .unwrap();
+        }
+        if !res.is_empty() {
+            self.exec_dependents().unwrap();
+        }
+        Ok(res)
+    }
+
+    fn exec_partially_processed(
+        &mut self,
+        num_getters: usize,
+        num_processors: usize,
+    ) -> Result<()> {
+        let partial_processed: Vec<u32> = self
+            .dbcli
+            .get_partial_processed_levels()?;
+        if partial_processed.is_empty() {
+            return Ok(());
+        }
+
+        info!("re-processing {} levels that were not initialized for some contracts", partial_processed.len());
+        self.exec_levels(num_getters, num_processors, partial_processed)?;
+        Ok(())
+    }
+
+    pub fn exec_missing_levels(
+        &mut self,
+        bcd_settings: &Option<(String, String)>,
+        num_getters: usize,
+        num_processors: usize,
+        acceptable_head_offset: Duration,
+    ) -> Result<()> {
+        loop {
+            let latest_level: LevelMeta = self.node_cli.head()?;
+
+            let mut missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
+                &self.get_config()?,
+                latest_level.level + 1,
+            )?;
+            info!("missing levels: {:?}", missing_levels);
+            if missing_levels.is_empty() {
+                break;
+            }
+            let has_gaps = missing_levels
+                .windows(2)
+                .any(|w| w[0] != w[1] - 1);
+
+            let first_missing: LevelMeta = self
+                .node_cli
+                .level_json(missing_levels[0])?
+                .0;
+
+            if !has_gaps
+                && latest_level.baked_at.unwrap()
+                    - first_missing.baked_at.unwrap()
+                    < acceptable_head_offset
+            {
+                info!("has_gaps? {}", has_gaps);
+                break;
+            }
+
             if let Some((bcd_url, network)) = &bcd_settings {
-                let mut exclude_levels: Vec<u32> = vec![];
-                for contract_id in &new_contracts {
-                    info!("Initializing contract {}..", contract_id.name);
+                let mut exclude_levels: Vec<u32> = self
+                    .dbcli
+                    .get_fully_processed_levels()?;
+                for (contract_id, _) in &self.mutexed_state.get_contracts()? {
+                    info!("Indexing missing levels for {}..", contract_id.name);
                     let bcd_cli = bcd::BCDClient::new(
                         bcd_url.clone(),
                         network.clone(),
@@ -381,77 +450,12 @@ impl Executor {
 
                     info!("contract {} initialized.", contract_id.name)
                 }
+                self.exec_partially_processed(num_getters, num_processors)?;
             } else {
-                self.exec_missing_levels(
-                    num_getters,
-                    num_processors,
-                    acceptable_head_offset,
-                )
-                .unwrap();
+                missing_levels.reverse();
+                info!("processing {} missing levels", missing_levels.len());
+                self.exec_levels(num_getters, num_processors, missing_levels)?;
             }
-        }
-        if !res.is_empty() {
-            self.exec_dependents().unwrap();
-        }
-        Ok(res)
-    }
-
-    fn exec_partially_processed(
-        &mut self,
-        num_getters: usize,
-        num_processors: usize,
-    ) -> Result<()> {
-        let partial_processed: Vec<u32> = self
-            .dbcli
-            .get_partial_processed_levels()?;
-        if partial_processed.is_empty() {
-            return Ok(());
-        }
-
-        info!("re-processing {} levels that were not initialized for some contracts", partial_processed.len());
-        self.exec_levels(num_getters, num_processors, partial_processed)?;
-        Ok(())
-    }
-
-    pub fn exec_missing_levels(
-        &mut self,
-        num_getters: usize,
-        num_processors: usize,
-        acceptable_head_offset: Duration,
-    ) -> Result<()> {
-        if !self.all_contracts {
-            self.exec_partially_processed(num_getters, num_processors)?;
-        }
-        loop {
-            let latest_level: LevelMeta = self.node_cli.head()?;
-
-            let mut missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
-                &self.get_config()?,
-                latest_level.level + 1,
-            )?;
-            if missing_levels.is_empty() {
-                break;
-            }
-            let has_gaps = missing_levels
-                .windows(2)
-                .any(|w| w[0] != w[1] - 1);
-
-            let first_missing: LevelMeta = self
-                .node_cli
-                .level_json(missing_levels[0])?
-                .0;
-
-            if !has_gaps
-                && latest_level.baked_at.unwrap()
-                    - first_missing.baked_at.unwrap()
-                    < acceptable_head_offset
-            {
-                break;
-            }
-
-            missing_levels.reverse();
-            info!("processing {} missing levels", missing_levels.len());
-            self.exec_levels(num_getters, num_processors, missing_levels)?;
         }
         self.exec_dependents()?;
         Ok(())
