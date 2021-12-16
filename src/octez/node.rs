@@ -117,7 +117,8 @@ impl NodeClient {
                 match curl_err.as_ref().ok().unwrap().code() {
                     // 0: OK, 28: TIMEOUT
                     0 | 28 => {
-                        return Error::Transient(anyhow!("{:?}", curl_err))
+                        warn!("transient node communication error, retrying.. err={:?}", curl_err);
+                        return Error::Transient(anyhow!("{:?}", curl_err));
                     }
                     _ => {}
                 };
@@ -133,7 +134,7 @@ impl NodeClient {
                     curl_err_val.code(),
                 ));
             }
-            warn!("transient node communication error, retrying.. err={}", e);
+            warn!("transient node communication error, retrying.. err={:?}", e);
             Error::Transient(e)
         }
         let op = || -> Result<(String, serde_json::Value)> {
