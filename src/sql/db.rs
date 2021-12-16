@@ -888,6 +888,10 @@ WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level
     ) -> Result<Vec<u32>> {
         let mut rows: Vec<i32> = vec![];
         for contract_id in contracts {
+            info!(
+                "querying db to check for any missing levels of {}..",
+                contract_id.name
+            );
             let origination = self.get_origination(contract_id)?;
             let start = origination.unwrap_or(1);
             for row in self.dbconn.query(
@@ -896,13 +900,10 @@ WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level
 SELECT
     s.i
 FROM generate_series({},{}) s(i)
-WHERE NOT EXISTS (
-    SELECT
-        1
-    FROM contract_levels c
-    WHERE contract = $1
-      AND level = s.i
-)
+LEFT JOIN contract_levels clvl
+  ON  clvl.contract = $1
+  AND clvl.level = s.i
+WHERE clvl IS NULL
 ORDER BY 1",
                     start, end
                 )
@@ -968,7 +969,10 @@ set max_id = $1",
         }
     }
 
-    pub(crate) fn get_fully_processed_levels(&mut self) -> Result<Vec<u32>> {
+    pub(crate) fn get_fully_processed_levels(
+        &mut self,
+        contracts: &[ContractID],
+    ) -> Result<Vec<u32>> {
         let fully_processed: Vec<u32> = self
             .dbconn
             .query(
@@ -976,10 +980,14 @@ set max_id = $1",
 SELECT
     level
 FROM contract_levels
+WHERE contract = ANY($1)
 GROUP by 1
-HAVING COUNT(1) = (SELECT COUNT(1) FROM contracts)
+HAVING COUNT(1) = array_length($1, 1)
 ORDER by 1",
-                &[],
+                &[&contracts
+                    .iter()
+                    .map(|c| &c.name)
+                    .collect::<Vec<&String>>()],
             )?
             .iter()
             .map(|row| row.get(0))
@@ -988,7 +996,10 @@ ORDER by 1",
         Ok(fully_processed)
     }
 
-    pub(crate) fn get_partial_processed_levels(&mut self) -> Result<Vec<u32>> {
+    pub(crate) fn get_partial_processed_levels(
+        &mut self,
+        contracts: &[ContractID],
+    ) -> Result<Vec<u32>> {
         let partial_processed: Vec<u32> = self
             .dbconn
             .query(
@@ -997,6 +1008,7 @@ with all_levels as (
     select distinct
         level
     from contract_levels
+    where contract = any($1)
 )
 select distinct
     lvl.level
@@ -1005,6 +1017,7 @@ left join contract_levels orig
   on  orig.contract = c.name
   and orig.is_origination
 where lvl.level >= coalesce(orig.level, 0)
+  and c.name = any($1)
   and not exists (
     select 1
     from contract_levels clvl
@@ -1012,7 +1025,10 @@ where lvl.level >= coalesce(orig.level, 0)
       and clvl.contract = c.name
 )
 order by 1",
-                &[],
+                &[&contracts
+                    .iter()
+                    .map(|c| &c.name)
+                    .collect::<Vec<&String>>()],
             )?
             .iter()
             .map(|row| row.get(0))

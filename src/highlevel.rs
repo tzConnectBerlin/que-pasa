@@ -177,6 +177,12 @@ impl Executor {
             .collect::<Vec<ContractID>>())
     }
 
+    pub fn get_config_sorted(&self) -> Result<Vec<ContractID>> {
+        let mut res = self.get_config()?;
+        res.sort_by_key(|elem| elem.name.clone());
+        Ok(res)
+    }
+
     pub fn add_dependency_contracts(&mut self) -> Result<()> {
         let deps = self
             .dbcli
@@ -367,7 +373,7 @@ impl Executor {
     ) -> Result<()> {
         let partial_processed: Vec<u32> = self
             .dbcli
-            .get_partial_processed_levels()?;
+            .get_partial_processed_levels(&self.get_config()?)?;
         if partial_processed.is_empty() {
             return Ok(());
         }
@@ -391,7 +397,6 @@ impl Executor {
                 &self.get_config()?,
                 latest_level.level + 1,
             )?;
-            info!("missing levels: {:?}", missing_levels);
             if missing_levels.is_empty() {
                 break;
             }
@@ -409,30 +414,36 @@ impl Executor {
                     - first_missing.baked_at.unwrap()
                     < acceptable_head_offset
             {
-                info!("has_gaps? {}", has_gaps);
                 break;
             }
 
             if let Some((bcd_url, network)) = &bcd_settings {
+                let config = &self.get_config_sorted()?;
+
                 let mut exclude_levels: Vec<u32> = self
                     .dbcli
-                    .get_fully_processed_levels()?;
-                for (contract_id, _) in &self.mutexed_state.get_contracts()? {
+                    .get_fully_processed_levels(config)?;
+                for contract_id in config {
                     info!("Indexing missing levels for {}..", contract_id.name);
                     let bcd_cli = bcd::BCDClient::new(
                         bcd_url.clone(),
                         network.clone(),
-                        contract_id.address.clone(),
+                        contract_id.clone(),
                     );
 
                     let excl = exclude_levels.clone();
+                    let stats = self.stats.clone();
                     let processed_levels = self
                         .exec_parallel(
                             num_getters,
                             num_processors,
                             move |height_chan| {
                                 bcd_cli
-                                    .populate_levels_chan(height_chan, &excl)
+                                    .populate_levels_chan(
+                                        &stats,
+                                        height_chan,
+                                        &excl,
+                                    )
                                     .unwrap()
                             },
                         )
@@ -564,7 +575,7 @@ impl Executor {
             );
             ensure!(
                 self.dbcli
-                    .get_partial_processed_levels()?
+                    .get_partial_processed_levels(&self.get_config()?)?
                     .is_empty(),
                 anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
             );
