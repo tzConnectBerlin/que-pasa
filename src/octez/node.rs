@@ -118,12 +118,13 @@ impl NodeClient {
                 }
                 let curl_err_val = curl_err.ok().unwrap();
                 return Error::Permanent(anyhow!(
-                    "{} {}",
+                    "{} {} (curl status code: {})",
                     curl_err_val.description(),
                     curl_err_val
                         .extra_description()
                         .map(|descr| format!("(verbose: {})", descr))
                         .unwrap_or("".to_string()),
+                    curl_err_val.code(),
                 ));
             }
             warn!("transient node communication error, retrying.. err={}", e);

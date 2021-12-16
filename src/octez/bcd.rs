@@ -148,9 +148,6 @@ impl BCDClient {
         F: Fn(&str) -> Result<O>,
     {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
-            //if e.is::<BadLevelHash>() {
-            //    let bad_lvl = e.downcast::<BadLevelHash>()?;
-            //}
             warn!("transient better-call.dev communication error, retrying.. err={}", e);
             Error::Transient(e)
         }

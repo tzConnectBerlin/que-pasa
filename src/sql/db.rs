@@ -136,6 +136,7 @@ FROM indexer_state
         )?;
         Ok(())
     }
+
     pub(crate) fn common_tables_exist(&mut self) -> Result<bool> {
         let res = self.dbconn.query_opt(
             "
