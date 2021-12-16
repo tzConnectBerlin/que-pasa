@@ -113,9 +113,15 @@ impl NodeClient {
                     error!("unexpected err on possibly transcient err downcast: {}", downcast_err);
                     return Error::Permanent(downcast_err);
                 }
-                if curl_err.as_ref().ok().unwrap().code() == 0 {
-                    return Error::Transient(anyhow!("{:?}", curl_err));
-                }
+
+                match curl_err.as_ref().ok().unwrap().code() {
+                    // 0: OK, 28: TIMEOUT
+                    0 | 28 => {
+                        return Error::Transient(anyhow!("{:?}", curl_err))
+                    }
+                    _ => {}
+                };
+
                 let curl_err_val = curl_err.ok().unwrap();
                 return Error::Permanent(anyhow!(
                     "{} {} (curl status code: {})",
