@@ -78,13 +78,18 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         assert_sane_db(&mut dbcli);
     }
 
+    let bcd_settings = config
+        .bcd_url
+        .as_ref()
+        .map(|url| (url.clone(), config.bcd_network.clone()));
+
     let mut executor = highlevel::Executor::new(
         node_cli.clone(),
         dbcli,
         config.reports_interval,
     );
     if config.all_contracts {
-        index_all_contracts(config, executor);
+        index_all_contracts(config, &bcd_settings, executor);
         return;
     }
 
@@ -118,10 +123,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     let acceptable_head_offset = Duration::days(1);
     let new_initialized = executor
         .exec_new_contracts_historically(
-            config
-                .bcd_url
-                .as_ref()
-                .map(|url| (url.clone(), config.bcd_network.clone())),
+            &bcd_settings,
             num_getters,
             num_processors,
             acceptable_head_offset,
@@ -144,6 +146,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     // We will first load missing levels (if any)
     executor
         .exec_missing_levels(
+            &bcd_settings,
             num_getters,
             num_processors,
             acceptable_head_offset,
@@ -157,6 +160,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
 
 fn index_all_contracts(
     config: &config::Config,
+    bcd_settings: &Option<(String, String)>,
     mut executor: highlevel::Executor,
 ) {
     executor.index_all_contracts();
@@ -180,6 +184,7 @@ fn index_all_contracts(
         info!("processing missing levels");
         executor
             .exec_missing_levels(
+                bcd_settings,
                 config.getters_cap,
                 config.workers_cap,
                 Duration::days(0),
@@ -208,14 +213,32 @@ fn assert_contracts_ok(contracts: &[ContractID]) {
     }
 }
 
+fn schema_version(v: &str) -> String {
+    match v {
+        // The first versions of Que Pasa didn't follow the semantics of using
+        // minor versioning for non-db schema related changes only
+        "1.0.0" | "1.0.1" | "1.0.2" | "1.0.3" | "1.0.4" | "1.0.5" => {
+            return v.to_string();
+        }
+        _ => {}
+    };
+    // Minor version bumps (_._.x) have same db schemas
+    v.to_string()
+        .rsplit_once(".")
+        .map(|(db_ver, _)| db_ver.to_string())
+        .unwrap_or_else(|| "".to_string())
+}
+
 fn assert_sane_db(dbcli: &mut DBClient) {
     let db_version = dbcli.get_quepasa_version().unwrap();
-    if db_version != crate::config::QUEPASA_VERSION {
+    if schema_version(&db_version)
+        != schema_version(crate::config::QUEPASA_VERSION)
+    {
         exit_with_err(
             format!(
                 "
-Cannot target a database that was initialized with a different quepasa version.
-This database was initialized with que-pasa {}, currently running que-pasa {}.
+Cannot target a database that was initialized with an incompatible quepasa version.
+This database was initialized with Que Pasa {}, currently running Que Pasa {}.
 Either drop the old database namespace or keep it and target a different one.",
                 db_version,
                 crate::config::QUEPASA_VERSION,

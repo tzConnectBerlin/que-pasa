@@ -1,4 +1,6 @@
 // bcd => better-call.dev
+use crate::config::ContractID;
+use crate::stats::StatsLogger;
 use anyhow::{anyhow, Result};
 use backoff::{retry, Error, ExponentialBackoff};
 use serde::Deserialize;
@@ -9,11 +11,15 @@ pub struct BCDClient {
     api_url: String,
     network: String,
     timeout: Duration,
-    contract_id: String,
+    contract_id: ContractID,
 }
 
 impl BCDClient {
-    pub fn new(api_url: String, network: String, contract_id: String) -> Self {
+    pub(crate) fn new(
+        api_url: String,
+        network: String,
+        contract_id: ContractID,
+    ) -> Self {
         Self {
             api_url,
             network,
@@ -22,8 +28,9 @@ impl BCDClient {
         }
     }
 
-    pub fn populate_levels_chan(
+    pub(crate) fn populate_levels_chan(
         &self,
+        stats: &StatsLogger,
         height_send: flume::Sender<u32>,
         exclude_levels: &[u32],
     ) -> Result<()> {
@@ -44,27 +51,34 @@ impl BCDClient {
         let latest_level = self.get_latest_level()?;
         send_level(latest_level)?;
 
+        let report_name =
+            &format!("better-call.dev '{}'", &self.contract_id.name);
+
         let mut last_id = None;
         loop {
             let (levels, new_last_id) = self.get_levels_page_with_contract(
-                self.contract_id.to_string(),
+                &self.contract_id.address,
                 last_id,
             )?;
             if levels.is_empty() {
                 break;
             }
-            last_id = Some(new_last_id);
 
             for level in levels {
                 send_level(level)?;
             }
+
+            stats.add(report_name, "pages", 1)?;
+            stats.set(report_name, "last_id", new_last_id.clone())?;
+
+            last_id = Some(new_last_id);
         }
         Ok(())
     }
 
     fn get_levels_page_with_contract(
         &self,
-        contract_id: String,
+        contract_addr: &str,
         last_id: Option<String>,
     ) -> Result<(Vec<u32>, String)> {
         let mut params = vec![("status".to_string(), "applied".to_string())];
@@ -83,7 +97,7 @@ impl BCDClient {
             pub last_id: String,
         }
         let parsed: Parsed = self.load(
-            format!("contract/{}/{}/operations", self.network, contract_id),
+            format!("contract/{}/{}/operations", self.network, contract_addr),
             &params,
             |resp| {
                 let parsed: Parsed = serde_json::from_str(resp)?;

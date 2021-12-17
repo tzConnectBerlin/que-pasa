@@ -42,10 +42,8 @@ impl NodeClient {
 
         let mut deserializer = serde_json::Deserializer::from_str(&body);
         deserializer.disable_recursion_limit();
-        let block: Block =
-            Block::deserialize(&mut deserializer).with_context(|| {
-                anyhow!("failed to deserialize block json")
-            })?;
+        let block: Block = Block::deserialize(&mut deserializer)
+            .with_context(|| anyhow!("failed to deserialize block json"))?;
 
         let meta = LevelMeta {
             level: block.header.level as u32,
@@ -108,7 +106,36 @@ impl NodeClient {
         endpoint: &str,
     ) -> Result<(String, serde_json::Value)> {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
-            warn!("transient node communication error, retrying.. err={}", e);
+            if e.is::<curl::Error>() {
+                let curl_err = e.downcast::<curl::Error>();
+                if curl_err.is_err() {
+                    let downcast_err = curl_err.err().unwrap();
+                    error!("unexpected err on possibly transcient err downcast: {}", downcast_err);
+                    return Error::Permanent(downcast_err);
+                }
+
+                match curl_err.as_ref().ok().unwrap().code() {
+                    // 7: CONNECTION REFUSED
+                    // 28: TIMEOUT
+                    7 | 28 => {
+                        warn!("transient node communication error, retrying.. err={:?}", curl_err);
+                        return Error::Transient(anyhow!("{:?}", curl_err));
+                    }
+                    _ => {}
+                };
+
+                let curl_err_val = curl_err.ok().unwrap();
+                return Error::Permanent(anyhow!(
+                    "{} {} (curl status code: {})",
+                    curl_err_val.description(),
+                    curl_err_val
+                        .extra_description()
+                        .map(|descr| format!("(verbose: {})", descr))
+                        .unwrap_or_else(|| "".to_string()),
+                    curl_err_val.code(),
+                ));
+            }
+            warn!("transient node communication error, retrying.. err={:?}", e);
             Error::Transient(e)
         }
         let op = || -> Result<(String, serde_json::Value)> {
@@ -133,20 +160,31 @@ impl NodeClient {
             format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
         debug!("loading: {}", uri);
 
-        let mut response = Vec::new();
+        let mut resp_data = Vec::new();
         let mut handle = Easy::new();
-        handle.timeout(self.timeout)?;
-        handle.url(&uri)?;
+        handle
+            .timeout(self.timeout)
+            .with_context(|| {
+                format!(
+                    "failed to set timeout to curl handle for uri='{}'",
+                    uri
+                )
+            })?;
+        handle.url(&uri).with_context(|| {
+            format!("failed to call endpoint, uri='{}'", uri)
+        })?;
         {
             let mut transfer = handle.transfer();
             transfer.write_function(|new_data| {
-                response.extend_from_slice(new_data);
+                resp_data.extend_from_slice(new_data);
                 Ok(new_data.len())
             })?;
-            transfer.perform()?;
+            transfer.perform().with_context(|| {
+                format!("failed load response for uri='{}'", uri)
+            })?;
         }
-        let body = std::str::from_utf8(&response).with_context(|| {
-            format!("failed to read response for uri='{}'", uri)
+        let body = std::str::from_utf8(&resp_data).with_context(|| {
+            format!("failed to parse response as utf8 for uri='{}'", uri)
         })?;
 
         Ok(body.to_string())
