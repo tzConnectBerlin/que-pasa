@@ -115,8 +115,8 @@ impl NodeClient {
                 }
 
                 match curl_err.as_ref().ok().unwrap().code() {
-                    // 0: OK, 28: TIMEOUT
-                    0 | 28 => {
+                    // 28: TIMEOUT
+                    28 => {
                         warn!("transient node communication error, retrying.. err={:?}", curl_err);
                         return Error::Transient(anyhow!("{:?}", curl_err));
                     }

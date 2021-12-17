@@ -213,14 +213,32 @@ fn assert_contracts_ok(contracts: &[ContractID]) {
     }
 }
 
+fn schema_version(v: &str) -> String {
+    match v {
+        // The first versions of Que Pasa didn't follow the semantics of using
+        // minor versioning for non-db schema related changes only
+        "1.0.0" | "1.0.1" | "1.0.2" | "1.0.3" | "1.0.4" | "1.0.5" => {
+            return v.to_string();
+        }
+        _ => {}
+    };
+    // Minor version bumps (_._.x) have same db schemas
+    v.to_string()
+        .rsplit_once(".")
+        .map(|(db_ver, _)| db_ver.to_string())
+        .unwrap_or("".to_string())
+}
+
 fn assert_sane_db(dbcli: &mut DBClient) {
     let db_version = dbcli.get_quepasa_version().unwrap();
-    if db_version != crate::config::QUEPASA_VERSION {
+    if schema_version(&db_version)
+        != schema_version(crate::config::QUEPASA_VERSION)
+    {
         exit_with_err(
             format!(
                 "
-Cannot target a database that was initialized with a different quepasa version.
-This database was initialized with que-pasa {}, currently running que-pasa {}.
+Cannot target a database that was initialized with an incompatible quepasa version.
+This database was initialized with Que Pasa {}, currently running Que Pasa {}.
 Either drop the old database namespace or keep it and target a different one.",
                 db_version,
                 crate::config::QUEPASA_VERSION,
