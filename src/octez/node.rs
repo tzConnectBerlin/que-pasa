@@ -114,7 +114,7 @@ impl NodeClient {
                     return Error::Permanent(downcast_err);
                 }
 
-                if curl_err.as_ref().ok().unwrap().code() == 28
+                match curl_err.as_ref().ok().unwrap().code() {
                     // 7: CONNECTION REFUSED
                     // 28: TIMEOUT
                     7 | 28 => {
