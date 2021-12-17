@@ -114,14 +114,11 @@ impl NodeClient {
                     return Error::Permanent(downcast_err);
                 }
 
-                match curl_err.as_ref().ok().unwrap().code() {
-                    // 28: TIMEOUT
-                    28 => {
-                        warn!("transient node communication error, retrying.. err={:?}", curl_err);
-                        return Error::Transient(anyhow!("{:?}", curl_err));
-                    }
-                    _ => {}
-                };
+                // 28: TIMEOUT
+                if curl_err.as_ref().ok().unwrap().code() == 28 {
+                    warn!("transient node communication error, retrying.. err={:?}", curl_err);
+                    return Error::Transient(anyhow!("{:?}", curl_err));
+                }
 
                 let curl_err_val = curl_err.ok().unwrap();
                 return Error::Permanent(anyhow!(
@@ -130,7 +127,7 @@ impl NodeClient {
                     curl_err_val
                         .extra_description()
                         .map(|descr| format!("(verbose: {})", descr))
-                        .unwrap_or("".to_string()),
+                        .unwrap_or_else(|| "".to_string()),
                     curl_err_val.code(),
                 ));
             }

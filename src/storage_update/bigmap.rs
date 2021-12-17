@@ -52,7 +52,7 @@ impl Op {
             "update" => {
                 let updates: Vec<&Update> = match &raw.diff.updates {
                     Some(Update(u)) => vec![u],
-                    Some(Updates(us)) => us.iter().map(|u| u).collect(),
+                    Some(Updates(us)) => us.iter().collect(),
                     _ => {
                         return Err(anyhow!(
                             "unknown updates shape: {:#?}",

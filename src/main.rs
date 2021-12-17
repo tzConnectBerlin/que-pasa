@@ -226,7 +226,7 @@ fn schema_version(v: &str) -> String {
     v.to_string()
         .rsplit_once(".")
         .map(|(db_ver, _)| db_ver.to_string())
-        .unwrap_or("".to_string())
+        .unwrap_or_else(|| "".to_string())
 }
 
 fn assert_sane_db(dbcli: &mut DBClient) {
