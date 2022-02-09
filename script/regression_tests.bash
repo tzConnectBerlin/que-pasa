@@ -1,6 +1,8 @@
 #!/bin/bash
 cd $(git rev-parse --show-toplevel)
 
+[ -z $DIFFTOOL ] && DIFFTOOL=kdiff3
+
 MODE=assert
 if [ $# -gt 0 ]; then
     MODE=$1
@@ -40,7 +42,7 @@ function query {
         tmp=`mktemp`
         echo "$exp" > $tmp
         if ! cmp $tmp $exp_file ; then
-            opendiff $tmp $exp_file
+            $DIFFTOOL $tmp $exp_file
             exit 1
         fi
     else
@@ -51,10 +53,10 @@ function query {
 
 function assert {
     query_id=0
-    query 'select count(1) from tx_contexts' || exit 1
-    query 'select count(1) from contracts' || exit 1
-    query 'select count(1) from contract_levels' || exit 1
-    query 'select count(1) from contract_deps' || exit 1
+    query 'select count(1) from que_pasa.tx_contexts' || exit 1
+    query 'select count(1) from que_pasa.contracts' || exit 1
+    query 'select count(1) from que_pasa.contract_levels' || exit 1
+    query 'select count(1) from que_pasa.contract_deps' || exit 1
 
     query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
     query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1

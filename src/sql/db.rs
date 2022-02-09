@@ -63,6 +63,7 @@ struct UpdateChangesDerivedTmpl<'a> {
 
 pub struct DBClient {
     dbconn: postgres::Client,
+    main_schema: String,
 
     url: String,
     ssl: bool,
@@ -79,11 +80,12 @@ impl DBClient {
     const INSERT_BATCH_SIZE: usize = 100;
 
     pub(crate) fn connect(
+        main_schema: &str,
         url: &str,
         ssl: bool,
         ca_cert: Option<String>,
     ) -> Result<Self> {
-        if ssl {
+        let mut dbconn = if ssl {
             let mut builder = TlsConnector::builder();
             if let Some(ca_cert) = &ca_cert {
                 builder.add_root_certificate(Certificate::from_pem(
@@ -93,26 +95,32 @@ impl DBClient {
             let connector = builder.build()?;
             let connector = MakeTlsConnector::new(connector);
 
-            Ok(DBClient {
-                dbconn: postgres::Client::connect(url, connector)?,
-
-                url: url.to_string(),
-                ssl,
-                ca_cert,
-            })
+            Client::connect(url, connector)?
         } else {
-            Ok(DBClient {
-                dbconn: Client::connect(url, NoTls)?,
+            Client::connect(url, NoTls)?
+        };
 
-                url: url.to_string(),
-                ssl,
-                ca_cert,
-            })
-        }
+        dbconn.simple_query(
+            format!(r#"SET SCHEMA '{}'"#, main_schema).as_str(),
+        )?;
+
+        Ok(DBClient {
+            dbconn,
+            main_schema: main_schema.to_string(),
+
+            url: url.to_string(),
+            ssl,
+            ca_cert,
+        })
     }
 
     pub(crate) fn reconnect(&self) -> Result<Self> {
-        Self::connect(&self.url, self.ssl, self.ca_cert.clone())
+        Self::connect(
+            &self.main_schema,
+            &self.url,
+            self.ssl,
+            self.ca_cert.clone(),
+        )
     }
 
     pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
@@ -132,6 +140,10 @@ FROM indexer_state
 
     pub(crate) fn create_common_tables(&mut self) -> Result<()> {
         self.dbconn.simple_query(
+            format!(r#"CREATE SCHEMA IF NOT EXISTS "{}""#, self.main_schema)
+                .as_str(),
+        )?;
+        self.dbconn.simple_query(
             PostgresqlGenerator::create_common_tables().as_str(),
         )?;
         Ok(())
@@ -142,10 +154,10 @@ FROM indexer_state
             "
 SELECT 1
 FROM information_schema.tables
-WHERE table_schema = 'public'
+WHERE table_schema = $1
   AND table_name = 'levels'
 ",
-            &[],
+            &[&self.main_schema],
         )?;
         Ok(res.is_some())
     }
@@ -780,16 +792,17 @@ VALUES ( {v_refs} )"#,
     where
         F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
     {
+        let main_schema = self.main_schema.clone();
         let mut tx = self.transaction()?;
         let contracts_table = tx.query_opt(
             "
 SELECT
     1
 FROM information_schema.tables
-WHERE table_schema = 'public'
+WHERE table_schema = $1
   AND table_name = 'contracts'
 ",
-            &[],
+            &[&main_schema],
         )?;
         if contracts_table.is_some() {
             for row in tx.query("SELECT name, address FROM contracts", &[])? {

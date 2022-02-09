@@ -1,4 +1,4 @@
-select count(1) from contract_deps;
+select count(1) from que_pasa.contract_deps;
  count 
 -------
      0

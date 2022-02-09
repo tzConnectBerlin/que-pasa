@@ -5,6 +5,8 @@ use std::fs;
 
 #[derive(Clone, Default, Debug)]
 pub struct Config {
+    pub main_schema: String,
+
     pub contracts: Vec<ContractID>,
     pub all_contracts: bool,
     pub database_url: String,
@@ -43,6 +45,16 @@ pub fn init_config() -> Result<Config> {
         .version(QUEPASA_VERSION)
         .author("Rick Klomp <rick.klomp@tzconect.com>")
         .about("An indexer for specific contracts")
+        .arg(
+            Arg::with_name("main_schema")
+                .short("s")
+                .long("main-schema")
+                .value_name("MAIN_SCHEMA")
+                .env("MAIN_SCHEMA")
+                .default_value("que_pasa")
+                .help("schema to use for global tables (eg levels table)")
+                .takes_value(true)
+        )
         .arg(
             Arg::with_name("contract_settings")
                 .short("c")
@@ -172,6 +184,8 @@ pub fn init_config() -> Result<Config> {
                 .help("If set, never prompt for confirmations, always default to 'yes'")
                 .takes_value(false));
     let matches = matches.get_matches();
+
+    config.main_schema = matches.value_of("main_schema").unwrap().to_string();
 
     let maybe_fpath = matches.value_of("contract_settings");
     if let Some(fpath) = maybe_fpath {
