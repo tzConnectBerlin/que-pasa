@@ -97,44 +97,40 @@ impl Executor {
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)
-            .with_context(|| anyhow!("failed to add contract '{}', did you specify a valid contract address for the correct tezos network? (specified contract address: '{}'", contract_id.name, contract_id.address))?;
-        debug!("rel_ast: {:#?}", rel_ast);
-        let contract_floor = self
+        let mut contract = get_contract_rel(&self.node_cli, contract_id)?;
+
+        contract.level_floor = self
             .dbcli
             .get_origination(contract_id)?;
 
-        self.mutexed_state.add_contract(
-            contract_id.clone(),
-            rel_ast,
-            contract_floor,
-        )
+        debug!("interpreted contract definition: {:#?}", contract);
+
+        self.mutexed_state
+            .add_contract(contract)
     }
 
     pub fn add_missing_contracts(
         &mut self,
         contracts: &[ContractID],
     ) -> Result<()> {
-        let mut l: Vec<(ContractID, RelationalAST)> = vec![];
+        let mut l: Vec<relational::Contract> = vec![];
 
         for contract_id in contracts {
-            let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
-            l.push((contract_id.clone(), rel_ast));
+            l.push(get_contract_rel(&self.node_cli, contract_id)?);
         }
 
         self.dbcli
             .create_contract_schemas(&mut l)?;
 
-        for (contract_id, rel_ast) in l {
-            let contract_floor = self
+        for mut contract in l {
+            contract.level_floor = self
                 .dbcli
-                .get_origination(&contract_id)?;
+                .get_origination(&contract.cid)?;
 
-            if self.mutexed_state.add_contract(
-                contract_id.clone(),
-                rel_ast,
-                contract_floor,
-            )? && self.all_contracts
+            if self
+                .mutexed_state
+                .add_contract(contract)?
+                && self.all_contracts
             {
                 self.stats
                     .add("processor", "unique contracts", 1)?;
@@ -145,28 +141,15 @@ impl Executor {
 
     pub fn create_contract_schemas(&mut self) -> Result<Vec<ContractID>> {
         let mut new_contracts: Vec<ContractID> = vec![];
-        for (contract_id, rel_ast) in &self.mutexed_state.get_contracts()? {
+        for (contract_id, contract) in &self.mutexed_state.get_contracts()? {
             if self
                 .dbcli
-                .create_contract_schemas(&mut vec![(
-                    contract_id.clone(),
-                    rel_ast.0.clone(),
-                )])?
+                .create_contract_schemas(&mut vec![contract.clone()])?
             {
                 new_contracts.push(contract_id.clone());
             }
         }
         Ok(new_contracts)
-    }
-
-    pub fn get_contract_rel_ast(
-        &self,
-        contract_id: &ContractID,
-    ) -> Result<Option<RelationalAST>> {
-        Ok(self
-            .mutexed_state
-            .get_contract(contract_id)?
-            .map(|x| x.0))
     }
 
     pub fn get_config(&self) -> Result<Vec<ContractID>> {
@@ -584,11 +567,11 @@ impl Executor {
             );
         }
 
-        for (contract_id, (rel_ast, _)) in
-            &self.mutexed_state.get_contracts()?
-        {
-            self.dbcli
-                .repopulate_derived_tables(contract_id, rel_ast)?;
+        for (contract_id, contract) in &self.mutexed_state.get_contracts()? {
+            self.dbcli.repopulate_derived_tables(
+                contract_id,
+                &contract.storage_ast,
+            )?;
         }
         self.dbcli
             .set_indexer_mode(IndexerMode::Head)?;
@@ -834,30 +817,20 @@ impl Executor {
         };
         let mut contract_results: Vec<ProcessedContractBlock> = vec![];
 
-        /*
-        info!(
-            "processing level {}: (baked at {})",
-            level.level,
-            level.baked_at.unwrap()
-        );
-        */
-
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block)?;
         for contract_id in &process_contracts {
-            let rel_ast = self
-                .get_contract_rel_ast(contract_id)?
+            let contract = self
+                .mutexed_state
+                .get_contract(contract_id)?
                 .unwrap();
             contract_results.push(
-                self.exec_for_block_contract(
-                    level,
-                    block,
-                    &diffs,
-                    contract_id,
-                    &rel_ast,
-                )
-                .with_context(|| {
-                    anyhow!("err on processing contract={}", contract_id.name)
-                })?,
+                self.exec_for_block_contract(level, block, &diffs, &contract)
+                    .with_context(|| {
+                        anyhow!(
+                            "err on processing contract={}",
+                            contract_id.name
+                        )
+                    })?,
             );
         }
         for cres in &contract_results {
@@ -886,33 +859,32 @@ impl Executor {
         meta: &LevelMeta,
         block: &Block,
         diffs: &IntraBlockBigmapDiffsProcessor,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &relational::Contract,
     ) -> Result<ProcessedContractBlock> {
         let is_origination =
-            block.has_contract_origination(&contract_id.address);
+            block.has_contract_origination(&contract.cid.address);
 
-        if !is_origination && !block.is_contract_active(&contract_id.address) {
+        if !is_origination && !block.is_contract_active(&contract.cid.address) {
             return Ok(ProcessedContractBlock {
                 level: meta.clone(),
-                contract_id: contract_id.clone(),
+                contract_id: contract.cid.clone(),
                 inserts: vec![],
                 tx_contexts: vec![],
                 txs: vec![],
                 bigmap_contract_deps: vec![],
                 bigmap_keyhashes: vec![],
                 is_origination: false,
-                rel_ast: rel_ast.clone(),
+                rel_ast: contract.storage_ast.clone(),
             });
         }
 
         let mut storage_processor = self.get_storage_processor()?;
         storage_processor
-            .process_block(block, diffs, &contract_id.address, rel_ast)
+            .process_block(block, diffs, &contract.cid.address, &contract.storage_ast)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not process block",
-                    meta.level, contract_id.name,
+                    meta.level, contract.cid.name,
                 )
             })?;
 
@@ -923,13 +895,13 @@ impl Executor {
 
         Ok(ProcessedContractBlock {
             level: meta.clone(),
-            contract_id: contract_id.clone(),
+            contract_id: contract.cid.clone(),
             inserts: inserts.values().cloned().collect(),
             tx_contexts,
             txs,
             bigmap_contract_deps,
             bigmap_keyhashes: storage_processor.get_bigmap_keyhashes(),
-            rel_ast: rel_ast.clone(),
+            rel_ast: contract.storage_ast.clone(),
             is_origination,
         })
     }
@@ -938,7 +910,7 @@ impl Executor {
 #[derive(Clone)]
 struct MutexedState {
     #[allow(clippy::type_complexity)]
-    contracts: Arc<Mutex<HashMap<ContractID, (RelationalAST, Option<u32>)>>>,
+    contracts: Arc<Mutex<HashMap<ContractID, relational::Contract>>>,
     level_floor: Arc<Mutex<u32>>,
 }
 
@@ -962,7 +934,7 @@ impl MutexedState {
 
         *level_floor = contracts
             .values()
-            .map(|(_, lfloor)| lfloor.unwrap_or(0))
+            .map(|c| c.level_floor.unwrap_or(0))
             .min()
             .unwrap_or(0);
         Ok(())
@@ -976,22 +948,17 @@ impl MutexedState {
         Ok(*level_floor)
     }
 
-    pub fn add_contract(
-        &self,
-        contract_id: ContractID,
-        rel_ast: RelationalAST,
-        floor: Option<u32>,
-    ) -> Result<bool> {
+    pub fn add_contract(&self, contract: relational::Contract) -> Result<bool> {
         let mut contracts = self
             .contracts
             .lock()
             .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
 
-        if contracts.contains_key(&contract_id) {
+        if contracts.contains_key(&contract.cid) {
             return Ok(false);
         }
 
-        contracts.insert(contract_id, (rel_ast, floor));
+        contracts.insert(contract.cid.clone(), contract);
         Ok(true)
     }
 
@@ -1006,14 +973,14 @@ impl MutexedState {
             .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
 
         let mut v = contracts.get_mut(contract_id).unwrap();
-        v.1 = Some(level);
+        v.level_floor = Some(level);
         Ok(())
     }
 
     pub fn get_contract(
         &self,
         contract_id: &ContractID,
-    ) -> Result<Option<(RelationalAST, Option<u32>)>> {
+    ) -> Result<Option<relational::Contract>> {
         let contracts = self
             .contracts
             .lock()
@@ -1023,7 +990,7 @@ impl MutexedState {
 
     pub fn get_contracts(
         &self,
-    ) -> Result<HashMap<ContractID, (RelationalAST, Option<u32>)>> {
+    ) -> Result<HashMap<ContractID, relational::Contract>> {
         let contracts = self
             .contracts
             .lock()
@@ -1059,17 +1026,17 @@ impl fmt::Display for BadLevelHash {
     }
 }
 
-pub(crate) fn get_rel_ast(
+pub(crate) fn get_contract_rel(
     node_cli: &NodeClient,
-    contract_address: &str,
-) -> Result<RelationalAST> {
+    cid: &ContractID,
+) -> Result<relational::Contract> {
     let storage_def =
-        &node_cli.get_contract_storage_definition(contract_address, None)?;
-    let type_ast = typing::storage_ast_from_json(storage_def)
+        &node_cli.get_contract_storage_definition(&cid.address, None)?;
+    let type_ast = typing::type_ast_from_json(storage_def)
         .with_context(|| {
             "failed to derive a storage type from the storage definition"
         })
-        .with_context(|| anyhow!("contract address={}", contract_address))?;
+        .with_context(|| anyhow!("contract address={}", cid.address))?;
     debug!("storage definition retrieved, and type derived");
     debug!("type_ast: {:#?}", type_ast);
 
@@ -1080,14 +1047,56 @@ pub(crate) fn get_rel_ast(
     );
 
     // Build the internal representation from the storage defition
-    let ctx = relational::Context::init();
-    let rel_ast = relational::ASTBuilder::new()
+    let ctx = relational::Context::init("storage");
+    let storage_ast = relational::ASTBuilder::new()
         .build_relational_ast(&ctx, &type_ast)
         .with_context(|| {
             "failed to build a relational AST from the storage type"
-        })?;
-    debug!("rel_ast: {:#?}", rel_ast);
-    Ok(rel_ast)
+        })
+        .with_context(|| anyhow!("contract address={}", cid.address))?;
+    debug!("rel_ast: {:#?}", storage_ast);
+
+    let entrypoint_defs =
+        &node_cli.get_contract_entrypoint_definitions(&cid.address, None)?;
+
+    let mut entrypoint_asts: HashMap<String, RelationalAST> = HashMap::new();
+    for (entrypoint, entrypoint_def) in entrypoint_defs {
+        let type_ast = typing::type_ast_from_json(entrypoint_def)
+            .with_context(|| "failed to derive an entrypoint type ast")
+            .with_context(|| {
+                anyhow!(
+                    "contract address={}, entrypoint={}",
+                    cid.address,
+                    entrypoint
+                )
+            })?;
+
+        // Build the internal representation from the storage defition
+        let ctx =
+            relational::Context::init(format!("entry.{}", entrypoint).as_str());
+        let rel_ast = relational::ASTBuilder::new()
+            .build_relational_ast(&ctx, &type_ast)
+            .with_context(|| {
+                "failed to build a relational AST from the entrypoint type"
+            })
+            .with_context(|| {
+                anyhow!(
+                    "contract address={}, entrypoint={}",
+                    cid.address,
+                    entrypoint
+                )
+            })?;
+
+        entrypoint_asts.insert(entrypoint.clone(), rel_ast);
+    }
+
+    Ok(relational::Contract {
+        cid: cid.clone(),
+        level_floor: None,
+
+        storage_ast,
+        entrypoint_asts,
+    })
 }
 
 #[test]
@@ -1108,7 +1117,7 @@ fn test_generate() {
     .unwrap();
     let storage_definition = &json["code"][1]["args"][0];
     let type_ast =
-        typing::storage_ast_from_json(&storage_definition.clone()).unwrap();
+        typing::type_ast_from_json(&storage_definition.clone()).unwrap();
     println!("{:#?}", type_ast);
 
     use crate::relational::Context;

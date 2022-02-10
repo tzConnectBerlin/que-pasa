@@ -1010,39 +1010,9 @@ pub struct InternalOperationResult {
 pub struct Parameters {
     #[serde(default)]
     pub entrypoint: String,
-
-    #[serde(skip)]
-    value: Option<serde_json::Value>,
+    #[serde(default)]
+    pub value: Option<serde_json::Value>,
 }
-
-/*
- * TODO: probably unused. check
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    PartialEq,
-    serde_derive::Serialize,
-    serde_derive::Deserialize,
-)]
-pub struct Result {
-    pub status: String,
-    pub storage: Option<::serde_json::Value>,
-    pub big_map_diff: Option<Vec<BigMapDiff>>,
-    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
-
-    #[serde(skip)]
-    balance_updates: Option<Vec<BalanceUpdate>>,
-    #[serde(skip)]
-    consumed_gas: Option<String>,
-    #[serde(skip)]
-    consumed_milligas: Option<String>,
-    #[serde(skip)]
-    storage_size: Option<String>,
-    #[serde(skip)]
-    paid_storage_size_diff: Option<String>,
-}
-*/
 
 #[derive(
     Default,

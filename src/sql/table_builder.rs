@@ -1,5 +1,7 @@
 use crate::sql::table::Table;
-use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::storage_structure::relational::{
+    Contract, RelationalAST, RelationalEntry,
+};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use std::collections::HashMap;
 
@@ -9,23 +11,52 @@ pub struct TableBuilder {
     pub tables: TableMap,
 }
 
+/*
 impl Default for TableBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
+*/
 
 impl TableBuilder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn tables_from_contract(
+        contract: &Contract,
+    ) -> (Vec<Table>, Vec<String>) {
+        // Generate the SQL schema for this contract
+        let mut builder = TableBuilder::new("storage");
+        builder.populate(&contract.storage_ast);
+
+        let noview_tables = builder.get_viewless_table_prefixes();
+        let mut tables: Vec<Table> = builder.tables.into_values().collect();
+
+        for (entrypoint, entrypoint_ast) in &contract.entrypoint_asts {
+            let mut entrypoint_table_builder =
+                TableBuilder::new(format!("entry.{}", entrypoint).as_str());
+            entrypoint_table_builder.populate(entrypoint_ast);
+
+            tables.append(
+                &mut entrypoint_table_builder
+                    .tables
+                    .into_values()
+                    .collect(),
+            );
+        }
+
+        (tables, noview_tables)
+    }
+
+    pub(crate) fn new(root_table_name: &str) -> Self {
         let mut res = Self {
             tables: TableMap::new(),
         };
-        res.touch_table("storage");
+        res.touch_table(root_table_name);
         res
     }
 
     pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec!["bigmap_clears".to_string()];
+        let mut res: Vec<String> =
+            vec!["bigmap_clears".to_string(), "entry.".to_string()];
 
         // All child tables of changes tables cannot have view definitions defined.
         // To get _ordered or _live rows for these child tables, simply join with id

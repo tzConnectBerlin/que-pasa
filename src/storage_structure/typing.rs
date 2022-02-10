@@ -70,8 +70,8 @@ macro_rules! complex_expr {
         Ele {
             name: $name,
             expr_type: ExprTy::ComplexExprTy($typ(
-                Box::new(storage_ast_from_json(&args[0].clone())?),
-                Box::new(storage_ast_from_json(&args[1].clone())?),
+                Box::new(type_ast_from_json(&args[0].clone())?),
+                Box::new(type_ast_from_json(&args[1].clone())?),
             )),
         }
     }};
@@ -90,7 +90,7 @@ pub(crate) fn is_enumeration_or(json: &serde_json::Value) -> bool {
     }
 }
 
-pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
+pub(crate) fn type_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
     let annot = annotation(json);
     let args = args(json);
     if let serde_json::Value::String(prim) = &json["prim"] {
@@ -117,7 +117,7 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 Ok(Ele {
                     name: annot,
                     expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Option(
-                        Box::new(storage_ast_from_json(&args[0].clone())?),
+                        Box::new(type_ast_from_json(&args[0].clone())?),
                     )),
                 })
             }
@@ -148,12 +148,12 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                         args_cloned.reverse();
                         let unfolded =
                             parser::lexer_unfold_many_pair(&mut args_cloned);
-                        storage_ast_from_json(&unfolded)
+                        type_ast_from_json(&unfolded)
                     }
                 }
             }
             "set" => {
-                let inner_ast = storage_ast_from_json(&args.unwrap()[0])?;
+                let inner_ast = type_ast_from_json(&args.unwrap()[0])?;
                 Ok(Ele {
                     name: annot,
                     expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
@@ -163,7 +163,7 @@ pub(crate) fn storage_ast_from_json(json: &serde_json::Value) -> Result<Ele> {
                 })
             }
             "list" => {
-                let inner_ast = storage_ast_from_json(&args.unwrap()[0])?;
+                let inner_ast = type_ast_from_json(&args.unwrap()[0])?;
                 Ok(Ele {
                     name: annot,
                     expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(

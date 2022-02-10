@@ -207,6 +207,9 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn parent_name(name: &str) -> Option<String> {
+        if name.starts_with("entry.") && name.matches(".").count() == 1 {
+            return None;
+        }
         name.rfind('.')
             .map(|pos| name[0..pos].to_string())
     }

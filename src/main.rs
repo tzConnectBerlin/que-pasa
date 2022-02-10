@@ -71,7 +71,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             process::exit(1);
         }
         dbcli
-            .delete_everything(node_cli, highlevel::get_rel_ast)
+            .delete_everything(node_cli, highlevel::get_contract_rel)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
     }

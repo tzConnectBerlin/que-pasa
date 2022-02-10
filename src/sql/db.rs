@@ -17,7 +17,7 @@ use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
-use crate::storage_structure::relational::RelationalAST;
+use crate::storage_structure::relational::{Contract, RelationalAST};
 
 use r2d2_postgres::{postgres::NoTls, PostgresConnectionManager};
 
@@ -151,7 +151,7 @@ WHERE table_schema = $1
         contract_id: &ContractID,
         rel_ast: &RelationalAST,
     ) -> Result<()> {
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new("storage");
         builder.populate(rel_ast);
 
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -219,7 +219,7 @@ WHERE table_schema = $1
         if tx_contexts.is_empty() {
             return Ok(());
         }
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new("storage");
         builder.populate(rel_ast);
 
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
@@ -278,12 +278,12 @@ WHERE table_schema = $1
 
     pub(crate) fn create_contract_schemas(
         &mut self,
-        contracts: &mut Vec<(ContractID, RelationalAST)>,
+        contracts: &mut Vec<Contract>,
     ) -> Result<bool> {
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
 
-        contracts.sort_by_key(|(cid, _)| cid.name.clone());
+        contracts.sort_by_key(|c| c.cid.name.clone());
 
         let num_columns = 2;
         let v_refs = (1..(num_columns * contracts.len()) + 1)
@@ -303,8 +303,8 @@ RETURNING name",
 
         let values: Vec<&dyn postgres::types::ToSql> = contracts
             .iter()
-            .flat_map(|(c, _)| {
-                [c.name.borrow_to_sql(), c.address.borrow_to_sql()]
+            .flat_map(|c| {
+                [c.cid.name.borrow_to_sql(), c.cid.address.borrow_to_sql()]
             })
             .collect();
 
@@ -318,28 +318,26 @@ RETURNING name",
         }
         let mut stmnts: Vec<String> = vec![];
         for name in &new_contracts {
-            let (contract_id, rel_ast) = contracts
+            let contract = contracts
                 .iter()
-                .find(|(c, _)| &c.name == name)
+                .find(|c| &c.cid.name == name)
                 .unwrap();
 
-            // Generate the SQL schema for this contract
-            let mut builder = TableBuilder::new();
-            builder.populate(rel_ast);
+            let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
+                TableBuilder::tables_from_contract(contract);
 
-            let generator = PostgresqlGenerator::new(contract_id);
-            let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-            sorted_tables.sort_by_key(|a| a.0);
+            tables.sort_by_key(|t| t.name.clone());
 
             stmnts.push(format!(
                 r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 "#,
-                contract_schema = contract_id.name
+                contract_schema = contract.cid.name
             ));
 
-            let noview_prefixes = builder.get_viewless_table_prefixes();
-            for (_name, table) in &sorted_tables {
+            let generator = PostgresqlGenerator::new(&contract.cid);
+
+            for table in &tables {
                 let table_def = generator.create_table_definition(table)?;
                 stmnts.push(table_def);
 
@@ -363,20 +361,15 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
     pub(crate) fn delete_contract_schema(
         tx: &mut Transaction,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &Contract,
     ) -> Result<()> {
-        info!("deleting schema for contract {}", contract_id.name);
-        // Generate the SQL schema for this contract
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
+        info!("deleting schema for contract {}", contract.cid.name);
+        let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
+            TableBuilder::tables_from_contract(contract);
+        tables.sort_by_key(|t| t.name.clone());
+        tables.reverse();
 
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-        sorted_tables.reverse();
-
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (_name, table) in sorted_tables {
+        for table in &tables {
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
@@ -387,7 +380,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 DROP TABLE "{contract_schema}"."{table}_ordered";
 DROP TABLE "{contract_schema}"."{table}_live";
 "#,
-                        contract_schema = contract_id.name,
+                        contract_schema = contract.cid.name,
                         table = table.name,
                     )
                     .as_str(),
@@ -399,7 +392,7 @@ DROP TABLE "{contract_schema}"."{table}_live";
                     r#"
 DROP TABLE "{contract_schema}"."{table}";
 "#,
-                    contract_schema = contract_id.name,
+                    contract_schema = contract.cid.name,
                     table = table.name,
                 )
                 .as_str(),
@@ -773,10 +766,10 @@ VALUES ( {v_refs} )"#,
     pub(crate) fn delete_everything<F>(
         &mut self,
         node_cli: &NodeClient,
-        get_rel_ast: F,
+        get_contract_rel: F,
     ) -> Result<()>
     where
-        F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
+        F: Fn(&NodeClient, &ContractID) -> Result<Contract>,
     {
         let mut conn = self.dbconn()?;
 
@@ -799,8 +792,8 @@ WHERE table_schema = $1
                     name: row.get(0),
                     address: row.get(1),
                 };
-                let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
-                Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
+                let contract = get_contract_rel(node_cli, &contract_id)?;
+                Self::delete_contract_schema(&mut tx, &contract)?
             }
         }
         tx.simple_query(

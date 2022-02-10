@@ -3,11 +3,21 @@ use crate::storage_structure::typing::{
     ComplexExprTy, Ele, ExprTy, SimpleExprTy,
 };
 
+use crate::config::ContractID;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
+
+#[derive(Clone, Debug)]
+pub(crate) struct Contract {
+    pub cid: ContractID,
+    pub level_floor: Option<u32>,
+
+    pub storage_ast: RelationalAST,
+    pub entrypoint_asts: HashMap<String, RelationalAST>,
+}
 
 pub type Indexes = HashMap<String, u32>;
 
@@ -39,9 +49,9 @@ pub struct Context {
 }
 
 impl Context {
-    pub(crate) fn init() -> Self {
+    pub(crate) fn init(root_table_name: &str) -> Self {
         Context {
-            table_name: "storage".to_string(),
+            table_name: root_table_name.to_string(),
             prefix: "".to_string(),
         }
     }
