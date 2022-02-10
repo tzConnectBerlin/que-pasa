@@ -52,6 +52,7 @@ fn main() {
         &node::NodeClient::new(config.node_url.clone(), "main".to_string());
 
     let mut dbcli = DBClient::connect(
+        &config.main_schema,
         &config.database_url,
         config.ssl,
         config.ca_cert.clone(),
@@ -130,8 +131,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         )
         .unwrap();
     if !new_initialized.is_empty() {
-        info!("all contracts historically bootstrapped. restart to begin normal continuous processing mode.");
-        return;
+        info!("all contracts historically bootstrapped.");
     }
 
     info!("running for contracts: {:#?}", contracts);

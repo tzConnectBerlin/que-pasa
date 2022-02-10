@@ -1,4 +1,4 @@
-select count(1) from contracts;
+select count(1) from que_pasa.contracts;
  count 
 -------
    147
