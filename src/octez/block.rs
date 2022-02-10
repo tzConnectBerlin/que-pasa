@@ -64,7 +64,9 @@ pub(crate) struct Tx {
     pub operation_hash: String,
     pub source: Option<String>,
     pub destination: Option<String>,
+
     pub entrypoint: Option<String>,
+    pub entrypoint_args: Option<serde_json::Value>,
 
     pub fee: Option<i64>,
     pub gas_limit: Option<i64>,
@@ -196,10 +198,16 @@ impl Block {
                                         destination: content
                                             .destination
                                             .clone(),
+
                                         entrypoint: content
                                             .parameters
                                             .clone()
                                             .map(|p| p.entrypoint),
+                                        entrypoint_args: content
+                                            .parameters
+                                            .clone()
+                                            .map(|p| p.value)
+                                            .flatten(),
 
                                         fee: Self::parse_option_i64(
                                             content.fee.as_ref(),
@@ -277,10 +285,16 @@ impl Block {
                                                     destination: internal_op
                                                         .destination
                                                         .clone(),
+
                                                     entrypoint: internal_op
                                                         .parameters
                                                         .clone()
                                                         .map(|p| p.entrypoint),
+                                                    entrypoint_args: internal_op
+                                                        .parameters
+                                                        .clone()
+                                                        .map(|p| p.value)
+                                                        .flatten(),
 
                                                     fee: None,
                                                     gas_limit: None,
@@ -340,7 +354,9 @@ impl Block {
                                                 destination: Some(
                                                     contract.clone(),
                                                 ),
+
                                                 entrypoint: None,
+                                                entrypoint_args: None,
 
                                                 fee: None,
                                                 gas_limit: None,
@@ -378,7 +394,9 @@ impl Block {
                                     operation_hash: operation.hash.clone(),
                                     source: content.source.clone(),
                                     destination: Some(contract.clone()),
+
                                     entrypoint: None,
+                                    entrypoint_args: None,
 
                                     fee: Self::parse_option_i64(
                                         content.fee.as_ref(),
@@ -1011,7 +1029,7 @@ pub struct Parameters {
     #[serde(default)]
     pub entrypoint: String,
     #[serde(default)]
-    pub value: Option<serde_json::Value>,
+    pub value: Option<::serde_json::Value>,
 }
 
 #[derive(

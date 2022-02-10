@@ -880,7 +880,7 @@ impl Executor {
 
         let mut storage_processor = self.get_storage_processor()?;
         storage_processor
-            .process_block(block, diffs, &contract.cid.address, &contract.storage_ast)
+            .process_block(block, diffs, &contract)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not process block",

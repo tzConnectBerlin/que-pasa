@@ -5,7 +5,9 @@ use crate::octez::node::StorageGetter;
 use crate::sql::db::BigmapKeysGetter;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
-use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::storage_structure::relational::{
+    Contract, RelationalAST, RelationalEntry,
+};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use crate::storage_update::bigmap;
 use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
@@ -147,29 +149,40 @@ where
         &mut self,
         block: &block::Block,
         diffs: &IntraBlockBigmapDiffsProcessor,
-        contract_id: &str,
-        rel_ast: &RelationalAST,
+        contract: &Contract,
     ) -> Result<()> {
         self.bigmap_map.clear();
         self.bigmap_keyhashes.clear();
 
-        let storages: Vec<(TxContext, parser::Value)> =
+        let storages: Vec<(TxContext, Option<(String, parser::Value)>, parser::Value)> =
             block.map_tx_contexts(|tx_context, tx, is_origination, op_res| {
-                if tx_context.contract != contract_id {
+                if tx_context.contract != contract.cid.address {
                     return Ok(None);
                 }
+
+                let param_parsed: Option<(String, parser::Value)> = if let Some(entrypoint) = &tx.entrypoint {
+                    if let Some(v) = &tx.entrypoint_args {
+                        Some((entrypoint.clone(), parser::parse_lexed(v)?))
+                    } else {
+                        warn!("should not have None args to non None entrypoint?");
+                        None
+                    }
+                } else {
+                    None
+                };
 
                 if is_origination {
                     let storage = parser::parse_json(
                         &self.node_cli.get_contract_storage(
-                            contract_id,
+                            &contract.cid.address,
                             tx_context.level,
                         )?,
                     )?;
-                    Ok(Some((self.tx_context(tx_context, tx), storage)))
+                    Ok(Some((self.tx_context(tx_context, tx), param_parsed, storage)))
                 } else if let Some(storage) = &op_res.storage {
                     Ok(Some((
                         self.tx_context(tx_context, tx),
+                        param_parsed,
                         parser::parse_lexed(storage)?,
                     )))
                 } else {
@@ -180,8 +193,18 @@ where
                 }
             })?;
 
-        for (tx_context, parsed_storage) in &storages {
-            self.process_storage_value(parsed_storage, rel_ast, tx_context)
+        for (tx_context, param_parsed, parsed_storage) in &storages {
+            if let Some((entrypoint, param_v)) = param_parsed {
+                self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
+                .with_context(|| {
+                    format!(
+                        "process_block: process storage value failed (tx_context={:?})",
+                        tx_context
+                    )
+                })?;
+            }
+
+            self.process_michelson_value(parsed_storage, &contract.storage_ast, tx_context, "storage")
                 .with_context(|| {
                     format!(
                         "process_block: process storage value failed (tx_context={:?})",
@@ -412,7 +435,7 @@ where
                             self.id_generator.get_id(),
                             table.clone(),
                         );
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             ctx,
                             &parser::parse_lexed(key)?,
                             &key_ast,
@@ -427,7 +450,7 @@ where
                                 tx_context,
                             ),
                             Some(val) => {
-                                self.process_storage_value_internal(
+                                self.process_michelson_value_internal(
                                     ctx,
                                     &parser::parse_lexed(val)?,
                                     &value_ast,
@@ -466,17 +489,18 @@ where
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. raises an error if it cannot do this (i.e. they do not match).
-    fn process_storage_value(
+    fn process_michelson_value(
         &mut self,
         value: &parser::Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
+        root_table_name: &str,
     ) -> Result<()> {
         let ctx = &ProcessStorageContext::new(
             self.id_generator.get_id(),
-            "storage".to_string(),
+            root_table_name.to_string(),
         );
-        self.process_storage_value_internal(ctx, value, rel_ast, tx_context)?;
+        self.process_michelson_value_internal(ctx, value, rel_ast, tx_context)?;
         Ok(())
     }
 
@@ -499,7 +523,7 @@ where
         ctx.clone()
     }
 
-    fn process_storage_value_internal(
+    fn process_michelson_value_internal(
         &mut self,
         ctx: &ProcessStorageContext,
         value: &parser::Value,
@@ -540,7 +564,7 @@ where
             }
             RelationalAST::Option { elem_ast } => {
                 if *v != parser::Value::None {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, v, elem_ast, tx_context,
                     )?;
                 } else {
@@ -562,10 +586,10 @@ where
                     ..
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, key, key_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
@@ -579,10 +603,10 @@ where
                     ..
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, key, key_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
@@ -605,7 +629,7 @@ where
                             left_table.clone(),
                             tx_context,
                         );
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             ctx, left, left_ast, tx_context,
                         )?;
                         Ok(())
@@ -629,7 +653,7 @@ where
                             right_table.clone(),
                             tx_context,
                         );
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             ctx, right, right_ast, tx_context,
                         )?;
                         Ok(())
@@ -642,7 +666,7 @@ where
                 {
                     let mut ctx: ProcessStorageContext = ctx.clone();
                     for element in l {
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             &ctx, element, elems_ast, tx_context,
                         )?;
                         ctx = ctx.with_id(self.id_generator.get_id());
@@ -653,7 +677,7 @@ where
             .or(must_match_rel!(rel_ast, RelationalAST::Map { .. }, {
                 let mut ctx: ProcessStorageContext = ctx.clone();
                 for element in l {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         &ctx, element, rel_ast, tx_context,
                     )?;
                     ctx = ctx.with_id(self.id_generator.get_id());
@@ -666,7 +690,7 @@ where
                 {
                     let mut ctx: ProcessStorageContext = ctx.clone();
                     for element in l {
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             &ctx, element, rel_ast, tx_context,
                         )?;
                         ctx = ctx.with_id(self.id_generator.get_id());
@@ -681,10 +705,10 @@ where
                     right_ast
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, right, right_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, left, left_ast, tx_context,
                     )?;
                     Ok(())
@@ -698,10 +722,10 @@ where
                     ..
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, right, key_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, left, value_ast, tx_context,
                     )?;
                     Ok(())
@@ -927,18 +951,18 @@ where
     }
 
     #[cfg(test)]
-    pub fn process_storage_value_test(
+    pub fn process_michelson_value_test(
         &mut self,
         value: &parser::Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        self.process_storage_value(value, rel_ast, tx_context)
+        self.process_michelson_value(value, rel_ast, tx_context, "storage")
     }
 }
 
 #[test]
-fn test_process_storage_value() {
+fn test_process_michelson_value() {
     use num::BigInt;
 
     fn numeric(i: i32) -> insert::Value {
@@ -1511,7 +1535,7 @@ fn test_process_storage_value() {
             DummyBigmapKeysGetter {},
         );
 
-        let res = processor.process_storage_value_test(
+        let res = processor.process_michelson_value_test(
             &tc.value,
             &tc.rel_ast,
             &tc.tx_context,

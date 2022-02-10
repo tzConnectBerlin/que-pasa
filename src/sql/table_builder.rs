@@ -39,6 +39,7 @@ impl TableBuilder {
                 &mut entrypoint_table_builder
                     .tables
                     .into_values()
+                    .filter(|t| t.name != "bigmap_clears")
                     .collect(),
             );
         }
