@@ -1121,7 +1121,7 @@ fn test_generate() {
     println!("{:#?}", type_ast);
 
     use crate::relational::Context;
-    let context = Context::init();
+    let context = Context::init("storage");
 
     let rel_ast = ASTBuilder::new()
         .build_relational_ast(&context, &type_ast)
@@ -1131,7 +1131,7 @@ fn test_generate() {
         name: "testcontract".to_string(),
         address: "".to_string(),
     });
-    let mut builder = crate::sql::table_builder::TableBuilder::new();
+    let mut builder = crate::sql::table_builder::TableBuilder::new("storage");
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
     sorted_tables.sort_by_key(|a| a.0);

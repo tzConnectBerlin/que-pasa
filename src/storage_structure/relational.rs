@@ -1374,8 +1374,8 @@ fn test_relational_ast_builder() {
     for tc in tests {
         println!("test case: {}", tc.name);
 
-        let got =
-            ASTBuilder::new().build_relational_ast(&Context::init(), &tc.ele);
+        let got = ASTBuilder::new()
+            .build_relational_ast(&Context::init("storage"), &tc.ele);
         if tc.exp.is_none() {
             assert!(got.is_err());
             continue;

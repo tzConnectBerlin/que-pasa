@@ -194,16 +194,6 @@ where
             })?;
 
         for (tx_context, param_parsed, parsed_storage) in &storages {
-            if let Some((entrypoint, param_v)) = param_parsed {
-                self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
-                .with_context(|| {
-                    format!(
-                        "process_block: process storage value failed (tx_context={:?})",
-                        tx_context
-                    )
-                })?;
-            }
-
             self.process_michelson_value(parsed_storage, &contract.storage_ast, tx_context, "storage")
                 .with_context(|| {
                     format!(
@@ -229,6 +219,26 @@ where
                         )?;
                     }
                 }
+            }
+
+            if let Some((entrypoint, param_v)) = param_parsed {
+                #[cfg(test)]
+                if !contract
+                    .entrypoint_asts
+                    .contains_key(entrypoint)
+                {
+                    // Our unit tests were set-up before we were parsing parameters
+                    // Therefore allowing tests to gracefully ignore missing an entrypoint's AST
+                    continue;
+                }
+
+                self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
+                .with_context(|| {
+                    format!(
+                        "process_block: process storage value failed (tx_context={:?})",
+                        tx_context
+                    )
+                })?;
             }
         }
 
@@ -1101,8 +1111,8 @@ fn test_process_michelson_value() {
                 }),
             },
             value: parser::Value::List(vec![
-                parser::Value::Int(BigInt::from(0)),
-                parser::Value::Int(BigInt::from(-5)),
+                parser::Value::Int(BigInt::from(0 as i32)),
+                parser::Value::Int(BigInt::from(-5 as i32)),
             ]),
             tx_context: TxContext {
                 id: Some(32),
@@ -1171,10 +1181,10 @@ fn test_process_michelson_value() {
                 }),
             },
             value: parser::Value::Pair(
-                Box::new(parser::Value::Int(BigInt::from(0))),
+                Box::new(parser::Value::Int(BigInt::from(0 as i32))),
                 Box::new(parser::Value::Pair(
-                    Box::new(parser::Value::Int(BigInt::from(-5))),
-                    Box::new(parser::Value::Int(BigInt::from(-2))),
+                    Box::new(parser::Value::Int(BigInt::from(-5 as i32))),
+                    Box::new(parser::Value::Int(BigInt::from(-2 as i32))),
                 )),
             ),
             tx_context: TxContext {
@@ -1273,8 +1283,8 @@ fn test_process_michelson_value() {
             },
             value: parser::Value::Pair(
                 Box::new(parser::Value::List(vec![
-                    parser::Value::Int(BigInt::from(0)),
-                    parser::Value::Int(BigInt::from(-5)),
+                    parser::Value::Int(BigInt::from(0 as i32)),
+                    parser::Value::Int(BigInt::from(-5 as i32)),
                 ])),
                 Box::new(parser::Value::String("value".to_string())),
             ),
@@ -1440,11 +1450,11 @@ fn test_process_michelson_value() {
             },
             value: parser::Value::List(vec![
                 parser::Value::Elt(
-                    Box::new(parser::Value::Int(BigInt::from(3))),
+                    Box::new(parser::Value::Int(BigInt::from(3 as i32))),
                     Box::new(parser::Value::String("some_value".to_string())),
                 ),
                 parser::Value::Elt(
-                    Box::new(parser::Value::Int(BigInt::from(1))),
+                    Box::new(parser::Value::Int(BigInt::from(1 as i32))),
                     Box::new(parser::Value::String(
                         "another_value".to_string(),
                     )),
@@ -1587,10 +1597,10 @@ fn test_process_block() {
             .unwrap()["args"][0]
             .clone();
         debug!("{}", storage_definition.to_string());
-        let type_ast = typing::storage_ast_from_json(&storage_definition)?;
+        let type_ast = typing::type_ast_from_json(&storage_definition)?;
         let rel_ast = ASTBuilder::new()
             .build_relational_ast(
-                &crate::relational::Context::init(),
+                &crate::relational::Context::init("storage"),
                 &type_ast,
             )
             .unwrap();
@@ -1718,7 +1728,7 @@ fn test_process_block() {
 
         // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new("storage");
         builder.populate(&rel_ast);
         let tables = &builder.tables;
 
@@ -1733,7 +1743,19 @@ fn test_process_block() {
             let diffs =
                 IntraBlockBigmapDiffsProcessor::from_block(&block).unwrap();
             storage_processor
-                .process_block(&block, &diffs, contract.id, &rel_ast)
+                .process_block(
+                    &block,
+                    &diffs,
+                    &crate::storage_structure::relational::Contract {
+                        cid: crate::config::ContractID {
+                            name: contract.id.to_string(),
+                            address: contract.id.to_string(),
+                        },
+                        storage_ast: rel_ast.clone(),
+                        level_floor: None,
+                        entrypoint_asts: HashMap::new(),
+                    },
+                )
                 .unwrap();
             let inserts = storage_processor.drain_inserts();
             storage_processor.drain_txs();

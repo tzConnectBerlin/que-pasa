@@ -20,7 +20,7 @@ export PGPASSWORD=test
 export PGDATABASE=test
 
 export DOCKER_ARGS='-d'
-db_docker=`./script/local-db.bash`
+db_docker=`./script/local-db.bash -c max_locks_per_transaction=100000`
 trap "echo stopping docker db..; docker kill $db_docker" EXIT
 
 SETUP_WAIT=3s
