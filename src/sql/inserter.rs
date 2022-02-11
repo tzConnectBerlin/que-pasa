@@ -10,7 +10,7 @@ use crate::sql::db::DBClient;
 use crate::sql::insert;
 use crate::sql::insert::Insert;
 use crate::stats::StatsLogger;
-use crate::storage_structure::relational::RelationalAST;
+use crate::storage_structure::relational;
 
 pub(crate) struct DBInserter {
     dbcli: DBClient,
@@ -129,11 +129,10 @@ fn insert_batch(
     DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
 
     if update_derived_tables {
-        for (contract_id, (rel_ast, ctxs)) in &batch.contract_tx_contexts {
+        for (contract_id, (contract, ctxs)) in &batch.contract_tx_contexts {
             DBClient::update_derived_tables(
                 &mut db_tx,
-                contract_id,
-                rel_ast,
+                &contract,
                 ctxs,
             ).with_context(|| {
                 format!(
@@ -151,8 +150,7 @@ fn insert_batch(
 #[derive(Clone, Debug)]
 pub(crate) struct ProcessedContractBlock {
     pub level: LevelMeta,
-    pub contract_id: ContractID,
-    pub rel_ast: RelationalAST,
+    pub contract: relational::Contract,
 
     pub is_origination: bool,
 
@@ -223,7 +221,7 @@ struct ProcessedBatch {
     pub contract_inserts: HashMap<ContractID, Vec<Insert>>,
     pub contract_deps: Vec<(i32, String, ContractID)>,
     pub contract_tx_contexts:
-        HashMap<ContractID, (RelationalAST, Vec<TxContext>)>,
+        HashMap<ContractID, (relational::Contract, Vec<TxContext>)>,
 
     max_id: i64,
 }
@@ -286,43 +284,43 @@ impl ProcessedBatch {
 
         if !self
             .contract_tx_contexts
-            .contains_key(&cres.contract_id)
+            .contains_key(&cres.contract.cid)
         {
             self.contract_tx_contexts.insert(
-                cres.contract_id.clone(),
-                (cres.rel_ast.clone(), vec![]),
+                cres.contract.cid.clone(),
+                (cres.contract.clone(), vec![]),
             );
         }
         let contract_ctxs: &mut Vec<TxContext> = &mut self
             .contract_tx_contexts
-            .get_mut(&cres.contract_id)
+            .get_mut(&cres.contract.cid)
             .unwrap()
             .1;
         contract_ctxs.extend(cres.tx_contexts.clone());
 
         self.contract_levels.push((
-            cres.contract_id.clone(),
+            cres.contract.cid.clone(),
             cres.level.level as i32,
             cres.is_origination,
         ));
 
         if !self
             .contract_inserts
-            .contains_key(&cres.contract_id)
+            .contains_key(&cres.contract.cid)
         {
             self.contract_inserts
-                .insert(cres.contract_id.clone(), vec![]);
+                .insert(cres.contract.cid.clone(), vec![]);
         }
         let inserts: &mut Vec<Insert> = self
             .contract_inserts
-            .get_mut(&cres.contract_id)
+            .get_mut(&cres.contract.cid)
             .unwrap();
         inserts.extend(cres.inserts.clone());
 
         self.contract_deps.extend(
             cres.bigmap_contract_deps
                 .iter()
-                .map(|dep| (level, dep.clone(), cres.contract_id.clone())),
+                .map(|dep| (level, dep.clone(), cres.contract.cid.clone())),
         );
 
         self.bigmap_keyhashes

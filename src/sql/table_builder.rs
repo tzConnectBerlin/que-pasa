@@ -11,14 +11,6 @@ pub struct TableBuilder {
     pub tables: TableMap,
 }
 
-/*
-impl Default for TableBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-*/
-
 impl TableBuilder {
     pub(crate) fn tables_from_contract(
         contract: &Contract,
@@ -56,8 +48,7 @@ impl TableBuilder {
     }
 
     pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
-        let mut res: Vec<String> =
-            vec!["bigmap_clears".to_string(), "entry.".to_string()];
+        let mut res: Vec<String> = vec!["bigmap_clears".to_string()];
 
         // All child tables of changes tables cannot have view definitions defined.
         // To get _ordered or _live rows for these child tables, simply join with id

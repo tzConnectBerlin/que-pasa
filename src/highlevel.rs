@@ -42,7 +42,7 @@ impl SaveLevelResult {
     ) -> Self {
         Self {
             level: processed_block.level.level,
-            contract_id: processed_block.contract_id.clone(),
+            contract_id: processed_block.contract.cid.clone(),
             is_origination: processed_block.is_origination,
             tx_count: processed_block.tx_contexts.len(),
         }
@@ -618,7 +618,7 @@ impl Executor {
                 } else {
                     self.stats.add(
                         "processor",
-                        &cres.contract_id.name,
+                        &cres.contract.cid.name,
                         cres.tx_contexts.len(),
                     )?;
                 }
@@ -836,7 +836,7 @@ impl Executor {
         for cres in &contract_results {
             if cres.is_origination {
                 self.update_contract_floor(
-                    &cres.contract_id,
+                    &cres.contract.cid,
                     cres.level.level,
                 )?;
             }
@@ -867,14 +867,14 @@ impl Executor {
         if !is_origination && !block.is_contract_active(&contract.cid.address) {
             return Ok(ProcessedContractBlock {
                 level: meta.clone(),
-                contract_id: contract.cid.clone(),
+                contract: contract.clone(),
+
                 inserts: vec![],
                 tx_contexts: vec![],
                 txs: vec![],
                 bigmap_contract_deps: vec![],
                 bigmap_keyhashes: vec![],
                 is_origination: false,
-                rel_ast: contract.storage_ast.clone(),
             });
         }
 
@@ -894,14 +894,14 @@ impl Executor {
             storage_processor.drain_bigmap_contract_dependencies();
 
         Ok(ProcessedContractBlock {
+            contract: contract.clone(),
             level: meta.clone(),
-            contract_id: contract.cid.clone(),
+
             inserts: inserts.values().cloned().collect(),
             tx_contexts,
             txs,
             bigmap_contract_deps,
             bigmap_keyhashes: storage_processor.get_bigmap_keyhashes(),
-            rel_ast: contract.storage_ast.clone(),
             is_origination,
         })
     }

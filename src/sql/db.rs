@@ -212,28 +212,26 @@ WHERE table_schema = $1
 
     pub(crate) fn update_derived_tables(
         tx: &mut Transaction,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &Contract,
         tx_contexts: &[TxContext],
     ) -> Result<()> {
         if tx_contexts.is_empty() {
             return Ok(());
         }
-        let mut builder = TableBuilder::new("storage");
-        builder.populate(rel_ast);
 
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
+        let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
+            TableBuilder::tables_from_contract(contract);
 
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (_name, table) in sorted_tables {
+        tables.sort_by_key(|t| t.name.clone());
+
+        for table in &tables {
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
                 DBClient::update_derived_table(
                     tx,
-                    contract_id,
+                    &contract.cid,
                     table,
                     tx_contexts,
                 )?;

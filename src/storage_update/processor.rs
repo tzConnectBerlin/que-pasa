@@ -194,6 +194,30 @@ where
             })?;
 
         for (tx_context, param_parsed, parsed_storage) in &storages {
+            if let Some((entrypoint, param_v)) = param_parsed {
+                #[cfg(not(test))]
+                let allow_missing_entrpoint_asts: bool = false;
+
+                // Our unit tests were set-up before we were parsing parameters
+                // Therefore allowing tests to gracefully ignore missing an entrypoint's AST
+                #[cfg(test)]
+                let allow_missing_entrpoint_asts: bool = true;
+
+                if !allow_missing_entrpoint_asts
+                    || contract
+                        .entrypoint_asts
+                        .contains_key(entrypoint)
+                {
+                    self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
+                    .with_context(|| {
+                        format!(
+                            "process_block: process storage value failed (tx_context={:?})",
+                            tx_context
+                        )
+                    })?;
+                }
+            }
+
             self.process_michelson_value(parsed_storage, &contract.storage_ast, tx_context, "storage")
                 .with_context(|| {
                     format!(
@@ -203,8 +227,17 @@ where
                 })?;
 
             let mut bigmaps = diffs.get_tx_context_owned_bigmaps(tx_context);
+            bigmaps.append(
+                &mut self
+                    .bigmap_map
+                    .keys()
+                    .cloned()
+                    .collect(),
+            );
 
             bigmaps.sort_unstable();
+            bigmaps.dedup();
+
             for bigmap in bigmaps {
                 let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
                 for op in ops.iter().rev() {
@@ -219,26 +252,6 @@ where
                         )?;
                     }
                 }
-            }
-
-            if let Some((entrypoint, param_v)) = param_parsed {
-                #[cfg(test)]
-                if !contract
-                    .entrypoint_asts
-                    .contains_key(entrypoint)
-                {
-                    // Our unit tests were set-up before we were parsing parameters
-                    // Therefore allowing tests to gracefully ignore missing an entrypoint's AST
-                    continue;
-                }
-
-                self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
-                .with_context(|| {
-                    format!(
-                        "process_block: process storage value failed (tx_context={:?})",
-                        tx_context
-                    )
-                })?;
             }
         }
 
