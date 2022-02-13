@@ -148,33 +148,30 @@ WHERE table_schema = $1
 
     pub(crate) fn repopulate_derived_tables(
         &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &Contract,
     ) -> Result<()> {
-        let mut builder = TableBuilder::new("storage");
-        builder.populate(rel_ast);
+        let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
+            TableBuilder::tables_from_contract(contract);
 
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
+        tables.sort_by_key(|t| t.name.clone());
 
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (i, (_name, table)) in sorted_tables.iter().enumerate() {
+        for (i, table) in tables.iter().enumerate() {
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
                 info!(
                     "repopulating {table} _live and _ordered ({contract} table {table_i}/~{table_total})",
-                    contract = contract_id.name,
+                    contract = contract.cid.name,
                     table = table.name,
                     table_i = i,
-                    table_total = sorted_tables.len(),
+                    table_total = tables.len(),
                 );
                 DBClient::repopulate_derived_table(
                     &mut tx,
-                    contract_id,
+                    &contract.cid,
                     table,
                 )?;
             }

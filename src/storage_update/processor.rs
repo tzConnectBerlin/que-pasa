@@ -208,6 +208,11 @@ where
                         .entrypoint_asts
                         .contains_key(entrypoint)
                 {
+                    if !contract
+                        .entrypoint_asts
+                        .contains_key(entrypoint) {
+                        return Err(anyhow!("entrypoint '{}' missing. tx_context={:?}", entrypoint, tx_context))?;
+                    }
                     self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
                     .with_context(|| {
                         format!(

@@ -82,7 +82,7 @@ impl NodeClient {
         &self,
         contract_id: &str,
         level: Option<u32>,
-    ) -> Result<serde_json::Value> {
+    ) -> Result<(serde_json::Value, serde_json::Value)> {
         let level = match level {
             Some(x) => format!("{}", x),
             None => "head".to_string(),
@@ -126,7 +126,7 @@ impl NodeClient {
             Err(anyhow!("malformed script response ('code' array does not have an entry with prim='{}')", prim))
         }
 
-        Ok(get_prim(&code_def, "storage")?)
+        Ok((get_prim(&code_def, "storage")?, get_prim(&code_def, "parameter")?))
     }
 
     pub(crate) fn get_contract_entrypoint_definitions(
@@ -134,7 +134,7 @@ impl NodeClient {
         contract_id: &str,
         level: Option<u32>,
     ) -> Result<serde_json::map::Map<String, serde_json::Value>> {
-        let level = match level {
+        let lvl_ref = match level {
             Some(x) => format!("{}", x),
             None => "head".to_string(),
         };
@@ -142,21 +142,30 @@ impl NodeClient {
         let (_, json) = self
             .load_retry_on_nonjson(&format!(
                 "blocks/{}/context/contracts/{}/entrypoints",
-                level, contract_id
+                lvl_ref, contract_id
             ))
             .with_context(|| {
                 format!(
                     "failed to get entrypoints for contract='{}', level={}",
-                    contract_id, level
+                    contract_id, lvl_ref
                 )
             })?;
 
-        Ok(json["entrypoints"]
+        let res = json["entrypoints"]
             .as_object()
             .cloned()
             .ok_or_else(|| {
                 anyhow!("malformed entrypoints response (not a json object)")
-            })?)
+            })?;
+
+        if res.len() > 0 {
+            Ok(res)
+        } else {
+            let (_, param_def) = self.get_contract_storage_definition(contract_id, level)?;
+            let mut fallback_res = serde_json::Map::new();
+            fallback_res.insert("default".to_string(), param_def);
+            Ok(fallback_res)
+        }
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {

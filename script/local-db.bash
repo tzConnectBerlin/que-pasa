@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 [ -z $PGPORT ] && export PGPORT=5432
 [ -z $PGPASSWORD ] && export PGPASSWORD=quepasa

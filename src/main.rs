@@ -153,6 +153,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             num_getters,
             num_processors,
             acceptable_head_offset,
+            true,
         )
         .unwrap();
 
@@ -191,6 +192,7 @@ fn index_all_contracts(
                 config.getters_cap,
                 config.workers_cap,
                 Duration::days(0),
+                false,
             )
             .unwrap();
 

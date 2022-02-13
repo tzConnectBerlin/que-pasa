@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "generating expected results for test_generate.."
 cargo test -- --test test_generate --nocapture 2>/dev/null \

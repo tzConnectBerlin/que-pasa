@@ -343,6 +343,7 @@ impl Executor {
                 num_getters,
                 num_processors,
                 acceptable_head_offset,
+                false,
             )
             .unwrap();
         }
@@ -375,6 +376,7 @@ impl Executor {
         num_getters: usize,
         num_processors: usize,
         acceptable_head_offset: Duration,
+        exec_dependent_levels: bool,
     ) -> Result<()> {
         loop {
             let latest_level: LevelMeta = self.node_cli.head()?;
@@ -402,7 +404,8 @@ impl Executor {
                 break;
             }
 
-            if let Some((bcd_url, network)) = &bcd_settings {
+            if missing_levels.len() > 1000 && bcd_settings.is_some() {
+                let (bcd_url, network) = bcd_settings.as_ref().unwrap();
                 let config = &self.get_config_sorted()?;
 
                 let mut exclude_levels: Vec<u32> = self
@@ -455,7 +458,9 @@ impl Executor {
                 self.exec_levels(num_getters, num_processors, missing_levels)?;
             }
         }
-        self.exec_dependents()?;
+        if exec_dependent_levels {
+            self.exec_dependents()?;
+        }
         Ok(())
     }
 
@@ -1030,7 +1035,7 @@ pub(crate) fn get_contract_rel(
     node_cli: &NodeClient,
     cid: &ContractID,
 ) -> Result<relational::Contract> {
-    let storage_def =
+    let (storage_def, _) =
         &node_cli.get_contract_storage_definition(&cid.address, None)?;
     let type_ast = typing::type_ast_from_json(storage_def)
         .with_context(|| {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 cd $(git rev-parse --show-toplevel)
 
 [ -z $DIFFTOOL ] && DIFFTOOL=kdiff3
