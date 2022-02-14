@@ -572,11 +572,9 @@ impl Executor {
             );
         }
 
-        for (contract_id, contract) in &self.mutexed_state.get_contracts()? {
-            self.dbcli.repopulate_derived_tables(
-                contract_id,
-                &contract.storage_ast,
-            )?;
+        for (_, contract) in &self.mutexed_state.get_contracts()? {
+            self.dbcli
+                .repopulate_derived_tables(contract)?;
         }
         self.dbcli
             .set_indexer_mode(IndexerMode::Head)?;
@@ -878,12 +876,13 @@ impl Executor {
                 tx_contexts: vec![],
                 txs: vec![],
                 bigmap_contract_deps: vec![],
-                bigmap_keyhashes: vec![],
+                bigmap_keyhashes: HashMap::new(),
                 is_origination: false,
             });
         }
 
         let mut storage_processor = self.get_storage_processor()?;
+        storage_processor.set_stats_logger(self.stats.clone());
         storage_processor
             .process_block(block, diffs, &contract)
             .with_context(|| {

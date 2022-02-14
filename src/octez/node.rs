@@ -126,7 +126,10 @@ impl NodeClient {
             Err(anyhow!("malformed script response ('code' array does not have an entry with prim='{}')", prim))
         }
 
-        Ok((get_prim(&code_def, "storage")?, get_prim(&code_def, "parameter")?))
+        Ok((
+            get_prim(&code_def, "storage")?,
+            get_prim(&code_def, "parameter")?,
+        ))
     }
 
     pub(crate) fn get_contract_entrypoint_definitions(
@@ -139,17 +142,21 @@ impl NodeClient {
             None => "head".to_string(),
         };
 
-        let (_, json) = self
-            .load_retry_on_nonjson(&format!(
-                "blocks/{}/context/contracts/{}/entrypoints",
-                lvl_ref, contract_id
-            ))
+        let body = self
+            .load(
+                &format!(
+                    "blocks/{}/context/contracts/{}/entrypoints",
+                    lvl_ref, contract_id
+                ),
+                Self::load_from_node_retry_on_transient_err,
+            )
             .with_context(|| {
                 format!(
                     "failed to get entrypoints for contract='{}', level={}",
                     contract_id, lvl_ref
                 )
             })?;
+        let json = Self::deserialize(&body)?;
 
         let res = json["entrypoints"]
             .as_object()
@@ -161,7 +168,8 @@ impl NodeClient {
         if res.len() > 0 {
             Ok(res)
         } else {
-            let (_, param_def) = self.get_contract_storage_definition(contract_id, level)?;
+            let (_, param_def) =
+                self.get_contract_storage_definition(contract_id, level)?;
             let mut fallback_res = serde_json::Map::new();
             fallback_res.insert("default".to_string(), param_def);
             Ok(fallback_res)

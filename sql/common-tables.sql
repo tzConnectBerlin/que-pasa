@@ -110,8 +110,19 @@ CREATE TABLE bigmap_keys(
     bigmap_id INTEGER NOT NULL,
     tx_context_id BIGINT NOT NULL,
     keyhash TEXT NOT NULL,
-    key TEXT NOT NULL,
+    key JSONB NOT NULL,
+    value JSONB,
 
     UNIQUE(tx_context_id, bigmap_id, keyhash),
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
 );
+
+CREATE OR REPLACE FUNCTION get_entry_values(at BIGINT) RETURNS integer AS
+  FOR elem IN
+    SELECT * FROM test."entry.update.noname" WHERE tx_context_id = at
+  LOOP
+    IF elem.is_ref THEN
+
+    END IF;
+  END LOOP;
+$$ LANGUAGE plpgsql;

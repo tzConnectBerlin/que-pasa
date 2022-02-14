@@ -2,9 +2,10 @@ use crate::debug;
 use crate::octez::block;
 use crate::octez::block::{Tx, TxContext};
 use crate::octez::node::StorageGetter;
-use crate::sql::db::BigmapKeysGetter;
+use crate::sql::db;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
+use crate::stats::StatsLogger;
 use crate::storage_structure::relational::{
     Contract, RelationalAST, RelationalEntry,
 };
@@ -85,22 +86,24 @@ type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
 pub(crate) struct StorageProcessor<NodeCli, BigmapKeys>
 where
     NodeCli: StorageGetter,
-    BigmapKeys: BigmapKeysGetter,
+    BigmapKeys: db::BigmapKeysGetter,
 {
     bigmap_map: BigMapMap,
-    bigmap_keyhashes: HashMap<(TxContext, i32, String), String>,
-    bigmap_contract_deps: HashMap<String, ()>,
+    bigmap_keyhashes: db::BigmapEntries,
+    bigmap_contract_deps: HashMap<(String, i32), ()>,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
     node_cli: NodeCli,
     bigmap_keys: BigmapKeys,
+
+    stats: Option<StatsLogger>,
 }
 
 impl<NodeCli, BigmapKeys> StorageProcessor<NodeCli, BigmapKeys>
 where
     NodeCli: StorageGetter,
-    BigmapKeys: BigmapKeysGetter,
+    BigmapKeys: db::BigmapKeysGetter,
 {
     pub(crate) fn new(
         initial_id: i64,
@@ -116,7 +119,13 @@ where
             id_generator: IdGenerator::new(initial_id),
             node_cli,
             bigmap_keys,
+
+            stats: None,
         }
+    }
+
+    pub(crate) fn set_stats_logger(&mut self, l: StatsLogger) {
+        self.stats = Some(l);
     }
 
     fn add_bigmap_keyhash(
@@ -124,25 +133,15 @@ where
         tx_context: TxContext,
         bigmap: i32,
         keyhash: String,
-        key: String,
+        key: serde_json::Value,
+        value: Option<serde_json::Value>,
     ) {
         self.bigmap_keyhashes
-            .insert((tx_context, bigmap, keyhash), key);
+            .insert((bigmap, tx_context, keyhash), (key, value));
     }
 
-    pub(crate) fn get_bigmap_keyhashes(
-        &self,
-    ) -> Vec<(TxContext, i32, String, String)> {
-        let mut res: Vec<(TxContext, i32, String, String)> = vec![];
-        for ((tx_context, bigmap_id, keyhash), key) in &self.bigmap_keyhashes {
-            res.push((
-                tx_context.clone(),
-                *bigmap_id,
-                keyhash.clone(),
-                key.clone(),
-            ));
-        }
-        res
+    pub(crate) fn get_bigmap_keyhashes(&self) -> db::BigmapEntries {
+        self.bigmap_keyhashes.clone()
     }
 
     pub(crate) fn process_block(
@@ -210,8 +209,13 @@ where
                 {
                     if !contract
                         .entrypoint_asts
-                        .contains_key(entrypoint) {
-                        return Err(anyhow!("entrypoint '{}' missing. tx_context={:?}", entrypoint, tx_context))?;
+                        .contains_key(entrypoint)
+                    {
+                        return Err(anyhow!(
+                            "entrypoint '{}' missing. tx_context={:?}",
+                            entrypoint,
+                            tx_context
+                        ))?;
                     }
                     self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
                     .with_context(|| {
@@ -244,14 +248,17 @@ where
             bigmaps.dedup();
 
             for bigmap in bigmaps {
-                let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                let (deps, ops) =
+                    diffs.normalized_diffs(bigmap, tx_context, bigmap >= 0);
                 for op in ops.iter().rev() {
                     self.process_bigmap_op(op, tx_context)?;
                 }
                 if self.bigmap_map.contains_key(&bigmap) {
                     for (src_bigmap, src_context) in deps {
-                        self.bigmap_contract_deps
-                            .insert(src_context.contract.clone(), ());
+                        self.bigmap_contract_deps.insert(
+                            (src_context.contract.clone(), src_bigmap),
+                            (),
+                        );
                         self.process_bigmap_copy(
                             tx_context, src_bigmap, bigmap,
                         )?;
@@ -263,7 +270,9 @@ where
         Ok(())
     }
 
-    pub(crate) fn drain_bigmap_contract_dependencies(&mut self) -> Vec<String> {
+    pub(crate) fn drain_bigmap_contract_dependencies(
+        &mut self,
+    ) -> Vec<(String, i32)> {
         self.bigmap_contract_deps
             .drain()
             .map(|(k, _)| k)
@@ -285,13 +294,16 @@ where
         dest_bigmap: i32,
     ) -> Result<()> {
         let at_level = ctx.level - 1;
-        for (keyhash, key) in self
+        let entries = self
             .bigmap_keys
-            .get(at_level, src_bigmap)?
-        {
-            let value = self
-                .node_cli
-                .get_bigmap_value(at_level, src_bigmap, &keyhash)?;
+            .get(at_level, src_bigmap)?;
+
+        let num_entries = entries.len();
+
+        for (i, (keyhash, key, value)) in entries.into_iter().enumerate() {
+            //let value = self
+            //    .node_cli
+            //    .get_bigmap_value(at_level, src_bigmap, &keyhash)?;
             if value.is_none() {
                 continue;
             }
@@ -299,10 +311,33 @@ where
             let op = bigmap::Op::Update {
                 bigmap: dest_bigmap,
                 keyhash,
-                key: serde_json::from_str(&key)?,
-                value: serde_json::from_str(&value.unwrap().to_string())?,
+                key,
+                value,
             };
             self.process_bigmap_op(&op, ctx)?;
+
+            if let Some(stats) = &self.stats {
+                stats.set(
+                    format!(
+                        "bigmap copy ({} -> {} at {:?})",
+                        src_bigmap, dest_bigmap, ctx
+                    )
+                    .as_str(),
+                    "keys processed",
+                    format!("{}/{}", i, num_entries),
+                )?;
+            }
+        }
+
+        if let Some(stats) = &self.stats {
+            stats.unset(
+                format!(
+                    "bigmap copy ({} -> {} at {:?})",
+                    src_bigmap, dest_bigmap, ctx
+                )
+                .as_str(),
+                "keys processed",
+            )?;
         }
         Ok(())
     }
@@ -428,8 +463,8 @@ where
                 value,
             } => {
                 if self.bigmap_keyhashes.contains_key(&(
-                    tx_context.clone(),
                     *bigmap,
+                    tx_context.clone(),
                     keyhash.clone(),
                 )) {
                     return Ok(());
@@ -456,7 +491,8 @@ where
                             tx_context.clone(),
                             *bigmap,
                             keyhash.clone(),
-                            key.to_string(),
+                            key.clone(),
+                            value.clone(),
                         );
 
                         let ctx = &ProcessStorageContext::new(

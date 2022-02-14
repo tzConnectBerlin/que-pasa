@@ -75,6 +75,30 @@ impl StatsLogger {
         Ok(())
     }
 
+    pub(crate) fn unset(&self, report: &str, field: &str) -> Result<()> {
+        let mut stats = self
+            .stats
+            .lock()
+            .map_err(|_| anyhow!("failed to lock level_floor mutex"))?;
+        if !stats.contains_key(report) {
+            return Ok(());
+        }
+        stats
+            .get_mut(report)
+            .unwrap()
+            .unset(field);
+
+        if stats
+            .get_mut(report)
+            .unwrap()
+            .is_empty()
+        {
+            stats.remove(report);
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn run(&self) -> thread::JoinHandle<()> {
         let cl = self.clone();
         thread::spawn(move || cl.exec().unwrap())
@@ -186,6 +210,14 @@ impl Stats {
     pub(crate) fn set(&mut self, field: &str, value: String) {
         self.values
             .insert(field.to_string(), value);
+    }
+
+    pub(crate) fn unset(&mut self, field: &str) {
+        self.values.remove(field);
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.counters.is_empty() && self.values.is_empty()
     }
 
     pub(crate) fn generate_report(&self, ident: &str) -> String {

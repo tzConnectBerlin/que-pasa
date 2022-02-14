@@ -228,6 +228,7 @@ impl IntraBlockBigmapDiffsProcessor {
         &self,
         bigmap_target: i32,
         at: &TxContext,
+        deep_copy: bool,
     ) -> (Vec<(i32, TxContext)>, Vec<Op>) {
         let mut deps: Vec<(i32, TxContext)> = vec![];
         let mut res: Vec<Op> = vec![];
@@ -250,9 +251,6 @@ impl IntraBlockBigmapDiffsProcessor {
             current_scope.internal_number = None;
             current_scope.contract = "".to_string();
             if prev_scope != current_scope {
-                if bigmap_target < 0 {
-                    //info!("filter!!! ! {:?}, {:?}", prev_scope, current_scope);
-                }
                 // temporary bigmaps (ie those with id < 0) only live in the
                 // scope of tx contents (the content operation itself +
                 // the internal operations)
@@ -277,6 +275,9 @@ impl IntraBlockBigmapDiffsProcessor {
                     }
                     match op {
                         Op::Update { .. } => {
+                            if !deep_copy && op.get_bigmap() != bigmap_target {
+                                continue;
+                            }
                             let mut op_: Op = op.clone();
                             op_.set_bigmap(bigmap_target);
                             res.push(op_);
@@ -319,17 +320,14 @@ impl IntraBlockBigmapDiffsProcessor {
                     .copied()
                     .collect();
             }
-            // targets = targets
-            //     .iter()
-            //     .filter(|bigmap| **bigmap != bigmap_target)
-            //     .copied()
-            //     .collect();
+            targets = targets
+                .iter()
+                .filter(|bigmap| **bigmap < 0)
+                .copied()
+                .collect();
         }
 
         res.reverse();
-        if bigmap_target < 0 {
-            //info!("at {:#?}: {:?}, {:?}", at, deps, res);
-        }
         (deps, res)
     }
 

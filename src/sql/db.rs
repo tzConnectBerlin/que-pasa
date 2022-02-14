@@ -17,7 +17,7 @@ use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
-use crate::storage_structure::relational::{Contract, RelationalAST};
+use crate::storage_structure::relational;
 
 use r2d2_postgres::{postgres::NoTls, PostgresConnectionManager};
 
@@ -148,7 +148,7 @@ WHERE table_schema = $1
 
     pub(crate) fn repopulate_derived_tables(
         &mut self,
-        contract: &Contract,
+        contract: &relational::Contract,
     ) -> Result<()> {
         let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
             TableBuilder::tables_from_contract(contract);
@@ -209,7 +209,7 @@ WHERE table_schema = $1
 
     pub(crate) fn update_derived_tables(
         tx: &mut Transaction,
-        contract: &Contract,
+        contract: &relational::Contract,
         tx_contexts: &[TxContext],
     ) -> Result<()> {
         if tx_contexts.is_empty() {
@@ -273,7 +273,7 @@ WHERE table_schema = $1
 
     pub(crate) fn create_contract_schemas(
         &mut self,
-        contracts: &mut Vec<Contract>,
+        contracts: &mut Vec<relational::Contract>,
     ) -> Result<bool> {
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
@@ -356,7 +356,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
     pub(crate) fn delete_contract_schema(
         tx: &mut Transaction,
-        contract: &Contract,
+        contract: &relational::Contract,
     ) -> Result<()> {
         info!("deleting schema for contract {}", contract.cid.name);
         let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
@@ -398,10 +398,17 @@ DROP TABLE "{contract_schema}"."{table}";
 
     pub(crate) fn save_bigmap_keyhashes(
         tx: &mut Transaction,
-        bigmap_keyhashes: &[(TxContext, i32, String, String)],
+        bigmap_keyhashes: BigmapEntries,
     ) -> Result<()> {
-        for chunk in bigmap_keyhashes.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 4;
+        for chunk in bigmap_keyhashes
+            .into_iter()
+            .collect::<Vec<(
+                (i32, TxContext, String),
+                (serde_json::Value, Option<serde_json::Value>),
+            )>>()
+            .chunks(Self::INSERT_BATCH_SIZE)
+        {
+            let num_columns = 5;
             let v_refs = (1..(num_columns * chunk.len()) + 1)
                 .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
@@ -411,7 +418,7 @@ DROP TABLE "{contract_schema}"."{table}";
             let stmt = tx.prepare(&format!(
                 "
 INSERT INTO bigmap_keys (
-    tx_context_id, bigmap_id, keyhash, key
+    tx_context_id, bigmap_id, keyhash, key, value
 )
 Values ({})",
                 v_refs
@@ -419,12 +426,13 @@ Values ({})",
 
             let values: Vec<&dyn postgres::types::ToSql> = chunk
                 .iter()
-                .flat_map(|(tx_context, bigmap_id, keyhash, key)| {
+                .flat_map(|((bigmap_id, tx_context, keyhash), (key, value))| {
                     [
                         tx_context.id.borrow_to_sql(),
                         bigmap_id.borrow_to_sql(),
                         keyhash.borrow_to_sql(),
                         key.borrow_to_sql(),
+                        value.borrow_to_sql(),
                     ]
                 })
                 .collect();
@@ -764,7 +772,7 @@ VALUES ( {v_refs} )"#,
         get_contract_rel: F,
     ) -> Result<()>
     where
-        F: Fn(&NodeClient, &ContractID) -> Result<Contract>,
+        F: Fn(&NodeClient, &ContractID) -> Result<relational::Contract>,
     {
         let mut conn = self.dbconn()?;
 
@@ -1259,27 +1267,27 @@ WHERE contract = $1
     }
 }
 
+pub(crate) type BigmapEntries = HashMap<
+    (i32, TxContext, String),
+    (serde_json::Value, Option<serde_json::Value>),
+>;
+pub(crate) type BigmapEntry =
+    (String, serde_json::Value, Option<serde_json::Value>);
+
 pub(crate) trait BigmapKeysGetter {
-    fn get(
-        &mut self,
-        level: u32,
-        bigmap_id: i32,
-    ) -> Result<Vec<(String, String)>>;
+    fn get(&mut self, level: u32, bigmap_id: i32) -> Result<Vec<BigmapEntry>>;
 }
 
 impl BigmapKeysGetter for DBClient {
-    fn get(
-        &mut self,
-        level: u32,
-        bigmap_id: i32,
-    ) -> Result<Vec<(String, String)>> {
+    fn get(&mut self, level: u32, bigmap_id: i32) -> Result<Vec<BigmapEntry>> {
         let mut conn = self.dbconn()?;
 
         let res = conn.query(
             "
 SELECT
     keyhash,
-    key
+    key,
+    value
 FROM bigmap_keys bigmap
 JOIN tx_contexts ctx
   ON ctx.id = bigmap.tx_context_id
@@ -1290,7 +1298,7 @@ WHERE bigmap_id = $1
         )?;
         Ok(res
             .into_iter()
-            .map(|row| (row.get(0), row.get(1)))
-            .collect::<Vec<(String, String)>>())
+            .map(|row| (row.get(0), row.get(1), row.get(2)))
+            .collect::<Vec<BigmapEntry>>())
     }
 }

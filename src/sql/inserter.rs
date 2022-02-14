@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
+use crate::sql::db;
 use crate::sql::db::DBClient;
 use crate::sql::insert;
 use crate::sql::insert::Insert;
@@ -126,7 +127,10 @@ fn insert_batch(
         }
         DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
     }
-    DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
+    DBClient::save_bigmap_keyhashes(
+        &mut db_tx,
+        batch.bigmap_keyhashes.clone(),
+    )?;
 
     if update_derived_tables {
         for (contract_id, (contract, ctxs)) in &batch.contract_tx_contexts {
@@ -157,8 +161,8 @@ pub(crate) struct ProcessedContractBlock {
     pub inserts: Vec<Insert>,
     pub tx_contexts: Vec<TxContext>,
     pub txs: Vec<Tx>,
-    pub bigmap_contract_deps: Vec<String>,
-    pub bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+    pub bigmap_contract_deps: Vec<(String, i32)>,
+    pub bigmap_keyhashes: db::BigmapEntries,
 }
 
 impl ProcessedContractBlock {
@@ -201,10 +205,18 @@ impl ProcessedContractBlock {
         for tx in self.txs.iter_mut() {
             tx.tx_context_id += offset;
         }
-        for keyhash in self.bigmap_keyhashes.iter_mut() {
-            let shifted = keyhash.0.id.unwrap() + offset;
-            keyhash.0.id = Some(shifted);
-        }
+
+        self.bigmap_keyhashes = self
+            .bigmap_keyhashes
+            .clone()
+            .into_iter()
+            .map(|(mut k, v)| {
+                let shifted = k.1.id.unwrap() + offset;
+                k.1.id = Some(shifted);
+                return (k, v);
+            })
+            .collect();
+
         max
     }
 }
@@ -215,7 +227,7 @@ struct ProcessedBatch {
     pub levels: HashMap<i32, LevelMeta>,
     pub tx_contexts: Vec<TxContext>,
     pub txs: Vec<Tx>,
-    pub bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+    pub bigmap_keyhashes: db::BigmapEntries,
 
     pub contract_levels: Vec<(ContractID, i32, bool)>,
     pub contract_inserts: HashMap<ContractID, Vec<Insert>>,
@@ -234,7 +246,7 @@ impl ProcessedBatch {
             levels: HashMap::new(),
             tx_contexts: vec![],
             txs: vec![],
-            bigmap_keyhashes: vec![],
+            bigmap_keyhashes: HashMap::new(),
 
             contract_levels: vec![],
             contract_inserts: HashMap::new(),
