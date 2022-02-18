@@ -52,10 +52,10 @@ fn main() {
         &node::NodeClient::new(config.node_url.clone(), "main".to_string());
 
     let mut dbcli = DBClient::connect(
-        &config.main_schema,
         &config.database_url,
-        config.ssl,
-        config.ca_cert.clone(),
+        &config.main_schema,
+        std::time::Duration::from_millis(5 * 60 * 1000),
+        10,
     )
     .with_context(|| "failed to connect to the db")
     .unwrap();

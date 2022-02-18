@@ -21,6 +21,8 @@ backtrace = "*"
 bs58 = { version = "0.4.0", features = ["check"] }
 chrono = { version = "0.4", features = ["serde"] }
 clap = "2.33.3"
+r2d2_postgres = "0.18.1"
+r2d2 = "0.8.9"
 curl = "0.4.36"
 env_logger = "0.8.3"
 hex = "0.3.0"
@@ -28,7 +30,6 @@ indicatif = "0.16.0"
 itertools = "*"
 lazy_static = "1.4.0"
 log = "0.4.0"
-native-tls = "0.2.7"
 num = { version = "0.4", features = ["serde"] }
 postgres = { version = "0.19.2", features = ["with-chrono-0_4"] }
 postgres-types = { version = "0.2.2", features = ["derive"] }

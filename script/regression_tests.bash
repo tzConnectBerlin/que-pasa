@@ -103,15 +103,15 @@ EOF
     query "$sql" || exit 1
 }
 
-cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1500002-1500005 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1700002-1700005 || exit 1
+cargo +nightly run -- --index-all-contracts -l 1500000-1500001 || exit 1
+cargo +nightly run --features regression_force_update_derived -- --index-all-contracts -l 1500002-1500005 || exit 1
+cargo +nightly run --features regression_force_update_derived -- --index-all-contracts -l 1700002-1700005 || exit 1
 
-# the latter has a delete bigmap, the first 3 have rows indexed of the deleted bigmap
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768431 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768503 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768506 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768606 || exit 1
+# the +nightly latter has a delete bigmap, the first 3 have rows indexed of the deleted bigmap
+cargo +nightly run --features regression_force_update_derived -- --index-all-contracts -l 1768431 || exit 1
+cargo +nightly run --features regression_force_update_derived -- --index-all-contracts -l 1768503 || exit 1
+cargo +nightly run --features regression_force_update_derived -- --index-all-contracts -l 1768506 || exit 1
+cargo +nightly run --features regression_force_update_derived -- --index-all-contracts -l 1768606 || exit 1
 
 if [[ "$MODE" == "inspect" ]]; then
     psql

@@ -2,13 +2,11 @@ use anyhow::{anyhow, Result};
 use askama::Template;
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::time::Duration;
 
-use native_tls::{Certificate, TlsConnector};
 use postgres::fallible_iterator::FallibleIterator;
 use postgres::types::{BorrowToSql, FromSql, ToSql};
-use postgres::{Client, NoTls, Transaction};
-use postgres_native_tls::MakeTlsConnector;
-use std::fs;
+use postgres::Transaction;
 
 use chrono::{DateTime, Utc};
 
@@ -20,6 +18,8 @@ use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
 use crate::storage_structure::relational::RelationalAST;
+
+use r2d2_postgres::{postgres::NoTls, PostgresConnectionManager};
 
 #[derive(PartialEq, Eq, Debug, ToSql, FromSql)]
 #[postgres(name = "indexer_mode")]
@@ -61,71 +61,51 @@ struct UpdateChangesDerivedTmpl<'a> {
     tx_context_ids: &'a [i64],
 }
 
+type DBPool = r2d2::Pool<PostgresConnectionManager<NoTls>>;
+type DBPooledConn = r2d2::PooledConnection<PostgresConnectionManager<NoTls>>;
+
+#[derive(Clone)]
 pub struct DBClient {
-    dbconn: postgres::Client,
+    dbpool: DBPool,
     main_schema: String,
-
-    url: String,
-    ssl: bool,
-    ca_cert: Option<String>,
-}
-
-impl Clone for DBClient {
-    fn clone(&self) -> Self {
-        self.reconnect().unwrap()
-    }
 }
 
 impl DBClient {
     const INSERT_BATCH_SIZE: usize = 100;
 
     pub(crate) fn connect(
-        main_schema: &str,
         url: &str,
-        ssl: bool,
-        ca_cert: Option<String>,
+        main_schema: &str,
+        conn_timeout: Duration,
+        max_conn: u32,
     ) -> Result<Self> {
-        let mut dbconn = if ssl {
-            let mut builder = TlsConnector::builder();
-            if let Some(ca_cert) = &ca_cert {
-                builder.add_root_certificate(Certificate::from_pem(
-                    &fs::read(ca_cert)?,
-                )?);
-            }
-            let connector = builder.build()?;
-            let connector = MakeTlsConnector::new(connector);
-
-            Client::connect(url, connector)?
-        } else {
-            Client::connect(url, NoTls)?
-        };
-
-        dbconn.simple_query(
-            format!(r#"SET SCHEMA '{}'"#, main_schema).as_str(),
-        )?;
+        let manager = PostgresConnectionManager::new(url.parse()?, NoTls);
+        let dbpool = r2d2::Builder::new()
+            .max_size(max_conn)
+            .connection_timeout(conn_timeout)
+            .build(manager)?;
 
         Ok(DBClient {
-            dbconn,
+            dbpool,
             main_schema: main_schema.to_string(),
-
-            url: url.to_string(),
-            ssl,
-            ca_cert,
         })
     }
 
-    pub(crate) fn reconnect(&self) -> Result<Self> {
-        Self::connect(
-            &self.main_schema,
-            &self.url,
-            self.ssl,
-            self.ca_cert.clone(),
-        )
+    pub(crate) fn dbconn(&self) -> Result<DBPooledConn> {
+        let mut conn = self
+            .dbpool
+            .get()
+            .map_err(|err| anyhow!("err: {}", err))?;
+        conn.simple_query(
+            format!(r#"SET SCHEMA '{}'"#, self.main_schema).as_str(),
+        )?;
+        Ok(conn)
     }
 
     pub(crate) fn get_quepasa_version(&mut self) -> Result<String> {
-        let version: String = self
-            .dbconn
+        let mut conn = self.dbconn()?;
+
+        let version: String = conn
             .query_one(
                 "
 SELECT
@@ -139,18 +119,22 @@ FROM indexer_state
     }
 
     pub(crate) fn create_common_tables(&mut self) -> Result<()> {
-        self.dbconn.simple_query(
+        let mut conn = self.dbconn()?;
+
+        conn.simple_query(
             format!(r#"CREATE SCHEMA IF NOT EXISTS "{}""#, self.main_schema)
                 .as_str(),
         )?;
-        self.dbconn.simple_query(
+        conn.simple_query(
             PostgresqlGenerator::create_common_tables().as_str(),
         )?;
         Ok(())
     }
 
     pub(crate) fn common_tables_exist(&mut self) -> Result<bool> {
-        let res = self.dbconn.query_opt(
+        let mut conn = self.dbconn()?;
+
+        let res = conn.query_opt(
             "
 SELECT 1
 FROM information_schema.tables
@@ -173,7 +157,8 @@ WHERE table_schema = $1
         let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
         sorted_tables.sort_by_key(|a| a.0);
 
-        let mut tx = self.transaction()?;
+        let mut conn = self.dbconn()?;
+        let mut tx = conn.transaction()?;
         let noview_prefixes = builder.get_viewless_table_prefixes();
         for (i, (_name, table)) in sorted_tables.iter().enumerate() {
             if !noview_prefixes
@@ -295,7 +280,8 @@ WHERE table_schema = $1
         &mut self,
         contracts: &mut Vec<(ContractID, RelationalAST)>,
     ) -> Result<bool> {
-        let mut tx = self.transaction()?;
+        let mut conn = self.dbconn()?;
+        let mut tx = conn.transaction()?;
 
         contracts.sort_by_key(|(cid, _)| cid.name.clone());
 
@@ -648,7 +634,9 @@ VALUES ( {} )",
             .collect::<Vec<String>>()
             .join(", ");
 
-        let mut it = self.dbconn.query_raw(
+        let mut conn = self.dbconn()?;
+
+        let mut it = conn.query_raw(
             format!(
                 "
 SELECT DISTINCT
@@ -694,7 +682,9 @@ WHERE dest_schema IN ({})
             .collect::<Vec<String>>()
             .join(", ");
 
-        let mut it = self.dbconn.query_raw(
+        let mut conn = self.dbconn()?;
+
+        let mut it = conn.query_raw(
             format!(
                 "
 SELECT DISTINCT
@@ -780,10 +770,6 @@ VALUES ( {v_refs} )"#,
         Ok(())
     }
 
-    pub(crate) fn transaction(&mut self) -> Result<Transaction> {
-        Ok(self.dbconn.transaction()?)
-    }
-
     pub(crate) fn delete_everything<F>(
         &mut self,
         node_cli: &NodeClient,
@@ -792,8 +778,11 @@ VALUES ( {v_refs} )"#,
     where
         F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
     {
+        let mut conn = self.dbconn()?;
+
         let main_schema = self.main_schema.clone();
-        let mut tx = self.transaction()?;
+        let mut tx = conn.transaction()?;
+
         let contracts_table = tx.query_opt(
             "
 SELECT
@@ -836,7 +825,9 @@ DROP TABLE IF EXISTS levels;
         &mut self,
         contract_id: &ContractID,
     ) -> Result<u64> {
-        Ok(self.dbconn.execute(
+        let mut conn = self.dbconn()?;
+
+        Ok(conn.execute(
             "
 INSERT INTO contract_levels(contract, level)
 SELECT
@@ -868,7 +859,9 @@ WHERE g.level NOT IN (
         &mut self,
         level: Option<i32>,
     ) -> Result<Option<LevelMeta>> {
-        let result = self.dbconn.query_opt(
+        let mut conn = self.dbconn()?;
+
+        let result = conn.query_opt(
             "
 SELECT
     level, hash, prev_hash, baked_at
@@ -900,6 +893,8 @@ WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level
         contracts: &[ContractID],
         end: u32,
     ) -> Result<Vec<u32>> {
+        let mut conn = self.dbconn()?;
+
         let mut rows: Vec<i32> = vec![];
         for contract_id in contracts {
             info!(
@@ -908,7 +903,7 @@ WHERE ($1::INTEGER IS NULL AND level = (SELECT max(level) FROM levels)) OR level
             );
             let origination = self.get_origination(contract_id)?;
             let start = origination.unwrap_or(1);
-            for row in self.dbconn.query(
+            for row in conn.query(
                 format!(
                     "
 SELECT
@@ -936,15 +931,18 @@ ORDER BY 1",
     }
 
     pub(crate) fn get_indexer_mode(&mut self) -> Result<IndexerMode> {
-        let mode: IndexerMode = self
-            .dbconn
+        let mut conn = self.dbconn()?;
+
+        let mode: IndexerMode = conn
             .query_one("select mode from indexer_state", &[])?
             .get(0);
         Ok(mode)
     }
 
     pub(crate) fn set_indexer_mode(&mut self, mode: IndexerMode) -> Result<()> {
-        let updated = self.dbconn.execute(
+        let mut conn = self.dbconn()?;
+
+        let updated = conn.execute(
             "
 update indexer_state
 set mode = $1",
@@ -960,8 +958,9 @@ set mode = $1",
     }
 
     pub(crate) fn get_max_id(&mut self) -> Result<i64> {
-        let max_id: i64 = self
-            .dbconn
+        let mut conn = self.dbconn()?;
+
+        let max_id: i64 = conn
             .query_one("select max_id from indexer_state", &[])?
             .get(0);
         Ok(max_id)
@@ -987,8 +986,9 @@ set max_id = $1",
         &mut self,
         contracts: &[ContractID],
     ) -> Result<Vec<u32>> {
-        let fully_processed: Vec<u32> = self
-            .dbconn
+        let mut conn = self.dbconn()?;
+
+        let fully_processed: Vec<u32> = conn
             .query(
                 "
 SELECT
@@ -1014,8 +1014,9 @@ ORDER by 1",
         &mut self,
         contracts: &[ContractID],
     ) -> Result<Vec<u32>> {
-        let partial_processed: Vec<u32> = self
-            .dbconn
+        let mut conn = self.dbconn()?;
+
+        let partial_processed: Vec<u32> = conn
             .query(
                 "
 with all_levels as (
@@ -1244,7 +1245,9 @@ ON CONFLICT DO NOTHING",
         &mut self,
         contract_id: &ContractID,
     ) -> Result<Option<u32>> {
-        let result = self.dbconn.query(
+        let mut conn = self.dbconn()?;
+
+        let result = conn.query(
             "
 SELECT
     level
@@ -1278,7 +1281,9 @@ impl BigmapKeysGetter for DBClient {
         level: u32,
         bigmap_id: i32,
     ) -> Result<Vec<(String, String)>> {
-        let res = self.dbconn.query(
+        let mut conn = self.dbconn()?;
+
+        let res = conn.query(
             "
 SELECT
     keyhash,

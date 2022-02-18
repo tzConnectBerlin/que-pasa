@@ -10,8 +10,7 @@ pub struct Config {
     pub contracts: Vec<ContractID>,
     pub all_contracts: bool,
     pub database_url: String,
-    pub ssl: bool,
-    pub ca_cert: Option<String>,
+
     pub reinit: bool,
     pub levels: Vec<u32>,
     pub node_url: String,
@@ -87,20 +86,6 @@ pub fn init_config() -> Result<Config> {
                 .default_value("host=localhost port=5432 user=test password=test dbname=test")
                 .value_name("DATABASE_URL")
                 .help("The URL of the database")
-                .takes_value(true))
-        .arg(
-            Arg::with_name("ssl")
-                .short("S")
-                .long("ssl")
-                .help("Use SSL for postgres connection")
-                .takes_value(false)
-        )
-        .arg(
-            Arg::with_name("ca-cert")
-                .short("C")
-                .env("CA_CERT")
-                .long("ca-cert")
-                .help("CA Cert for SSL postgres connection")
                 .takes_value(true))
         .arg(
             Arg::with_name("node_url")
@@ -185,7 +170,10 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(false));
     let matches = matches.get_matches();
 
-    config.main_schema = matches.value_of("main_schema").unwrap().to_string();
+    config.main_schema = matches
+        .value_of("main_schema")
+        .unwrap()
+        .to_string();
 
     let maybe_fpath = matches.value_of("contract_settings");
     if let Some(fpath) = maybe_fpath {
@@ -210,16 +198,6 @@ pub fn init_config() -> Result<Config> {
         .value_of("database_url")
         .unwrap()
         .to_string();
-
-    if matches.is_present("ssl") {
-        config.ssl = true;
-        config.ca_cert = matches
-            .value_of("ssl-cert")
-            .map(String::from);
-    } else {
-        config.ssl = false;
-        config.ca_cert = None;
-    }
 
     config.reinit = matches.is_present("reinit");
     config.all_contracts = matches.is_present("index_all_contracts");
