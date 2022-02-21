@@ -28,4 +28,4 @@ debug   = 3
 options = NO_TICKET
 " > $conf_file
 
-stunnel $conf_file "$@"
+stunnel $conf_file
