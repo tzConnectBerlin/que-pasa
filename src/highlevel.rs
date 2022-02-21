@@ -97,7 +97,8 @@ impl Executor {
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
+        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)
+            .with_context(|| anyhow!("failed to add contract '{}', did you specify a valid contract address for the correct tezos network? (specified contract address: '{}'", contract_id.name, contract_id.address))?;
         debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
