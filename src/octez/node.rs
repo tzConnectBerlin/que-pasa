@@ -113,7 +113,7 @@ impl NodeClient {
         O: std::fmt::Debug,
     {
         for node_url in &self.node_urls {
-            let res = from_node_func(&self, endpoint, node_url);
+            let res = from_node_func(self, endpoint, node_url);
             if res.is_ok() {
                 return res;
             }

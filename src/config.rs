@@ -205,7 +205,7 @@ pub fn init_config() -> Result<Config> {
 
     config.levels = matches
         .value_of("levels")
-        .map_or_else(Vec::new, |x| range(x));
+        .map_or_else(Vec::new, range);
 
     config.node_urls = matches
         .value_of("node_url")

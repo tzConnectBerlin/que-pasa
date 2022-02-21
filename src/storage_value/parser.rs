@@ -249,11 +249,7 @@ pub(crate) fn parse_lexed(json: &serde_json::Value) -> Result<Value> {
             "unit" => Ok(Value::Unit),
             "prim" => Ok(prim(&s)),
             _ => {
-                panic!(
-                    "Couldn't match {} in {}",
-                    key.to_string(),
-                    json.to_string()
-                );
+                panic!("Couldn't match {} in {}", key, json);
             }
         };
     }

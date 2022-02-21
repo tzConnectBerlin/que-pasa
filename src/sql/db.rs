@@ -287,7 +287,7 @@ WHERE table_schema = $1
 
         let num_columns = 2;
         let v_refs = (1..(num_columns * contracts.len()) + 1)
-            .map(|i| format!("${}", i.to_string()))
+            .map(|i| format!("${}", i))
             .collect::<Vec<String>>()
             .chunks(num_columns)
             .map(|x| x.join(", "))
@@ -415,7 +415,7 @@ DROP TABLE "{contract_schema}"."{table}";
         for chunk in bigmap_keyhashes.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 4;
             let v_refs = (1..(num_columns * chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
@@ -462,7 +462,7 @@ Values ({})",
         for chunk in tx_contexts.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 7;
             let v_refs = (1..(num_columns * chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
@@ -533,7 +533,7 @@ VALUES ( {} )",
         for txs_chunk in txs.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 11;
             let v_refs = (1..(num_columns * txs_chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
@@ -630,7 +630,7 @@ VALUES ( {} )",
             return Ok(vec![]);
         }
         let v_refs = (0..config.len())
-            .map(|i| format!("${}", (i + 1).to_string()))
+            .map(|i| format!("${}", (i + 1)))
             .collect::<Vec<String>>()
             .join(", ");
 
@@ -678,7 +678,7 @@ WHERE dest_schema IN ({})
         }
 
         let v_refs = (0..config.len())
-            .map(|i| format!("${}", (i + 1).to_string()))
+            .map(|i| format!("${}", (i + 1)))
             .collect::<Vec<String>>()
             .join(", ");
 
@@ -726,7 +726,7 @@ WHERE dest_schema IN ({})
             .join(", ");
 
         let v_refs = (1..(columns.len() * inserts.len()) + 1)
-            .map(|i| format!("${}", i.to_string()))
+            .map(|i| format!("${}", i))
             .collect::<Vec<String>>()
             .chunks(columns.len())
             .map(|x| x.join(", "))
@@ -1067,7 +1067,7 @@ order by 1",
         for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 4;
             let v_refs = (1..(num_columns * lvls_chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
@@ -1122,7 +1122,7 @@ VALUES ( {} )",
     ) -> Result<()> {
         for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
             let v_refs = (1..lvls_chunk.len() + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .join(", ");
 
@@ -1175,7 +1175,7 @@ WHERE level IN ( {} )
         for clvls_chunk in clvls.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 3;
             let v_refs = (1..(num_columns * clvls_chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
@@ -1212,7 +1212,7 @@ VALUES ( {} )",
         for deps_chunk in deps.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 3;
             let v_refs = (1..(num_columns * deps_chunk.len()) + 1)
-                .map(|i| format!("${}", i.to_string()))
+                .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
                 .chunks(num_columns)
                 .map(|x| x.join(", "))
