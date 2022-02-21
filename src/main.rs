@@ -49,7 +49,7 @@ fn main() {
     let config = CONFIG.as_ref().unwrap();
 
     let node_cli =
-        &node::NodeClient::new(config.node_url.clone(), "main".to_string());
+        &node::NodeClient::new(config.node_urls.clone(), "main".to_string());
 
     let mut dbcli = DBClient::connect(
         &config.database_url,

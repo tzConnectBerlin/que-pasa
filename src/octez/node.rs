@@ -9,15 +9,15 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct NodeClient {
-    node_url: String,
+    node_urls: Vec<String>,
     chain: String,
     timeout: Duration,
 }
 
 impl NodeClient {
-    pub fn new(node_url: String, chain: String) -> Self {
+    pub fn new(node_urls: Vec<String>, chain: String) -> Self {
         Self {
-            node_url,
+            node_urls,
             chain,
             timeout: Duration::from_secs(20),
         }
@@ -35,7 +35,10 @@ impl NodeClient {
 
     fn level_json_internal(&self, level: &str) -> Result<(LevelMeta, Block)> {
         let (body, _) = self
-            .load_retry_on_nonjson(&format!("blocks/{}", level))
+            .load(
+                &format!("blocks/{}", level),
+                Self::load_from_node_retry_on_nonjson,
+            )
             .with_context(|| {
                 format!("failed to get level_json for level={}", level)
             })?;
@@ -66,10 +69,13 @@ impl NodeClient {
         };
 
         let (_, json) = self
-            .load_retry_on_nonjson(&format!(
-                "blocks/{}/context/contracts/{}/script",
-                level, contract_id
-            ))
+            .load(
+                &format!(
+                    "blocks/{}/context/contracts/{}/script",
+                    level, contract_id
+                ),
+                Self::load_from_node_retry_on_nonjson,
+            )
             .with_context(|| {
                 format!(
                     "failed to get script data for contract='{}', level={}",
@@ -101,9 +107,25 @@ impl NodeClient {
         Self::parse_rfc3339(block.header.timestamp.as_str())
     }
 
-    fn load_retry_on_nonjson(
+    fn load<F, O>(&self, endpoint: &str, from_node_func: F) -> Result<O>
+    where
+        F: Fn(&NodeClient, &str, &str) -> Result<O>,
+        O: std::fmt::Debug,
+    {
+        for node_url in &self.node_urls {
+            let res = from_node_func(&self, endpoint, node_url);
+            if res.is_ok() {
+                return res;
+            }
+            warn!("failed to call tezos node RPC endpoint on node_url {} (endpoint={}), err: {:?}", node_url, endpoint, res.unwrap_err());
+        }
+        Err(anyhow!("failed to call tezos node RPC endpoint on all node_urls (endpoint={}", endpoint))
+    }
+
+    fn load_from_node_retry_on_nonjson(
         &self,
         endpoint: &str,
+        node_url: &str,
     ) -> Result<(String, serde_json::Value)> {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
             if e.is::<curl::Error>() {
@@ -140,7 +162,7 @@ impl NodeClient {
             Error::Transient(e)
         }
         let op = || -> Result<(String, serde_json::Value)> {
-            let body = self.load(endpoint)?;
+            let body = self.load_from_node(endpoint, node_url)?;
 
             let mut deserializer = serde_json::Deserializer::from_str(&body);
             deserializer.disable_recursion_limit();
@@ -156,9 +178,8 @@ impl NodeClient {
         .map_err(|e| anyhow!(e))
     }
 
-    fn load(&self, endpoint: &str) -> Result<String> {
-        let uri =
-            format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
+    fn load_from_node(&self, endpoint: &str, node_url: &str) -> Result<String> {
+        let uri = format!("{}/chains/{}/{}", node_url, self.chain, endpoint);
         debug!("loading: {}", uri);
 
         let mut resp_data = Vec::new();
@@ -213,10 +234,13 @@ impl StorageGetter for NodeClient {
         contract_id: &str,
         level: u32,
     ) -> Result<serde_json::Value> {
-        self.load_retry_on_nonjson(&format!(
-            "blocks/{}/context/contracts/{}/storage",
-            level, contract_id
-        ))
+        self.load(
+            &format!(
+                "blocks/{}/context/contracts/{}/storage",
+                level, contract_id
+            ),
+            Self::load_from_node_retry_on_nonjson,
+        )
         .map(|(_, json)| json)
         .with_context(|| {
             format!(
@@ -235,7 +259,7 @@ impl StorageGetter for NodeClient {
         let body = self.load(&format!(
             "blocks/{}/context/big_maps/{}/{}",
             level, bigmap_id, keyhash,
-        ))
+        ), Self::load_from_node)
         .with_context(|| {
             format!(
                 "failed to get value for bigmap (level={}, bigmap_id={}, keyhash={})",

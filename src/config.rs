@@ -13,7 +13,7 @@ pub struct Config {
 
     pub reinit: bool,
     pub levels: Vec<u32>,
-    pub node_url: String,
+    pub node_urls: Vec<String>, // allowing multiple urls, HEAD is the primary node, any subsequent is a fallback node
 
     pub bcd_url: Option<String>,
     pub bcd_network: String,
@@ -94,7 +94,7 @@ pub fn init_config() -> Result<Config> {
                 .env("NODE_URL")
                 .default_value("http://localhost:8732")
                 .value_name("NODE_URL")
-                .help("The URL of the Tezos node")
+                .help("The URL of the Tezos node, optionally accepts more than 1 (comma separated) for fallback nodes in case of non-transcient communication issues with the primary node")
                 .takes_value(true))
         .arg(
             Arg::with_name("bcd_enable")
@@ -207,10 +207,12 @@ pub fn init_config() -> Result<Config> {
         .value_of("levels")
         .map_or_else(Vec::new, |x| range(x));
 
-    config.node_url = matches
+    config.node_urls = matches
         .value_of("node_url")
         .unwrap()
-        .to_string();
+        .split(',')
+        .map(|s| s.to_string())
+        .collect();
 
     if matches.is_present("bcd_enable") {
         config.bcd_url = matches
