@@ -15,7 +15,7 @@ serde_yaml = "0.8.20"
 backoff = "0.3.0"
 reqwest = { version = "0.11.4", features = ["blocking"] }
 flume = "0.10.8"
-anyhow = "1.0"
+anyhow = { version = "1.0", features = ["backtrace"] }
 atty = "0.2.14"
 backtrace = "*"
 bs58 = { version = "0.4.0", features = ["check"] }

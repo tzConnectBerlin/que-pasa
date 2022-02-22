@@ -103,6 +103,8 @@ EOF
     query "$sql" || exit 1
 }
 
+export RUST_BACKTRACE=1
+
 cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1
 cargo run --features regression_force_update_derived -- --index-all-contracts -l 1500002-1500005 || exit 1
 cargo run --features regression_force_update_derived -- --index-all-contracts -l 1700002-1700005 || exit 1

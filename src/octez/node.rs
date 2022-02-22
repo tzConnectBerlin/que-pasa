@@ -6,12 +6,27 @@ use curl::easy::Easy;
 use serde::Deserialize;
 use std::str::FromStr;
 use std::time::Duration;
+use thiserror::Error;
 
 #[derive(Clone)]
 pub struct NodeClient {
     node_urls: Vec<String>,
     chain: String,
     timeout: Duration,
+}
+
+#[derive(Error, Debug)]
+pub enum FormatError {
+    #[error("Invalid header (expected {expected:?}, got {found:?})")]
+    InvalidHeader { expected: String, found: String },
+    #[error("Missing attribute: {0}")]
+    MissingAttribute(String),
+}
+
+#[derive(Error, Debug)]
+#[error("bad http status code: {}", .status_code)]
+struct HttpError {
+    status_code: u32,
 }
 
 impl NodeClient {
@@ -159,8 +174,29 @@ impl NodeClient {
                     curl_err_val.code(),
                 ));
             }
-            warn!("transient node communication error, retrying.. err={:?}", e);
-            Error::Transient(e)
+            if e.is::<HttpError>() {
+                let http_err = e.downcast::<HttpError>();
+                if http_err.as_ref().is_err() {
+                    let downcast_err = http_err.err().unwrap();
+                    error!("unexpected err on possibly transcient err downcast: {}", downcast_err);
+                    return Error::Permanent(downcast_err);
+                }
+
+                let err = http_err.unwrap();
+                if err.status_code == 429 {
+                    warn!("transient node communication error, retrying.. err={:?}", err);
+                    return Error::Transient(anyhow!("{:?}", err));
+                }
+                return Error::Permanent(anyhow!(
+                    "bad http status code {}, not retrying..",
+                    err.status_code
+                ));
+            }
+            warn!(
+                "permanent node communication error, not retrying.. err={:?}",
+                e
+            );
+            Error::Permanent(e)
         }
         retry(ExponentialBackoff::default(), || {
             self.load_from_node(endpoint, node_url)
@@ -175,6 +211,7 @@ impl NodeClient {
 
         let mut resp_data = Vec::new();
         let mut handle = Easy::new();
+
         handle
             .timeout(self.timeout)
             .with_context(|| {
@@ -196,6 +233,14 @@ impl NodeClient {
                 format!("failed load response for uri='{}'", uri)
             })?;
         }
+
+        let status_code = handle.response_code()?;
+        if status_code != 200 {
+            return Err(HttpError {
+                status_code: status_code,
+            })?;
+        }
+
         let body = std::str::from_utf8(&resp_data).with_context(|| {
             format!("failed to parse response as utf8 for uri='{}'", uri)
         })?;
