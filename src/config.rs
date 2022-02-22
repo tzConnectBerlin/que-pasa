@@ -10,11 +10,10 @@ pub struct Config {
     pub contracts: Vec<ContractID>,
     pub all_contracts: bool,
     pub database_url: String,
-    pub ssl: bool,
-    pub ca_cert: Option<String>,
+
     pub reinit: bool,
     pub levels: Vec<u32>,
-    pub node_url: String,
+    pub node_urls: Vec<String>, // allowing multiple urls, HEAD is the primary node, any subsequent is a fallback node
 
     pub bcd_url: Option<String>,
     pub bcd_network: String,
@@ -89,27 +88,13 @@ pub fn init_config() -> Result<Config> {
                 .help("The URL of the database")
                 .takes_value(true))
         .arg(
-            Arg::with_name("ssl")
-                .short("S")
-                .long("ssl")
-                .help("Use SSL for postgres connection")
-                .takes_value(false)
-        )
-        .arg(
-            Arg::with_name("ca-cert")
-                .short("C")
-                .env("CA_CERT")
-                .long("ca-cert")
-                .help("CA Cert for SSL postgres connection")
-                .takes_value(true))
-        .arg(
             Arg::with_name("node_url")
                 .short("n")
                 .long("node-url")
                 .env("NODE_URL")
                 .default_value("http://localhost:8732")
                 .value_name("NODE_URL")
-                .help("The URL of the Tezos node")
+                .help("The URL of the Tezos node, optionally accepts more than 1 (comma separated) for fallback nodes in case of non-transcient communication issues with the primary node")
                 .takes_value(true))
         .arg(
             Arg::with_name("bcd_enable")
@@ -185,7 +170,10 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(false));
     let matches = matches.get_matches();
 
-    config.main_schema = matches.value_of("main_schema").unwrap().to_string();
+    config.main_schema = matches
+        .value_of("main_schema")
+        .unwrap()
+        .to_string();
 
     let maybe_fpath = matches.value_of("contract_settings");
     if let Some(fpath) = maybe_fpath {
@@ -211,28 +199,20 @@ pub fn init_config() -> Result<Config> {
         .unwrap()
         .to_string();
 
-    if matches.is_present("ssl") {
-        config.ssl = true;
-        config.ca_cert = matches
-            .value_of("ssl-cert")
-            .map(String::from);
-    } else {
-        config.ssl = false;
-        config.ca_cert = None;
-    }
-
     config.reinit = matches.is_present("reinit");
     config.all_contracts = matches.is_present("index_all_contracts");
     config.always_yes = matches.is_present("always_yes");
 
     config.levels = matches
         .value_of("levels")
-        .map_or_else(Vec::new, |x| range(x));
+        .map_or_else(Vec::new, range);
 
-    config.node_url = matches
+    config.node_urls = matches
         .value_of("node_url")
         .unwrap()
-        .to_string();
+        .split(',')
+        .map(|s| s.to_string())
+        .collect();
 
     if matches.is_present("bcd_enable") {
         config.bcd_url = matches

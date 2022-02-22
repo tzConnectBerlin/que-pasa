@@ -32,7 +32,7 @@ impl DBInserter {
         recv_ch: flume::Receiver<Box<ProcessedBlock>>,
     ) -> Result<thread::JoinHandle<()>> {
         let batch_size = self.batch_size;
-        let dbcli = self.dbcli.reconnect()?;
+        let dbcli = self.dbcli.clone();
         let stats_cl = stats.clone();
 
         let thread_handle = thread::spawn(move || {
@@ -101,7 +101,9 @@ fn insert_batch(
     update_derived_tables: bool,
     batch: &ProcessedBatch,
 ) -> Result<()> {
-    let mut db_tx = dbcli.transaction()?;
+    let mut conn = dbcli.dbconn()?;
+
+    let mut db_tx = conn.transaction()?;
 
     DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
     DBClient::save_levels(

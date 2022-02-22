@@ -6,18 +6,33 @@ use curl::easy::Easy;
 use serde::Deserialize;
 use std::str::FromStr;
 use std::time::Duration;
+use thiserror::Error;
 
 #[derive(Clone)]
 pub struct NodeClient {
-    node_url: String,
+    node_urls: Vec<String>,
     chain: String,
     timeout: Duration,
 }
 
+#[derive(Error, Debug)]
+pub enum FormatError {
+    #[error("Invalid header (expected {expected:?}, got {found:?})")]
+    InvalidHeader { expected: String, found: String },
+    #[error("Missing attribute: {0}")]
+    MissingAttribute(String),
+}
+
+#[derive(Error, Debug)]
+#[error("bad http status code: {}", .status_code)]
+struct HttpError {
+    status_code: u32,
+}
+
 impl NodeClient {
-    pub fn new(node_url: String, chain: String) -> Self {
+    pub fn new(node_urls: Vec<String>, chain: String) -> Self {
         Self {
-            node_url,
+            node_urls,
             chain,
             timeout: Duration::from_secs(20),
         }
@@ -34,8 +49,11 @@ impl NodeClient {
     }
 
     fn level_json_internal(&self, level: &str) -> Result<(LevelMeta, Block)> {
-        let (body, _) = self
-            .load_retry_on_nonjson(&format!("blocks/{}", level))
+        let body = self
+            .load(
+                &format!("blocks/{}", level),
+                Self::load_from_node_retry_on_transient_err,
+            )
             .with_context(|| {
                 format!("failed to get level_json for level={}", level)
             })?;
@@ -65,17 +83,21 @@ impl NodeClient {
             None => "head".to_string(),
         };
 
-        let (_, json) = self
-            .load_retry_on_nonjson(&format!(
-                "blocks/{}/context/contracts/{}/script",
-                level, contract_id
-            ))
+        let body = self
+            .load(
+                &format!(
+                    "blocks/{}/context/contracts/{}/script",
+                    level, contract_id
+                ),
+                Self::load_from_node_retry_on_transient_err,
+            )
             .with_context(|| {
                 format!(
                     "failed to get script data for contract='{}', level={}",
                     contract_id, level
                 )
             })?;
+        let json = Self::deserialize(&body)?;
 
         for entry in json["code"].as_array().ok_or_else(|| {
             anyhow!("malformed script response (missing 'code' field)")
@@ -101,10 +123,26 @@ impl NodeClient {
         Self::parse_rfc3339(block.header.timestamp.as_str())
     }
 
-    fn load_retry_on_nonjson(
+    fn load<F, O>(&self, endpoint: &str, from_node_func: F) -> Result<O>
+    where
+        F: Fn(&NodeClient, &str, &str) -> Result<O>,
+        O: std::fmt::Debug,
+    {
+        for node_url in &self.node_urls {
+            let res = from_node_func(self, endpoint, node_url);
+            if res.is_ok() {
+                return res;
+            }
+            warn!("failed to call tezos node RPC endpoint on node_url {} (endpoint={}), err: {:?}", node_url, endpoint, res.unwrap_err());
+        }
+        Err(anyhow!("failed to call tezos node RPC endpoint on all node_urls (endpoint={}", endpoint))
+    }
+
+    fn load_from_node_retry_on_transient_err(
         &self,
         endpoint: &str,
-    ) -> Result<(String, serde_json::Value)> {
+        node_url: &str,
+    ) -> Result<String> {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
             if e.is::<curl::Error>() {
                 let curl_err = e.downcast::<curl::Error>();
@@ -117,7 +155,8 @@ impl NodeClient {
                 match curl_err.as_ref().ok().unwrap().code() {
                     // 7: CONNECTION REFUSED
                     // 28: TIMEOUT
-                    7 | 28 => {
+                    // 56: RECEIVE ERROR
+                    7 | 28 | 56 => {
                         warn!("transient node communication error, retrying.. err={:?}", curl_err);
                         return Error::Transient(anyhow!("{:?}", curl_err));
                     }
@@ -135,33 +174,44 @@ impl NodeClient {
                     curl_err_val.code(),
                 ));
             }
-            warn!("transient node communication error, retrying.. err={:?}", e);
-            Error::Transient(e)
+            if e.is::<HttpError>() {
+                let http_err = e.downcast::<HttpError>();
+                if http_err.as_ref().is_err() {
+                    let downcast_err = http_err.err().unwrap();
+                    error!("unexpected err on possibly transcient err downcast: {}", downcast_err);
+                    return Error::Permanent(downcast_err);
+                }
+
+                let err = http_err.unwrap();
+                if err.status_code == 429 {
+                    warn!("transient node communication error, retrying.. err={:?}", err);
+                    return Error::Transient(anyhow!("{:?}", err));
+                }
+                return Error::Permanent(anyhow!(
+                    "bad http status code {}, not retrying..",
+                    err.status_code
+                ));
+            }
+            warn!(
+                "permanent node communication error, not retrying.. err={:?}",
+                e
+            );
+            Error::Permanent(e)
         }
-        let op = || -> Result<(String, serde_json::Value)> {
-            let body = self.load(endpoint)?;
-
-            let mut deserializer = serde_json::Deserializer::from_str(&body);
-            deserializer.disable_recursion_limit();
-            let deserializer =
-                serde_stacker::Deserializer::new(&mut deserializer);
-            let json = serde_json::Value::deserialize(deserializer)?;
-
-            Ok((body, json))
-        };
         retry(ExponentialBackoff::default(), || {
-            op().map_err(transient_err)
+            self.load_from_node(endpoint, node_url)
+                .map_err(transient_err)
         })
         .map_err(|e| anyhow!(e))
     }
 
-    fn load(&self, endpoint: &str) -> Result<String> {
-        let uri =
-            format!("{}/chains/{}/{}", self.node_url, self.chain, endpoint);
+    fn load_from_node(&self, endpoint: &str, node_url: &str) -> Result<String> {
+        let uri = format!("{}/chains/{}/{}", node_url, self.chain, endpoint);
         debug!("loading: {}", uri);
 
         let mut resp_data = Vec::new();
         let mut handle = Easy::new();
+
         handle
             .timeout(self.timeout)
             .with_context(|| {
@@ -183,11 +233,27 @@ impl NodeClient {
                 format!("failed load response for uri='{}'", uri)
             })?;
         }
+
+        let status_code = handle.response_code()?;
+        if status_code != 200 {
+            return Err(HttpError {
+                status_code: status_code,
+            })?;
+        }
+
         let body = std::str::from_utf8(&resp_data).with_context(|| {
             format!("failed to parse response as utf8 for uri='{}'", uri)
         })?;
 
         Ok(body.to_string())
+    }
+
+    fn deserialize(body: &str) -> Result<serde_json::Value> {
+        let mut deserializer = serde_json::Deserializer::from_str(&body);
+        deserializer.disable_recursion_limit();
+        let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
+        let json = serde_json::Value::deserialize(deserializer)?;
+        Ok(json)
     }
 }
 
@@ -212,15 +278,24 @@ impl StorageGetter for NodeClient {
         contract_id: &str,
         level: u32,
     ) -> Result<serde_json::Value> {
-        self.load_retry_on_nonjson(&format!(
-            "blocks/{}/context/contracts/{}/storage",
-            level, contract_id
-        ))
-        .map(|(_, json)| json)
-        .with_context(|| {
+        let body = self
+            .load(
+                &format!(
+                    "blocks/{}/context/contracts/{}/storage",
+                    level, contract_id
+                ),
+                Self::load_from_node_retry_on_transient_err,
+            )
+            .with_context(|| {
+                format!(
+                    "failed to get storage for contract='{}', level={}",
+                    contract_id, level
+                )
+            })?;
+        Self::deserialize(&body).with_context(|| {
             format!(
-                "failed to get storage for contract='{}', level={}",
-                contract_id, level
+                "failed to parse storage for contract='{}', level={}, storage body={}",
+                contract_id, level, body,
             )
         })
     }
@@ -234,7 +309,7 @@ impl StorageGetter for NodeClient {
         let body = self.load(&format!(
             "blocks/{}/context/big_maps/{}/{}",
             level, bigmap_id, keyhash,
-        ))
+        ), Self::load_from_node_retry_on_transient_err)
         .with_context(|| {
             format!(
                 "failed to get value for bigmap (level={}, bigmap_id={}, keyhash={})",

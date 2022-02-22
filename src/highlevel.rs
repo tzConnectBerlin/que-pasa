@@ -97,7 +97,8 @@ impl Executor {
             "getting the storage definition for contract={}..",
             contract_id.name
         );
-        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)?;
+        let rel_ast = get_rel_ast(&self.node_cli, &contract_id.address)
+            .with_context(|| anyhow!("failed to add contract '{}', did you specify a valid contract address for the correct tezos network? (specified contract address: '{}'", contract_id.name, contract_id.address))?;
         debug!("rel_ast: {:#?}", rel_ast);
         let contract_floor = self
             .dbcli
@@ -267,7 +268,8 @@ impl Executor {
                                     "{}, deleting levels >= {} from database",
                                     bad_lvl.err, bad_lvl.level
                                 );
-                                let mut tx = self.dbcli.transaction()?;
+                                let mut conn = self.dbcli.dbconn()?;
+                                let mut tx = conn.transaction()?;
                                 DBClient::delete_levels(
                                     &mut tx,
                                     &(bad_lvl.level as i32
@@ -294,7 +296,8 @@ impl Executor {
                             "Hashes don't match: {:?} (db) <> {:?} (chain)",
                             db_head.hash, chain_head.hash
                         );
-                        let mut tx = self.dbcli.transaction()?;
+                        let mut conn = self.dbcli.dbconn()?;
+                        let mut tx = conn.transaction()?;
                         DBClient::delete_levels(
                             &mut tx,
                             &[db_head.level as i32],
@@ -503,7 +506,7 @@ impl Executor {
         let stats_thread = self.stats.run();
 
         let batch_size = 10;
-        let inserter = DBInserter::new(self.dbcli.reconnect()?, batch_size);
+        let inserter = DBInserter::new(self.dbcli.clone(), batch_size);
         let (processed_send, processed_recv) =
             flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
 
@@ -691,7 +694,7 @@ impl Executor {
         Ok(StorageProcessor::new(
             1,
             self.node_cli.clone(),
-            self.dbcli.reconnect()?,
+            self.dbcli.clone(),
         ))
     }
 
@@ -729,7 +732,7 @@ impl Executor {
         let update_derived_tables = true | update_derived_tables;
 
         insert_processed(
-            &mut self.dbcli.reconnect()?,
+            &mut self.dbcli.clone(),
             update_derived_tables,
             processed_block,
         )?;
