@@ -131,6 +131,6 @@ Big map updates are stored independently of the rest of the storage, as one woul
 
 # Limitations
 
-- Currently, Que Pasa doesn't parse contract call arguments. We'll add this soon.
+- Currently, Que Pasa doesn't parse contract call arguments. We'll add this soon (work in progress: PR #44).
 - We're (currently) not indexing: tickets, sapling states, lambda values. If they are present in an indexed contract, they're ignored. In other words, values of these types will not arrive in the db.
 - Generated table names can become quite long. Some contracts may be impeded by name length limitations of the underlying database system. For example, PostgreSQL's default setup only allows table names of up to 63 characters.
