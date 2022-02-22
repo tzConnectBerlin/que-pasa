@@ -236,9 +236,7 @@ impl NodeClient {
 
         let status_code = handle.response_code()?;
         if status_code != 200 {
-            return Err(HttpError {
-                status_code: status_code,
-            })?;
+            return Err(HttpError { status_code }.into());
         }
 
         let body = std::str::from_utf8(&resp_data).with_context(|| {
@@ -249,7 +247,7 @@ impl NodeClient {
     }
 
     fn deserialize(body: &str) -> Result<serde_json::Value> {
-        let mut deserializer = serde_json::Deserializer::from_str(&body);
+        let mut deserializer = serde_json::Deserializer::from_str(body);
         deserializer.disable_recursion_limit();
         let deserializer = serde_stacker::Deserializer::new(&mut deserializer);
         let json = serde_json::Value::deserialize(deserializer)?;
