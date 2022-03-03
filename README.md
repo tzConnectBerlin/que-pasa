@@ -27,14 +27,14 @@ And, for example, the table "storage" here has the following columns:
 ```
 tezos=# \d "marketplace"."storage"
                                            Table "marketplace.storage"
-    Column        |          Type                       | Collation | Nullable  |                     Default                     
----------------------+----------------------------------+--------------+---------------+-------------------------------------------------
- tx_context_id | bigint                               |                  | not null   | 
- id                     | bigint                               |                  | not null   | nextval('marketplace.storage_id_seq'::regclass)
- counter          | numeric                           |                  |                  | 
- fee                   | numeric                          |                   |                 | 
- manager        | character varying(127) |                  |                  | 
- objkt               | character varying(127) |                   |                 | 
+    Column     |          Type          | Collation | Nullable |                     Default                     
+---------------+------------------------+-----------+----------+-------------------------------------------------
+ tx_context_id | bigint                 |           | not null | 
+ id            | bigint                 |           | not null | nextval('marketplace.storage_id_seq'::regclass)
+ counter       | numeric                |           |          | 
+ fee           | numeric                |           |          | 
+ manager       | character varying(127) |           |          | 
+ objkt         | character varying(127) |           |          | 
 ```
 
 Currently the indexer works with PostgreSQL (we have been running with PostgreSQL 12 and 13).
