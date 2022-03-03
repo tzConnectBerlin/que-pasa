@@ -28,12 +28,16 @@ impl BCDClient {
         }
     }
 
-    pub(crate) fn populate_levels_chan(
+    pub(crate) fn populate_levels_chan<F>(
         &self,
+        node_at_height: F,
         stats: &StatsLogger,
         height_send: flume::Sender<u32>,
         exclude_levels: &[u32],
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        F: Fn() -> Result<u32>,
+    {
         let mut exclude: HashMap<u32, ()> = HashMap::new();
         for l in exclude_levels {
             exclude.insert(*l, ());
@@ -49,6 +53,14 @@ impl BCDClient {
         };
 
         let latest_level = self.get_latest_level()?;
+        loop {
+            let node_height = node_at_height()?;
+            if node_height >= latest_level {
+                break;
+            }
+            warn!("waiting for the node to reach the same height ({}) as BCD (currently the node is at height {}). trying again in 1 second..", latest_level, node_height);
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
         send_level(latest_level)?;
 
         let report_name =

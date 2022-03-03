@@ -396,10 +396,9 @@ impl Executor {
         loop {
             let latest_level: LevelMeta = self.node_cli.head()?;
 
-            let mut missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
-                &self.get_config()?,
-                latest_level.level + 1,
-            )?;
+            let mut missing_levels: Vec<u32> = self
+                .dbcli
+                .get_missing_levels(&self.get_config()?, latest_level.level)?;
             if missing_levels.is_empty() {
                 break;
             }
@@ -436,6 +435,7 @@ impl Executor {
 
                     let excl = exclude_levels.clone();
                     let stats = self.stats.clone();
+                    let node_cli = self.node_cli.clone();
                     let processed_levels = self
                         .exec_parallel(
                             num_getters,
@@ -443,6 +443,7 @@ impl Executor {
                             move |height_chan| {
                                 bcd_cli
                                     .populate_levels_chan(
+                                        || Ok(node_cli.head()?.level),
                                         &stats,
                                         height_chan,
                                         &excl,
@@ -565,10 +566,9 @@ impl Executor {
 
         if ensure_sane_input_state {
             let latest_level: LevelMeta = self.node_cli.head()?;
-            let missing_levels: Vec<u32> = self.dbcli.get_missing_levels(
-                &self.get_config()?,
-                latest_level.level + 1,
-            )?;
+            let missing_levels: Vec<u32> = self
+                .dbcli
+                .get_missing_levels(&self.get_config()?, latest_level.level)?;
             let has_gaps = missing_levels
                 .windows(2)
                 .any(|w| w[0] != w[1] - 1);
