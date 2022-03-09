@@ -14,6 +14,7 @@ pub struct Config {
     pub reinit: bool,
     pub levels: Vec<u32>,
     pub node_urls: Vec<String>, // allowing multiple urls, HEAD is the primary node, any subsequent is a fallback node
+    pub node_comm_retries: i32,
 
     pub bcd_url: Option<String>,
     pub bcd_network: String,
@@ -95,6 +96,14 @@ pub fn init_config() -> Result<Config> {
                 .default_value("http://localhost:8732")
                 .value_name("NODE_URL")
                 .help("The URL of the Tezos node, optionally accepts more than 1 (comma separated) for fallback nodes in case of non-transcient communication issues with the primary node")
+                .takes_value(true))
+        .arg(
+            Arg::with_name("node_comm_retries")
+                .long("node-comm-retries")
+                .env("NODE_COMM_RETRIES")
+                .default_value("3")
+                .value_name("NODE_COMM_RETRIES")
+                .help("The number of times to retry a node RPC call on any error, set to smaller than 0 for infinite")
                 .takes_value(true))
         .arg(
             Arg::with_name("bcd_enable")
@@ -213,6 +222,11 @@ pub fn init_config() -> Result<Config> {
         .split(',')
         .map(|s| s.to_string())
         .collect();
+
+    config.node_comm_retries = matches
+        .value_of("node_comm_retries")
+        .unwrap()
+        .parse::<i32>()?;
 
     if matches.is_present("bcd_enable") {
         config.bcd_url = matches
