@@ -13,6 +13,7 @@ pub struct NodeClient {
     node_urls: Vec<String>,
     chain: String,
     timeout: Duration,
+    comm_retries: i32,
 }
 
 #[derive(Error, Debug)]
@@ -30,11 +31,16 @@ struct HttpError {
 }
 
 impl NodeClient {
-    pub fn new(node_urls: Vec<String>, chain: String) -> Self {
+    pub fn new(
+        node_urls: Vec<String>,
+        chain: String,
+        comm_retries: i32,
+    ) -> Self {
         Self {
             node_urls,
             chain,
             timeout: Duration::from_secs(20),
+            comm_retries,
         }
     }
 
@@ -128,12 +134,26 @@ impl NodeClient {
         F: Fn(&NodeClient, &str, &str) -> Result<O>,
         O: std::fmt::Debug,
     {
-        for node_url in &self.node_urls {
-            let res = from_node_func(self, endpoint, node_url);
-            if res.is_ok() {
-                return res;
+        let max_retries = if self.comm_retries >= 0 {
+            format!("{}", self.comm_retries + 1)
+        } else {
+            "∞".to_string()
+        };
+
+        let mut i = 0;
+        loop {
+            if self.comm_retries >= 0 && i > self.comm_retries {
+                break;
             }
-            warn!("failed to call tezos node RPC endpoint on node_url {} (endpoint={}), err: {:?}", node_url, endpoint, res.unwrap_err());
+            for node_url in &self.node_urls {
+                let res = from_node_func(self, endpoint, node_url);
+                if res.is_ok() {
+                    return res;
+                }
+                warn!("failed to call tezos node RPC endpoint on node_url {} (attempt {}/{}) (endpoint={}), err: {:?}", node_url, i+1, max_retries, endpoint, "test"); // res.unwrap_err());
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+            }
+            i += 1;
         }
         Err(anyhow!("failed to call tezos node RPC endpoint on all node_urls (endpoint={}", endpoint))
     }
