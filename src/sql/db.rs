@@ -830,16 +830,20 @@ DROP TABLE IF EXISTS levels;
         Ok(conn.execute(
             "
 INSERT INTO contract_levels(contract, level)
-SELECT
-    $1,
-    g.level
-FROM GENERATE_SERIES(
-    (SELECT MIN(level) FROM contract_levels WHERE contract = $1),
-    (SELECT MAX(level) FROM contract_levels WHERE contract = $1)
-) AS g(level)
-WHERE g.level NOT IN (
-    SELECT level FROM contract_levels WHERE contract = $1
-)",
+SELECT $1, q.level
+FROM (
+    SELECT
+        g.level
+    FROM GENERATE_SERIES(
+        (SELECT MIN(level) FROM contract_levels WHERE contract = $1),
+        (SELECT MAX(level) FROM contract_levels WHERE contract = $1)
+    ) AS g(level)
+    LEFT JOIN contract_levels clvl
+      ON  clvl.contract = $1
+      AND clvl.level = g.level
+    WHERE clvl IS NULL
+) q
+",
             &[&contract_id.name],
         )?)
     }
