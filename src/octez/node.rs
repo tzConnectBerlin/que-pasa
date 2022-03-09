@@ -150,7 +150,7 @@ impl NodeClient {
                 if res.is_ok() {
                     return res;
                 }
-                warn!("failed to call tezos node RPC endpoint on node_url {} (attempt {}/{}) (endpoint={}), err: {:?}", node_url, i+1, max_retries, endpoint, "test"); // res.unwrap_err());
+                warn!("failed to call tezos node RPC endpoint on node_url {} (attempt {}/{}) (endpoint={}), err: {:?}", node_url, i+1, max_retries, endpoint, res.unwrap_err());
                 std::thread::sleep(std::time::Duration::from_millis(1000));
             }
             i += 1;
