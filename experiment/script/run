@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment
+
+set -a
+. .env
+set +a
+
+tz=`./script/local-tz`
+trap "docker kill $tz" EXIT
+echo "waiting for private tezos network to become reachable..."
+while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
+    echo "private tezos network not yet reachable.."
+    sleep 1
+done
+
+sleep 3
+
+./script/tz-cli config reset || exit 1
+./script/tz-cli bootstrapped || exit 1
+./script/tz-cli config update || exit 1
+
+./script/mligo-deploy contract_bigmap_dest '{}'

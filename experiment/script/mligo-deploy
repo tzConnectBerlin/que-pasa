@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment
+
+contract=$1  # .mligo basename
+storage=$2
+
+./script/mligo-compile $contract || exit 1
+./script/tz-cli originate contract $contract transferring 0 from alice running ./input/compiled/$contract.tz --init "$storage" --burn-cap 10
