@@ -6,4 +6,4 @@ result=$2
 mkdir -p output/$component
 
 result_id=`ls output/$component | wc -l`
-echo "$result" > output/$component/result_piece_$result_id
+cat - > output/$component/result_piece_$result_id

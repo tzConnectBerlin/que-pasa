@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 cd $(git rev-parse --show-toplevel)/experiment
 
+set -u
+
 set -a
 . .env
 set +a
 
 tz=`./script/local-tz`
 trap "docker kill $tz" EXIT
-echo "waiting for private tezos network to become reachable..."
+echo -n "setting up a private tezos network"
 while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
-    echo "private tezos network not yet reachable.."
+    echo -n '.'
     sleep 1
 done
+echo
 
 ./script/tz-cli config reset || exit 1
 ./script/tz-cli bootstrapped || exit 1
@@ -19,7 +22,29 @@ done
 
 rm -r output/*
 
+###
+# first experiment:
+#
+# what happens when a contract storage's bigmap is overwritten with an external contract call's argument
+
 bigmap_dest_addr=`./script/mligo-deploy bigmap_dest '{}'`
+[ $? -eq 0 ] || exit 1
+
+./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{}' || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{Elt 33 "alice"}' --burn-cap 0.02 || exit 1  # result piece 2 of bigmap_dest (has a bigmap remove and alloc+update)
+
+# big_bigmap here contains pretty much as many values as is possible (constrained by tezos' maximum gas-limit per operation and maximum storage limit per operation
+big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$//'`
+./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg "{$big_bigmap}" --gas-limit 1040000 --storage-limit 60000 --burn-cap 15 || exit 1  # result piece 3 of bigmap_dest (number of entries passed doesn't matter, still the same as when passing a singleton: has a bigmap remove and alloc+update)
+
+#
+# first experiment conclusions:
+#
+# * original bigmap id is erased with a "remove" action.
+# * a fresh bigmap is then generated and assigned to the contract storage
+# * any value present in the entrypoint bigmap argument is applied as an "update" action on the fresh bigmap
+###
+
 ./script/contract-blocks $bigmap_dest_addr | while read block; do
-    ./script/result-add bigmap_dest "`echo $block | jq '.'`"
+    ./script/result-add bigmap_dest <<< "`echo $block | jq '.'`"
 done
