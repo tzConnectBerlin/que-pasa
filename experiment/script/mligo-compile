@@ -8,5 +8,5 @@ docker run \
     --rm \
     -v "$PWD":"$PWD" \
     -w "$PWD" \
-    ligolang/ligo:0.22.0 \
-    compile-contract input/$contract.mligo $entry > input/compiled/$contract.tz
+    ligolang/ligo:0.34.0 \
+    compile contract input/$contract.mligo > input/compiled/$contract.tz

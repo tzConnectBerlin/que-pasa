@@ -29,11 +29,13 @@ rm -r output/*
 
 bigmap_dest_addr=`./script/mligo-deploy bigmap_dest '{}'`
 [ $? -eq 0 ] || exit 1
+bigmap_src_addr=`./script/mligo-deploy bigmap_src '{}'`
+[ $? -eq 0 ] || exit 1
 
 ./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{}' || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
 ./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{Elt 33 "alice"}' --burn-cap 0.02 || exit 1  # result piece 2 of bigmap_dest (has a bigmap remove and alloc+update)
 
-# big_bigmap here contains pretty much as many values as is possible (constrained by tezos' maximum gas-limit per operation and maximum storage limit per operation
+# big_bigmap here contains pretty much as many values as is possible (constrained by tezos' maximum gas-limit per operation and maximum storage limit per operation)
 big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$//'`
 ./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg "{$big_bigmap}" --gas-limit 1040000 --storage-limit 60000 --burn-cap 15 || exit 1  # result piece 3 of bigmap_dest (number of entries passed doesn't matter, still the same as when passing a singleton: has a bigmap remove and alloc+update)
 
