@@ -3,6 +3,10 @@ cd $(git rev-parse --show-toplevel)/experiment
 
 contract=$1  # .mligo basename
 storage=$2
+logfile=log/$contract.log
 
 ./script/mligo-compile $contract || exit 1
-./script/tz-cli originate contract $contract transferring 0 from alice running ./input/compiled/$contract.tz --init "$storage" --burn-cap 10
+./script/tz-cli originate contract $contract transferring 0 from alice running ./input/compiled/$contract.tz --init "$storage" --burn-cap 10 > $logfile
+
+contract_address=`grep -E '^New contract ' $logfile | awk -F' ' '{print $3}'`
+echo "$contract_address"

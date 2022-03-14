@@ -13,10 +13,13 @@ while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
     sleep 1
 done
 
-sleep 3
-
 ./script/tz-cli config reset || exit 1
 ./script/tz-cli bootstrapped || exit 1
 ./script/tz-cli config update || exit 1
 
-./script/mligo-deploy contract_bigmap_dest '{}'
+rm -r output/*
+
+bigmap_dest_addr=`./script/mligo-deploy bigmap_dest '{}'`
+./script/contract-blocks $bigmap_dest_addr | while read block; do
+    ./script/result-add bigmap_dest "`echo $block | jq '.'`"
+done
