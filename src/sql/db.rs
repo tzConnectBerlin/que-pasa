@@ -378,6 +378,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                         r#"
 DROP TABLE "{contract_schema}"."{table}_ordered";
 DROP TABLE "{contract_schema}"."{table}_live";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at";
 "#,
                         contract_schema = contract.cid.name,
                         table = table.name,
@@ -1324,7 +1325,6 @@ pub(crate) trait BigmapKeysGetter {
 impl BigmapKeysGetter for DBClient {
     fn get(&mut self, level: u32, bigmap_id: i32) -> Result<Vec<BigmapEntry>> {
         let mut conn = self.dbconn()?;
-
         let res = conn.query(
             "
 SELECT

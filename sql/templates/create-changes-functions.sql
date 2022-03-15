@@ -17,22 +17,24 @@ AS $$
       , LAST_VALUE(t.{{ col }}) OVER w AS {{ col }}
     {%- endfor %}
     FROM "{{ contract_schema }}"."{{ table }}_ordered" AS t
+    CROSS JOIN que_pasa.contracts AS contract
     JOIN que_pasa.tx_contexts ctx
       ON  ctx.id = t.tx_context_id
-    WHERE ctx.contract = '{{ contract_schema }}'
+      AND ctx.contract = contract.address
+    WHERE contract.name = '{{ contract_schema }}'
       AND ARRAY[
             ctx.level,
             ctx.operation_group_number,
             ctx.operation_number,
             ctx.content_number,
-            ctx.internal_number]
+            COALESCE(ctx.internal_number, -1)]
           <=
           ARRAY[
             lvl,
             op_grp,
             op,
             content,
-            internal]
+            COALESCE(internal, -1)]
     WINDOW w AS (
         PARTITION BY ({% call unfold(indices, "t", false) %})
         ORDER BY t.ordering

@@ -201,8 +201,6 @@ impl IntraBlockBigmapDiffsProcessor {
                 .insert(tx_context, ops);
         }
 
-        info!("ops: {:#?}", res);
-
         if false {
             let mut keys: Vec<&TxContext> = res.tx_bigmap_ops.keys().collect();
             keys.sort();
@@ -246,12 +244,12 @@ impl IntraBlockBigmapDiffsProcessor {
         let mut targets: Vec<i32> = vec![bigmap_target];
         let mut prev_scope = keys[0].clone();
         prev_scope.internal_number = None;
-        // prev_scope.contract = "".to_string();
+        prev_scope.contract = "".to_string();
 
         for tx_context in keys {
             let mut current_scope = tx_context.clone();
             current_scope.internal_number = None;
-            // current_scope.contract = "".to_string();
+            current_scope.contract = "".to_string();
             if prev_scope != current_scope {
                 // temporary bigmaps (ie those with id < 0) only live in the
                 // scope of tx contents (the content operation itself +

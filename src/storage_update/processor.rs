@@ -250,7 +250,6 @@ where
             for bigmap in bigmaps {
                 let (deps, ops) =
                     diffs.normalized_diffs(bigmap, tx_context, bigmap >= 0);
-                info!("bigmap {}; deps: {:?}, ops: {:?}", bigmap, deps, ops);
                 for op in ops.iter().rev() {
                     self.process_bigmap_op(op, tx_context)?;
                 }
