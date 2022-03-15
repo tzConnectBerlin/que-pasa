@@ -332,7 +332,7 @@ impl ProcessedBatch {
         self.contract_deps.extend(
             cres.bigmap_contract_deps
                 .iter()
-                .map(|dep| (level, dep.clone(), cres.contract.cid.clone())),
+                .map(|dep| (level, dep.0.clone(), cres.contract.cid.clone())),
         );
 
         self.bigmap_keyhashes

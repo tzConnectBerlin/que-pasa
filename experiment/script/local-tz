@@ -5,8 +5,8 @@ set -u
 
 docker run \
     -v "$PWD":"$PWD" -w "$PWD" \
-    --detach \
     --name local-tezos \
+    --detach \
     --rm \
     -p $RPC_PORT:20000 \
     -e block_time=3 \

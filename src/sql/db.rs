@@ -334,7 +334,10 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
             for table in &tables {
                 let table_def = generator.create_table_definition(table)?;
+                let function_def = generator
+                    .create_table_functions(&contract.cid.name, table)?;
                 stmnts.push(table_def);
+                stmnts.extend(function_def);
 
                 if !noview_prefixes
                     .iter()
@@ -395,6 +398,45 @@ DROP TABLE "{contract_schema}"."{table}";
         }
         Ok(())
     }
+
+    /*
+        pub(crate) fn save_bigmap_allocs(
+            tx: &mut Transaction,
+            bigmap_allocs: &[BigmapAlloc],
+        ) -> Result<()> {
+            for chunk in bigmap_allocs.chunks(Self::INSERT_BATCH_SIZE) {
+                let num_columns = 4;
+                let v_refs = (1..(num_columns * chunk.len()) + 1)
+                    .map(|i| format!("${}", i))
+                    .collect::<Vec<String>>()
+                    .chunks(num_columns)
+                    .map(|x| x.join(", "))
+                    .join("), (");
+                let stmt = tx.prepare(&format!(
+                    "
+    INSERT INTO bigmap_alloc (
+        bigmap_id, tx_context_id, contract, table_name
+    )
+    Values ({})",
+                    v_refs
+                ))?;
+
+                let values: Vec<&dyn postgres::types::ToSql> = chunk
+                    .iter()
+                    .flat_map(|alloc| {
+                        [
+                            alloc.tx_context_id.borrow_to_sql(),
+                            alloc.bigmap_id.borrow_to_sql(),
+                            alloc.contract.borrow_to_sql(),
+                            alloc.tableName..borrow_to_sql(),
+                        ]
+                    })
+                    .collect();
+
+                tx.query_raw(&stmt, values)?;
+            }
+        }
+        */
 
     pub(crate) fn save_bigmap_keyhashes(
         tx: &mut Transaction,

@@ -1,9 +1,20 @@
 use anyhow::Result;
+use askama::Template;
 use std::vec::Vec;
 
 use crate::config::{ContractID, QUEPASA_VERSION};
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+
+#[derive(Template)]
+#[template(path = "create-changes-functions.sql", escape = "none")]
+struct CreateChangesFunctionsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    indices: &'a [String],
+    typed_columns: &'a [String],
+}
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
@@ -94,6 +105,39 @@ impl PostgresqlGenerator {
 
     pub(crate) fn end_table(&self) -> String {
         include_str!("../../sql/table-footer.sql").to_string()
+    }
+
+    pub(crate) fn create_table_functions(
+        &self,
+        contract_schema: &str,
+        table: &Table,
+    ) -> Result<Vec<String>> {
+        let columns: Vec<String> =
+            Self::table_sql_columns(table, false).to_vec();
+        let indices: Vec<String> = Self::table_sql_indices(table, false);
+        let typed_columns: Vec<String> = table
+            .get_columns()
+            .iter()
+            .filter(|x| {
+                !table
+                    .keywords()
+                    .iter()
+                    .any(|keyword| keyword == &x.name)
+            })
+            .map(|x| Self::create_sql(x).unwrap())
+            .collect();
+        if !table.contains_snapshots() {
+            let tmpl = CreateChangesFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                indices: &indices,
+                typed_columns: &typed_columns,
+            };
+            Ok(vec![tmpl.render()?])
+        } else {
+            Ok(vec![])
+        }
     }
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {

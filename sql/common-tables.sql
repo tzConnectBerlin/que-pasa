@@ -117,6 +117,15 @@ CREATE TABLE bigmap_keys(
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
 );
 
+-- CREATE TABLE bigmap_alloc(
+--     id BIGSERIAL PRIMARY KEY,
+--     bigmap_id INTEGER NOT NULL UNIQUE,
+--     tx_context_id BIGINT NOT NULL,  -- <- the context wherein alloc happened
+--     contract STRING NOT NULL,
+--     table_name STRING NOT NULL
+-- );
+
+
 CREATE OR REPLACE FUNCTION get_entry_values(at BIGINT) RETURNS integer AS
   FOR elem IN
     SELECT * FROM test."entry.update.noname" WHERE tx_context_id = at
