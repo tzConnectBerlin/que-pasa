@@ -12,8 +12,9 @@ DELETE FROM "{{ contract_schema }}"."{{ table }}_live"
 WHERE bigmap_id IN (
     SELECT
         bigmap_id
-    FROM "{{ contract_schema }}".bigmap_clears
+    FROM que_pasa.bigmap_meta_actions
     WHERE tx_context_id in ({% call unfold(tx_context_ids, "", false) %})
+      AND action = 'clear'
 );
 
 DELETE FROM "{{ contract_schema }}"."{{ table }}_live"
@@ -115,18 +116,19 @@ FROM (
             {% call unfold(columns, "t", true) %}
         FROM (
             SELECT DISTINCT ON({% call unfold(indices, "t", false) %})
-                clr.tx_context_id,
+                bigmap_meta.tx_context_id,
                 LAST_VALUE(t.id) OVER w as id,
                 LAST_VALUE(t.deleted) OVER w as latest_deleted
               {%- for col in columns %}
                 , LAST_VALUE(t.{{ col }}) OVER w as {{ col }}
               {%- endfor %}
-            FROM "{{ contract_schema }}".bigmap_clears clr
+            FROM que_pasa.bigmap_meta_actions bigmap_meta
             JOIN "{{ contract_schema }}"."{{ table }}" t
-              ON t.bigmap_id = clr.bigmap_id
+              ON t.bigmap_id = bigmap_meta.bigmap_id
             JOIN tx_contexts ctx
               ON ctx.id = t.tx_context_id
-            WHERE clr.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
+            WHERE bigmap_meta.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
+              AND bigmap_meta.action = 'clear'
             WINDOW w AS (
                 PARTITION BY ({% call unfold(indices, "t", false) %})
                 ORDER BY

@@ -877,6 +877,7 @@ impl Executor {
                 txs: vec![],
                 bigmap_contract_deps: vec![],
                 bigmap_keyhashes: HashMap::new(),
+                bigmap_meta_actions: vec![],
                 is_origination: false,
             });
         }
@@ -896,6 +897,7 @@ impl Executor {
         let (tx_contexts, txs) = storage_processor.drain_txs();
         let bigmap_contract_deps =
             storage_processor.drain_bigmap_contract_dependencies();
+        let bigmap_meta_actions = storage_processor.drain_bigmap_meta_actions();
 
         Ok(ProcessedContractBlock {
             contract: contract.clone(),
@@ -907,6 +909,7 @@ impl Executor {
             bigmap_contract_deps,
             bigmap_keyhashes: storage_processor.get_bigmap_keyhashes(),
             is_origination,
+            bigmap_meta_actions,
         })
     }
 }

@@ -9,7 +9,7 @@ set -a
 . .env
 set +a
 
-docker kill local-tezos >/dev/null 2>&1
+docker kill local-tezos >/dev/null 2>&1 && sleep 1
 tz=`./script/local-tz`
 [ -v KEEP_ALIVE ] || trap "docker kill $tz" EXIT
 echo -n "setting up a private tezos network"

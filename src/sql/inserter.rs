@@ -10,6 +10,7 @@ use crate::sql::db;
 use crate::sql::db::DBClient;
 use crate::sql::insert;
 use crate::sql::insert::Insert;
+use crate::sql::types::BigmapMetaAction;
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
 
@@ -131,6 +132,7 @@ fn insert_batch(
         &mut db_tx,
         batch.bigmap_keyhashes.clone(),
     )?;
+    DBClient::save_bigmap_meta_actions(&mut db_tx, &batch.bigmap_meta_actions)?;
 
     if update_derived_tables {
         for (contract_id, (contract, ctxs)) in &batch.contract_tx_contexts {
@@ -163,6 +165,7 @@ pub(crate) struct ProcessedContractBlock {
     pub txs: Vec<Tx>,
     pub bigmap_contract_deps: Vec<(String, i32)>,
     pub bigmap_keyhashes: db::BigmapEntries,
+    pub bigmap_meta_actions: Vec<BigmapMetaAction>,
 }
 
 impl ProcessedContractBlock {
@@ -217,6 +220,10 @@ impl ProcessedContractBlock {
             })
             .collect();
 
+        for action in self.bigmap_meta_actions.iter_mut() {
+            action.tx_context_id += offset;
+        }
+
         max
     }
 }
@@ -228,6 +235,7 @@ struct ProcessedBatch {
     pub tx_contexts: Vec<TxContext>,
     pub txs: Vec<Tx>,
     pub bigmap_keyhashes: db::BigmapEntries,
+    pub bigmap_meta_actions: Vec<BigmapMetaAction>,
 
     pub contract_levels: Vec<(ContractID, i32, bool)>,
     pub contract_inserts: HashMap<ContractID, Vec<Insert>>,
@@ -247,6 +255,7 @@ impl ProcessedBatch {
             tx_contexts: vec![],
             txs: vec![],
             bigmap_keyhashes: HashMap::new(),
+            bigmap_meta_actions: vec![],
 
             contract_levels: vec![],
             contract_inserts: HashMap::new(),
@@ -270,6 +279,7 @@ impl ProcessedBatch {
         self.tx_contexts.clear();
         self.txs.clear();
         self.bigmap_keyhashes.clear();
+        self.bigmap_meta_actions.clear();
         self.contract_levels.clear();
         self.contract_inserts.clear();
         self.contract_deps.clear();
@@ -337,5 +347,8 @@ impl ProcessedBatch {
 
         self.bigmap_keyhashes
             .extend(cres.bigmap_keyhashes);
+
+        self.bigmap_meta_actions
+            .extend(cres.bigmap_meta_actions);
     }
 }

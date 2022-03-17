@@ -5,6 +5,7 @@ use crate::octez::node::StorageGetter;
 use crate::sql::db;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
+use crate::sql::types::BigmapMetaAction;
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational::{
     Contract, RelationalAST, RelationalEntry,
@@ -90,6 +91,7 @@ where
 {
     bigmap_map: BigMapMap,
     bigmap_keyhashes: db::BigmapEntries,
+    bigmap_meta_actions: Vec<BigmapMetaAction>,
     bigmap_contract_deps: HashMap<(String, i32), ()>,
     id_generator: IdGenerator,
     inserts: Inserts,
@@ -115,6 +117,7 @@ where
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
             bigmap_keyhashes: HashMap::new(),
+            bigmap_meta_actions: vec![],
             bigmap_contract_deps: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
             node_cli,
@@ -152,6 +155,7 @@ where
     ) -> Result<()> {
         self.bigmap_map.clear();
         self.bigmap_keyhashes.clear();
+        self.bigmap_meta_actions.clear();
 
         let storages: Vec<(TxContext, Option<(String, parser::Value)>, parser::Value)> =
             block.map_tx_contexts(|tx_context, tx, is_origination, op_res| {
@@ -276,6 +280,14 @@ where
         self.bigmap_contract_deps
             .drain()
             .map(|(k, _)| k)
+            .collect()
+    }
+
+    pub(crate) fn drain_bigmap_meta_actions(
+        &mut self,
+    ) -> Vec<BigmapMetaAction> {
+        self.bigmap_meta_actions
+            .drain(..)
             .collect()
     }
 
@@ -535,17 +547,14 @@ where
                 )
             }
             bigmap::Op::Clear { bigmap } => {
-                let ctx = &ProcessStorageContext::new(
-                    self.id_generator.get_id(),
-                    "bigmap_clears".to_string(),
-                );
-                self.sql_add_cell(
-                    ctx,
-                    &"bigmap_clears".to_string(),
-                    &"bigmap_id".to_string(),
-                    insert::Value::Int(*bigmap),
-                    tx_context,
-                );
+                self.bigmap_meta_actions
+                    .push(BigmapMetaAction {
+                        tx_context_id: tx_context.id.unwrap(),
+                        bigmap_id: *bigmap,
+
+                        action: "clear".to_string(),
+                        value: None,
+                    });
                 Ok(())
             }
             _ => Ok(()),

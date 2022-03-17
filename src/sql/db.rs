@@ -17,6 +17,7 @@ use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
+use crate::sql::types::BigmapMetaAction;
 use crate::storage_structure::relational;
 
 use r2d2_postgres::{postgres::NoTls, PostgresConnectionManager};
@@ -401,44 +402,43 @@ DROP TABLE "{contract_schema}"."{table}";
         Ok(())
     }
 
-    /*
-        pub(crate) fn save_bigmap_allocs(
-            tx: &mut Transaction,
-            bigmap_allocs: &[BigmapAlloc],
-        ) -> Result<()> {
-            for chunk in bigmap_allocs.chunks(Self::INSERT_BATCH_SIZE) {
-                let num_columns = 4;
-                let v_refs = (1..(num_columns * chunk.len()) + 1)
-                    .map(|i| format!("${}", i))
-                    .collect::<Vec<String>>()
-                    .chunks(num_columns)
-                    .map(|x| x.join(", "))
-                    .join("), (");
-                let stmt = tx.prepare(&format!(
-                    "
-    INSERT INTO bigmap_alloc (
-        bigmap_id, tx_context_id, contract, table_name
+    pub(crate) fn save_bigmap_meta_actions(
+        tx: &mut Transaction,
+        actions: &[BigmapMetaAction],
+    ) -> Result<()> {
+        for chunk in actions.chunks(Self::INSERT_BATCH_SIZE) {
+            let num_columns = 4;
+            let v_refs = (1..(num_columns * chunk.len()) + 1)
+                .map(|i| format!("${}", i))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
+    INSERT INTO bigmap_meta_actions (
+        tx_context_id, bigmap_id, action, value
     )
     Values ({})",
-                    v_refs
-                ))?;
+                v_refs
+            ))?;
 
-                let values: Vec<&dyn postgres::types::ToSql> = chunk
-                    .iter()
-                    .flat_map(|alloc| {
-                        [
-                            alloc.tx_context_id.borrow_to_sql(),
-                            alloc.bigmap_id.borrow_to_sql(),
-                            alloc.contract.borrow_to_sql(),
-                            alloc.tableName..borrow_to_sql(),
-                        ]
-                    })
-                    .collect();
+            let values: Vec<&dyn postgres::types::ToSql> = chunk
+                .iter()
+                .flat_map(|x| {
+                    [
+                        x.tx_context_id.borrow_to_sql(),
+                        x.bigmap_id.borrow_to_sql(),
+                        x.action.borrow_to_sql(),
+                        x.value.borrow_to_sql(),
+                    ]
+                })
+                .collect();
 
-                tx.query_raw(&stmt, values)?;
-            }
+            tx.query_raw(&stmt, values)?;
         }
-        */
+        Ok(())
+    }
 
     pub(crate) fn save_bigmap_keyhashes(
         tx: &mut Transaction,
@@ -847,6 +847,7 @@ WHERE table_schema = $1
             "
 DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
+DROP TABLE IF EXISTS bigmap_meta_actions;
 DROP VIEW  IF EXISTS txs_ordered;
 DROP TABLE IF EXISTS txs;
 DROP TABLE IF EXISTS tx_contexts;

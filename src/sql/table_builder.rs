@@ -31,7 +31,6 @@ impl TableBuilder {
                 &mut entrypoint_table_builder
                     .tables
                     .into_values()
-                    .filter(|t| t.name != "bigmap_clears")
                     .collect(),
             );
         }
@@ -48,8 +47,7 @@ impl TableBuilder {
     }
 
     pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
-        let mut res: Vec<String> =
-            vec!["entry.".to_string(), "bigmap_clears".to_string()];
+        let mut res: Vec<String> = vec!["entry.".to_string()];
 
         // All child tables of changes tables cannot have view definitions defined.
         // To get _ordered or _live rows for these child tables, simply join with id
@@ -106,12 +104,6 @@ impl TableBuilder {
             .insert(table.name.clone(), table);
     }
 
-    fn touch_bigmap_meta_tables(&mut self) {
-        let mut t = self.get_table("bigmap_clears");
-        t.add_index("bigmap_id", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
-        self.store_table(t);
-    }
-
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
         match rel_ast {
             RelationalAST::Pair {
@@ -152,8 +144,6 @@ impl TableBuilder {
                     t.has_copy_pointers();
                 }
                 self.store_table(t);
-
-                self.touch_bigmap_meta_tables();
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {

@@ -32,7 +32,7 @@ FROM (
             t.*
         FROM "{{ contract_schema }}"."{{ table }}" t
         WHERE t.bigmap_id NOT IN (
-            SELECT bigmap_id FROM "{{ contract_schema }}".bigmap_clears
+            SELECT bigmap_id FROM que_pasa.bigmap_meta_actions WHERE action = 'clear'
         )
     ) t
     JOIN tx_contexts ctx
@@ -89,17 +89,18 @@ FROM (
             {% call unfold(columns, "t", true) %}
         FROM (
             SELECT DISTINCT
-                clr.tx_context_id,
-                LAST_VALUE(t.id) OVER w as id,
-                LAST_VALUE(t.deleted) OVER w as latest_deleted
+                bigmap_meta.tx_context_id,
+                LAST_VALUE(t.id) OVER w AS id,
+                LAST_VALUE(t.deleted) OVER w AS latest_deleted
               {%- for col in columns %}
-                , LAST_VALUE(t.{{ col }}) OVER w as {{ col }}
+                , LAST_VALUE(t.{{ col }}) OVER w AS {{ col }}
               {%- endfor %}
-            FROM "{{ contract_schema }}".bigmap_clears clr
+            FROM que_pasa.bigmap_meta_actions AS bigmap_meta
             JOIN "{{ contract_schema }}"."{{ table }}" t
-              ON t.bigmap_id = clr.bigmap_id
+              ON t.bigmap_id = bigmap_meta.bigmap_id
             JOIN tx_contexts ctx
               ON ctx.id = t.tx_context_id
+            WHERE bigmap_meta.action = 'clear'
             WINDOW w AS (
                 PARTITION BY ({% call unfold(indices, "t", false) %})
                 ORDER BY
