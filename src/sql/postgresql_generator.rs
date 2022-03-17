@@ -25,6 +25,15 @@ struct CreateSnapshotFunctionsTmpl<'a> {
     typed_columns: &'a [String],
 }
 
+#[derive(Template)]
+#[template(path = "create-entrypoint-changes-functions.sql", escape = "none")]
+struct CreateEntrypointChangesFunctionsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    typed_columns: &'a [String],
+}
+
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
     contract_id: ContractID,
@@ -119,14 +128,15 @@ impl PostgresqlGenerator {
         contract_schema: &str,
         table: &Table,
     ) -> Result<Vec<String>> {
-        let columns: Vec<String> =
+        let mut columns: Vec<String> =
             Self::table_sql_columns(table, false).to_vec();
 
         if columns.is_empty() {
             return Ok(vec![]);
         }
+        columns.push("id".to_string());
 
-        let typed_columns: Vec<String> = table
+        let mut typed_columns: Vec<String> = table
             .get_columns()
             .iter()
             .filter(|x| {
@@ -137,9 +147,28 @@ impl PostgresqlGenerator {
             })
             .map(|x| Self::create_sql(x).unwrap())
             .collect();
+        if let Some(parent) = Self::table_parent_name(table) {
+            typed_columns.push(format!(
+                r#""{parent_ref}" BIGINT"#,
+                parent_ref = Self::parent_ref(&parent)
+            ));
+        };
+        typed_columns.push("id BIGINT".to_string());
 
         if table.contains_pointers() {
-            return Ok(vec![]);
+            let shallow_tmpl = CreateSnapshotFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                typed_columns: &typed_columns,
+            };
+            let deep_tmpl = CreateEntrypointChangesFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                typed_columns: &typed_columns,
+            };
+            return Ok(vec![shallow_tmpl.render()?, deep_tmpl.render()?]);
         }
 
         if table.contains_snapshots() {

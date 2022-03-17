@@ -14,12 +14,14 @@ pub struct TableBuilder {
 impl TableBuilder {
     pub(crate) fn tables_from_contract(
         contract: &Contract,
-    ) -> (Vec<Table>, Vec<String>) {
+    ) -> (Vec<Table>, Vec<String>, Vec<String>) {
         // Generate the SQL schema for this contract
         let mut builder = TableBuilder::new("storage");
         builder.populate(&contract.storage_ast);
 
-        let noview_tables = builder.get_viewless_table_prefixes();
+        let nofunctions_tables = builder.get_functionless_table_prefixes();
+        let mut noview_tables = nofunctions_tables.clone();
+        noview_tables.push("entry.".to_string());
         let mut tables: Vec<Table> = builder.tables.into_values().collect();
 
         for (entrypoint, entrypoint_ast) in &contract.entrypoint_asts {
@@ -35,7 +37,7 @@ impl TableBuilder {
             );
         }
 
-        (tables, noview_tables)
+        (tables, noview_tables, nofunctions_tables)
     }
 
     pub(crate) fn new(root_table_name: &str) -> Self {
@@ -46,8 +48,8 @@ impl TableBuilder {
         res
     }
 
-    pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec!["entry.".to_string()];
+    fn get_functionless_table_prefixes(&self) -> Vec<String> {
+        let mut res: Vec<String> = vec![];
 
         // All child tables of changes tables cannot have view definitions defined.
         // To get _ordered or _live rows for these child tables, simply join with id

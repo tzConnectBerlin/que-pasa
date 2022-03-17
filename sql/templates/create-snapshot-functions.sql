@@ -8,18 +8,18 @@
 
 CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at"(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
-  SELECT DISTINCT
-  {%- for col in columns %}
-    {%- if !loop.first %}, {% endif -%}
-    LAST_VALUE(t.{{ col }}) OVER w AS {{ col }}
-  {%- endfor %}
-  FROM "{{ contract_schema }}"."{{ table }}_ordered" AS t
-  CROSS JOIN que_pasa.contracts AS contract
-  JOIN que_pasa.tx_contexts ctx
-    ON  ctx.id = t.tx_context_id
-    AND ctx.contract = contract.address
-  WHERE contract.name = '{{ contract_schema }}'
-    AND ARRAY[
+  WITH contract_addr AS (
+    SELECT address
+    FROM que_pasa.contracts
+    WHERE name = '{{ contract_schema }}'
+  ), latest_context_id AS (
+    SELECT MAX(ctx.id) AS tx_context_id
+    FROM que_pasa.tx_contexts ctx
+    JOIN contract_addr
+      ON contract_addr.address = ctx.contract
+    JOIN "{{ contract_schema }}"."{{ table }}" AS t
+      ON t.tx_context_id = ctx.id
+    WHERE ARRAY[
           ctx.level,
           ctx.operation_group_number,
           ctx.operation_number,
@@ -32,8 +32,9 @@ AS $$
           op,
           content,
           COALESCE(internal, -1)]
-  WINDOW w AS (
-      ORDER BY t.ordering
-      ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
   )
+  SELECT DISTINCT
+  {% call unfold(columns, "t", false) %}
+  FROM "{{ contract_schema }}"."{{ table }}" AS t
+  WHERE t.tx_context_id = (SELECT tx_context_id FROM latest_context_id)
 $$ LANGUAGE SQL;

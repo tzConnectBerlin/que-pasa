@@ -17,6 +17,7 @@ use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
 use pg_bigdecimal::{BigDecimal, PgNumeric};
+use serde_json::json;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -571,10 +572,10 @@ where
                             bigmap_id: *bigmap,
 
                             action: "alloc".to_string(),
-                            value: Some(format!(
-                                r#""{}"."{}""#,
-                                tx_context.contract, table
-                            )),
+                            value: Some(json!({
+                                "contract_address": tx_context.contract,
+                                "table": table
+                            })),
                         });
                     Ok(())
                 })
@@ -613,7 +614,7 @@ where
                         bigmap_id: *bigmap,
 
                         action: "copy".to_string(),
-                        value: Some(format!("{}", source)),
+                        value: Some(json!({ "source": source })),
                     });
                 Ok(())
             }

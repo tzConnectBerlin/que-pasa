@@ -151,8 +151,11 @@ WHERE table_schema = $1
         &mut self,
         contract: &relational::Contract,
     ) -> Result<()> {
-        let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
-            TableBuilder::tables_from_contract(contract);
+        let (mut tables, noview_prefixes, _): (
+            Vec<Table>,
+            Vec<String>,
+            Vec<String>,
+        ) = TableBuilder::tables_from_contract(contract);
 
         tables.sort_by_key(|t| t.name.clone());
 
@@ -217,8 +220,11 @@ WHERE table_schema = $1
             return Ok(());
         }
 
-        let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
-            TableBuilder::tables_from_contract(contract);
+        let (mut tables, noview_prefixes, _): (
+            Vec<Table>,
+            Vec<String>,
+            Vec<String>,
+        ) = TableBuilder::tables_from_contract(contract);
 
         tables.sort_by_key(|t| t.name.clone());
 
@@ -319,8 +325,11 @@ RETURNING name",
                 .find(|c| &c.cid.name == name)
                 .unwrap();
 
-            let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
-                TableBuilder::tables_from_contract(contract);
+            let (mut tables, noview_prefixes, nofunctions_prefixes): (
+                Vec<Table>,
+                Vec<String>,
+                Vec<String>,
+            ) = TableBuilder::tables_from_contract(contract);
 
             tables.sort_by_key(|t| t.name.clone());
 
@@ -346,14 +355,21 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                     {
                         stmnts.push(derived_table_def);
                     }
+                }
 
+                if !nofunctions_prefixes
+                    .iter()
+                    .any(|prefix| table.name.starts_with(prefix))
+                {
                     let function_def = generator
                         .create_table_functions(&contract.cid.name, table)?;
                     stmnts.extend(function_def);
                 }
             }
         }
-        tx.simple_query(stmnts.join("\n").as_str())?;
+        for stmnt in stmnts {
+            tx.simple_query(stmnt.as_str())?;
+        }
         tx.commit()?;
 
         Ok(true)
@@ -364,12 +380,32 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
         contract: &relational::Contract,
     ) -> Result<()> {
         info!("deleting schema for contract {}", contract.cid.name);
-        let (mut tables, noview_prefixes): (Vec<Table>, Vec<String>) =
-            TableBuilder::tables_from_contract(contract);
+        let (mut tables, noview_prefixes, nofunctions_prefixes): (
+            Vec<Table>,
+            Vec<String>,
+            Vec<String>,
+        ) = TableBuilder::tables_from_contract(contract);
         tables.sort_by_key(|t| t.name.clone());
         tables.reverse();
 
         for table in &tables {
+            if !nofunctions_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                tx.simple_query(
+                    format!(
+                        r#"
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deep";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at";
+"#,
+                        contract_schema = contract.cid.name,
+                        table = table.name,
+                    )
+                    .as_str(),
+                )?;
+            }
+
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
@@ -379,7 +415,6 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                         r#"
 DROP TABLE "{contract_schema}"."{table}_ordered";
 DROP TABLE "{contract_schema}"."{table}_live";
-DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at";
 "#,
                         contract_schema = contract.cid.name,
                         table = table.name,

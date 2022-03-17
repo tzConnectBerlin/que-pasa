@@ -103,7 +103,7 @@ CREATE TABLE bigmap_meta_actions (
     bigmap_id INT NOT NULL,
 
     action TEXT NOT NULL,
-    value TEXT
+    value JSONB
 );
 
 CREATE TABLE contract_deps (
@@ -126,13 +126,3 @@ CREATE TABLE bigmap_keys(
     UNIQUE(tx_context_id, bigmap_id, keyhash),
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
 );
-
--- CREATE OR REPLACE FUNCTION get_entry_values(at BIGINT) RETURNS integer AS
---   FOR elem IN
---     SELECT * FROM test."entry.update.noname" WHERE tx_context_id = at
---   LOOP
---     IF elem.is_ref THEN
---
---     END IF;
---   END LOOP;
--- $$ LANGUAGE plpgsql;
