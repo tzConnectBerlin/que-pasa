@@ -254,6 +254,12 @@ where
             for bigmap in bigmaps {
                 let (deps, ops) =
                     diffs.normalized_diffs(bigmap, tx_context, bigmap >= 0);
+                if bigmap < 0 {
+                    info!(
+                        "bigmap ({}): deps={:?}, ops={:?}",
+                        bigmap, deps, ops
+                    );
+                }
                 for op in ops.iter().rev() {
                     self.process_bigmap_op(op, tx_context)?;
                 }
@@ -263,9 +269,11 @@ where
                             (src_context.contract.clone(), src_bigmap),
                             (),
                         );
-                        self.process_bigmap_copy(
-                            tx_context, src_bigmap, bigmap,
-                        )?;
+                        if bigmap >= 0 {
+                            self.process_bigmap_copy(
+                                tx_context, src_bigmap, bigmap,
+                            )?;
+                        }
                     }
                 }
             }
@@ -546,6 +554,69 @@ where
                     }
                 )
             }
+            bigmap::Op::Alloc { bigmap } => {
+                let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
+                    Some((fk, n)) => (fk, n.clone()),
+                    None => {
+                        return Err(anyhow!(
+                            "no big map content found {:?}",
+                            op
+                        ))
+                    }
+                };
+                must_match_rel!(rel_ast, RelationalAST::BigMap { table, .. }, {
+                    self.bigmap_meta_actions
+                        .push(BigmapMetaAction {
+                            tx_context_id: tx_context.id.unwrap(),
+                            bigmap_id: *bigmap,
+
+                            action: "alloc".to_string(),
+                            value: Some(format!(
+                                r#""{}"."{}""#,
+                                tx_context.contract, table
+                            )),
+                        });
+                    Ok(())
+                })
+            }
+            bigmap::Op::Copy { bigmap, source } => {
+                let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
+                    Some((fk, n)) => (fk, n.clone()),
+                    None => {
+                        return Err(anyhow!(
+                            "no big map content found {:?}",
+                            op
+                        ))
+                    }
+                };
+                must_match_rel!(
+                    rel_ast,
+                    RelationalAST::BigMap { table, .. },
+                    {
+                        let ctx = &ProcessStorageContext::new(
+                            self.id_generator.get_id(),
+                            table.clone(),
+                        );
+                        self.sql_add_cell(
+                            ctx,
+                            &table,
+                            &"bigmap_id".to_string(),
+                            insert::Value::Int(*bigmap),
+                            tx_context,
+                        );
+                        Ok(())
+                    }
+                )?;
+                self.bigmap_meta_actions
+                    .push(BigmapMetaAction {
+                        tx_context_id: tx_context.id.unwrap(),
+                        bigmap_id: *bigmap,
+
+                        action: "copy".to_string(),
+                        value: Some(format!("{}", source)),
+                    });
+                Ok(())
+            }
             bigmap::Op::Clear { bigmap } => {
                 self.bigmap_meta_actions
                     .push(BigmapMetaAction {
@@ -557,7 +628,6 @@ where
                     });
                 Ok(())
             }
-            _ => Ok(()),
         }
     }
 

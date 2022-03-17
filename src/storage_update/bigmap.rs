@@ -10,18 +10,21 @@ use crate::octez::block::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Op {
+    Alloc {
+        bigmap: i32,
+    },
     Update {
         bigmap: i32,
         keyhash: String,
         key: serde_json::Value,
         value: Option<serde_json::Value>, // if None: it means remove key in bigmap
     },
-    Clear {
-        bigmap: i32,
-    },
     Copy {
         bigmap: i32,
         source: i32,
+    },
+    Clear {
+        bigmap: i32,
     },
 }
 
@@ -31,6 +34,7 @@ impl Op {
             Op::Update { bigmap, .. } => *bigmap,
             Op::Clear { bigmap, .. } => *bigmap,
             Op::Copy { bigmap, .. } => *bigmap,
+            Op::Alloc { bigmap } => *bigmap,
         }
     }
 
@@ -39,6 +43,7 @@ impl Op {
             Op::Update { bigmap, .. } => *bigmap = id,
             Op::Clear { bigmap } => *bigmap = id,
             Op::Copy { bigmap, .. } => *bigmap = id,
+            Op::Alloc { bigmap } => *bigmap = id,
         }
     }
 
@@ -48,7 +53,7 @@ impl Op {
             return Ok(vec![]);
         }
         let bigmap = raw.id.parse::<i32>()?;
-        match raw.diff.action.as_str() {
+        let mut ops = match raw.diff.action.as_str() {
             "update" | "alloc" => {
                 let updates: Vec<&Update> = match &raw.diff.updates {
                     Some(Update(u)) => vec![u],
@@ -102,7 +107,16 @@ impl Op {
             }]),
             "remove" => Ok(vec![Op::Clear { bigmap }]),
             _ => Err(anyhow!("unknown big_map action: {}", raw.diff.action)),
+        }?;
+        if raw.diff.action == "alloc" {
+            ops.insert(
+                0,
+                Op::Alloc {
+                    bigmap: raw.id.parse()?,
+                },
+            );
         }
+        Ok(ops)
     }
 
     pub fn from_raw(raw: &BigMapDiff) -> Result<Option<Self>> {
@@ -246,7 +260,17 @@ impl IntraBlockBigmapDiffsProcessor {
         prev_scope.internal_number = None;
         prev_scope.contract = "".to_string();
 
+        if !deep_copy {
+            info!("at {:?}: {:#?}", at, keys);
+        }
+
         for tx_context in keys {
+            if !deep_copy {
+                info!(
+                    "ctx ({:?}): {:#?}",
+                    tx_context, self.tx_bigmap_ops[tx_context]
+                );
+            }
             let mut current_scope = tx_context.clone();
             current_scope.internal_number = None;
             current_scope.contract = "".to_string();
@@ -274,6 +298,11 @@ impl IntraBlockBigmapDiffsProcessor {
                         continue;
                     }
                     match op {
+                        Op::Alloc { bigmap } => {
+                            if *bigmap == bigmap_target {
+                                res.push(op.clone());
+                            }
+                        }
                         Op::Update { .. } => {
                             if !deep_copy && op.get_bigmap() != bigmap_target {
                                 continue;
@@ -297,12 +326,19 @@ impl IntraBlockBigmapDiffsProcessor {
                                     .filter(|d| d != bigmap)
                                     .collect();
                             }
+
+                            if !deep_copy && *source >= 0 {
+                                res.push(Op::Copy {
+                                    source: *source,
+                                    bigmap: bigmap_target,
+                                });
+                            }
                         }
                         Op::Clear { bigmap } => {
-                            // Probably does not happen, but just to be sure this branch is included.
-                            // If it does happen, we don't want to pick up updates from before the Clear, so
-                            // stop recursing here for this dependent bigmap
                             if *bigmap != bigmap_target {
+                                // Probably does not happen, but just to be sure this branch is included.
+                                // If it does happen, we don't want to pick up updates from before the Clear, so
+                                // stop recursing here for this dependent bigmap
                                 clear_targets.push(*bigmap);
                             } else {
                                 res.push(op.clone());
@@ -322,7 +358,7 @@ impl IntraBlockBigmapDiffsProcessor {
             }
             targets = targets
                 .iter()
-                .filter(|bigmap| **bigmap != bigmap_target)
+                .filter(|bigmap| **bigmap < 0)
                 .copied()
                 .collect();
         }

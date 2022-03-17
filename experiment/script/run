@@ -76,3 +76,8 @@ big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$
 ./script/contract-blocks $bigmap_dest_addr | while read block; do
     ./script/result-add bigmap_dest block <<< "`echo $block | jq '.'`"
 done
+
+./script/contract-blocks $bigmap_src_addr | while read block; do
+    ./script/result-add bigmap_src block <<< "`echo $block | jq '.'`"
+done
+

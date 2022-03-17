@@ -48,9 +48,7 @@ impl PostgresqlGenerator {
                     "deleted BOOLEAN NOT NULL DEFAULT 'false'".to_string(),
                 )
             }
-            "bigmap_id" => {
-                return Some("bigmap_id INTEGER NOT NULL".to_string())
-            }
+            "bigmap_id" => return Some("bigmap_id INTEGER".to_string()),
             _ => {}
         }
 

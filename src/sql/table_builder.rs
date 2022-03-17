@@ -129,16 +129,16 @@ impl TableBuilder {
                 self.populate(value_ast);
                 let mut t = self.get_table(table);
 
+                t.add_index(
+                    &"bigmap_id".to_string(),
+                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                );
                 if *has_memory {
                     t.tracks_changes();
 
                     t.add_column(
                         &"deleted".to_string(),
                         &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-                    );
-                    t.add_index(
-                        &"bigmap_id".to_string(),
-                        &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                     );
                 } else {
                     t.has_copy_pointers();
