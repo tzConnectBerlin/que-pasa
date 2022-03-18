@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment/output
+
+set -u
+
+QUEPASA_TESTDIR=../../test
+
+rm -v $QUEPASA_TESTDIR/*-from_experiment*
+
+for contract in `ls *.address`; do
+    c_addr=`cat $contract`
+    c_name=${contract%.address}
+
+    cp -v $c_name.script $QUEPASA_TESTDIR/$c_addr-from_experiment.script
+
+    [ `ls $c_name/ | grep -E '*.block$' | wc -l` -eq 0 ] && continue
+    for block in `ls $c_name/*.block`; do
+        level=`cat $block | jq '.header.level'`
+        cp -v $block $QUEPASA_TESTDIR/$c_addr.level-${level}-from_experiment.json
+    done
+done

@@ -1,0 +1,370 @@
+{
+  "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
+  "chain_id": "NetXgbFy27eBoxH",
+  "hash": "BKtJntERfH787gpq4WMmg7c2zMqbkpjDp4yCW2k4mFeKA54fyRY",
+  "header": {
+    "level": 8,
+    "proto": 1,
+    "predecessor": "BMLHGvn75929SbhG2WSVGXRPhvQdj1sXrH2T41pG1kGh7ZJftYC",
+    "timestamp": "2022-03-15T08:29:54Z",
+    "validation_pass": 4,
+    "operations_hash": "LLoZcc8Le1HHSFEkPGJPWWmLWgvmkocrkJYhDAnwCeofxRLFF3FYw",
+    "fitness": [
+      "01",
+      "0000000000000007"
+    ],
+    "context": "CoVM3EuZqn5AQdXnoPpq5Mk3ijWbevpGJ6zAjHPNS1b3FasXGJy8",
+    "priority": 0,
+    "proof_of_work_nonce": "385c33f600000000",
+    "seed_nonce_hash": "nceVS9aN5nT7c84udm95jAUYgj76X4Tp8KUuS1ou5fbsDMV8cic3Z",
+    "liquidity_baking_escape_vote": false,
+    "signature": "sigovwPJR5AjaT5kb9T269XpBKKF2r75gzymiyw68TqQTMs25bP8eSymXSyVZu577SDw48LJrcad2SRSQuLkguLqStuhYcof"
+  },
+  "metadata": {
+    "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
+    "next_protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
+    "test_chain_status": {
+      "status": "not_running"
+    },
+    "max_operations_ttl": 8,
+    "max_operation_data_length": 32768,
+    "max_block_header_length": 239,
+    "max_operation_list_length": [
+      {
+        "max_size": 4194304,
+        "max_op": 2048
+      },
+      {
+        "max_size": 32768
+      },
+      {
+        "max_size": 135168,
+        "max_op": 132
+      },
+      {
+        "max_size": 524288
+      }
+    ],
+    "baker": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+    "level_info": {
+      "level": 8,
+      "level_position": 7,
+      "cycle": 0,
+      "cycle_position": 7,
+      "expected_commitment": true
+    },
+    "voting_period_info": {
+      "voting_period": {
+        "index": 0,
+        "kind": "proposal",
+        "start_position": 0
+      },
+      "position": 7,
+      "remaining": 8
+    },
+    "nonce_hash": "nceVS9aN5nT7c84udm95jAUYgj76X4Tp8KUuS1ou5fbsDMV8cic3Z",
+    "consumed_gas": "4057000",
+    "deactivated": [],
+    "balance_updates": [
+      {
+        "kind": "contract",
+        "contract": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+        "change": "-640000000",
+        "origin": "block"
+      },
+      {
+        "kind": "freezer",
+        "category": "deposits",
+        "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+        "cycle": 0,
+        "change": "640000000",
+        "origin": "block"
+      },
+      {
+        "kind": "freezer",
+        "category": "rewards",
+        "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+        "cycle": 0,
+        "change": "4296875",
+        "origin": "block"
+      }
+    ],
+    "liquidity_baking_escape_ema": 0,
+    "implicit_operations_results": [
+      {
+        "kind": "transaction",
+        "storage": [
+          {
+            "int": "1"
+          },
+          {
+            "int": "17500100"
+          },
+          {
+            "int": "100"
+          },
+          {
+            "bytes": "01e927f00ef734dfc85919635e9afc9166c83ef9fc00"
+          },
+          {
+            "bytes": "0115eb0104481a6d7921160bc982c5e0a561cd8a3a00"
+          }
+        ],
+        "balance_updates": [
+          {
+            "kind": "contract",
+            "contract": "KT1TxqZ8QtKvLu3V3JH7Gx58n7Co8pgtpQU5",
+            "change": "2500000",
+            "origin": "subsidy"
+          }
+        ],
+        "consumed_gas": "223",
+        "consumed_milligas": "222915",
+        "storage_size": "4630"
+      }
+    ]
+  },
+  "operations": [
+    [
+      {
+        "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
+        "chain_id": "NetXgbFy27eBoxH",
+        "hash": "ontaXhrvGMy6ktADhzr4MguBLd3ZX3qW47mZM6kGbWVAXE3NYih",
+        "branch": "BMLHGvn75929SbhG2WSVGXRPhvQdj1sXrH2T41pG1kGh7ZJftYC",
+        "contents": [
+          {
+            "kind": "endorsement_with_slot",
+            "endorsement": {
+              "branch": "BMLHGvn75929SbhG2WSVGXRPhvQdj1sXrH2T41pG1kGh7ZJftYC",
+              "operations": {
+                "kind": "endorsement",
+                "level": 7
+              },
+              "signature": "sigezn95G84unHH3Wn7783mvjgWyxpojARQvdty3nkNWuVRjTsDVuof8Fpuk7Zw1RnxzSR4imMwyvVmxeL8sdqZZuK6YKxzu"
+            },
+            "slot": 0,
+            "metadata": {
+              "balance_updates": [
+                {
+                  "kind": "contract",
+                  "contract": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+                  "change": "-13750000",
+                  "origin": "block"
+                },
+                {
+                  "kind": "freezer",
+                  "category": "deposits",
+                  "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+                  "cycle": 0,
+                  "change": "13750000",
+                  "origin": "block"
+                },
+                {
+                  "kind": "freezer",
+                  "category": "rewards",
+                  "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+                  "cycle": 0,
+                  "change": "4296875",
+                  "origin": "block"
+                }
+              ],
+              "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+              "slots": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    [],
+    [],
+    [
+      {
+        "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
+        "chain_id": "NetXgbFy27eBoxH",
+        "hash": "onyg3zYhoWM25aE9mjc8wdKsG3JsQy6qdTz3GD9cN3fWvrMB4nP",
+        "branch": "BMLHGvn75929SbhG2WSVGXRPhvQdj1sXrH2T41pG1kGh7ZJftYC",
+        "contents": [
+          {
+            "kind": "transaction",
+            "source": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
+            "fee": "705",
+            "counter": "6",
+            "gas_limit": "4057",
+            "storage_limit": "0",
+            "amount": "0",
+            "destination": "KT1KVXyqLZhBnf18MX7UNbEUJ5n8wgL3sQob",
+            "parameters": {
+              "entrypoint": "copy",
+              "value": {
+                "string": "KT19F7ypyPZtvWbfc99BCj9rakAYLjYEPjue"
+              }
+            },
+            "metadata": {
+              "balance_updates": [
+                {
+                  "kind": "contract",
+                  "contract": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
+                  "change": "-705",
+                  "origin": "block"
+                },
+                {
+                  "kind": "freezer",
+                  "category": "fees",
+                  "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
+                  "cycle": 0,
+                  "change": "705",
+                  "origin": "block"
+                }
+              ],
+              "operation_result": {
+                "status": "applied",
+                "storage": {
+                  "int": "5"
+                },
+                "big_map_diff": [
+                  {
+                    "action": "copy",
+                    "source_big_map": "5",
+                    "destination_big_map": "-1"
+                  }
+                ],
+                "consumed_gas": "2653",
+                "consumed_milligas": "2652261",
+                "storage_size": "200",
+                "lazy_storage_diff": [
+                  {
+                    "kind": "big_map",
+                    "id": "-1",
+                    "diff": {
+                      "action": "copy",
+                      "source": "5",
+                      "updates": []
+                    }
+                  },
+                  {
+                    "kind": "big_map",
+                    "id": "5",
+                    "diff": {
+                      "action": "update",
+                      "updates": []
+                    }
+                  }
+                ]
+              },
+              "internal_operation_results": [
+                {
+                  "kind": "transaction",
+                  "source": "KT1KVXyqLZhBnf18MX7UNbEUJ5n8wgL3sQob",
+                  "nonce": 0,
+                  "amount": "0",
+                  "destination": "KT19F7ypyPZtvWbfc99BCj9rakAYLjYEPjue",
+                  "parameters": {
+                    "entrypoint": "overwrite",
+                    "value": {
+                      "int": "-1"
+                    }
+                  },
+                  "result": {
+                    "status": "applied",
+                    "storage": {
+                      "int": "9"
+                    },
+                    "big_map_diff": [
+                      {
+                        "action": "remove",
+                        "big_map": "8"
+                      },
+                      {
+                        "action": "copy",
+                        "source_big_map": "-1",
+                        "destination_big_map": "9"
+                      }
+                    ],
+                    "consumed_gas": "1304",
+                    "consumed_milligas": "1303765",
+                    "storage_size": "129",
+                    "lazy_storage_diff": [
+                      {
+                        "kind": "big_map",
+                        "id": "8",
+                        "diff": {
+                          "action": "remove"
+                        }
+                      },
+                      {
+                        "kind": "big_map",
+                        "id": "9",
+                        "diff": {
+                          "action": "copy",
+                          "source": "-1",
+                          "updates": []
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "signature": "sigh7nctanqGsH3n3ZzbiZzu5ngQrKTyzbAKUBSLSuywcW5gSEgWNon5SAvt1VwY5g1puh9ZzRqSAjkzp6uyb36jsXjkEzmj"
+      }
+    ]
+  ]
+}

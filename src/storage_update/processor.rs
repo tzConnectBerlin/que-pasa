@@ -1667,53 +1667,13 @@ fn test_process_block() {
         levels: Vec<u32>,
     }
 
-    let contracts: Vec<Contract> = vec![
-        Contract {
-            id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-            levels: vec![
-                132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219,
-                132222, 132240, 132242, 132259, 132262, 132278, 132282, 132285,
-                132298, 132300, 132367, 132383, 132384, 132388, 132390, 135501,
-                138208, 149127,
-            ],
-        },
-        Contract {
-            id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
-            levels: vec![
-                228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466,
-                228467, 228468, 228490, 228505, 228506, 228507, 228508, 228509,
-                228510, 228511, 228512, 228516, 228521, 228522, 228523, 228524,
-                228525, 228526, 228527,
-            ],
-        },
-        Contract {
-            // Hic et Nunc hDAO contract (has "set" type in storage)
-            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
-            levels: vec![1443112],
-        },
-        Contract {
-            // Has a set,list and map. map has >1 keys
-            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
-            levels: vec![50503],
-        },
-        Contract {
-            // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
-            id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
-            levels: vec![1588744],
-        },
-        Contract {
-            id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
-            levels: vec![1676122],
-        },
-        Contract {
-            id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
-            levels: vec![1678750],
-        },
-        Contract {
-            id: "KT1HkMueXCVsBWKj9y7PQmM6QDeUrfZnGPDa",
-            levels: vec![1621538],
-        },
-    ];
+    let mut contracts: Vec<Contract> = vec![];
+
+    let paths = fs::read_dir("test/").unwrap();
+    for path in paths {
+        println!("Name: {}", path.unwrap().path().display());
+        // TODO
+    }
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {

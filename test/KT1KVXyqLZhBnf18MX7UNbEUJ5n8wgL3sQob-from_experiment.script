@@ -1,0 +1,177 @@
+{
+  "code": [
+    {
+      "prim": "parameter",
+      "args": [
+        {
+          "prim": "or",
+          "args": [
+            {
+              "prim": "address",
+              "annots": [
+                "%copy"
+              ]
+            },
+            {
+              "prim": "unit",
+              "annots": [
+                "%nop"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "prim": "storage",
+      "args": [
+        {
+          "prim": "big_map",
+          "args": [
+            {
+              "prim": "nat"
+            },
+            {
+              "prim": "string"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "prim": "code",
+      "args": [
+        [
+          {
+            "prim": "UNPAIR"
+          },
+          {
+            "prim": "IF_LEFT",
+            "args": [
+              [
+                {
+                  "prim": "CONTRACT",
+                  "args": [
+                    {
+                      "prim": "big_map",
+                      "args": [
+                        {
+                          "prim": "nat"
+                        },
+                        {
+                          "prim": "string"
+                        }
+                      ]
+                    }
+                  ],
+                  "annots": [
+                    "%overwrite"
+                  ]
+                },
+                {
+                  "prim": "IF_NONE",
+                  "args": [
+                    [
+                      {
+                        "prim": "PUSH",
+                        "args": [
+                          {
+                            "prim": "string"
+                          },
+                          {
+                            "string": "expected Some"
+                          }
+                        ]
+                      },
+                      {
+                        "prim": "FAILWITH"
+                      }
+                    ],
+                    []
+                  ]
+                },
+                {
+                  "prim": "SWAP"
+                },
+                {
+                  "prim": "DUP"
+                },
+                {
+                  "prim": "DUG",
+                  "args": [
+                    {
+                      "int": "2"
+                    }
+                  ]
+                },
+                {
+                  "prim": "NIL",
+                  "args": [
+                    {
+                      "prim": "operation"
+                    }
+                  ]
+                },
+                {
+                  "prim": "DIG",
+                  "args": [
+                    {
+                      "int": "2"
+                    }
+                  ]
+                },
+                {
+                  "prim": "PUSH",
+                  "args": [
+                    {
+                      "prim": "mutez"
+                    },
+                    {
+                      "int": "0"
+                    }
+                  ]
+                },
+                {
+                  "prim": "DIG",
+                  "args": [
+                    {
+                      "int": "4"
+                    }
+                  ]
+                },
+                {
+                  "prim": "TRANSFER_TOKENS"
+                },
+                {
+                  "prim": "CONS"
+                },
+                {
+                  "prim": "PAIR"
+                }
+              ],
+              [
+                {
+                  "prim": "DROP"
+                },
+                {
+                  "prim": "NIL",
+                  "args": [
+                    {
+                      "prim": "operation"
+                    }
+                  ]
+                },
+                {
+                  "prim": "PAIR"
+                }
+              ]
+            ]
+          }
+        ]
+      ]
+    }
+  ],
+  "storage": {
+    "int": "5"
+  }
+}

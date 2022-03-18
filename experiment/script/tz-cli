@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
+set -u
+
 docker exec local-tezos tezos-client --endpoint http://localhost:$RPC_PORT "$@"

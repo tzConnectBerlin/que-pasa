@@ -43,10 +43,23 @@ big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$
 # first experiment conclusions:
 #
 # * original bigmap id is erased with a "remove" action.
-# * a fresh bigmap is then generated and assigned to the contract storage
-# * any value present in the entrypoint bigmap argument is applied as an "update" action on the fresh bigmap
+# * a fresh bigmap id is then generated and assigned to the contract storage
+# * any value (no matter how many) present in the entrypoint bigmap argument is applied as an "update" action on the fresh bigmap
+###
+
+
+###
+# second experiment:
+#
+# what happens when a contract storage's bigmap is overwritten with another contract storage's bigmap
+
+./script/tz-cli call bigmap_src from alice --entrypoint copy --arg "\"$bigmap_dest_addr\"" || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+
+#
+# second experiment conclusions:
+#
 ###
 
 ./script/contract-blocks $bigmap_dest_addr | while read block; do
-    ./script/result-add bigmap_dest <<< "`echo $block | jq '.'`"
+    ./script/result-add bigmap_dest block <<< "`echo $block | jq '.'`"
 done
