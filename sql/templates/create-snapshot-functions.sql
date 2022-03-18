@@ -13,7 +13,7 @@ AS $$
     FROM que_pasa.contracts
     WHERE name = '{{ contract_schema }}'
   ), latest_context_id AS (
-    SELECT MAX(ctx.id) AS tx_context_id
+    SELECT ctx.id tx_context_id
     FROM que_pasa.tx_contexts ctx
     JOIN contract_addr
       ON contract_addr.address = ctx.contract
@@ -32,6 +32,8 @@ AS $$
           op,
           content,
           COALESCE(internal, -1)]
+    ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+    LIMIT 1
   )
   SELECT DISTINCT
   {% call unfold(columns, "t", false) %}

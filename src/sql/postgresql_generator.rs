@@ -172,24 +172,33 @@ impl PostgresqlGenerator {
                 columns: &columns,
                 typed_columns: &typed_columns,
             };
-            let deep_tmpl = CreateEntrypointChangesFunctionsTmpl {
-                contract_schema: contract_schema,
-                table: &table.name,
-                columns: &columns,
-                typed_columns: &typed_columns,
-            };
             let shallow_shortcuts = CreateFunctionShortcutsTmpl {
                 contract_schema: contract_schema,
                 table: &table.name,
                 function_postfix: "at",
                 typed_columns: &typed_columns,
             };
+
+            let mut deep_typed_columns: Vec<String> = typed_columns
+                .iter()
+                .filter(|c| !c.starts_with("bigmap_id "))
+                .cloned()
+                .collect();
+            deep_typed_columns.insert(0, "in_table TEXT".to_string());
+            deep_typed_columns.insert(0, "in_schema TEXT".to_string());
+            let deep_tmpl = CreateEntrypointChangesFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                typed_columns: &deep_typed_columns,
+            };
             let deep_shortcuts = CreateFunctionShortcutsTmpl {
                 contract_schema: contract_schema,
                 table: &table.name,
                 function_postfix: "at_deref",
-                typed_columns: &typed_columns,
+                typed_columns: &deep_typed_columns,
             };
+
             return Ok(vec![
                 shallow_tmpl.render()?,
                 deep_tmpl.render()?,

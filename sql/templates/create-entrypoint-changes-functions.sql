@@ -6,15 +6,16 @@
 {% endmacro %}
 
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at_deref"(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at_deref"(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
 DECLARE
+  bigmap_id INT;
   bigmap_target INT;
   source RECORD;
   source_schema TEXT;
 BEGIN
-  FOR {% call unfold(columns, "", false) %} IN
-    SELECT * FROM "{{ contract_schema }}"."{{ table }}_at"(lvl, op_grp, op, content, internal) AS t ORDER BY t.bigmap_id
+  FOR bigmap_id, {% call unfold(columns, "", false) %} IN
+    SELECT t.bigmap_id, {% call unfold(columns, "t", false) %} FROM "{{ contract_schema }}"."{{ table }}_at"(lvl, op_grp, op, content, internal) AS t ORDER BY t.bigmap_id
   LOOP
     IF bigmap_id IS NULL THEN
       in_schema := '{{ contract_schema }}';
@@ -61,8 +62,6 @@ BEGIN
       INTO source_schema
       FROM contracts
       WHERE address = source.address;
-
-      RAISE NOTICE 'source: %s %s %s', source.address, source_schema, source."table";
 
       in_schema := source_schema;
       in_table := source."table";

@@ -6,28 +6,32 @@
 {% endmacro %}
 
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
   SELECT
-    "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(ctx.level, ctx.operation_group_number, ctx.operation_number, ctx.content_number, ctx.internal_number)
-  FROM que_pasa.last_context_at(lvl) AS ctx
+    *
+  FROM (
+    SELECT
+      "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(ctx.level, ctx.operation_group_number, ctx.operation_number, ctx.content_number, ctx.internal_number)
+    FROM que_pasa.last_context_at(lvl) AS ctx
+  ) q
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT, op_grp INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT, op_grp INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
   SELECT
     "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(ctx.level, ctx.operation_group_number, ctx.operation_number, ctx.content_number, ctx.internal_number)
   FROM que_pasa.last_context_at(lvl, op_grp) AS ctx
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT, op_grp INT, op INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT, op_grp INT, op INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
   SELECT
     "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(ctx.level, ctx.operation_group_number, ctx.operation_number, ctx.content_number, ctx.internal_number)
   FROM que_pasa.last_context_at(lvl, op_grp, op) AS ctx
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT, op_grp INT, op INT, content INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(lvl INT, op_grp INT, op INT, content INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
   SELECT
     "{{ contract_schema }}"."{{ table }}_{{ function_postfix }}"(ctx.level, ctx.operation_group_number, ctx.operation_number, ctx.content_number, ctx.internal_number)
