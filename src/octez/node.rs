@@ -158,22 +158,17 @@ impl NodeClient {
             })?;
         let json = Self::deserialize(&body)?;
 
-        let res = json["entrypoints"]
+        let mut res = json["entrypoints"]
             .as_object()
             .cloned()
             .ok_or_else(|| {
                 anyhow!("malformed entrypoints response (not a json object)")
             })?;
 
-        if res.len() > 0 {
-            Ok(res)
-        } else {
-            let (_, param_def) =
-                self.get_contract_storage_definition(contract_id, level)?;
-            let mut fallback_res = serde_json::Map::new();
-            fallback_res.insert("default".to_string(), param_def);
-            Ok(fallback_res)
-        }
+        let (_, param_def) =
+            self.get_contract_storage_definition(contract_id, level)?;
+        res.insert("default".to_string(), param_def);
+        Ok(res)
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {
