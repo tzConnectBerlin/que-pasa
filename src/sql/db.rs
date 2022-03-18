@@ -775,6 +775,7 @@ SELECT DISTINCT
     level
 FROM contract_deps
 WHERE dest_schema IN ({})
+  AND is_deep_copy
 ",
                 v_refs
             )
@@ -1301,10 +1302,10 @@ VALUES ( {} )",
 
     pub(crate) fn save_contract_deps(
         tx: &mut Transaction,
-        deps: &[(i32, String, ContractID)],
+        deps: &[(i32, String, ContractID, bool)],
     ) -> Result<()> {
         for deps_chunk in deps.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 3;
+            let num_columns = 4;
             let v_refs = (1..(num_columns * deps_chunk.len()) + 1)
                 .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
@@ -1313,7 +1314,7 @@ VALUES ( {} )",
                 .join("), (");
             let stmt = tx.prepare(&format!(
                 "
-INSERT INTO contract_deps (level, src_contract, dest_schema)
+INSERT INTO contract_deps (level, src_contract, dest_schema, is_deep_copy)
 VALUES ( {} )
 ON CONFLICT DO NOTHING",
                 v_refs
@@ -1321,11 +1322,12 @@ ON CONFLICT DO NOTHING",
 
             let values: Vec<&dyn postgres::types::ToSql> = deps_chunk
                 .iter()
-                .flat_map(|(level, src_addr, dest)| {
+                .flat_map(|(level, src_addr, dest, is_deep_copy)| {
                     [
                         level.borrow_to_sql(),
                         src_addr.borrow_to_sql(),
                         dest.name.borrow_to_sql(),
+                        is_deep_copy.borrow_to_sql(),
                     ]
                 })
                 .collect();

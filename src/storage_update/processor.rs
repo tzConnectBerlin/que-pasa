@@ -93,7 +93,7 @@ where
     bigmap_map: BigMapMap,
     bigmap_keyhashes: db::BigmapEntries,
     bigmap_meta_actions: Vec<BigmapMetaAction>,
-    bigmap_contract_deps: HashMap<(String, i32), ()>,
+    bigmap_contract_deps: HashMap<(String, i32, bool), ()>,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
@@ -255,22 +255,21 @@ where
             for bigmap in bigmaps {
                 let (deps, ops) =
                     diffs.normalized_diffs(bigmap, tx_context, bigmap >= 0);
-                if bigmap < 0 {
-                    info!(
-                        "bigmap ({}): deps={:?}, ops={:?}",
-                        bigmap, deps, ops
-                    );
-                }
                 for op in ops.iter().rev() {
                     self.process_bigmap_op(op, tx_context)?;
                 }
                 if self.bigmap_map.contains_key(&bigmap) {
                     for (src_bigmap, src_context) in deps {
+                        let is_deep_copy = bigmap >= 0;
                         self.bigmap_contract_deps.insert(
-                            (src_context.contract.clone(), src_bigmap),
+                            (
+                                src_context.contract.clone(),
+                                src_bigmap,
+                                is_deep_copy,
+                            ),
                             (),
                         );
-                        if bigmap >= 0 {
+                        if is_deep_copy {
                             self.process_bigmap_copy(
                                 tx_context, src_bigmap, bigmap,
                             )?;
@@ -285,7 +284,7 @@ where
 
     pub(crate) fn drain_bigmap_contract_dependencies(
         &mut self,
-    ) -> Vec<(String, i32)> {
+    ) -> Vec<(String, i32, bool)> {
         self.bigmap_contract_deps
             .drain()
             .map(|(k, _)| k)

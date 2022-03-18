@@ -163,7 +163,7 @@ pub(crate) struct ProcessedContractBlock {
     pub inserts: Vec<Insert>,
     pub tx_contexts: Vec<TxContext>,
     pub txs: Vec<Tx>,
-    pub bigmap_contract_deps: Vec<(String, i32)>,
+    pub bigmap_contract_deps: Vec<(String, i32, bool)>,
     pub bigmap_keyhashes: db::BigmapEntries,
     pub bigmap_meta_actions: Vec<BigmapMetaAction>,
 }
@@ -239,7 +239,7 @@ struct ProcessedBatch {
 
     pub contract_levels: Vec<(ContractID, i32, bool)>,
     pub contract_inserts: HashMap<ContractID, Vec<Insert>>,
-    pub contract_deps: Vec<(i32, String, ContractID)>,
+    pub contract_deps: Vec<(i32, String, ContractID, bool)>,
     pub contract_tx_contexts:
         HashMap<ContractID, (relational::Contract, Vec<TxContext>)>,
 
@@ -339,11 +339,14 @@ impl ProcessedBatch {
             .unwrap();
         inserts.extend(cres.inserts.clone());
 
-        self.contract_deps.extend(
-            cres.bigmap_contract_deps
-                .iter()
-                .map(|dep| (level, dep.0.clone(), cres.contract.cid.clone())),
-        );
+        self.contract_deps
+            .extend(
+                cres.bigmap_contract_deps
+                    .iter()
+                    .map(|dep| {
+                        (level, dep.0.clone(), cres.contract.cid.clone(), dep.2)
+                    }),
+            );
 
         self.bigmap_keyhashes
             .extend(cres.bigmap_keyhashes);

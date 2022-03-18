@@ -260,17 +260,7 @@ impl IntraBlockBigmapDiffsProcessor {
         prev_scope.internal_number = None;
         prev_scope.contract = "".to_string();
 
-        if !deep_copy {
-            info!("at {:?}: {:#?}", at, keys);
-        }
-
         for tx_context in keys {
-            if !deep_copy {
-                info!(
-                    "ctx ({:?}): {:#?}",
-                    tx_context, self.tx_bigmap_ops[tx_context]
-                );
-            }
             let mut current_scope = tx_context.clone();
             current_scope.internal_number = None;
             current_scope.contract = "".to_string();

@@ -113,8 +113,9 @@ CREATE TABLE contract_deps (
 
     src_contract TEXT NOT NULL,
     dest_schema TEXT NOT NULL,
+    is_deep_copy BOOLEAN NOT NULL DEFAULT true,
 
-    PRIMARY KEY (level, src_contract, dest_schema)
+    PRIMARY KEY (level, src_contract, dest_schema, is_deep_copy)
 );
 
 CREATE TABLE bigmap_keys(
