@@ -32,7 +32,7 @@ AS $$
           op,
           content,
           COALESCE(internal, -1)]
-    ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+    ORDER BY ctx.level DESC, ctx.operation_group_number DESC, ctx.operation_number DESC, ctx.content_number DESC, COALESCE(ctx.internal_number, -1) DESC
     LIMIT 1
   )
   SELECT DISTINCT
