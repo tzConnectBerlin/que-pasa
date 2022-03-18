@@ -16,9 +16,17 @@ while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
 done
 echo
 
-./script/tz-cli config reset || exit 1
 ./script/tz-cli bootstrapped || exit 1
-./script/tz-cli config update || exit 1
+
+echo -n "waiting for true bootstrap"
+while ! script/tz-cli man | grep --quiet originate; do
+    echo -n "."
+    script/tz-cli man | grep --quiet originate
+    sleep 1
+done
+echo
+
+sleep 5
 
 rm -r output/*
 

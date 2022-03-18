@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-set -u -x
+set -u
 
-docker exec ${1:-local-tezos} tezos-client --endpoint http://127.0.0.1:$RPC_PORT "$@"
+docker exec ${DOCKER_NAME:-local-tezos} tezos-client --endpoint http://0.0.0.0:20000 "$@"
