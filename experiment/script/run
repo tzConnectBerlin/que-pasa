@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 cd $(git rev-parse --show-toplevel)/experiment
 
+# Note: set env var KEEP_ALIVE (to anything) to keep the local tezos network up after this script is done.
+
 set -u
 
 set -a
@@ -8,7 +10,7 @@ set -a
 set +a
 
 tz=`./script/local-tz`
-trap "docker kill $tz" EXIT
+[ -v $KEEP_ALIVE ] || trap "docker kill $tz" EXIT
 echo -n "setting up a private tezos network"
 while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
     echo -n '.'
@@ -16,7 +18,9 @@ while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
 done
 echo
 
+./script/tz-cli config reset || exit 1
 ./script/tz-cli bootstrapped || exit 1
+./script/tz-cli config update || exit 1
 
 echo -n "waiting for true bootstrap"
 while ! script/tz-cli man | grep --quiet originate; do
@@ -37,7 +41,7 @@ rm -r output/*
 
 bigmap_dest_addr=`./script/mligo-deploy bigmap_dest '{}'`
 [ $? -eq 0 ] || exit 1
-bigmap_src_addr=`./script/mligo-deploy bigmap_src '{}'`
+bigmap_src_addr=`./script/mligo-deploy bigmap_src '{Elt 15 "some entry"; Elt 20 "another entry"}'`
 [ $? -eq 0 ] || exit 1
 
 ./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{}' || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)

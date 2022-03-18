@@ -49,7 +49,7 @@ impl Op {
         }
         let bigmap = raw.id.parse::<i32>()?;
         match raw.diff.action.as_str() {
-            "update" => {
+            "update" | "alloc" => {
                 let updates: Vec<&Update> = match &raw.diff.updates {
                     Some(Update(u)) => vec![u],
                     Some(Updates(us)) => us.iter().collect(),
@@ -101,7 +101,6 @@ impl Op {
                     .parse()?,
             }]),
             "remove" => Ok(vec![Op::Clear { bigmap }]),
-            "alloc" => Ok(vec![]),
             _ => Err(anyhow!("unknown big_map action: {}", raw.diff.action)),
         }
     }
@@ -160,6 +159,7 @@ impl Op {
     }
 }
 
+#[derive(Debug)]
 pub struct IntraBlockBigmapDiffsProcessor {
     tx_bigmap_ops: HashMap<TxContext, Vec<Op>>,
 }
@@ -200,6 +200,8 @@ impl IntraBlockBigmapDiffsProcessor {
             res.tx_bigmap_ops
                 .insert(tx_context, ops);
         }
+
+        info!("ops: {:#?}", res);
 
         if false {
             let mut keys: Vec<&TxContext> = res.tx_bigmap_ops.keys().collect();
@@ -244,12 +246,12 @@ impl IntraBlockBigmapDiffsProcessor {
         let mut targets: Vec<i32> = vec![bigmap_target];
         let mut prev_scope = keys[0].clone();
         prev_scope.internal_number = None;
-        prev_scope.contract = "".to_string();
+        // prev_scope.contract = "".to_string();
 
         for tx_context in keys {
             let mut current_scope = tx_context.clone();
             current_scope.internal_number = None;
-            current_scope.contract = "".to_string();
+            // current_scope.contract = "".to_string();
             if prev_scope != current_scope {
                 // temporary bigmaps (ie those with id < 0) only live in the
                 // scope of tx contents (the content operation itself +
@@ -322,7 +324,7 @@ impl IntraBlockBigmapDiffsProcessor {
             }
             targets = targets
                 .iter()
-                .filter(|bigmap| **bigmap < 0)
+                .filter(|bigmap| **bigmap != bigmap_target)
                 .copied()
                 .collect();
         }
