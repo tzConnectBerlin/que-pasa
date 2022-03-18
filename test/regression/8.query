@@ -27,6 +27,7 @@ WHERE NOT EXISTS
   AND c.contype = 'f'
 GROUP BY c.conrelid, c.conname, c.confrelid
 ORDER BY pg_catalog.pg_relation_size(c.conrelid) DESC;;
- table | columns | size | constraint | referenced_table 
--------+---------+------+------------+------------------
-(0 rows)
+            table             |    columns    |    size    |               constraint               |   referenced_table   
+------------------------------+---------------+------------+----------------------------------------+----------------------
+ que_pasa.bigmap_meta_actions | tx_context_id | 8192 bytes | bigmap_meta_actions_tx_context_id_fkey | que_pasa.tx_contexts
+(1 row)

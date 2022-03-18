@@ -6,13 +6,12 @@
 {% endmacro %}
 
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at_deep"(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at_deref"(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE (in_schema TEXT, in_table TEXT, {% call unfold(typed_columns, "", false) %})
 AS $$
 DECLARE
   bigmap_target INT;
   source RECORD;
   source_schema TEXT;
-  elem RECORD;
 BEGIN
   FOR {% call unfold(columns, "", false) %} IN
     SELECT * FROM "{{ contract_schema }}"."{{ table }}_at"(lvl, op_grp, op, content, internal) AS t ORDER BY t.bigmap_id
@@ -36,7 +35,7 @@ BEGIN
           WHERE meta.action = 'copy'
             AND meta.bigmap_id = bigmap_target
             AND tx_context_id = (
-              SELECT MAX(ctx.id)
+              SELECT ctx.id
               FROM tx_contexts AS ctx
               JOIN "{{ contract_schema }}"."{{ table }}" AS t
                 ON t.tx_context_id = ctx.id
@@ -46,13 +45,15 @@ BEGIN
                     ctx.operation_number,
                     ctx.content_number,
                     COALESCE(ctx.internal_number, -1)]
-                  <=
-                  ARRAY[
-                    lvl,
-                    op_grp,
-                    op,
-                    content,
-                    COALESCE(internal, -1)]
+                 <=
+                    ARRAY[
+                      lvl,
+                      op_grp,
+                      op,
+                      content,
+                      COALESCE(internal, -1)]
+              ORDER BY ctx.level DESC, ctx.operation_group_number DESC, ctx.operation_number DESC, ctx.content_number DESC, ctx.internal_number DESC
+              LIMIT 1
             )
       );
 

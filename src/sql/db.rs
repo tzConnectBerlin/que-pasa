@@ -396,8 +396,17 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                 tx.simple_query(
                     format!(
                         r#"
-DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deep";
-DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT)";
+
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT)";
 "#,
                         contract_schema = contract.cid.name,
                         table = table.name,
@@ -880,6 +889,11 @@ WHERE table_schema = $1
         }
         tx.simple_query(
             "
+DROP FUNCTION IF EXISTS last_context_at(INT, INT, INT, INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT, INT, INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT, INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT);
 DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
 DROP TABLE IF EXISTS bigmap_meta_actions;

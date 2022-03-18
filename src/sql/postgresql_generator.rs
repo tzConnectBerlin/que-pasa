@@ -34,6 +34,15 @@ struct CreateEntrypointChangesFunctionsTmpl<'a> {
     typed_columns: &'a [String],
 }
 
+#[derive(Template)]
+#[template(path = "create-function-shortcuts.sql", escape = "none")]
+struct CreateFunctionShortcutsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    function_postfix: &'a str,
+    typed_columns: &'a [String],
+}
+
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
     contract_id: ContractID,
@@ -144,6 +153,7 @@ impl PostgresqlGenerator {
                     .keywords()
                     .iter()
                     .any(|keyword| keyword == &x.name)
+                    && Self::create_sql(x).is_some()
             })
             .map(|x| Self::create_sql(x).unwrap())
             .collect();
@@ -168,8 +178,32 @@ impl PostgresqlGenerator {
                 columns: &columns,
                 typed_columns: &typed_columns,
             };
-            return Ok(vec![shallow_tmpl.render()?, deep_tmpl.render()?]);
+            let shallow_shortcuts = CreateFunctionShortcutsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                function_postfix: "at",
+                typed_columns: &typed_columns,
+            };
+            let deep_shortcuts = CreateFunctionShortcutsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                function_postfix: "at_deref",
+                typed_columns: &typed_columns,
+            };
+            return Ok(vec![
+                shallow_tmpl.render()?,
+                deep_tmpl.render()?,
+                shallow_shortcuts.render()?,
+                deep_shortcuts.render()?,
+            ]);
         }
+
+        let shortcuts = CreateFunctionShortcutsTmpl {
+            contract_schema: contract_schema,
+            table: &table.name,
+            function_postfix: "at",
+            typed_columns: &typed_columns,
+        };
 
         if table.contains_snapshots() {
             let tmpl = CreateSnapshotFunctionsTmpl {
@@ -178,7 +212,7 @@ impl PostgresqlGenerator {
                 columns: &columns,
                 typed_columns: &typed_columns,
             };
-            return Ok(vec![tmpl.render()?]);
+            return Ok(vec![tmpl.render()?, shortcuts.render()?]);
         }
 
         let tmpl = CreateChangesFunctionsTmpl {
@@ -188,7 +222,7 @@ impl PostgresqlGenerator {
             typed_columns: &typed_columns,
             indices: &Self::table_sql_indices(table, false),
         };
-        Ok(vec![tmpl.render()?])
+        Ok(vec![tmpl.render()?, shortcuts.render()?])
     }
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
