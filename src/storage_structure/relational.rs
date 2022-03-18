@@ -118,6 +118,7 @@ pub enum RelationalAST {
         table: String,
         key_ast: Box<RelationalAST>,
         value_ast: Box<RelationalAST>,
+        has_memory: bool,
     },
     List {
         table: String,
@@ -152,6 +153,8 @@ pub struct RelationalEntry {
 pub struct ASTBuilder {
     table_names: HashMap<String, u32>,
     column_names: HashMap<(String, String), u32>,
+
+    bigmaps_retain: bool,
 }
 
 lazy_static! {
@@ -170,12 +173,19 @@ impl ASTBuilder {
         let mut res = Self {
             table_names: HashMap::new(),
             column_names: HashMap::new(),
+
+            bigmaps_retain: true,
         };
         for column_name in RESERVED.iter() {
             res.column_names
                 .insert(("storage".to_string(), column_name.clone()), 0);
         }
         res
+    }
+
+    pub(crate) fn memoryless_bigmaps(&mut self) -> &mut Self {
+        self.bigmaps_retain = false;
+        return self;
     }
 
     fn start_table(&mut self, ctx: &Context, ele: &Ele) -> Context {
@@ -309,6 +319,7 @@ impl ASTBuilder {
                     let value_ast =
                         self.build_relational_ast(ctx, value_type)?;
                     Ok(RelationalAST::BigMap {
+                        has_memory: self.bigmaps_retain,
                         table: ctx.table_name.clone(),
                         key_ast: Box::new(key_ast),
                         value_ast: Box::new(value_ast),

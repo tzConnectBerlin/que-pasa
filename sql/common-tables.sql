@@ -126,12 +126,12 @@ CREATE TABLE bigmap_keys(
 -- );
 
 
-CREATE OR REPLACE FUNCTION get_entry_values(at BIGINT) RETURNS integer AS
-  FOR elem IN
-    SELECT * FROM test."entry.update.noname" WHERE tx_context_id = at
-  LOOP
-    IF elem.is_ref THEN
-
-    END IF;
-  END LOOP;
-$$ LANGUAGE plpgsql;
+-- CREATE OR REPLACE FUNCTION get_entry_values(at BIGINT) RETURNS integer AS
+--   FOR elem IN
+--     SELECT * FROM test."entry.update.noname" WHERE tx_context_id = at
+--   LOOP
+--     IF elem.is_ref THEN
+--
+--     END IF;
+--   END LOOP;
+-- $$ LANGUAGE plpgsql;

@@ -6,7 +6,7 @@
 {% endmacro %}
 
 
-CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at"(level BIGINT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE {% call unfold(typed_columns, "t", false) %}
+CREATE OR REPLACE FUNCTION "{{ contract_schema }}"."{{ table }}_at"(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE ({% call unfold(typed_columns, "", false) %})
 AS $$
   SELECT
   {% call unfold(columns, "q", false) %}
@@ -16,7 +16,7 @@ AS $$
     {%- for col in columns %}
       , LAST_VALUE(t.{{ col }}) OVER w AS {{ col }}
     {%- endfor %}
-    FROM "{{ contract_schema }}"."{{ table }}" AS t
+    FROM "{{ contract_schema }}"."{{ table }}_ordered" AS t
     JOIN que_pasa.tx_contexts ctx
       ON  ctx.id = t.tx_context_id
     WHERE ctx.contract = '{{ contract_schema }}'
@@ -28,11 +28,11 @@ AS $$
             ctx.internal_number]
           <=
           ARRAY[
-            "{{ contract_schema }}"."{{ table }}_at".level,
-            "{{ contract_schema }}"."{{ table }}_at".op_grp,
-            "{{ contract_schema }}"."{{ table }}_at".op,
-            "{{ contract_schema }}"."{{ table }}_at".content,
-            "{{ contract_schema }}"."{{ table }}_at".internal]
+            lvl,
+            op_grp,
+            op,
+            content,
+            internal]
     WINDOW w AS (
         PARTITION BY ({% call unfold(indices, "t", false) %})
         ORDER BY t.ordering

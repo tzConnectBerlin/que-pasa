@@ -48,7 +48,8 @@ impl TableBuilder {
     }
 
     pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec!["bigmap_clears".to_string()];
+        let mut res: Vec<String> =
+            vec!["entry.".to_string(), "bigmap_clears".to_string()];
 
         // All child tables of changes tables cannot have view definitions defined.
         // To get _ordered or _live rows for these child tables, simply join with id
@@ -130,20 +131,24 @@ impl TableBuilder {
                 table,
                 key_ast,
                 value_ast,
-                ..
+                has_memory,
             } => {
                 self.populate(key_ast);
                 self.populate(value_ast);
                 let mut t = self.get_table(table);
-                t.tracks_changes();
-                t.add_column(
-                    &"deleted".to_string(),
-                    &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-                );
-                t.add_index(
-                    &"bigmap_id".to_string(),
-                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-                );
+
+                if *has_memory {
+                    t.tracks_changes();
+
+                    t.add_column(
+                        &"deleted".to_string(),
+                        &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                    );
+                    t.add_index(
+                        &"bigmap_id".to_string(),
+                        &ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                    );
+                }
                 self.store_table(t);
 
                 self.touch_bigmap_meta_tables();

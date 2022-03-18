@@ -68,31 +68,31 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn address(name: &str) -> String {
-        format!("{} VARCHAR(127) NULL", name)
+        format!("{} VARCHAR(127)", name)
     }
 
     pub(crate) fn bool(name: &str) -> String {
-        format!("{} BOOLEAN NULL", name)
+        format!("{} BOOLEAN", name)
     }
 
     pub(crate) fn bytes(name: &str) -> String {
-        format!("{} TEXT NULL", name)
+        format!("{} TEXT", name)
     }
 
     pub(crate) fn numeric(name: &str) -> String {
-        format!("{} NUMERIC NULL", name)
+        format!("{} NUMERIC", name)
     }
 
     pub(crate) fn string(name: &str) -> String {
-        format!("{} TEXT NULL", name)
+        format!("{} TEXT", name)
     }
 
     pub(crate) fn timestamp(name: &str) -> String {
-        format!("{} TIMESTAMP WITH TIME ZONE NULL", name)
+        format!("{} TIMESTAMP WITH TIME ZONE", name)
     }
 
     pub(crate) fn unit(name: &str) -> String {
-        format!("{} VARCHAR(128) NULL", name)
+        format!("{} VARCHAR(128)", name)
     }
 
     pub(crate) fn start_table(&self, name: &str) -> String {

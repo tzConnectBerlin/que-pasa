@@ -334,10 +334,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
             for table in &tables {
                 let table_def = generator.create_table_definition(table)?;
-                let function_def = generator
-                    .create_table_functions(&contract.cid.name, table)?;
                 stmnts.push(table_def);
-                stmnts.extend(function_def);
 
                 if !noview_prefixes
                     .iter()
@@ -348,6 +345,10 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                     {
                         stmnts.push(derived_table_def);
                     }
+
+                    let function_def = generator
+                        .create_table_functions(&contract.cid.name, table)?;
+                    stmnts.extend(function_def);
                 }
             }
         }

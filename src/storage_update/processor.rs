@@ -484,7 +484,8 @@ where
                     RelationalAST::BigMap {
                         table,
                         key_ast,
-                        value_ast
+                        value_ast,
+                        ..
                     },
                     {
                         self.add_bigmap_keyhash(

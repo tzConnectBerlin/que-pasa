@@ -1079,6 +1079,7 @@ pub(crate) fn get_contract_rel(
         let ctx =
             relational::Context::init(format!("entry.{}", entrypoint).as_str());
         let rel_ast = relational::ASTBuilder::new()
+            .memoryless_bigmaps()
             .build_relational_ast(&ctx, &type_ast)
             .with_context(|| {
                 "failed to build a relational AST from the entrypoint type"
