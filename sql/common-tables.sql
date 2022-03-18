@@ -64,6 +64,7 @@ CREATE TABLE txs (
     destination VARCHAR(100),
     entrypoint VARCHAR(100),
 
+    amount NUMERIC,
     fee BIGINT,
     gas_limit BIGINT,
     storage_limit BIGINT,

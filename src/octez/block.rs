@@ -1,7 +1,9 @@
 use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
+use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 use crate::contract_denylist::is_contract_denylisted;
 
@@ -68,6 +70,7 @@ pub(crate) struct Tx {
     pub entrypoint: Option<String>,
     pub entrypoint_args: Option<serde_json::Value>,
 
+    pub amount: Option<PgNumeric>,
     pub fee: Option<i64>,
     pub gas_limit: Option<i64>,
     pub storage_limit: Option<i64>,
@@ -150,6 +153,16 @@ impl Block {
         Ok(parsed)
     }
 
+    fn parse_option_pgnumeric(
+        x: Option<&String>,
+    ) -> anyhow::Result<Option<PgNumeric>> {
+        if let Some(s) = x {
+            let n = BigDecimal::from_str(s)?;
+            return Ok(Some(PgNumeric::new(Some(n))));
+        }
+        Ok(None)
+    }
+
     pub(crate) fn map_tx_contexts<F, O>(
         &self,
         mut f: F,
@@ -209,6 +222,9 @@ impl Block {
                                             .map(|p| p.value)
                                             .flatten(),
 
+                                        amount: Self::parse_option_pgnumeric(
+                                            content.amount.as_ref(),
+                                        )?,
                                         fee: Self::parse_option_i64(
                                             content.fee.as_ref(),
                                         )?,
@@ -296,6 +312,9 @@ impl Block {
                                                         .map(|p| p.value)
                                                         .flatten(),
 
+                                                    amount: Self::parse_option_pgnumeric(
+                                                        internal_op.amount.as_ref(),
+                                                    )?,
                                                     fee: None,
                                                     gas_limit: None,
                                                     storage_limit: None,
@@ -358,6 +377,7 @@ impl Block {
                                                 entrypoint: None,
                                                 entrypoint_args: None,
 
+                                                amount: None, // TODO is this always none?
                                                 fee: None,
                                                 gas_limit: None,
                                                 storage_limit: None,
@@ -398,6 +418,9 @@ impl Block {
                                     entrypoint: None,
                                     entrypoint_args: None,
 
+                                    amount: Self::parse_option_pgnumeric(
+                                        content.amount.as_ref(),
+                                    )?,
                                     fee: Self::parse_option_i64(
                                         content.fee.as_ref(),
                                     )?,
@@ -744,6 +767,7 @@ pub struct Content {
     pub fee: Option<String>,
     pub gas_limit: Option<String>,
     pub storage_limit: Option<String>,
+    pub amount: Option<String>,
 
     #[serde(skip)]
     kind: String,
@@ -751,8 +775,6 @@ pub struct Content {
     endorsement: Option<Endorsement>,
     #[serde(skip)]
     counter: Option<String>,
-    #[serde(skip)]
-    amount: Option<String>,
     #[serde(skip)]
     balance: Option<String>,
     #[serde(skip)]

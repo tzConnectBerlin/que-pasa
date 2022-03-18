@@ -615,7 +615,7 @@ VALUES ( {} )",
 
     pub(crate) fn save_txs(tx: &mut Transaction, txs: &[Tx]) -> Result<()> {
         for txs_chunk in txs.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 11;
+            let num_columns = 12;
             let v_refs = (1..(num_columns * txs_chunk.len()) + 1)
                 .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
@@ -632,6 +632,7 @@ INSERT INTO txs(
     destination,
     entrypoint,
 
+    amount,
     fee,
     gas_limit,
     storage_limit,
@@ -653,6 +654,7 @@ VALUES ( {} )",
                         tx.source.borrow_to_sql(),
                         tx.destination.borrow_to_sql(),
                         tx.entrypoint.borrow_to_sql(),
+                        tx.amount.borrow_to_sql(),
                         tx.fee.borrow_to_sql(),
                         tx.gas_limit.borrow_to_sql(),
                         tx.storage_limit.borrow_to_sql(),
