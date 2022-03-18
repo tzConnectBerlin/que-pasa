@@ -1169,6 +1169,7 @@ fn test_generate() {
     let p = Path::new(filename);
     let file = File::open(p).unwrap();
     let reader = BufReader::new(file);
+
     let v: Vec<crate::sql::table::Table> =
         ron::de::from_reader(reader).unwrap();
     assert_eq!(v.len(), tables.len());
@@ -1182,7 +1183,7 @@ fn test_generate() {
 fn test_get_origination_operations_from_block() {
     use crate::octez::block::Block;
     let test_file =
-        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.level-132091.json";
+        "test/KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq.originations_test.json";
     let contract_id = "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq";
     let block: Block =
         serde_json::from_str(&debug::load_test(test_file)).unwrap();

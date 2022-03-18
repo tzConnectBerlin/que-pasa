@@ -1,10 +1,10 @@
 {
     (
         table_name: "storage.token_total_supply",
-        id: 201,
+        id: 203,
     ): (
         table_name: "storage.token_total_supply",
-        id: 201,
+        id: 203,
         fk_id: None,
         columns: [
             (
@@ -13,7 +13,7 @@
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("13")),
+                value: Numeric(Some("15")),
             ),
             (
                 name: "tokens_nat",
@@ -52,6 +52,32 @@
         ],
     ),
     (
+        table_name: "storage.token_total_supply",
+        id: 201,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 201,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(191),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("13")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
         table_name: "storage.questions.auction_bids",
         id: 199,
     ): (
@@ -78,6 +104,32 @@
             (
                 name: "rate",
                 value: Numeric(Some("910000000000000000")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage",
+        id: 192,
+    ): (
+        table_name: "storage",
+        id: 192,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(191),
+            ),
+            (
+                name: "stablecoin",
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Numeric(Some("15")),
             ),
         ],
     ),
@@ -140,58 +192,6 @@
             (
                 name: "bigmap_id",
                 value: Int(48012),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.token_total_supply",
-        id: 203,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 203,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(191),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("15")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 192,
-    ): (
-        table_name: "storage",
-        id: 192,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(191),
-            ),
-            (
-                name: "stablecoin",
-                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
-            ),
-            (
-                name: "owner",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "last_token_created",
-                value: Numeric(Some("15")),
             ),
         ],
     ),

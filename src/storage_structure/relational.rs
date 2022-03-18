@@ -909,6 +909,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1036,6 +1037,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1056,6 +1058,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1076,6 +1079,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1333,6 +1337,7 @@ fn test_relational_ast_builder() {
                             value: None,
                             is_index: false,
                     }}),
+                    has_memory: true,
                 }),
             }),
         },
@@ -1368,6 +1373,7 @@ fn test_relational_ast_builder() {
                                 value: None,
                                 is_index: false,
                         }}),
+                        has_memory: true,
                     }),
                     right_ast: Box::new(RelationalAST::Leaf {
                         rel_entry: RelationalEntry {

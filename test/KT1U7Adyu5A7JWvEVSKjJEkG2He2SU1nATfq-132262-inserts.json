@@ -1,75 +1,15 @@
 {
     (
-        table_name: "storage.ledger",
-        id: 123,
-    ): (
-        table_name: "storage.ledger",
-        id: 123,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(114),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("6")),
-            ),
-            (
-                name: "idx_tokens_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "tokens_balance",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48013),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.ledger",
-        id: 121,
-    ): (
-        table_name: "storage.ledger",
-        id: 121,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(114),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("5")),
-            ),
-            (
-                name: "idx_tokens_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "tokens_balance",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48013),
-            ),
-        ],
-    ),
-    (
         table_name: "storage",
-        id: 115,
+        id: 103,
     ): (
         table_name: "storage",
-        id: 115,
+        id: 103,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(114),
+                value: BigInt(102),
             ),
             (
                 name: "stablecoin",
@@ -86,16 +26,46 @@
         ],
     ),
     (
-        table_name: "storage.token_total_supply",
-        id: 125,
+        table_name: "storage.ledger",
+        id: 111,
     ): (
-        table_name: "storage.token_total_supply",
-        id: 125,
+        table_name: "storage.ledger",
+        id: 111,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(114),
+                value: BigInt(102),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("6")),
+            ),
+            (
+                name: "idx_tokens_address",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "tokens_balance",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 113,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 113,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(102),
             ),
             (
                 name: "idx_tokens_nat",
@@ -108,6 +78,36 @@
             (
                 name: "bigmap_id",
                 value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 109,
+    ): (
+        table_name: "storage.ledger",
+        id: 109,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(102),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("5")),
+            ),
+            (
+                name: "idx_tokens_address",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "tokens_balance",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
             ),
         ],
     ),

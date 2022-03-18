@@ -1,15 +1,15 @@
 {
     (
         table_name: "storage",
-        id: 163,
+        id: 151,
     ): (
         table_name: "storage",
-        id: 163,
+        id: 151,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(162),
+                value: BigInt(150),
             ),
             (
                 name: "stablecoin",

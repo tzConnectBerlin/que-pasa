@@ -14,5 +14,6 @@ where
 /// Load from the ../test directory, only for testing
 #[cfg(test)]
 pub(crate) fn load_test(name: &str) -> String {
+    println!("loading: {}", name);
     std::fs::read_to_string(std::path::Path::new(name)).unwrap()
 }

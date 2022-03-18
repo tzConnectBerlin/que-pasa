@@ -1,15 +1,15 @@
 {
     (
         table_name: "storage.ledger",
-        id: 109,
+        id: 97,
     ): (
         table_name: "storage.ledger",
-        id: 109,
+        id: 97,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(102),
+                value: BigInt(90),
             ),
             (
                 name: "idx_tokens_nat",
@@ -30,42 +30,16 @@
         ],
     ),
     (
-        table_name: "storage.token_total_supply",
-        id: 113,
+        table_name: "storage",
+        id: 91,
     ): (
-        table_name: "storage.token_total_supply",
-        id: 113,
+        table_name: "storage",
+        id: 91,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(102),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("6")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("5263157894736842105")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 103,
-    ): (
-        table_name: "storage",
-        id: 103,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(102),
+                value: BigInt(90),
             ),
             (
                 name: "stablecoin",
@@ -82,16 +56,42 @@
         ],
     ),
     (
-        table_name: "storage.ledger",
-        id: 111,
+        table_name: "storage.token_total_supply",
+        id: 101,
     ): (
-        table_name: "storage.ledger",
-        id: 111,
+        table_name: "storage.token_total_supply",
+        id: 101,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(102),
+                value: BigInt(90),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("6")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("5263157894736842105")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 99,
+    ): (
+        table_name: "storage.ledger",
+        id: 99,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(90),
             ),
             (
                 name: "idx_tokens_nat",

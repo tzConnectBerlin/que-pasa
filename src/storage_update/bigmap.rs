@@ -378,14 +378,14 @@ impl IntraBlockBigmapDiffsProcessor {
 
 #[test]
 fn test_normalizer() {
-    fn tx_context(level: u32) -> TxContext {
+    fn tx_context(level: u32, internal: Option<i32>) -> TxContext {
         TxContext {
             id: None,
             level,
             operation_group_number: 0,
             operation_number: 0,
             content_number: 0,
-            internal_number: None,
+            internal_number: internal,
             contract: "".to_string(),
         }
     }
@@ -412,10 +412,10 @@ fn test_normalizer() {
             name: "basic".to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![op_update(0, 1), op_update(1, 1)],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
             exp_deps: vec![],
@@ -424,8 +424,8 @@ fn test_normalizer() {
         TestCase {
             name: "empty".to_string(),
 
-            tx_bigmap_ops: vec![(tx_context(1), vec![])],
-            normalize_tx_context: tx_context(1),
+            tx_bigmap_ops: vec![(tx_context(1, None), vec![])],
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 10,
 
             exp_deps: vec![],
@@ -436,7 +436,7 @@ fn test_normalizer() {
                 .to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(10, 1),
                     op_update(10, 2),
@@ -447,17 +447,17 @@ fn test_normalizer() {
                     op_update(10, 3),
                 ],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1, None))],
             exp_ops: vec![op_update(0, 1), op_update(0, 2)],
         },
         TestCase {
             name: "nested copy, only nested source is in exp_deps".to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(10, 1),
                     Op::Copy {
@@ -471,17 +471,17 @@ fn test_normalizer() {
                     },
                 ],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1, None))],
             exp_ops: vec![op_update(0, 1), op_update(0, 2)],
         },
         TestCase {
             name: "nested copy (complex)".to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(10, 1),
                     Op::Copy {
@@ -499,10 +499,10 @@ fn test_normalizer() {
                     },
                 ],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(1)), (10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1, None)), (10, tx_context(1, None))],
             exp_ops: vec![
                 op_update(0, 1),
                 op_update(0, 1),
@@ -516,36 +516,36 @@ fn test_normalizer() {
 
             tx_bigmap_ops: vec![
                 (
-                    tx_context(1),
+                    tx_context(2, None),
                     vec![
-                        op_update(5, 1),  // should be included
-                        op_update(5, 2),  // should be included
+                        op_update(-5, 1),  // should be included
+                        op_update(-5, 2),  // should be included
                         op_update(0, 10), // should be omitted
                     ],
                 ),
                 (
-                    tx_context(2),
+                    tx_context(2, Some(0)),
                     vec![
-                        op_update(5, 3),
+                        op_update(-5, 3),
                         Op::Copy {
                             bigmap: 0,
-                            source: 5,
+                            source: -5,
                         },
                         op_update(0, 4),
                     ],
                 ),
                 (
-                    tx_context(3),
+                    tx_context(3, None),
                     vec![
                         op_update(0, 5), // should be omitted (later tx)
                         op_update(5, 4), // should be omitted (later tx)
                     ],
                 ),
             ],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, Some(0)),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(5, tx_context(2))],
+            exp_deps: vec![(-5, tx_context(2, Some(0)))],
             exp_ops: vec![
                 op_update(0, 1),
                 op_update(0, 2),
@@ -557,15 +557,15 @@ fn test_normalizer() {
             name: "-bigmap ids are temporary, and only live in the scope of origin copy".to_string(),
 
             tx_bigmap_ops: vec![(
-        tx_context(1),
-        vec![
-            op_update(3, 1),
-            Op::Copy{
-            bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
-            source: 3
-            },
-        ]), (
-                tx_context(2),
+            tx_context(1, None),
+            vec![
+                op_update(3, 1),
+                Op::Copy{
+                bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
+                source: 3
+                },
+            ]), (
+                tx_context(2, None),
                 vec![
                     op_update(10, 2),
                     Op::Copy {
@@ -579,10 +579,10 @@ fn test_normalizer() {
                     },
                 ],
             )],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(2))],
+            exp_deps: vec![(10, tx_context(2, None))],
             exp_ops: vec![
                 op_update(0, 2),
                 op_update(0, 3),
@@ -595,9 +595,9 @@ fn test_normalizer() {
             name: "copy: updates before a clear are omitted".to_string(),
 
             tx_bigmap_ops: vec![
-                (tx_context(1), vec![op_update(10, 0)]),
+                (tx_context(1, None), vec![op_update(10, 0)]),
                 (
-                    tx_context(2),
+                    tx_context(2, None),
                     vec![
                         op_update(10, 1),
                         op_update(10, 2),
@@ -611,10 +611,10 @@ fn test_normalizer() {
                     ],
                 ),
             ],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(2))],
+            exp_deps: vec![(10, tx_context(2, None))],
             exp_ops: vec![op_update(0, 3), op_update(0, 4)],
         },
         TestCase {
@@ -622,7 +622,7 @@ fn test_normalizer() {
                 .to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(0, 1),
                     op_update(0, 2),
@@ -631,7 +631,7 @@ fn test_normalizer() {
                     op_update(0, 4),
                 ],
             )],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, None),
             normalize_bigmap: 0,
 
             exp_deps: vec![],
@@ -651,6 +651,7 @@ fn test_normalizer() {
                 .normalized_diffs(
                     tc.normalize_bigmap,
                     &tc.normalize_tx_context,
+                    true,
                 );
         assert_eq!(tc.exp_deps, got_deps);
         assert_eq!(tc.exp_ops, got_ops);

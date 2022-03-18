@@ -1,93 +1,15 @@
 {
     (
-        table_name: "storage.token_total_supply",
-        id: 89,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 89,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(69),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("4")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("105263157894736842105")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.token_total_supply",
-        id: 91,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 91,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(69),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("6")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("105263157894736842105")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 70,
-    ): (
-        table_name: "storage",
-        id: 70,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(69),
-            ),
-            (
-                name: "stablecoin",
-                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
-            ),
-            (
-                name: "owner",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "last_token_created",
-                value: Numeric(Some("6")),
-            ),
-        ],
-    ),
-    (
         table_name: "storage.questions",
-        id: 76,
+        id: 64,
     ): (
         table_name: "storage.questions",
-        id: 76,
+        id: 64,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(69),
+                value: BigInt(57),
             ),
             (
                 name: "idx_string",
@@ -141,45 +63,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 81,
+        id: 67,
     ): (
         table_name: "storage.ledger",
-        id: 81,
+        id: 67,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(69),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("6")),
-            ),
-            (
-                name: "idx_tokens_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "tokens_balance",
-                value: Numeric(Some("100000000000000000000")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48013),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.ledger",
-        id: 79,
-    ): (
-        table_name: "storage.ledger",
-        id: 79,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(69),
+                value: BigInt(57),
             ),
             (
                 name: "idx_tokens_nat",
@@ -200,16 +92,128 @@
         ],
     ),
     (
-        table_name: "storage.questions.auction_bids",
+        table_name: "storage.token_total_supply",
         id: 77,
     ): (
-        table_name: "storage.questions.auction_bids",
+        table_name: "storage.token_total_supply",
         id: 77,
-        fk_id: Some(76),
+        fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(69),
+                value: BigInt(57),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("4")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("105263157894736842105")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 79,
+    ): (
+        table_name: "storage.token_total_supply",
+        id: 79,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(57),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("6")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("105263157894736842105")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 75,
+    ): (
+        table_name: "storage.ledger",
+        id: 75,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(57),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("6")),
+            ),
+            (
+                name: "idx_tokens_address",
+                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+            ),
+            (
+                name: "tokens_balance",
+                value: Numeric(Some("5263157894736842105")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 73,
+    ): (
+        table_name: "storage.ledger",
+        id: 73,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(57),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("5")),
+            ),
+            (
+                name: "idx_tokens_address",
+                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+            ),
+            (
+                name: "tokens_balance",
+                value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48013),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.questions.auction_bids",
+        id: 65,
+    ): (
+        table_name: "storage.questions.auction_bids",
+        id: 65,
+        fk_id: Some(64),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(57),
             ),
             (
                 name: "idx_address",
@@ -230,16 +234,68 @@
         ],
     ),
     (
-        table_name: "storage.ledger",
-        id: 87,
+        table_name: "storage.token_total_supply",
+        id: 78,
     ): (
-        table_name: "storage.ledger",
-        id: 87,
+        table_name: "storage.token_total_supply",
+        id: 78,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(69),
+                value: BigInt(57),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("5")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage",
+        id: 58,
+    ): (
+        table_name: "storage",
+        id: 58,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(57),
+            ),
+            (
+                name: "stablecoin",
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Numeric(Some("6")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 69,
+    ): (
+        table_name: "storage.ledger",
+        id: 69,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(57),
             ),
             (
                 name: "idx_tokens_nat",
@@ -247,37 +303,7 @@
             ),
             (
                 name: "idx_tokens_address",
-                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
-            ),
-            (
-                name: "tokens_balance",
-                value: Numeric(Some("5263157894736842105")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48013),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.ledger",
-        id: 85,
-    ): (
-        table_name: "storage.ledger",
-        id: 85,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(69),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("5")),
-            ),
-            (
-                name: "idx_tokens_address",
-                value: String("KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq"),
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
             ),
             (
                 name: "tokens_balance",
@@ -291,15 +317,15 @@
     ),
     (
         table_name: "storage.ledger",
-        id: 83,
+        id: 71,
     ): (
         table_name: "storage.ledger",
-        id: 83,
+        id: 71,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(69),
+                value: BigInt(57),
             ),
             (
                 name: "idx_tokens_nat",
@@ -316,32 +342,6 @@
             (
                 name: "bigmap_id",
                 value: Int(48013),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.token_total_supply",
-        id: 90,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 90,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(69),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("5")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("100000000000000000000")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
             ),
         ],
     ),

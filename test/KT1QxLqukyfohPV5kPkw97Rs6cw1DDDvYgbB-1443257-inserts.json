@@ -1,0 +1,140 @@
+{
+    (
+        table_name: "storage",
+        id: 75,
+    ): (
+        table_name: "storage",
+        id: 75,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(74),
+            ),
+            (
+                name: "veto",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "total_votes",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "total_supply",
+                value: Numeric(Some("42845649440")),
+            ),
+            (
+                name: "total_reward",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "token_pool",
+                value: Numeric(Some("14698780134")),
+            ),
+            (
+                name: "token_id",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "token_address",
+                value: String("KT1AFA2mwNUMNd4SsujE1YYp29vd8BZejyKW"),
+            ),
+            (
+                name: "tez_pool",
+                value: Numeric(Some("42845649440")),
+            ),
+            (
+                name: "reward_per_share",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "reward_per_sec",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "reward_paid",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "reward",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "period_finish",
+                value: Timestamp(Some("2021-05-24T15:38:04Z")),
+            ),
+            (
+                name: "last_veto",
+                value: Timestamp(Some("2021-04-24T15:38:04Z")),
+            ),
+            (
+                name: "last_update_time",
+                value: Timestamp(Some("2021-04-24T19:45:24Z")),
+            ),
+            (
+                name: "baker_validator",
+                value: String("KT1Rowg7xjbQzQh3VFb2E9r6PMxoAqyJnSZi"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.user_rewards",
+        id: 86,
+    ): (
+        table_name: "storage.user_rewards",
+        id: 86,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(74),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1WW1xr4mdTif7jorgVr7aqY3YnnJPSDXj7"),
+            ),
+            (
+                name: "reward_paid",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "reward",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.ledger",
+        id: 84,
+    ): (
+        table_name: "storage.ledger",
+        id: 84,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(74),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1WW1xr4mdTif7jorgVr7aqY3YnnJPSDXj7"),
+            ),
+            (
+                name: "frozen_balance",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "balance",
+                value: Numeric(Some("251800130")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1878),
+            ),
+        ],
+    ),
+}

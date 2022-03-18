@@ -1537,6 +1537,7 @@ fn test_process_michelson_value() {
                         is_index: false,
                     },
                 }),
+                has_memory: true,
             },
             value: parser::Value::List(vec![]),
             tx_context: TxContext {
@@ -1581,6 +1582,7 @@ fn test_process_michelson_value() {
                         is_index: false,
                     },
                 }),
+                has_memory: true,
             },
             value: parser::Value::List(vec![
                 parser::Value::Elt(
@@ -1716,6 +1718,7 @@ fn test_process_block() {
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
     use ron::ser::{to_string_pretty, PrettyConfig};
+    use std::fs;
     use std::str::FromStr;
 
     env_logger::init();
@@ -1741,18 +1744,40 @@ fn test_process_block() {
         Ok(rel_ast)
     }
 
-    #[derive(Debug)]
-    struct Contract<'a> {
-        id: &'a str,
-        levels: Vec<u32>,
-    }
+    let mut contracts: HashMap<String, Vec<u32>> = HashMap::new();
 
-    let mut contracts: Vec<Contract> = vec![];
-
+    println!("test..");
     let paths = fs::read_dir("test/").unwrap();
     for path in paths {
-        println!("Name: {}", path.unwrap().path().display());
-        // TODO
+        let p: String = path
+            .unwrap()
+            .path()
+            .to_str()
+            .unwrap()
+            .to_string()
+            .strip_prefix("test/")
+            .unwrap()
+            .to_string();
+
+        if let Some((contract, level)) = p.split_once(".level-") {
+            if !contracts.contains_key(contract) {
+                contracts.insert(contract.to_string(), vec![]);
+            }
+            contracts
+                .get_mut(contract)
+                .unwrap()
+                .push(
+                    level
+                        .strip_suffix(".json")
+                        .unwrap()
+                        .parse()
+                        .unwrap(),
+                );
+        }
+    }
+
+    for (_, lvls) in contracts.iter_mut() {
+        lvls.sort();
     }
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
@@ -1793,14 +1818,13 @@ fn test_process_block() {
                 })
                 .collect();
             res.insert(0, insert::Value::String(insert.table_name.clone()));
-            println!("sorting by: {:?}", sort_on);
             res
         });
     }
 
     let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
-    for contract in &contracts {
+    for (contract, levels) in &contracts {
         let mut storage_processor = StorageProcessor::new(
             1,
             DummyStorageGetter {},
@@ -1808,13 +1832,13 @@ fn test_process_block() {
         );
 
         // verify that the test case is sane
-        let mut unique_levels = contract.levels.clone();
+        let mut unique_levels = levels.clone();
         unique_levels.sort();
         unique_levels.dedup();
-        assert_eq!(contract.levels.len(), unique_levels.len());
+        assert_eq!(levels.len(), unique_levels.len());
 
         let script_json = serde_json::Value::from_str(&debug::load_test(
-            &format!("test/{}.script", contract.id),
+            &format!("test/{}.script", contract),
         ))
         .unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
@@ -1826,11 +1850,11 @@ fn test_process_block() {
         builder.populate(&rel_ast);
         let tables = &builder.tables;
 
-        for level in &contract.levels {
-            println!("contract={}, level={}", contract.id, level);
+        for level in levels {
+            println!("contract={}, level={}", contract, level);
 
             let block: Block = serde_json::from_str(&debug::load_test(
-                &format!("test/{}.level-{}.json", contract.id, level),
+                &format!("test/{}.level-{}.json", contract, level),
             ))
             .unwrap();
 
@@ -1842,8 +1866,8 @@ fn test_process_block() {
                     &diffs,
                     &crate::storage_structure::relational::Contract {
                         cid: crate::config::ContractID {
-                            name: contract.id.to_string(),
-                            address: contract.id.to_string(),
+                            name: contract.clone(),
+                            address: contract.clone(),
                         },
                         storage_ast: rel_ast.clone(),
                         level_floor: None,
@@ -1855,8 +1879,7 @@ fn test_process_block() {
             storage_processor.drain_txs();
             storage_processor.drain_bigmap_contract_dependencies();
 
-            let filename =
-                format!("test/{}-{}-inserts.json", contract.id, level);
+            let filename = format!("test/{}-{}-inserts.json", contract, level);
             println!("cat > {} <<ENDOFJSON", filename);
             println!(
                 "{}",
@@ -1869,7 +1892,7 @@ fn test_process_block() {
 
             let mut result: Vec<Insert> = inserts.values().cloned().collect();
             sort_inserts(tables, &mut result);
-            results.push((contract.id, *level, result));
+            results.push((contract, *level, result));
 
             use std::path::Path;
             let p = Path::new(&filename);
@@ -1885,7 +1908,7 @@ fn test_process_block() {
                     v.values().cloned().collect();
                 sort_inserts(tables, &mut expected_result);
 
-                expected.push((contract.id, *level, expected_result));
+                expected.push((contract, *level, expected_result));
             }
         }
     }
@@ -1922,7 +1945,8 @@ impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
         &mut self,
         _level: u32,
         _bigmap_id: i32,
-    ) -> Result<Vec<(String, String)>> {
+    ) -> Result<Vec<(String, serde_json::Value, Option<serde_json::Value>)>>
+    {
         Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
     }
 }
