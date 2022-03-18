@@ -378,7 +378,7 @@ impl Block {
                                                 entrypoint_args: None,
 
                                                 amount: Self::parse_option_pgnumeric(
-                                                    content.balance.as_ref(),
+                                                    internal_op.balance.as_ref(),
                                                 )?,
                                                 fee: None,
                                                 gas_limit: None,
@@ -1034,7 +1034,8 @@ pub struct InternalOperationResult {
     pub kind: String,
     pub source: String,
     pub nonce: i64,
-    pub amount: Option<String>,
+    pub amount: Option<String>, // todo, is this possible?
+    pub balance: Option<String>,
     pub destination: Option<String>,
     pub parameters: Option<Parameters>,
     pub result: OperationResult,
