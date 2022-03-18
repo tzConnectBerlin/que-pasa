@@ -377,7 +377,9 @@ impl Block {
                                                 entrypoint: None,
                                                 entrypoint_args: None,
 
-                                                amount: None, // TODO is this always none?
+                                                amount: Self::parse_option_pgnumeric(
+                                                    content.balance.as_ref(),
+                                                )?,
                                                 fee: None,
                                                 gas_limit: None,
                                                 storage_limit: None,
@@ -768,6 +770,7 @@ pub struct Content {
     pub gas_limit: Option<String>,
     pub storage_limit: Option<String>,
     pub amount: Option<String>,
+    pub balance: Option<String>,
 
     #[serde(skip)]
     kind: String,
@@ -775,8 +778,6 @@ pub struct Content {
     endorsement: Option<Endorsement>,
     #[serde(skip)]
     counter: Option<String>,
-    #[serde(skip)]
-    balance: Option<String>,
     #[serde(skip)]
     script: Option<Script>,
 }

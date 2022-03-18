@@ -66,7 +66,7 @@ big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$
 #
 # what happens when a contract storage's bigmap is overwritten with another contract storage's bigmap
 
-./script/tz-cli call bigmap_src from alice --amount 5 --entrypoint copy --arg "\"$bigmap_dest_addr\"" || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+./script/tz-cli call bigmap_src from alice --entrypoint copy --arg "\"$bigmap_dest_addr\"" || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
 
 #
 # second experiment conclusions:
