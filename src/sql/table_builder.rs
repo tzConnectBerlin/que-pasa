@@ -148,6 +148,8 @@ impl TableBuilder {
                         &"bigmap_id".to_string(),
                         &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                     );
+                } else {
+                    t.has_copy_pointers();
                 }
                 self.store_table(t);
 

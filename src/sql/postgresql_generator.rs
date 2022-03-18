@@ -16,6 +16,15 @@ struct CreateChangesFunctionsTmpl<'a> {
     typed_columns: &'a [String],
 }
 
+#[derive(Template)]
+#[template(path = "create-snapshot-functions.sql", escape = "none")]
+struct CreateSnapshotFunctionsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    typed_columns: &'a [String],
+}
+
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
     contract_id: ContractID,
@@ -114,7 +123,11 @@ impl PostgresqlGenerator {
     ) -> Result<Vec<String>> {
         let columns: Vec<String> =
             Self::table_sql_columns(table, false).to_vec();
-        let indices: Vec<String> = Self::table_sql_indices(table, false);
+
+        if columns.is_empty() {
+            return Ok(vec![]);
+        }
+
         let typed_columns: Vec<String> = table
             .get_columns()
             .iter()
@@ -126,18 +139,29 @@ impl PostgresqlGenerator {
             })
             .map(|x| Self::create_sql(x).unwrap())
             .collect();
-        if !table.contains_snapshots() {
-            let tmpl = CreateChangesFunctionsTmpl {
+
+        if table.contains_pointers() {
+            return Ok(vec![]);
+        }
+
+        if table.contains_snapshots() {
+            let tmpl = CreateSnapshotFunctionsTmpl {
                 contract_schema: contract_schema,
                 table: &table.name,
                 columns: &columns,
-                indices: &indices,
                 typed_columns: &typed_columns,
             };
-            Ok(vec![tmpl.render()?])
-        } else {
-            Ok(vec![])
+            return Ok(vec![tmpl.render()?]);
         }
+
+        let tmpl = CreateChangesFunctionsTmpl {
+            contract_schema: contract_schema,
+            table: &table.name,
+            columns: &columns,
+            typed_columns: &typed_columns,
+            indices: &Self::table_sql_indices(table, false),
+        };
+        Ok(vec![tmpl.render()?])
     }
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {

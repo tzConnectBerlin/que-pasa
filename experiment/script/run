@@ -9,8 +9,9 @@ set -a
 . .env
 set +a
 
+docker kill local-tezos >/dev/null 2>&1
 tz=`./script/local-tz`
-[ -v $KEEP_ALIVE ] || trap "docker kill $tz" EXIT
+[ -v KEEP_ALIVE ] || trap "docker kill $tz" EXIT
 echo -n "setting up a private tezos network"
 while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
     echo -n '.'
@@ -41,7 +42,7 @@ rm -r output/*
 
 bigmap_dest_addr=`./script/mligo-deploy bigmap_dest '{}'`
 [ $? -eq 0 ] || exit 1
-bigmap_src_addr=`./script/mligo-deploy bigmap_src '{Elt 15 "some entry"; Elt 20 "another entry"}'`
+bigmap_src_addr=`./script/mligo-deploy bigmap_src 'Pair 0 {Elt 15 "some entry"; Elt 20 "another entry"}'`
 [ $? -eq 0 ] || exit 1
 
 ./script/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{}' || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
