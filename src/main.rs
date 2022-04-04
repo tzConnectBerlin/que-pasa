@@ -102,6 +102,17 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             .add_contract(contract_id)
             .unwrap();
     }
+
+    if config.only_migrate {
+        executor
+            .add_dependency_contracts()
+            .unwrap();
+        executor
+            .create_contract_schemas()
+            .unwrap();
+        return;
+    }
+
     let contracts = executor.get_config().unwrap();
     assert_contracts_ok(&contracts);
 

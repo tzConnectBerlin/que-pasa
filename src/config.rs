@@ -12,6 +12,8 @@ pub struct Config {
     pub database_url: String,
 
     pub reinit: bool,
+    pub only_migrate: bool,
+
     pub levels: Vec<u32>,
     pub node_urls: Vec<String>, // allowing multiple urls, HEAD is the primary node, any subsequent is a fallback node
     pub node_comm_retries: i32,
@@ -171,6 +173,13 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(false),
         )
         .arg(
+            Arg::with_name("only_migrate")
+                .long("only-migrate")
+                .value_name("ONLY_MIGRATE")
+                .help("If set, apply migrations (if any applicable) and then quit without processing levels.")
+                .takes_value(false),
+        )
+        .arg(
             Arg::with_name("always_yes")
                 .long("always-yes")
                 .short("y")
@@ -209,6 +218,7 @@ pub fn init_config() -> Result<Config> {
         .to_string();
 
     config.reinit = matches.is_present("reinit");
+    config.only_migrate = matches.is_present("only_migrate");
     config.all_contracts = matches.is_present("index_all_contracts");
     config.always_yes = matches.is_present("always_yes");
 
