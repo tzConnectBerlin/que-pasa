@@ -1,4 +1,4 @@
-FROM rust:1.54 AS builder
+FROM rust:1.59 AS builder
 
 WORKDIR /usr/src/que-pasa
 COPY src src/
@@ -10,9 +10,9 @@ COPY askama.toml .
 
 RUN cargo build --release
 
-# Using buster-slim as runtime image, rather than eg alpine.
+# Using a slim debian as runtime image, rather than eg alpine.
 # Reason: alpine requires static linking, which has some cons in rust
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 WORKDIR /que-pasa
 COPY --from=builder /usr/src/que-pasa/target/release/que-pasa ./
