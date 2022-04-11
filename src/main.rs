@@ -135,7 +135,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
     // if continuous mode is running (setting an acceptable duration may be
     // necessary depending on how long it takes to derive the _ordered and _live
     // tables, unfortunately.
-    let acceptable_head_offset = Duration::days(0);
+    let acceptable_head_offset = Duration::days(1);
     let new_initialized = executor
         .exec_new_contracts_historically(
             &bcd_settings,

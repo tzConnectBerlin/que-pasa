@@ -235,7 +235,7 @@ impl Executor {
                     ))
                 }
             }?;
-            info!("db: {} chain: {}", db_head.level, chain_head.level);
+            debug!("db: {} chain: {}", db_head.level, chain_head.level);
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
                     wait_done(&mut first_wait);
