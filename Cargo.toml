@@ -20,6 +20,7 @@ atty = "0.2.14"
 backtrace = "*"
 bs58 = { version = "0.4.0", features = ["check"] }
 chrono = { version = "0.4", features = ["serde"] }
+duration-str = { version = "0.3.9", features = ["chrono"] }
 clap = "2.33.3"
 r2d2_postgres = "0.18.1"
 r2d2 = "0.8.9"
