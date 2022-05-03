@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment
+
+# Note: set env var KEEP_ALIVE (to anything) to keep the local tezos network up after this script is done.
+
+set -u
+
+set -a
+. .env
+set +a
+
+docker kill local-tezos >/dev/null 2>&1 && sleep 1
+tz=`./helper-scripts/local-tz`
+[ -v KEEP_ALIVE ] || trap "docker kill $tz" EXIT
+echo -n "setting up a private tezos network"
+while ! http --quiet :$RPC_PORT/chains/main/blocks/head 2>/dev/null; do
+    echo -n '.'
+    sleep 1
+done
+echo
+
+./helper-scripts/tz-cli config reset || exit 1
+./helper-scripts/tz-cli bootstrapped || exit 1
+./helper-scripts/tz-cli config update || exit 1
+
+echo -n "waiting for true bootstrap"
+while ! helper-scripts/tz-cli man | grep --quiet originate; do
+    echo -n "."
+    helper-scripts/tz-cli man | grep --quiet originate
+    sleep 1
+done
+echo
+
+sleep 5
+
+rm -r output/*
+
+###
+# first experiment:
+#
+# what happens when a contract storage's bigmap is overwritten with an external contract call's argument
+
+bigmap_dest_addr=`./helper-scripts/mligo-deploy bigmap_dest '{}'`
+[ $? -eq 0 ] || exit 1
+bigmap_src_addr=`./helper-scripts/mligo-deploy bigmap_src 'Pair 0 {Elt 15 "some entry"; Elt 20 "another entry"}'`
+[ $? -eq 0 ] || exit 1
+
+./helper-scripts/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{}' || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+./helper-scripts/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg '{Elt 33 "alice"}' --burn-cap 0.02 || exit 1  # result piece 2 of bigmap_dest (has a bigmap remove and alloc+update)
+
+# big_bigmap here contains pretty much as many values as is possible (constrained by tezos' maximum gas-limit per operation and maximum storage limit per operation)
+big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$//'`
+./helper-scripts/tz-cli call bigmap_dest from alice --entrypoint overwrite --arg "{$big_bigmap}" --gas-limit 1040000 --storage-limit 60000 --burn-cap 15 || exit 1  # result piece 3 of bigmap_dest (number of entries passed doesn't matter, still the same as when passing a singleton: has a bigmap remove and alloc+update)
+
+#
+# first experiment conclusions:
+#
+# * original bigmap id is erased with a "remove" action.
+# * a fresh bigmap id is then generated and assigned to the contract storage
+# * any value (no matter how many) present in the entrypoint bigmap argument is applied as an "update" action on the fresh bigmap
+###
+
+
+###
+# second experiment:
+#
+# what happens when a contract storage's bigmap is overwritten with another contract storage's bigmap
+
+./helper-scripts/tz-cli call bigmap_src from alice --entrypoint copy --arg "\"$bigmap_dest_addr\"" || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+
+#
+# second experiment conclusions:
+#
+###
+
+###
+# third experiment: some basic lists
+
+lists_addr=`./helper-scripts/mligo-deploy lists '{}'`
+[ $? -eq 0 ] || exit 1
+
+./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 4 --burn-cap 0.1 || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 6 --burn-cap 0.1 || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+# ./helper-scripts/tz-cli call lists from alice --entrypoint overwrite --arg "\"{Elt 4; Elt 6}\"" || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+
+## Collect results..
+
+./helper-scripts/contract-blocks $bigmap_dest_addr | while read block; do
+    ./helper-scripts/result-add bigmap_dest block <<< "`echo $block | jq '.'`"
+done
+
+./helper-scripts/contract-blocks $bigmap_src_addr | while read block; do
+    ./helper-scripts/result-add bigmap_src block <<< "`echo $block | jq '.'`"
+done
+
+./helper-scripts/contract-blocks $lists_addr | while read block; do
+    ./helper-scripts/result-add lists block <<< "`echo $block | jq '.'`"
+done

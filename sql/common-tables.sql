@@ -21,6 +21,8 @@ CREATE TABLE contract_levels (
     PRIMARY KEY(contract, level)
 );
 
+CREATE INDEX ON contract_levels(level);
+
 CREATE TYPE indexer_mode AS ENUM (
     'Bootstrap',
     'Head'
