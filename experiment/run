@@ -31,7 +31,7 @@ while ! helper-scripts/tz-cli man | grep --quiet originate; do
 done
 echo
 
-sleep 5
+# sleep 5
 
 rm -r output/*
 
@@ -79,9 +79,10 @@ big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$
 lists_addr=`./helper-scripts/mligo-deploy lists '{}'`
 [ $? -eq 0 ] || exit 1
 
-./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 4 --burn-cap 0.1 || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
-./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 6 --burn-cap 0.1 || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
-# ./helper-scripts/tz-cli call lists from alice --entrypoint overwrite --arg "\"{Elt 4; Elt 6}\"" || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 4 --burn-cap 0.1 || exit 1
+./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 6 --burn-cap 0.1 || exit 1
+./helper-scripts/tz-cli call lists from alice --entrypoint overwrite --arg '{900; 106}' --burn-cap 0.1 || exit 1
+./helper-scripts/tz-cli call lists from alice --entrypoint maybeOverwrite --arg 'Some {10; 19}' --burn-cap 0.1 || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
 
 ## Collect results..
 

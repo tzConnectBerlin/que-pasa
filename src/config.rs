@@ -27,7 +27,7 @@ pub struct Config {
     pub always_yes: bool,
     pub reports_interval: usize,
 
-    #[default(_code = "chrono::Duration::days(1)")]
+    #[default(_code = "chrono::Duration::hours(1)")]
     pub allowed_unbootstrapped_offset: chrono::Duration,
 }
 
@@ -195,10 +195,11 @@ pub fn init_config() -> Result<Config> {
                 .long("allowed-unbootstrapped-offset")
                 .value_name("ALLOWED_UNBOOTSTRAPPED_OFFSET")
                 .env("ALLOWED_UNBOOTSTRAPPED_OFFSET")
-                .help("Ensure we bootstrap until at least <now - allowed_unbootstrapped_offset>,
+                .help("Ensure we bootstrap until at least <now - (allowed_unbootstrapped_offset hours)>,
 from there it's acceptable if continuous mode is running (setting an acceptable duration may
 be necessary depending on how long it takes to derive the _ordered and _live tables,
 unfortunately.")
+                .default_value("1")
                 .takes_value(true));
     let matches = matches.get_matches();
 
@@ -230,6 +231,13 @@ unfortunately.")
         .value_of("database_url")
         .unwrap()
         .to_string();
+
+    config.allowed_unbootstrapped_offset = chrono::Duration::hours(
+        matches
+            .value_of("allowed_unbootstrapped_offset")
+            .unwrap()
+            .parse::<i64>()?,
+    );
 
     config.reinit = matches.is_present("reinit");
     config.only_migrate = matches.is_present("only_migrate");

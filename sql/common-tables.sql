@@ -134,15 +134,16 @@ CREATE TABLE bigmap_keys(
 );
 
 
-CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT) RETURNS TABLE (level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
 AS $$
     SELECT
+      ctx.id as tx_context_id,
       level,
       operation_group_number,
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts
+    FROM tx_contexts AS ctx
     WHERE id = (
       SELECT id
       FROM tx_contexts
@@ -152,15 +153,16 @@ AS $$
     )
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT) RETURNS TABLE (level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
 AS $$
     SELECT
+      ctx.id AS tx_context_id,
       level,
       operation_group_number,
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts
+    FROM tx_contexts AS ctx
     WHERE id = (
       SELECT id
       FROM tx_contexts
@@ -176,15 +178,16 @@ AS $$
     )
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT) RETURNS TABLE (level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
 AS $$
     SELECT
+      ctx.id,
       level,
       operation_group_number,
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts
+    FROM tx_contexts AS ctx
     WHERE id = (
       SELECT id
       FROM tx_contexts
@@ -202,15 +205,16 @@ AS $$
     )
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT, content INT) RETURNS TABLE (level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT, content INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
 AS $$
     SELECT
+      ctx.id AS tx_context_id,
       level,
       operation_group_number,
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts
+    FROM tx_contexts AS ctx
     WHERE id = (
       SELECT id
       FROM tx_contexts
@@ -230,15 +234,16 @@ AS $$
     )
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE (level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
 AS $$
     SELECT
+      ctx.id AS tx_context_id,
       level,
       operation_group_number,
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts
+    FROM tx_contexts AS ctx
     WHERE id = (
       SELECT id
       FROM tx_contexts
