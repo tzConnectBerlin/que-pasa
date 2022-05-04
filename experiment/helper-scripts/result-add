@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -u
+
+component=$1
+result_kind=$2
+
+mkdir -p output/$component
+
+result_id=`ls output/$component | wc -l`
+cat - > output/$component/result_piece_$result_id.$result_kind

@@ -17,7 +17,8 @@ use crate::sql::insert::{Column, Insert, Value};
 use crate::sql::postgresql_generator::PostgresqlGenerator;
 use crate::sql::table::Table;
 use crate::sql::table_builder::TableBuilder;
-use crate::storage_structure::relational::RelationalAST;
+use crate::sql::types::BigmapMetaAction;
+use crate::storage_structure::relational;
 
 use r2d2_postgres::{postgres::NoTls, PostgresConnectionManager};
 
@@ -148,33 +149,33 @@ WHERE table_schema = $1
 
     pub(crate) fn repopulate_derived_tables(
         &mut self,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &relational::Contract,
     ) -> Result<()> {
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
+        let (mut tables, noview_prefixes, _): (
+            Vec<Table>,
+            Vec<String>,
+            Vec<String>,
+        ) = TableBuilder::tables_from_contract(contract);
 
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
+        tables.sort_by_key(|t| t.name.clone());
 
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (i, (_name, table)) in sorted_tables.iter().enumerate() {
+        for (i, table) in tables.iter().enumerate() {
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
                 info!(
                     "repopulating {table} _live and _ordered ({contract} table {table_i}/~{table_total})",
-                    contract = contract_id.name,
+                    contract = contract.cid.name,
                     table = table.name,
                     table_i = i,
-                    table_total = sorted_tables.len(),
+                    table_total = tables.len(),
                 );
                 DBClient::repopulate_derived_table(
                     &mut tx,
-                    contract_id,
+                    &contract.cid,
                     table,
                 )?;
             }
@@ -212,28 +213,29 @@ WHERE table_schema = $1
 
     pub(crate) fn update_derived_tables(
         tx: &mut Transaction,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &relational::Contract,
         tx_contexts: &[TxContext],
     ) -> Result<()> {
         if tx_contexts.is_empty() {
             return Ok(());
         }
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
 
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
+        let (mut tables, noview_prefixes, _): (
+            Vec<Table>,
+            Vec<String>,
+            Vec<String>,
+        ) = TableBuilder::tables_from_contract(contract);
 
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (_name, table) in sorted_tables {
+        tables.sort_by_key(|t| t.name.clone());
+
+        for table in &tables {
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
                 DBClient::update_derived_table(
                     tx,
-                    contract_id,
+                    &contract.cid,
                     table,
                     tx_contexts,
                 )?;
@@ -278,12 +280,12 @@ WHERE table_schema = $1
 
     pub(crate) fn create_contract_schemas(
         &mut self,
-        contracts: &mut Vec<(ContractID, RelationalAST)>,
+        contracts: &mut Vec<relational::Contract>,
     ) -> Result<bool> {
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
 
-        contracts.sort_by_key(|(cid, _)| cid.name.clone());
+        contracts.sort_by_key(|c| c.cid.name.clone());
 
         let num_columns = 2;
         let v_refs = (1..(num_columns * contracts.len()) + 1)
@@ -303,8 +305,8 @@ RETURNING name",
 
         let values: Vec<&dyn postgres::types::ToSql> = contracts
             .iter()
-            .flat_map(|(c, _)| {
-                [c.name.borrow_to_sql(), c.address.borrow_to_sql()]
+            .flat_map(|c| {
+                [c.cid.name.borrow_to_sql(), c.cid.address.borrow_to_sql()]
             })
             .collect();
 
@@ -318,28 +320,29 @@ RETURNING name",
         }
         let mut stmnts: Vec<String> = vec![];
         for name in &new_contracts {
-            let (contract_id, rel_ast) = contracts
+            let contract = contracts
                 .iter()
-                .find(|(c, _)| &c.name == name)
+                .find(|c| &c.cid.name == name)
                 .unwrap();
 
-            // Generate the SQL schema for this contract
-            let mut builder = TableBuilder::new();
-            builder.populate(rel_ast);
+            let (mut tables, noview_prefixes, nofunctions_prefixes): (
+                Vec<Table>,
+                Vec<String>,
+                Vec<String>,
+            ) = TableBuilder::tables_from_contract(contract);
 
-            let generator = PostgresqlGenerator::new(contract_id);
-            let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-            sorted_tables.sort_by_key(|a| a.0);
+            tables.sort_by_key(|t| t.name.clone());
 
             stmnts.push(format!(
                 r#"
 CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 "#,
-                contract_schema = contract_id.name
+                contract_schema = contract.cid.name
             ));
 
-            let noview_prefixes = builder.get_viewless_table_prefixes();
-            for (_name, table) in &sorted_tables {
+            let generator = PostgresqlGenerator::new(&contract.cid);
+
+            for table in &tables {
                 let table_def = generator.create_table_definition(table)?;
                 stmnts.push(table_def);
 
@@ -353,9 +356,20 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                         stmnts.push(derived_table_def);
                     }
                 }
+
+                if !nofunctions_prefixes
+                    .iter()
+                    .any(|prefix| table.name.starts_with(prefix))
+                {
+                    let function_def = generator
+                        .create_table_functions(&contract.cid.name, table)?;
+                    stmnts.extend(function_def);
+                }
             }
         }
-        tx.simple_query(stmnts.join("\n").as_str())?;
+        for stmnt in stmnts {
+            tx.simple_query(stmnt.as_str())?;
+        }
         tx.commit()?;
 
         Ok(true)
@@ -363,20 +377,44 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 
     pub(crate) fn delete_contract_schema(
         tx: &mut Transaction,
-        contract_id: &ContractID,
-        rel_ast: &RelationalAST,
+        contract: &relational::Contract,
     ) -> Result<()> {
-        info!("deleting schema for contract {}", contract_id.name);
-        // Generate the SQL schema for this contract
-        let mut builder = TableBuilder::new();
-        builder.populate(rel_ast);
+        info!("deleting schema for contract {}", contract.cid.name);
+        let (mut tables, noview_prefixes, nofunctions_prefixes): (
+            Vec<Table>,
+            Vec<String>,
+            Vec<String>,
+        ) = TableBuilder::tables_from_contract(contract);
+        tables.sort_by_key(|t| t.name.clone());
+        tables.reverse();
 
-        let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
-        sorted_tables.sort_by_key(|a| a.0);
-        sorted_tables.reverse();
+        for table in &tables {
+            if !nofunctions_prefixes
+                .iter()
+                .any(|prefix| table.name.starts_with(prefix))
+            {
+                tx.simple_query(
+                    format!(
+                        r#"
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at_deref(INT)";
 
-        let noview_prefixes = builder.get_viewless_table_prefixes();
-        for (_name, table) in sorted_tables {
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT, INT)";
+DROP FUNCTION IF EXISTS "{contract_schema}"."{table}_at(INT)";
+"#,
+                        contract_schema = contract.cid.name,
+                        table = table.name,
+                    )
+                    .as_str(),
+                )?;
+            }
+
             if !noview_prefixes
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
@@ -387,7 +425,7 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
 DROP TABLE "{contract_schema}"."{table}_ordered";
 DROP TABLE "{contract_schema}"."{table}_live";
 "#,
-                        contract_schema = contract_id.name,
+                        contract_schema = contract.cid.name,
                         table = table.name,
                     )
                     .as_str(),
@@ -399,7 +437,7 @@ DROP TABLE "{contract_schema}"."{table}_live";
                     r#"
 DROP TABLE "{contract_schema}"."{table}";
 "#,
-                    contract_schema = contract_id.name,
+                    contract_schema = contract.cid.name,
                     table = table.name,
                 )
                 .as_str(),
@@ -408,11 +446,11 @@ DROP TABLE "{contract_schema}"."{table}";
         Ok(())
     }
 
-    pub(crate) fn save_bigmap_keyhashes(
+    pub(crate) fn save_bigmap_meta_actions(
         tx: &mut Transaction,
-        bigmap_keyhashes: &[(TxContext, i32, String, String)],
+        actions: &[BigmapMetaAction],
     ) -> Result<()> {
-        for chunk in bigmap_keyhashes.chunks(Self::INSERT_BATCH_SIZE) {
+        for chunk in actions.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 4;
             let v_refs = (1..(num_columns * chunk.len()) + 1)
                 .map(|i| format!("${}", i))
@@ -422,8 +460,53 @@ DROP TABLE "{contract_schema}"."{table}";
                 .join("), (");
             let stmt = tx.prepare(&format!(
                 "
+    INSERT INTO bigmap_meta_actions (
+        tx_context_id, bigmap_id, action, value
+    )
+    Values ({})",
+                v_refs
+            ))?;
+
+            let values: Vec<&dyn postgres::types::ToSql> = chunk
+                .iter()
+                .flat_map(|x| {
+                    [
+                        x.tx_context_id.borrow_to_sql(),
+                        x.bigmap_id.borrow_to_sql(),
+                        x.action.borrow_to_sql(),
+                        x.value.borrow_to_sql(),
+                    ]
+                })
+                .collect();
+
+            tx.query_raw(&stmt, values)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn save_bigmap_keyhashes(
+        tx: &mut Transaction,
+        bigmap_keyhashes: BigmapEntries,
+    ) -> Result<()> {
+        for chunk in bigmap_keyhashes
+            .into_iter()
+            .collect::<Vec<(
+                (i32, TxContext, String),
+                (serde_json::Value, Option<serde_json::Value>),
+            )>>()
+            .chunks(Self::INSERT_BATCH_SIZE)
+        {
+            let num_columns = 5;
+            let v_refs = (1..(num_columns * chunk.len()) + 1)
+                .map(|i| format!("${}", i))
+                .collect::<Vec<String>>()
+                .chunks(num_columns)
+                .map(|x| x.join(", "))
+                .join("), (");
+            let stmt = tx.prepare(&format!(
+                "
 INSERT INTO bigmap_keys (
-    tx_context_id, bigmap_id, keyhash, key
+    tx_context_id, bigmap_id, keyhash, key, value
 )
 Values ({})",
                 v_refs
@@ -431,12 +514,13 @@ Values ({})",
 
             let values: Vec<&dyn postgres::types::ToSql> = chunk
                 .iter()
-                .flat_map(|(tx_context, bigmap_id, keyhash, key)| {
+                .flat_map(|((bigmap_id, tx_context, keyhash), (key, value))| {
                     [
                         tx_context.id.borrow_to_sql(),
                         bigmap_id.borrow_to_sql(),
                         keyhash.borrow_to_sql(),
                         key.borrow_to_sql(),
+                        value.borrow_to_sql(),
                     ]
                 })
                 .collect();
@@ -531,7 +615,7 @@ VALUES ( {} )",
 
     pub(crate) fn save_txs(tx: &mut Transaction, txs: &[Tx]) -> Result<()> {
         for txs_chunk in txs.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 11;
+            let num_columns = 12;
             let v_refs = (1..(num_columns * txs_chunk.len()) + 1)
                 .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
@@ -548,6 +632,7 @@ INSERT INTO txs(
     destination,
     entrypoint,
 
+    amount,
     fee,
     gas_limit,
     storage_limit,
@@ -569,6 +654,7 @@ VALUES ( {} )",
                         tx.source.borrow_to_sql(),
                         tx.destination.borrow_to_sql(),
                         tx.entrypoint.borrow_to_sql(),
+                        tx.amount.borrow_to_sql(),
                         tx.fee.borrow_to_sql(),
                         tx.gas_limit.borrow_to_sql(),
                         tx.storage_limit.borrow_to_sql(),
@@ -691,6 +777,7 @@ SELECT DISTINCT
     level
 FROM contract_deps
 WHERE dest_schema IN ({})
+  AND is_deep_copy
 ",
                 v_refs
             )
@@ -773,10 +860,10 @@ VALUES ( {v_refs} )"#,
     pub(crate) fn delete_everything<F>(
         &mut self,
         node_cli: &NodeClient,
-        get_rel_ast: F,
+        get_contract_rel: F,
     ) -> Result<()>
     where
-        F: Fn(&NodeClient, &str) -> Result<RelationalAST>,
+        F: Fn(&NodeClient, &ContractID) -> Result<relational::Contract>,
     {
         let mut conn = self.dbconn()?;
 
@@ -799,14 +886,20 @@ WHERE table_schema = $1
                     name: row.get(0),
                     address: row.get(1),
                 };
-                let rel_ast = get_rel_ast(node_cli, &contract_id.address)?;
-                Self::delete_contract_schema(&mut tx, &contract_id, &rel_ast)?
+                let contract = get_contract_rel(node_cli, &contract_id)?;
+                Self::delete_contract_schema(&mut tx, &contract)?
             }
         }
         tx.simple_query(
             "
+DROP FUNCTION IF EXISTS last_context_at(INT, INT, INT, INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT, INT, INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT, INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT, INT);
+DROP FUNCTION IF EXISTS last_context_at(INT);
 DROP TABLE IF EXISTS bigmap_keys;
 DROP TABLE IF EXISTS contract_deps;
+DROP TABLE IF EXISTS bigmap_meta_actions;
 DROP VIEW  IF EXISTS txs_ordered;
 DROP TABLE IF EXISTS txs;
 DROP TABLE IF EXISTS tx_contexts;
@@ -1211,10 +1304,10 @@ VALUES ( {} )",
 
     pub(crate) fn save_contract_deps(
         tx: &mut Transaction,
-        deps: &[(i32, String, ContractID)],
+        deps: &[(i32, String, ContractID, bool)],
     ) -> Result<()> {
         for deps_chunk in deps.chunks(Self::INSERT_BATCH_SIZE) {
-            let num_columns = 3;
+            let num_columns = 4;
             let v_refs = (1..(num_columns * deps_chunk.len()) + 1)
                 .map(|i| format!("${}", i))
                 .collect::<Vec<String>>()
@@ -1223,7 +1316,7 @@ VALUES ( {} )",
                 .join("), (");
             let stmt = tx.prepare(&format!(
                 "
-INSERT INTO contract_deps (level, src_contract, dest_schema)
+INSERT INTO contract_deps (level, src_contract, dest_schema, is_deep_copy)
 VALUES ( {} )
 ON CONFLICT DO NOTHING",
                 v_refs
@@ -1231,11 +1324,12 @@ ON CONFLICT DO NOTHING",
 
             let values: Vec<&dyn postgres::types::ToSql> = deps_chunk
                 .iter()
-                .flat_map(|(level, src_addr, dest)| {
+                .flat_map(|(level, src_addr, dest, is_deep_copy)| {
                     [
                         level.borrow_to_sql(),
                         src_addr.borrow_to_sql(),
                         dest.name.borrow_to_sql(),
+                        is_deep_copy.borrow_to_sql(),
                     ]
                 })
                 .collect();
@@ -1271,27 +1365,26 @@ WHERE contract = $1
     }
 }
 
+pub(crate) type BigmapEntries = HashMap<
+    (i32, TxContext, String),
+    (serde_json::Value, Option<serde_json::Value>),
+>;
+pub(crate) type BigmapEntry =
+    (String, serde_json::Value, Option<serde_json::Value>);
+
 pub(crate) trait BigmapKeysGetter {
-    fn get(
-        &mut self,
-        level: u32,
-        bigmap_id: i32,
-    ) -> Result<Vec<(String, String)>>;
+    fn get(&mut self, level: u32, bigmap_id: i32) -> Result<Vec<BigmapEntry>>;
 }
 
 impl BigmapKeysGetter for DBClient {
-    fn get(
-        &mut self,
-        level: u32,
-        bigmap_id: i32,
-    ) -> Result<Vec<(String, String)>> {
+    fn get(&mut self, level: u32, bigmap_id: i32) -> Result<Vec<BigmapEntry>> {
         let mut conn = self.dbconn()?;
-
         let res = conn.query(
             "
 SELECT
     keyhash,
-    key
+    key,
+    value
 FROM bigmap_keys bigmap
 JOIN tx_contexts ctx
   ON ctx.id = bigmap.tx_context_id
@@ -1302,7 +1395,7 @@ WHERE bigmap_id = $1
         )?;
         Ok(res
             .into_iter()
-            .map(|row| (row.get(0), row.get(1)))
-            .collect::<Vec<(String, String)>>())
+            .map(|row| (row.get(0), row.get(1), row.get(2)))
+            .collect::<Vec<BigmapEntry>>())
     }
 }

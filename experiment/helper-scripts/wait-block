@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+latest=`http :$RPC_PORT/chains/main/blocks/head | jq '.header.level'`
+
+echo -n "waiting for the next block"
+while [[ "`http :$RPC_PORT/chains/main/blocks/head | jq '.header.level'`" == "$latest" ]]; do
+    echo -n "."
+    sleep 1
+done
+echo

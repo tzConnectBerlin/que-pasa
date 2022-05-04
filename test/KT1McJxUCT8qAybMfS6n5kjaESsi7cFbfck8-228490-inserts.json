@@ -1,19 +1,5 @@
 {
     (
-        table_name: "storage",
-        id: 81,
-    ): (
-        table_name: "storage",
-        id: 81,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(80),
-            ),
-        ],
-    ),
-    (
         table_name: "storage.liquidity_provider_map.bet",
         id: 91,
     ): (
@@ -32,24 +18,6 @@
             (
                 name: "bet_predicted_probability",
                 value: Numeric(Some("5")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.market_map.fa12",
-        id: 89,
-    ): (
-        table_name: "storage.market_map.fa12",
-        id: 89,
-        fk_id: Some(87),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(80),
-            ),
-            (
-                name: "metadata_fa12",
-                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
             ),
         ],
     ),
@@ -80,6 +48,38 @@
             (
                 name: "auctionRunning_auction_period_end",
                 value: Timestamp(Some("2021-05-04T11:48:09Z")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.fa12",
+        id: 89,
+    ): (
+        table_name: "storage.market_map.fa12",
+        id: 89,
+        fk_id: Some(87),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(80),
+            ),
+            (
+                name: "metadata_fa12",
+                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage",
+        id: 81,
+    ): (
+        table_name: "storage",
+        id: 81,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(80),
             ),
         ],
     ),

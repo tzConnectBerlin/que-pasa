@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -u
+
+docker exec ${DOCKER_NAME:-local-tezos} tezos-client --endpoint http://0.0.0.0:20000 "$@"

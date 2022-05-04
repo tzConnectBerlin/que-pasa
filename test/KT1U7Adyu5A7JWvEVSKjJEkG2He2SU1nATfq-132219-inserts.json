@@ -1,19 +1,49 @@
 {
     (
+        table_name: "storage.questions.auction_bids",
+        id: 45,
+    ): (
+        table_name: "storage.questions.auction_bids",
+        id: 45,
+        fk_id: Some(44),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(37),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Numeric(Some("95000000000000000000000000000000000000")),
+            ),
+            (
+                name: "quantity",
+                value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "rate",
+                value: Numeric(Some("950000000000000000")),
+            ),
+        ],
+    ),
+    (
         table_name: "storage.token_total_supply",
-        id: 60,
+        id: 47,
     ): (
         table_name: "storage.token_total_supply",
-        id: 60,
+        id: 47,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(49),
+                value: BigInt(37),
             ),
             (
                 name: "idx_tokens_nat",
-                value: Numeric(Some("5")),
+                value: Numeric(Some("4")),
             ),
             (
                 name: "tokens_nat",
@@ -27,15 +57,15 @@
     ),
     (
         table_name: "storage.questions",
-        id: 56,
+        id: 44,
     ): (
         table_name: "storage.questions",
-        id: 56,
+        id: 44,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(49),
+                value: BigInt(37),
             ),
             (
                 name: "idx_string",
@@ -88,46 +118,42 @@
         ],
     ),
     (
-        table_name: "storage.questions.auction_bids",
-        id: 57,
+        table_name: "storage.token_total_supply",
+        id: 48,
     ): (
-        table_name: "storage.questions.auction_bids",
-        id: 57,
-        fk_id: Some(56),
+        table_name: "storage.token_total_supply",
+        id: 48,
+        fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(49),
+                value: BigInt(37),
             ),
             (
-                name: "idx_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+                name: "idx_tokens_nat",
+                value: Numeric(Some("5")),
             ),
             (
-                name: "total_token",
-                value: Numeric(Some("95000000000000000000000000000000000000")),
+                name: "tokens_nat",
+                value: Numeric(Some("0")),
             ),
             (
-                name: "quantity",
-                value: Numeric(Some("100000000000000000000")),
-            ),
-            (
-                name: "rate",
-                value: Numeric(Some("950000000000000000")),
+                name: "bigmap_id",
+                value: Int(48015),
             ),
         ],
     ),
     (
         table_name: "storage.token_total_supply",
-        id: 61,
+        id: 49,
     ): (
         table_name: "storage.token_total_supply",
-        id: 61,
+        id: 49,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(49),
+                value: BigInt(37),
             ),
             (
                 name: "idx_tokens_nat",
@@ -145,15 +171,15 @@
     ),
     (
         table_name: "storage",
-        id: 50,
+        id: 38,
     ): (
         table_name: "storage",
-        id: 50,
+        id: 38,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(49),
+                value: BigInt(37),
             ),
             (
                 name: "stablecoin",
@@ -166,32 +192,6 @@
             (
                 name: "last_token_created",
                 value: Numeric(Some("6")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.token_total_supply",
-        id: 59,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 59,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(49),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("4")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
             ),
         ],
     ),

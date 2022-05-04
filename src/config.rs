@@ -1,9 +1,10 @@
 use anyhow::Result;
 use clap::{App, Arg};
 use serde_yaml;
+use smart_default::SmartDefault;
 use std::fs;
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, SmartDefault, Debug)]
 pub struct Config {
     pub main_schema: String,
 
@@ -15,7 +16,7 @@ pub struct Config {
     pub only_migrate: bool,
 
     pub levels: Vec<u32>,
-    pub node_urls: Vec<String>, // allowing multiple urls, HEAD is the primary node, any subsequent is a fallback node
+    pub node_urls: Vec<String>,
     pub node_comm_retries: i32,
 
     pub bcd_url: Option<String>,
@@ -24,7 +25,10 @@ pub struct Config {
     pub getters_cap: usize,
     pub workers_cap: usize,
     pub always_yes: bool,
-    pub reports_interval: usize, // in seconds
+    pub reports_interval: usize,
+
+    #[default(_code = "chrono::Duration::hours(1)")]
+    pub allowed_unbootstrapped_offset: chrono::Duration,
 }
 
 #[derive(
@@ -185,7 +189,18 @@ pub fn init_config() -> Result<Config> {
                 .short("y")
                 .value_name("ALWAYS_YES")
                 .help("If set, never prompt for confirmations, always default to 'yes'")
-                .takes_value(false));
+                .takes_value(false))
+        .arg(
+            Arg::with_name("allowed_unbootstrapped_offset")
+                .long("allowed-unbootstrapped-offset")
+                .value_name("ALLOWED_UNBOOTSTRAPPED_OFFSET")
+                .env("ALLOWED_UNBOOTSTRAPPED_OFFSET")
+                .help("Ensure we bootstrap until at least <now - allowed_unbootstrapped_offset>,
+from there it's acceptable if continuous mode is running (setting an acceptable duration may
+be necessary depending on how long it takes to derive the _ordered and _live tables,
+unfortunately.")
+                .default_value("1h")
+                .takes_value(true));
     let matches = matches.get_matches();
 
     config.main_schema = matches
@@ -216,6 +231,12 @@ pub fn init_config() -> Result<Config> {
         .value_of("database_url")
         .unwrap()
         .to_string();
+
+    config.allowed_unbootstrapped_offset = duration_str::parse_chrono(
+        matches
+            .value_of("allowed_unbootstrapped_offset")
+            .unwrap(),
+    )?;
 
     config.reinit = matches.is_present("reinit");
     config.only_migrate = matches.is_present("only_migrate");

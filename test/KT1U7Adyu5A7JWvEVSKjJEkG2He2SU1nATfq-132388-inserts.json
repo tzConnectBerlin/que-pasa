@@ -1,5 +1,31 @@
 {
     (
+        table_name: "storage",
+        id: 238,
+    ): (
+        table_name: "storage",
+        id: 238,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(237),
+            ),
+            (
+                name: "stablecoin",
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Numeric(Some("15")),
+            ),
+        ],
+    ),
+    (
         table_name: "storage.questions",
         id: 244,
     ): (
@@ -62,32 +88,6 @@
             (
                 name: "bigmap_id",
                 value: Int(48012),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 238,
-    ): (
-        table_name: "storage",
-        id: 238,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(237),
-            ),
-            (
-                name: "stablecoin",
-                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
-            ),
-            (
-                name: "owner",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "last_token_created",
-                value: Numeric(Some("15")),
             ),
         ],
     ),

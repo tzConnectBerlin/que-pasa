@@ -16,24 +16,29 @@ SELECT
     *
 FROM (
     SELECT
-        ctx.level AS level,
+        last_ctx.level AS level,
         level_meta.baked_at AS level_timestamp,
         t.id,
         t.tx_context_id
         {% call unfold(columns, "t", true) %}
-    FROM "{{ contract_schema }}"."{{ table }}" t
-    JOIN tx_contexts ctx
-      ON ctx.id = t.tx_context_id
+    FROM "{{ contract_schema }}"."{{ table }}" t, (
+      SELECT
+        ctx.id,
+        ctx.level
+      FROM "{{ contract_schema }}"."{{ table }}" t
+      JOIN tx_contexts ctx
+        ON ctx.id = t.tx_context_id
+      ORDER BY
+          ctx.level DESC,
+          ctx.operation_group_number DESC,
+          ctx.operation_number DESC,
+          ctx.content_number DESC,
+          COALESCE(ctx.internal_number, -1) DESC
+      LIMIT 1
+    ) last_ctx
     JOIN levels level_meta
-      ON level_meta.level = ctx.level
-    WHERE t.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
-    ORDER BY
-        ctx.level DESC,
-        ctx.operation_group_number DESC,
-        ctx.operation_number DESC,
-        ctx.content_number DESC,
-        COALESCE(ctx.internal_number, -1) DESC
-    LIMIT 1
+      ON level_meta.level = last_ctx.level
+    WHERE t.tx_context_id = last_ctx.id
 ) t;
 
 

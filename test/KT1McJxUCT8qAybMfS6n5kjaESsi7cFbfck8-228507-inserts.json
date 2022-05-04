@@ -42,11 +42,11 @@
         ],
     ),
     (
-        table_name: "storage.market_map.fa12",
-        id: 125,
+        table_name: "storage.market_map.auctionRunning",
+        id: 124,
     ): (
-        table_name: "storage.market_map.fa12",
-        id: 125,
+        table_name: "storage.market_map.auctionRunning",
+        id: 124,
         fk_id: Some(123),
         columns: [
             (
@@ -54,30 +54,20 @@
                 value: BigInt(116),
             ),
             (
-                name: "metadata_fa12",
-                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 127,
-    ): (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 127,
-        fk_id: Some(126),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(116),
+                name: "auctionRunning_uniswap_contribution",
+                value: Numeric(Some("117000000000050000")),
             ),
             (
-                name: "bet_quantity",
-                value: Numeric(Some("500000000")),
+                name: "auctionRunning_yes_preference",
+                value: Numeric(Some("117000000000050000")),
             ),
             (
-                name: "bet_predicted_probability",
-                value: Numeric(Some("78000000")),
+                name: "auctionRunning_quantity",
+                value: Numeric(Some("1500010000")),
+            ),
+            (
+                name: "auctionRunning_auction_period_end",
+                value: Timestamp(Some("2021-05-04T11:48:09Z")),
             ),
         ],
     ),
@@ -112,6 +102,46 @@
         ],
     ),
     (
+        table_name: "storage.liquidity_provider_map.bet",
+        id: 127,
+    ): (
+        table_name: "storage.liquidity_provider_map.bet",
+        id: 127,
+        fk_id: Some(126),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(116),
+            ),
+            (
+                name: "bet_quantity",
+                value: Numeric(Some("500000000")),
+            ),
+            (
+                name: "bet_predicted_probability",
+                value: Numeric(Some("78000000")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.fa12",
+        id: 125,
+    ): (
+        table_name: "storage.market_map.fa12",
+        id: 125,
+        fk_id: Some(123),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(116),
+            ),
+            (
+                name: "metadata_fa12",
+                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
+            ),
+        ],
+    ),
+    (
         table_name: "storage",
         id: 117,
     ): (
@@ -122,36 +152,6 @@
             (
                 name: "tx_context_id",
                 value: BigInt(116),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.market_map.auctionRunning",
-        id: 124,
-    ): (
-        table_name: "storage.market_map.auctionRunning",
-        id: 124,
-        fk_id: Some(123),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(116),
-            ),
-            (
-                name: "auctionRunning_uniswap_contribution",
-                value: Numeric(Some("117000000000050000")),
-            ),
-            (
-                name: "auctionRunning_yes_preference",
-                value: Numeric(Some("117000000000050000")),
-            ),
-            (
-                name: "auctionRunning_quantity",
-                value: Numeric(Some("1500010000")),
-            ),
-            (
-                name: "auctionRunning_auction_period_end",
-                value: Timestamp(Some("2021-05-04T11:48:09Z")),
             ),
         ],
     ),

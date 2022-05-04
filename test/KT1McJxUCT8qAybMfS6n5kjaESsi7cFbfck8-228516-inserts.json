@@ -1,75 +1,5 @@
 {
     (
-        table_name: "storage.market_map.auctionRunning",
-        id: 196,
-    ): (
-        table_name: "storage.market_map.auctionRunning",
-        id: 196,
-        fk_id: Some(195),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(188),
-            ),
-            (
-                name: "auctionRunning_uniswap_contribution",
-                value: Numeric(Some("2500000")),
-            ),
-            (
-                name: "auctionRunning_yes_preference",
-                value: Numeric(Some("2500000")),
-            ),
-            (
-                name: "auctionRunning_quantity",
-                value: Numeric(Some("100000")),
-            ),
-            (
-                name: "auctionRunning_auction_period_end",
-                value: Timestamp(Some("2021-05-04T13:40:04Z")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 199,
-    ): (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 199,
-        fk_id: Some(198),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(188),
-            ),
-            (
-                name: "bet_quantity",
-                value: Numeric(Some("100000")),
-            ),
-            (
-                name: "bet_predicted_probability",
-                value: Numeric(Some("25")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.market_map.fa12",
-        id: 197,
-    ): (
-        table_name: "storage.market_map.fa12",
-        id: 197,
-        fk_id: Some(195),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(188),
-            ),
-            (
-                name: "metadata_fa12",
-                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
-            ),
-        ],
-    ),
-    (
         table_name: "storage.market_map",
         id: 195,
     ): (
@@ -108,6 +38,76 @@
             (
                 name: "bigmap_id",
                 value: Int(90985),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.liquidity_provider_map.bet",
+        id: 199,
+    ): (
+        table_name: "storage.liquidity_provider_map.bet",
+        id: 199,
+        fk_id: Some(198),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(188),
+            ),
+            (
+                name: "bet_quantity",
+                value: Numeric(Some("100000")),
+            ),
+            (
+                name: "bet_predicted_probability",
+                value: Numeric(Some("25")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.auctionRunning",
+        id: 196,
+    ): (
+        table_name: "storage.market_map.auctionRunning",
+        id: 196,
+        fk_id: Some(195),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(188),
+            ),
+            (
+                name: "auctionRunning_uniswap_contribution",
+                value: Numeric(Some("2500000")),
+            ),
+            (
+                name: "auctionRunning_yes_preference",
+                value: Numeric(Some("2500000")),
+            ),
+            (
+                name: "auctionRunning_quantity",
+                value: Numeric(Some("100000")),
+            ),
+            (
+                name: "auctionRunning_auction_period_end",
+                value: Timestamp(Some("2021-05-04T13:40:04Z")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.fa12",
+        id: 197,
+    ): (
+        table_name: "storage.market_map.fa12",
+        id: 197,
+        fk_id: Some(195),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(188),
+            ),
+            (
+                name: "metadata_fa12",
+                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
             ),
         ],
     ),

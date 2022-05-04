@@ -21,6 +21,9 @@ CREATE TABLE contract_levels (
     PRIMARY KEY(contract, level)
 );
 
+CREATE INDEX ON contract_levels(level);
+CREATE INDEX ON contract_levels(contract, is_origination);
+
 CREATE TYPE indexer_mode AS ENUM (
     'Bootstrap',
     'Head'
@@ -64,6 +67,7 @@ CREATE TABLE txs (
     destination VARCHAR(100),
     entrypoint VARCHAR(100),
 
+    amount NUMERIC,
     fee BIGINT,
     gas_limit BIGINT,
     storage_limit BIGINT,
@@ -96,13 +100,27 @@ CREATE VIEW txs_ordered AS (
     ORDER BY ordering
 );
 
+CREATE TABLE bigmap_meta_actions (
+    id BIGSERIAL PRIMARY KEY,
+
+    tx_context_id BIGINT NOT NULL REFERENCES tx_contexts(id) ON DELETE CASCADE,
+    bigmap_id INT NOT NULL,
+
+    action TEXT NOT NULL,
+    value JSONB
+);
+
+CREATE INDEX ON bigmap_meta_actions(bigmap_id, action, tx_context_id);
+CREATE INDEX ON bigmap_meta_actions(tx_context_id);
+
 CREATE TABLE contract_deps (
     level INT NOT NULL,
 
     src_contract TEXT NOT NULL,
     dest_schema TEXT NOT NULL,
+    is_deep_copy BOOLEAN NOT NULL DEFAULT true,
 
-    PRIMARY KEY (level, src_contract, dest_schema)
+    PRIMARY KEY (level, src_contract, dest_schema, is_deep_copy)
 );
 
 CREATE TABLE bigmap_keys(
@@ -110,8 +128,141 @@ CREATE TABLE bigmap_keys(
     bigmap_id INTEGER NOT NULL,
     tx_context_id BIGINT NOT NULL,
     keyhash TEXT NOT NULL,
-    key TEXT NOT NULL,
+    key JSONB NOT NULL,
+    value JSONB,
 
     UNIQUE(tx_context_id, bigmap_id, keyhash),
     FOREIGN KEY (tx_context_id) REFERENCES tx_contexts(id) ON DELETE CASCADE
 );
+
+
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+AS $$
+    SELECT
+      ctx.id as tx_context_id,
+      level,
+      operation_group_number,
+      operation_number,
+      content_number,
+      internal_number
+    FROM tx_contexts AS ctx
+    WHERE id = (
+      SELECT id
+      FROM tx_contexts
+      WHERE level <= lvl
+      ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+      LIMIT 1
+    )
+$$ LANGUAGE SQL;
+
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+AS $$
+    SELECT
+      ctx.id AS tx_context_id,
+      level,
+      operation_group_number,
+      operation_number,
+      content_number,
+      internal_number
+    FROM tx_contexts AS ctx
+    WHERE id = (
+      SELECT id
+      FROM tx_contexts
+      WHERE ARRAY[
+            level,
+            operation_group_number]
+         <=
+            ARRAY[
+              lvl,
+              op_grp]
+      ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+      LIMIT 1
+    )
+$$ LANGUAGE SQL;
+
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+AS $$
+    SELECT
+      ctx.id,
+      level,
+      operation_group_number,
+      operation_number,
+      content_number,
+      internal_number
+    FROM tx_contexts AS ctx
+    WHERE id = (
+      SELECT id
+      FROM tx_contexts
+      WHERE ARRAY[
+            level,
+            operation_group_number,
+            operation_number]
+         <=
+            ARRAY[
+              lvl,
+              op_grp,
+              op]
+      ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+      LIMIT 1
+    )
+$$ LANGUAGE SQL;
+
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT, content INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+AS $$
+    SELECT
+      ctx.id AS tx_context_id,
+      level,
+      operation_group_number,
+      operation_number,
+      content_number,
+      internal_number
+    FROM tx_contexts AS ctx
+    WHERE id = (
+      SELECT id
+      FROM tx_contexts
+      WHERE ARRAY[
+            level,
+            operation_group_number,
+            operation_number,
+            content_number]
+         <=
+            ARRAY[
+              lvl,
+              op_grp,
+              op,
+              content]
+      ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+      LIMIT 1
+    )
+$$ LANGUAGE SQL;
+
+CREATE OR REPLACE FUNCTION que_pasa.last_context_at(lvl INT, op_grp INT, op INT, content INT, internal INT) RETURNS TABLE (tx_context_id BIGINT, level INT, operation_group_number INT, operation_number INT, content_number INT, internal_number INT)
+AS $$
+    SELECT
+      ctx.id AS tx_context_id,
+      level,
+      operation_group_number,
+      operation_number,
+      content_number,
+      internal_number
+    FROM tx_contexts AS ctx
+    WHERE id = (
+      SELECT id
+      FROM tx_contexts
+      WHERE ARRAY[
+            level,
+            operation_group_number,
+            operation_number,
+            content_number,
+            internal_number]
+         <=
+            ARRAY[
+              lvl,
+              op_grp,
+              op,
+              content,
+              internal]
+      ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
+      LIMIT 1
+    )
+$$ LANGUAGE SQL;

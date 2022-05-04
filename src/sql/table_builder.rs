@@ -1,5 +1,7 @@
 use crate::sql::table::Table;
-use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::storage_structure::relational::{
+    Contract, RelationalAST, RelationalEntry,
+};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use std::collections::HashMap;
 
@@ -9,23 +11,45 @@ pub struct TableBuilder {
     pub tables: TableMap,
 }
 
-impl Default for TableBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl TableBuilder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn tables_from_contract(
+        contract: &Contract,
+    ) -> (Vec<Table>, Vec<String>, Vec<String>) {
+        // Generate the SQL schema for this contract
+        let mut builder = TableBuilder::new("storage");
+        builder.populate(&contract.storage_ast);
+
+        let nofunctions_tables = builder.get_functionless_table_prefixes();
+        let mut noview_tables = nofunctions_tables.clone();
+        noview_tables.push("entry.".to_string());
+        let mut tables: Vec<Table> = builder.tables.into_values().collect();
+
+        for (entrypoint, entrypoint_ast) in &contract.entrypoint_asts {
+            let mut entrypoint_table_builder =
+                TableBuilder::new(format!("entry.{}", entrypoint).as_str());
+            entrypoint_table_builder.populate(entrypoint_ast);
+
+            tables.append(
+                &mut entrypoint_table_builder
+                    .tables
+                    .into_values()
+                    .collect(),
+            );
+        }
+
+        (tables, noview_tables, nofunctions_tables)
+    }
+
+    pub(crate) fn new(root_table_name: &str) -> Self {
         let mut res = Self {
             tables: TableMap::new(),
         };
-        res.touch_table("storage");
+        res.touch_table(root_table_name);
         res
     }
 
-    pub(crate) fn get_viewless_table_prefixes(&self) -> Vec<String> {
-        let mut res: Vec<String> = vec!["bigmap_clears".to_string()];
+    fn get_functionless_table_prefixes(&self) -> Vec<String> {
+        let mut res: Vec<String> = vec![];
 
         // All child tables of changes tables cannot have view definitions defined.
         // To get _ordered or _live rows for these child tables, simply join with id
@@ -82,12 +106,6 @@ impl TableBuilder {
             .insert(table.name.clone(), table);
     }
 
-    fn touch_bigmap_meta_tables(&mut self) {
-        let mut t = self.get_table("bigmap_clears");
-        t.add_index("bigmap_id", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
-        self.store_table(t);
-    }
-
     pub(crate) fn populate(&mut self, rel_ast: &RelationalAST) {
         match rel_ast {
             RelationalAST::Pair {
@@ -107,23 +125,27 @@ impl TableBuilder {
                 table,
                 key_ast,
                 value_ast,
-                ..
+                has_memory,
             } => {
                 self.populate(key_ast);
                 self.populate(value_ast);
                 let mut t = self.get_table(table);
-                t.tracks_changes();
-                t.add_column(
-                    &"deleted".to_string(),
-                    &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-                );
+
                 t.add_index(
                     &"bigmap_id".to_string(),
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
-                self.store_table(t);
+                if *has_memory {
+                    t.tracks_changes();
 
-                self.touch_bigmap_meta_tables();
+                    t.add_column(
+                        &"deleted".to_string(),
+                        &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
+                    );
+                } else {
+                    t.has_copy_pointers();
+                }
+                self.store_table(t);
             }
             RelationalAST::Option { elem_ast } => self.populate(elem_ast),
             RelationalAST::List {

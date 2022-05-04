@@ -300,7 +300,14 @@ pub(crate) fn parse_date(value: &Value) -> Result<insert::Value> {
             }
         }
         Value::String(s) => {
-            let fixedoffset = chrono::DateTime::parse_from_rfc3339(s.as_str())?;
+            let fixedoffset = if s.chars().all(|c| c.is_numeric()) {
+                chrono::DateTime::parse_from_str(
+                    format!("{}+0000", s).as_str(),
+                    "%s%z",
+                )?
+            } else {
+                chrono::DateTime::parse_from_rfc3339(s.as_str())?
+            };
             Ok(insert::Value::Timestamp(Some(
                 fixedoffset.with_timezone(&Utc),
             )))

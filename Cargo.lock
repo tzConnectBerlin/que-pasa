@@ -60,6 +60,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
 
 [[package]]
+name = "arrayvec"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
+
+[[package]]
 name = "askama"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -377,6 +383,19 @@ name = "dtoa"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56899898ce76aaf4a0f24d914c97ea6ed976d42fec6ad33fcbb0a1103e07b2b0"
+
+[[package]]
+name = "duration-str"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1c7cdfa15a73ee0737e21c965758d43d09461d5f446c274ca338ae36faef971"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "nom",
+ "rust_decimal",
+ "serde",
+]
 
 [[package]]
 name = "either"
@@ -806,7 +825,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6607c62aa161d23d17a9072cc5da0be67cdfc89d3afb1e8d9c842bebc2525ffe"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.5.2",
  "bitflags",
  "cfg-if",
  "ryu",
@@ -1288,6 +1307,8 @@ dependencies = [
  "fallible-iterator",
  "postgres-derive",
  "postgres-protocol",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1340,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "que-pasa"
-version = "1.1.4"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "askama",
@@ -1351,6 +1372,7 @@ dependencies = [
  "chrono",
  "clap",
  "curl",
+ "duration-str",
  "env_logger",
  "flume",
  "hex",
@@ -1374,6 +1396,7 @@ dependencies = [
  "serde_json",
  "serde_stacker",
  "serde_yaml",
+ "smart-default",
  "thiserror",
 ]
 
@@ -1534,6 +1557,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rust_decimal"
+version = "1.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22dc69eadbf0ee2110b8d20418c0c6edbaefec2811c4963dc17b6344e11fe0f8"
+dependencies = [
+ "arrayvec 0.7.2",
+ "num-traits",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1688,6 +1721,17 @@ name = "smallvec"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
+
+[[package]]
+name = "smart-default"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "133659a15339456eeeb07572eb02a91c91e9815e9cbc89566944d2c8d3efdbf6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "socket2"

@@ -2,10 +2,14 @@ use crate::debug;
 use crate::octez::block;
 use crate::octez::block::{Tx, TxContext};
 use crate::octez::node::StorageGetter;
-use crate::sql::db::BigmapKeysGetter;
+use crate::sql::db;
 use crate::sql::insert;
 use crate::sql::insert::{Column, Insert, InsertKey, Inserts};
-use crate::storage_structure::relational::{RelationalAST, RelationalEntry};
+use crate::sql::types::BigmapMetaAction;
+use crate::stats::StatsLogger;
+use crate::storage_structure::relational::{
+    Contract, RelationalAST, RelationalEntry,
+};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 use crate::storage_update::bigmap;
 use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
@@ -13,6 +17,7 @@ use crate::storage_value::parser;
 use anyhow::{anyhow, Context, Result};
 use num::ToPrimitive;
 use pg_bigdecimal::{BigDecimal, PgNumeric};
+use serde_json::json;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -83,22 +88,25 @@ type BigMapMap = std::collections::HashMap<i32, (i64, RelationalAST)>;
 pub(crate) struct StorageProcessor<NodeCli, BigmapKeys>
 where
     NodeCli: StorageGetter,
-    BigmapKeys: BigmapKeysGetter,
+    BigmapKeys: db::BigmapKeysGetter,
 {
     bigmap_map: BigMapMap,
-    bigmap_keyhashes: HashMap<(TxContext, i32, String), String>,
-    bigmap_contract_deps: HashMap<String, ()>,
+    bigmap_keyhashes: db::BigmapEntries,
+    bigmap_meta_actions: Vec<BigmapMetaAction>,
+    bigmap_contract_deps: HashMap<(String, i32, bool), ()>,
     id_generator: IdGenerator,
     inserts: Inserts,
     tx_contexts: TxContextMap,
     node_cli: NodeCli,
     bigmap_keys: BigmapKeys,
+
+    stats: Option<StatsLogger>,
 }
 
 impl<NodeCli, BigmapKeys> StorageProcessor<NodeCli, BigmapKeys>
 where
     NodeCli: StorageGetter,
-    BigmapKeys: BigmapKeysGetter,
+    BigmapKeys: db::BigmapKeysGetter,
 {
     pub(crate) fn new(
         initial_id: i64,
@@ -110,11 +118,18 @@ where
             inserts: Inserts::new(),
             tx_contexts: HashMap::new(),
             bigmap_keyhashes: HashMap::new(),
+            bigmap_meta_actions: vec![],
             bigmap_contract_deps: HashMap::new(),
             id_generator: IdGenerator::new(initial_id),
             node_cli,
             bigmap_keys,
+
+            stats: None,
         }
+    }
+
+    pub(crate) fn set_stats_logger(&mut self, l: StatsLogger) {
+        self.stats = Some(l);
     }
 
     fn add_bigmap_keyhash(
@@ -122,54 +137,56 @@ where
         tx_context: TxContext,
         bigmap: i32,
         keyhash: String,
-        key: String,
+        key: serde_json::Value,
+        value: Option<serde_json::Value>,
     ) {
         self.bigmap_keyhashes
-            .insert((tx_context, bigmap, keyhash), key);
+            .insert((bigmap, tx_context, keyhash), (key, value));
     }
 
-    pub(crate) fn get_bigmap_keyhashes(
-        &self,
-    ) -> Vec<(TxContext, i32, String, String)> {
-        let mut res: Vec<(TxContext, i32, String, String)> = vec![];
-        for ((tx_context, bigmap_id, keyhash), key) in &self.bigmap_keyhashes {
-            res.push((
-                tx_context.clone(),
-                *bigmap_id,
-                keyhash.clone(),
-                key.clone(),
-            ));
-        }
-        res
+    pub(crate) fn get_bigmap_keyhashes(&self) -> db::BigmapEntries {
+        self.bigmap_keyhashes.clone()
     }
 
     pub(crate) fn process_block(
         &mut self,
         block: &block::Block,
         diffs: &IntraBlockBigmapDiffsProcessor,
-        contract_id: &str,
-        rel_ast: &RelationalAST,
+        contract: &Contract,
     ) -> Result<()> {
         self.bigmap_map.clear();
         self.bigmap_keyhashes.clear();
+        self.bigmap_meta_actions.clear();
 
-        let storages: Vec<(TxContext, parser::Value)> =
+        let storages: Vec<(TxContext, Option<(String, parser::Value)>, parser::Value)> =
             block.map_tx_contexts(|tx_context, tx, is_origination, op_res| {
-                if tx_context.contract != contract_id {
+                if tx_context.contract != contract.cid.address {
                     return Ok(None);
                 }
+
+                let param_parsed: Option<(String, parser::Value)> = if let Some(entrypoint) = &tx.entrypoint {
+                    if let Some(v) = &tx.entrypoint_args {
+                        Some((entrypoint.clone(), parser::parse_lexed(v)?))
+                    } else {
+                        warn!("should not have None args to non None entrypoint?");
+                        None
+                    }
+                } else {
+                    None
+                };
 
                 if is_origination {
                     let storage = parser::parse_json(
                         &self.node_cli.get_contract_storage(
-                            contract_id,
+                            &contract.cid.address,
                             tx_context.level,
                         )?,
                     )?;
-                    Ok(Some((self.tx_context(tx_context, tx), storage)))
+                    Ok(Some((self.tx_context(tx_context, tx), param_parsed, storage)))
                 } else if let Some(storage) = &op_res.storage {
                     Ok(Some((
                         self.tx_context(tx_context, tx),
+                        param_parsed,
                         parser::parse_lexed(storage)?,
                     )))
                 } else {
@@ -180,8 +197,42 @@ where
                 }
             })?;
 
-        for (tx_context, parsed_storage) in &storages {
-            self.process_storage_value(parsed_storage, rel_ast, tx_context)
+        for (tx_context, param_parsed, parsed_storage) in &storages {
+            if let Some((entrypoint, param_v)) = param_parsed {
+                #[cfg(not(test))]
+                let allow_missing_entrpoint_asts: bool = false;
+
+                // Our unit tests were set-up before we were parsing parameters
+                // Therefore allowing tests to gracefully ignore missing an entrypoint's AST
+                #[cfg(test)]
+                let allow_missing_entrpoint_asts: bool = true;
+
+                if !allow_missing_entrpoint_asts
+                    || contract
+                        .entrypoint_asts
+                        .contains_key(entrypoint)
+                {
+                    if !contract
+                        .entrypoint_asts
+                        .contains_key(entrypoint)
+                    {
+                        return Err(anyhow!(
+                            "entrypoint '{}' missing. tx_context={:?}",
+                            entrypoint,
+                            tx_context
+                        ))?;
+                    }
+                    self.process_michelson_value(param_v, &contract.entrypoint_asts[entrypoint], tx_context, format!("entry.{}", entrypoint).as_str())
+                    .with_context(|| {
+                        format!(
+                            "process_block: process storage value failed (tx_context={:?})",
+                            tx_context
+                        )
+                    })?;
+                }
+            }
+
+            self.process_michelson_value(parsed_storage, &contract.storage_ast, tx_context, "storage")
                 .with_context(|| {
                     format!(
                         "process_block: process storage value failed (tx_context={:?})",
@@ -190,20 +241,39 @@ where
                 })?;
 
             let mut bigmaps = diffs.get_tx_context_owned_bigmaps(tx_context);
+            bigmaps.append(
+                &mut self
+                    .bigmap_map
+                    .keys()
+                    .cloned()
+                    .collect(),
+            );
 
             bigmaps.sort_unstable();
+            bigmaps.dedup();
+
             for bigmap in bigmaps {
-                let (deps, ops) = diffs.normalized_diffs(bigmap, tx_context);
+                let (deps, ops) =
+                    diffs.normalized_diffs(bigmap, tx_context, bigmap >= 0);
                 for op in ops.iter().rev() {
                     self.process_bigmap_op(op, tx_context)?;
                 }
                 if self.bigmap_map.contains_key(&bigmap) {
                     for (src_bigmap, src_context) in deps {
-                        self.bigmap_contract_deps
-                            .insert(src_context.contract.clone(), ());
-                        self.process_bigmap_copy(
-                            tx_context, src_bigmap, bigmap,
-                        )?;
+                        let is_deep_copy = bigmap >= 0;
+                        self.bigmap_contract_deps.insert(
+                            (
+                                src_context.contract.clone(),
+                                src_bigmap,
+                                is_deep_copy,
+                            ),
+                            (),
+                        );
+                        if is_deep_copy {
+                            self.process_bigmap_copy(
+                                tx_context, src_bigmap, bigmap,
+                            )?;
+                        }
                     }
                 }
             }
@@ -212,10 +282,20 @@ where
         Ok(())
     }
 
-    pub(crate) fn drain_bigmap_contract_dependencies(&mut self) -> Vec<String> {
+    pub(crate) fn drain_bigmap_contract_dependencies(
+        &mut self,
+    ) -> Vec<(String, i32, bool)> {
         self.bigmap_contract_deps
             .drain()
             .map(|(k, _)| k)
+            .collect()
+    }
+
+    pub(crate) fn drain_bigmap_meta_actions(
+        &mut self,
+    ) -> Vec<BigmapMetaAction> {
+        self.bigmap_meta_actions
+            .drain(..)
             .collect()
     }
 
@@ -234,13 +314,16 @@ where
         dest_bigmap: i32,
     ) -> Result<()> {
         let at_level = ctx.level - 1;
-        for (keyhash, key) in self
+        let entries = self
             .bigmap_keys
-            .get(at_level, src_bigmap)?
-        {
-            let value = self
-                .node_cli
-                .get_bigmap_value(at_level, src_bigmap, &keyhash)?;
+            .get(at_level, src_bigmap)?;
+
+        let num_entries = entries.len();
+
+        for (i, (keyhash, key, value)) in entries.into_iter().enumerate() {
+            //let value = self
+            //    .node_cli
+            //    .get_bigmap_value(at_level, src_bigmap, &keyhash)?;
             if value.is_none() {
                 continue;
             }
@@ -248,10 +331,33 @@ where
             let op = bigmap::Op::Update {
                 bigmap: dest_bigmap,
                 keyhash,
-                key: serde_json::from_str(&key)?,
-                value: serde_json::from_str(&value.unwrap().to_string())?,
+                key,
+                value,
             };
             self.process_bigmap_op(&op, ctx)?;
+
+            if let Some(stats) = &self.stats {
+                stats.set(
+                    format!(
+                        "bigmap copy ({} -> {} at {:?})",
+                        src_bigmap, dest_bigmap, ctx
+                    )
+                    .as_str(),
+                    "keys processed",
+                    format!("{}/{}", i, num_entries),
+                )?;
+            }
+        }
+
+        if let Some(stats) = &self.stats {
+            stats.unset(
+                format!(
+                    "bigmap copy ({} -> {} at {:?})",
+                    src_bigmap, dest_bigmap, ctx
+                )
+                .as_str(),
+                "keys processed",
+            )?;
         }
         Ok(())
     }
@@ -377,8 +483,8 @@ where
                 value,
             } => {
                 if self.bigmap_keyhashes.contains_key(&(
-                    tx_context.clone(),
                     *bigmap,
+                    tx_context.clone(),
                     keyhash.clone(),
                 )) {
                     return Ok(());
@@ -398,21 +504,23 @@ where
                     RelationalAST::BigMap {
                         table,
                         key_ast,
-                        value_ast
+                        value_ast,
+                        ..
                     },
                     {
                         self.add_bigmap_keyhash(
                             tx_context.clone(),
                             *bigmap,
                             keyhash.clone(),
-                            key.to_string(),
+                            key.clone(),
+                            value.clone(),
                         );
 
                         let ctx = &ProcessStorageContext::new(
                             self.id_generator.get_id(),
                             table.clone(),
                         );
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             ctx,
                             &parser::parse_lexed(key)?,
                             &key_ast,
@@ -427,7 +535,7 @@ where
                                 tx_context,
                             ),
                             Some(val) => {
-                                self.process_storage_value_internal(
+                                self.process_michelson_value_internal(
                                     ctx,
                                     &parser::parse_lexed(val)?,
                                     &value_ast,
@@ -446,37 +554,97 @@ where
                     }
                 )
             }
-            bigmap::Op::Clear { bigmap } => {
-                let ctx = &ProcessStorageContext::new(
-                    self.id_generator.get_id(),
-                    "bigmap_clears".to_string(),
-                );
-                self.sql_add_cell(
-                    ctx,
-                    &"bigmap_clears".to_string(),
-                    &"bigmap_id".to_string(),
-                    insert::Value::Int(*bigmap),
-                    tx_context,
-                );
+            bigmap::Op::Alloc { bigmap } => {
+                let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
+                    Some((fk, n)) => (fk, n.clone()),
+                    None => {
+                        return Err(anyhow!(
+                            "no big map content found {:?}",
+                            op
+                        ))
+                    }
+                };
+                must_match_rel!(rel_ast, RelationalAST::BigMap { table, .. }, {
+                    self.bigmap_meta_actions
+                        .push(BigmapMetaAction {
+                            tx_context_id: tx_context.id.unwrap(),
+                            bigmap_id: *bigmap,
+
+                            action: "alloc".to_string(),
+                            value: Some(json!({
+                                "contract_address": tx_context.contract,
+                                "table": table
+                            })),
+                        });
+                    Ok(())
+                })
+            }
+            bigmap::Op::Copy { bigmap, source } => {
+                let (_fk, rel_ast) = match self.bigmap_map.get(bigmap) {
+                    Some((fk, n)) => (fk, n.clone()),
+                    None => {
+                        return Err(anyhow!(
+                            "no big map content found {:?}",
+                            op
+                        ))
+                    }
+                };
+                must_match_rel!(
+                    rel_ast,
+                    RelationalAST::BigMap { table, .. },
+                    {
+                        let ctx = &ProcessStorageContext::new(
+                            self.id_generator.get_id(),
+                            table.clone(),
+                        );
+                        self.sql_add_cell(
+                            ctx,
+                            &table,
+                            &"bigmap_id".to_string(),
+                            insert::Value::Int(*bigmap),
+                            tx_context,
+                        );
+                        Ok(())
+                    }
+                )?;
+                self.bigmap_meta_actions
+                    .push(BigmapMetaAction {
+                        tx_context_id: tx_context.id.unwrap(),
+                        bigmap_id: *bigmap,
+
+                        action: "copy".to_string(),
+                        value: Some(json!({ "source": source })),
+                    });
                 Ok(())
             }
-            _ => Ok(()),
+            bigmap::Op::Clear { bigmap } => {
+                self.bigmap_meta_actions
+                    .push(BigmapMetaAction {
+                        tx_context_id: tx_context.id.unwrap(),
+                        bigmap_id: *bigmap,
+
+                        action: "clear".to_string(),
+                        value: None,
+                    });
+                Ok(())
+            }
         }
     }
 
     /// Walks simultaneously through the table definition and the actual values it finds, and attempts
     /// to match them. raises an error if it cannot do this (i.e. they do not match).
-    fn process_storage_value(
+    fn process_michelson_value(
         &mut self,
         value: &parser::Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
+        root_table_name: &str,
     ) -> Result<()> {
         let ctx = &ProcessStorageContext::new(
             self.id_generator.get_id(),
-            "storage".to_string(),
+            root_table_name.to_string(),
         );
-        self.process_storage_value_internal(ctx, value, rel_ast, tx_context)?;
+        self.process_michelson_value_internal(ctx, value, rel_ast, tx_context)?;
         Ok(())
     }
 
@@ -499,7 +667,7 @@ where
         ctx.clone()
     }
 
-    fn process_storage_value_internal(
+    fn process_michelson_value_internal(
         &mut self,
         ctx: &ProcessStorageContext,
         value: &parser::Value,
@@ -540,7 +708,7 @@ where
             }
             RelationalAST::Option { elem_ast } => {
                 if *v != parser::Value::None {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, v, elem_ast, tx_context,
                     )?;
                 } else {
@@ -562,10 +730,10 @@ where
                     ..
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, key, key_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
@@ -579,10 +747,10 @@ where
                     ..
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, key, key_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, value, value_ast, tx_context,
                     )?;
                     Ok(())
@@ -605,7 +773,7 @@ where
                             left_table.clone(),
                             tx_context,
                         );
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             ctx, left, left_ast, tx_context,
                         )?;
                         Ok(())
@@ -629,7 +797,7 @@ where
                             right_table.clone(),
                             tx_context,
                         );
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             ctx, right, right_ast, tx_context,
                         )?;
                         Ok(())
@@ -642,7 +810,7 @@ where
                 {
                     let mut ctx: ProcessStorageContext = ctx.clone();
                     for element in l {
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             &ctx, element, elems_ast, tx_context,
                         )?;
                         ctx = ctx.with_id(self.id_generator.get_id());
@@ -653,7 +821,7 @@ where
             .or(must_match_rel!(rel_ast, RelationalAST::Map { .. }, {
                 let mut ctx: ProcessStorageContext = ctx.clone();
                 for element in l {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         &ctx, element, rel_ast, tx_context,
                     )?;
                     ctx = ctx.with_id(self.id_generator.get_id());
@@ -666,7 +834,7 @@ where
                 {
                     let mut ctx: ProcessStorageContext = ctx.clone();
                     for element in l {
-                        self.process_storage_value_internal(
+                        self.process_michelson_value_internal(
                             &ctx, element, rel_ast, tx_context,
                         )?;
                         ctx = ctx.with_id(self.id_generator.get_id());
@@ -681,10 +849,10 @@ where
                     right_ast
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, right, right_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, left, left_ast, tx_context,
                     )?;
                     Ok(())
@@ -698,10 +866,10 @@ where
                     ..
                 },
                 {
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, right, key_ast, tx_context,
                     )?;
-                    self.process_storage_value_internal(
+                    self.process_michelson_value_internal(
                         ctx, left, value_ast, tx_context,
                     )?;
                     Ok(())
@@ -927,18 +1095,18 @@ where
     }
 
     #[cfg(test)]
-    pub fn process_storage_value_test(
+    pub fn process_michelson_value_test(
         &mut self,
         value: &parser::Value,
         rel_ast: &RelationalAST,
         tx_context: &TxContext,
     ) -> Result<()> {
-        self.process_storage_value(value, rel_ast, tx_context)
+        self.process_michelson_value(value, rel_ast, tx_context, "storage")
     }
 }
 
 #[test]
-fn test_process_storage_value() {
+fn test_process_michelson_value() {
     use num::BigInt;
 
     fn numeric(i: i32) -> insert::Value {
@@ -1077,8 +1245,8 @@ fn test_process_storage_value() {
                 }),
             },
             value: parser::Value::List(vec![
-                parser::Value::Int(BigInt::from(0)),
-                parser::Value::Int(BigInt::from(-5)),
+                parser::Value::Int(BigInt::from(0 as i32)),
+                parser::Value::Int(BigInt::from(-5 as i32)),
             ]),
             tx_context: TxContext {
                 id: Some(32),
@@ -1147,10 +1315,10 @@ fn test_process_storage_value() {
                 }),
             },
             value: parser::Value::Pair(
-                Box::new(parser::Value::Int(BigInt::from(0))),
+                Box::new(parser::Value::Int(BigInt::from(0 as i32))),
                 Box::new(parser::Value::Pair(
-                    Box::new(parser::Value::Int(BigInt::from(-5))),
-                    Box::new(parser::Value::Int(BigInt::from(-2))),
+                    Box::new(parser::Value::Int(BigInt::from(-5 as i32))),
+                    Box::new(parser::Value::Int(BigInt::from(-2 as i32))),
                 )),
             ),
             tx_context: TxContext {
@@ -1249,8 +1417,8 @@ fn test_process_storage_value() {
             },
             value: parser::Value::Pair(
                 Box::new(parser::Value::List(vec![
-                    parser::Value::Int(BigInt::from(0)),
-                    parser::Value::Int(BigInt::from(-5)),
+                    parser::Value::Int(BigInt::from(0 as i32)),
+                    parser::Value::Int(BigInt::from(-5 as i32)),
                 ])),
                 Box::new(parser::Value::String("value".to_string())),
             ),
@@ -1369,6 +1537,7 @@ fn test_process_storage_value() {
                         is_index: false,
                     },
                 }),
+                has_memory: true,
             },
             value: parser::Value::List(vec![]),
             tx_context: TxContext {
@@ -1413,14 +1582,15 @@ fn test_process_storage_value() {
                         is_index: false,
                     },
                 }),
+                has_memory: true,
             },
             value: parser::Value::List(vec![
                 parser::Value::Elt(
-                    Box::new(parser::Value::Int(BigInt::from(3))),
+                    Box::new(parser::Value::Int(BigInt::from(3 as i32))),
                     Box::new(parser::Value::String("some_value".to_string())),
                 ),
                 parser::Value::Elt(
-                    Box::new(parser::Value::Int(BigInt::from(1))),
+                    Box::new(parser::Value::Int(BigInt::from(1 as i32))),
                     Box::new(parser::Value::String(
                         "another_value".to_string(),
                     )),
@@ -1511,7 +1681,7 @@ fn test_process_storage_value() {
             DummyBigmapKeysGetter {},
         );
 
-        let res = processor.process_storage_value_test(
+        let res = processor.process_michelson_value_test(
             &tc.value,
             &tc.rel_ast,
             &tc.tx_context,
@@ -1548,6 +1718,7 @@ fn test_process_block() {
     use crate::storage_structure::relational::ASTBuilder;
     use crate::storage_structure::typing;
     use ron::ser::{to_string_pretty, PrettyConfig};
+    use std::fs;
     use std::str::FromStr;
 
     env_logger::init();
@@ -1563,69 +1734,51 @@ fn test_process_block() {
             .unwrap()["args"][0]
             .clone();
         debug!("{}", storage_definition.to_string());
-        let type_ast = typing::storage_ast_from_json(&storage_definition)?;
+        let type_ast = typing::type_ast_from_json(&storage_definition)?;
         let rel_ast = ASTBuilder::new()
             .build_relational_ast(
-                &crate::relational::Context::init(),
+                &crate::relational::Context::init("storage"),
                 &type_ast,
             )
             .unwrap();
         Ok(rel_ast)
     }
 
-    #[derive(Debug)]
-    struct Contract<'a> {
-        id: &'a str,
-        levels: Vec<u32>,
+    let mut contracts: HashMap<String, Vec<u32>> = HashMap::new();
+
+    println!("test..");
+    let paths = fs::read_dir("test/").unwrap();
+    for path in paths {
+        let p: String = path
+            .unwrap()
+            .path()
+            .to_str()
+            .unwrap()
+            .to_string()
+            .strip_prefix("test/")
+            .unwrap()
+            .to_string();
+
+        if let Some((contract, level)) = p.split_once(".level-") {
+            if !contracts.contains_key(contract) {
+                contracts.insert(contract.to_string(), vec![]);
+            }
+            contracts
+                .get_mut(contract)
+                .unwrap()
+                .push(
+                    level
+                        .strip_suffix(".json")
+                        .unwrap()
+                        .parse()
+                        .unwrap(),
+                );
+        }
     }
 
-    let contracts: Vec<Contract> = vec![
-        Contract {
-            id: "KT1U7Adyu5A7JWvEVSKjJEkG2He2SU1nATfq",
-            levels: vec![
-                132343, 123318, 123327, 123339, 128201, 132201, 132211, 132219,
-                132222, 132240, 132242, 132259, 132262, 132278, 132282, 132285,
-                132298, 132300, 132367, 132383, 132384, 132388, 132390, 135501,
-                138208, 149127,
-            ],
-        },
-        Contract {
-            id: "KT1McJxUCT8qAybMfS6n5kjaESsi7cFbfck8",
-            levels: vec![
-                228459, 228460, 228461, 228462, 228463, 228464, 228465, 228466,
-                228467, 228468, 228490, 228505, 228506, 228507, 228508, 228509,
-                228510, 228511, 228512, 228516, 228521, 228522, 228523, 228524,
-                228525, 228526, 228527,
-            ],
-        },
-        Contract {
-            // Hic et Nunc hDAO contract (has "set" type in storage)
-            id: "KT1QxLqukyfohPV5kPkw97Rs6cw1DDDvYgbB",
-            levels: vec![1443112],
-        },
-        Contract {
-            // Has a set,list and map. map has >1 keys
-            id: "KT1GT5sQWfK4f8x1DqqEfKvKoZg4sZciio7k",
-            levels: vec![50503],
-        },
-        Contract {
-            // has a type with annotation=id, this collides with our own "id" column. expected: processor creates ".id" fields for this custom type
-            id: "KT1VJsKdNFYueffX6xcfe6Gg9eJA6RUnFpYr",
-            levels: vec![1588744],
-        },
-        Contract {
-            id: "KT1KnuE87q1EKjPozJ5sRAjQA24FPsP57CE3",
-            levels: vec![1676122],
-        },
-        Contract {
-            id: "KT1Nh9wK8W3j3CXeTVm5DTTaiU5RE8CxLWZ4",
-            levels: vec![1678750],
-        },
-        Contract {
-            id: "KT1HkMueXCVsBWKj9y7PQmM6QDeUrfZnGPDa",
-            levels: vec![1621538],
-        },
-    ];
+    for (_, lvls) in contracts.iter_mut() {
+        lvls.sort();
+    }
 
     fn sort_inserts(tables: &TableMap, inserts: &mut Vec<Insert>) {
         inserts.sort_by_key(|insert| {
@@ -1665,14 +1818,13 @@ fn test_process_block() {
                 })
                 .collect();
             res.insert(0, insert::Value::String(insert.table_name.clone()));
-            println!("sorting by: {:?}", sort_on);
             res
         });
     }
 
     let mut results: Vec<(&str, u32, Vec<Insert>)> = vec![];
     let mut expected: Vec<(&str, u32, Vec<Insert>)> = vec![];
-    for contract in &contracts {
+    for (contract, levels) in &contracts {
         let mut storage_processor = StorageProcessor::new(
             1,
             DummyStorageGetter {},
@@ -1680,13 +1832,13 @@ fn test_process_block() {
         );
 
         // verify that the test case is sane
-        let mut unique_levels = contract.levels.clone();
+        let mut unique_levels = levels.clone();
         unique_levels.sort();
         unique_levels.dedup();
-        assert_eq!(contract.levels.len(), unique_levels.len());
+        assert_eq!(levels.len(), unique_levels.len());
 
         let script_json = serde_json::Value::from_str(&debug::load_test(
-            &format!("test/{}.script", contract.id),
+            &format!("test/{}.script", contract),
         ))
         .unwrap();
         let rel_ast = get_rel_ast_from_script_json(&script_json).unwrap();
@@ -1694,29 +1846,40 @@ fn test_process_block() {
 
         // having the table layout is useful for sorting the test results and
         // expected results in deterministic order (we'll use the table's index)
-        let mut builder = TableBuilder::new();
+        let mut builder = TableBuilder::new("storage");
         builder.populate(&rel_ast);
         let tables = &builder.tables;
 
-        for level in &contract.levels {
-            println!("contract={}, level={}", contract.id, level);
+        for level in levels {
+            println!("contract={}, level={}", contract, level);
 
             let block: Block = serde_json::from_str(&debug::load_test(
-                &format!("test/{}.level-{}.json", contract.id, level),
+                &format!("test/{}.level-{}.json", contract, level),
             ))
             .unwrap();
 
             let diffs =
                 IntraBlockBigmapDiffsProcessor::from_block(&block).unwrap();
             storage_processor
-                .process_block(&block, &diffs, contract.id, &rel_ast)
+                .process_block(
+                    &block,
+                    &diffs,
+                    &crate::storage_structure::relational::Contract {
+                        cid: crate::config::ContractID {
+                            name: contract.clone(),
+                            address: contract.clone(),
+                        },
+                        storage_ast: rel_ast.clone(),
+                        level_floor: None,
+                        entrypoint_asts: HashMap::new(),
+                    },
+                )
                 .unwrap();
             let inserts = storage_processor.drain_inserts();
             storage_processor.drain_txs();
             storage_processor.drain_bigmap_contract_dependencies();
 
-            let filename =
-                format!("test/{}-{}-inserts.json", contract.id, level);
+            let filename = format!("test/{}-{}-inserts.json", contract, level);
             println!("cat > {} <<ENDOFJSON", filename);
             println!(
                 "{}",
@@ -1729,7 +1892,7 @@ fn test_process_block() {
 
             let mut result: Vec<Insert> = inserts.values().cloned().collect();
             sort_inserts(tables, &mut result);
-            results.push((contract.id, *level, result));
+            results.push((contract, *level, result));
 
             use std::path::Path;
             let p = Path::new(&filename);
@@ -1745,7 +1908,7 @@ fn test_process_block() {
                     v.values().cloned().collect();
                 sort_inserts(tables, &mut expected_result);
 
-                expected.push((contract.id, *level, expected_result));
+                expected.push((contract, *level, expected_result));
             }
         }
     }
@@ -1782,7 +1945,8 @@ impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
         &mut self,
         _level: u32,
         _bigmap_id: i32,
-    ) -> Result<Vec<(String, String)>> {
+    ) -> Result<Vec<(String, serde_json::Value, Option<serde_json::Value>)>>
+    {
         Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
     }
 }

@@ -1,45 +1,15 @@
 {
     (
-        table_name: "storage.questions.auction_bids",
-        id: 177,
-    ): (
-        table_name: "storage.questions.auction_bids",
-        id: 177,
-        fk_id: Some(176),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(169),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "total_token",
-                value: Numeric(Some("93000000000000000000000000000000000000")),
-            ),
-            (
-                name: "quantity",
-                value: Numeric(Some("100000000000000000000")),
-            ),
-            (
-                name: "rate",
-                value: Numeric(Some("930000000000000000")),
-            ),
-        ],
-    ),
-    (
         table_name: "storage.questions",
-        id: 176,
+        id: 164,
     ): (
         table_name: "storage.questions",
-        id: 176,
+        id: 164,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(169),
+                value: BigInt(157),
             ),
             (
                 name: "idx_string",
@@ -96,16 +66,46 @@
         ],
     ),
     (
+        table_name: "storage.questions.auction_bids",
+        id: 165,
+    ): (
+        table_name: "storage.questions.auction_bids",
+        id: 165,
+        fk_id: Some(164),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(157),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Numeric(Some("93000000000000000000000000000000000000")),
+            ),
+            (
+                name: "quantity",
+                value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "rate",
+                value: Numeric(Some("930000000000000000")),
+            ),
+        ],
+    ),
+    (
         table_name: "storage",
-        id: 170,
+        id: 158,
     ): (
         table_name: "storage",
-        id: 170,
+        id: 158,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(169),
+                value: BigInt(157),
             ),
             (
                 name: "stablecoin",

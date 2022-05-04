@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment
+
+contract_address=$1
+command="${@:2}"
+
+latest=`http :$RPC_PORT/chains/main/blocks/head | jq '.header.level'`
+
+for ((i=0; i<=$latest; i++)); do
+    block=`http :$RPC_PORT/chains/main/blocks/$i`
+    if echo $block | grep --quiet $contract_address; then
+        echo $block
+    fi
+done

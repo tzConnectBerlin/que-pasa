@@ -1,5 +1,19 @@
 {
     (
+        table_name: "storage",
+        id: 2,
+    ): (
+        table_name: "storage",
+        id: 2,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+        ],
+    ),
+    (
         table_name: "storage.noname",
         id: 3,
     ): (
@@ -34,20 +48,6 @@
             (
                 name: "amount",
                 value: Numeric(Some("10")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 2,
-    ): (
-        table_name: "storage",
-        id: 2,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(1),
             ),
         ],
     ),

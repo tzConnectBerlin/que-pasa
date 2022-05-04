@@ -6,11 +6,13 @@ use std::time::Instant;
 
 use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
+use crate::sql::db;
 use crate::sql::db::DBClient;
 use crate::sql::insert;
 use crate::sql::insert::Insert;
+use crate::sql::types::BigmapMetaAction;
 use crate::stats::StatsLogger;
-use crate::storage_structure::relational::RelationalAST;
+use crate::storage_structure::relational;
 
 pub(crate) struct DBInserter {
     dbcli: DBClient,
@@ -126,14 +128,17 @@ fn insert_batch(
         }
         DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
     }
-    DBClient::save_bigmap_keyhashes(&mut db_tx, &batch.bigmap_keyhashes)?;
+    DBClient::save_bigmap_keyhashes(
+        &mut db_tx,
+        batch.bigmap_keyhashes.clone(),
+    )?;
+    DBClient::save_bigmap_meta_actions(&mut db_tx, &batch.bigmap_meta_actions)?;
 
     if update_derived_tables {
-        for (contract_id, (rel_ast, ctxs)) in &batch.contract_tx_contexts {
+        for (contract_id, (contract, ctxs)) in &batch.contract_tx_contexts {
             DBClient::update_derived_tables(
                 &mut db_tx,
-                contract_id,
-                rel_ast,
+                &contract,
                 ctxs,
             ).with_context(|| {
                 format!(
@@ -151,16 +156,16 @@ fn insert_batch(
 #[derive(Clone, Debug)]
 pub(crate) struct ProcessedContractBlock {
     pub level: LevelMeta,
-    pub contract_id: ContractID,
-    pub rel_ast: RelationalAST,
+    pub contract: relational::Contract,
 
     pub is_origination: bool,
 
     pub inserts: Vec<Insert>,
     pub tx_contexts: Vec<TxContext>,
     pub txs: Vec<Tx>,
-    pub bigmap_contract_deps: Vec<String>,
-    pub bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+    pub bigmap_contract_deps: Vec<(String, i32, bool)>,
+    pub bigmap_keyhashes: db::BigmapEntries,
+    pub bigmap_meta_actions: Vec<BigmapMetaAction>,
 }
 
 impl ProcessedContractBlock {
@@ -203,10 +208,22 @@ impl ProcessedContractBlock {
         for tx in self.txs.iter_mut() {
             tx.tx_context_id += offset;
         }
-        for keyhash in self.bigmap_keyhashes.iter_mut() {
-            let shifted = keyhash.0.id.unwrap() + offset;
-            keyhash.0.id = Some(shifted);
+
+        self.bigmap_keyhashes = self
+            .bigmap_keyhashes
+            .clone()
+            .into_iter()
+            .map(|(mut k, v)| {
+                let shifted = k.1.id.unwrap() + offset;
+                k.1.id = Some(shifted);
+                return (k, v);
+            })
+            .collect();
+
+        for action in self.bigmap_meta_actions.iter_mut() {
+            action.tx_context_id += offset;
         }
+
         max
     }
 }
@@ -217,13 +234,14 @@ struct ProcessedBatch {
     pub levels: HashMap<i32, LevelMeta>,
     pub tx_contexts: Vec<TxContext>,
     pub txs: Vec<Tx>,
-    pub bigmap_keyhashes: Vec<(TxContext, i32, String, String)>,
+    pub bigmap_keyhashes: db::BigmapEntries,
+    pub bigmap_meta_actions: Vec<BigmapMetaAction>,
 
     pub contract_levels: Vec<(ContractID, i32, bool)>,
     pub contract_inserts: HashMap<ContractID, Vec<Insert>>,
-    pub contract_deps: Vec<(i32, String, ContractID)>,
+    pub contract_deps: Vec<(i32, String, ContractID, bool)>,
     pub contract_tx_contexts:
-        HashMap<ContractID, (RelationalAST, Vec<TxContext>)>,
+        HashMap<ContractID, (relational::Contract, Vec<TxContext>)>,
 
     max_id: i64,
 }
@@ -236,7 +254,8 @@ impl ProcessedBatch {
             levels: HashMap::new(),
             tx_contexts: vec![],
             txs: vec![],
-            bigmap_keyhashes: vec![],
+            bigmap_keyhashes: HashMap::new(),
+            bigmap_meta_actions: vec![],
 
             contract_levels: vec![],
             contract_inserts: HashMap::new(),
@@ -260,6 +279,7 @@ impl ProcessedBatch {
         self.tx_contexts.clear();
         self.txs.clear();
         self.bigmap_keyhashes.clear();
+        self.bigmap_meta_actions.clear();
         self.contract_levels.clear();
         self.contract_inserts.clear();
         self.contract_deps.clear();
@@ -286,46 +306,52 @@ impl ProcessedBatch {
 
         if !self
             .contract_tx_contexts
-            .contains_key(&cres.contract_id)
+            .contains_key(&cres.contract.cid)
         {
             self.contract_tx_contexts.insert(
-                cres.contract_id.clone(),
-                (cres.rel_ast.clone(), vec![]),
+                cres.contract.cid.clone(),
+                (cres.contract.clone(), vec![]),
             );
         }
         let contract_ctxs: &mut Vec<TxContext> = &mut self
             .contract_tx_contexts
-            .get_mut(&cres.contract_id)
+            .get_mut(&cres.contract.cid)
             .unwrap()
             .1;
         contract_ctxs.extend(cres.tx_contexts.clone());
 
         self.contract_levels.push((
-            cres.contract_id.clone(),
+            cres.contract.cid.clone(),
             cres.level.level as i32,
             cres.is_origination,
         ));
 
         if !self
             .contract_inserts
-            .contains_key(&cres.contract_id)
+            .contains_key(&cres.contract.cid)
         {
             self.contract_inserts
-                .insert(cres.contract_id.clone(), vec![]);
+                .insert(cres.contract.cid.clone(), vec![]);
         }
         let inserts: &mut Vec<Insert> = self
             .contract_inserts
-            .get_mut(&cres.contract_id)
+            .get_mut(&cres.contract.cid)
             .unwrap();
         inserts.extend(cres.inserts.clone());
 
-        self.contract_deps.extend(
-            cres.bigmap_contract_deps
-                .iter()
-                .map(|dep| (level, dep.clone(), cres.contract_id.clone())),
-        );
+        self.contract_deps
+            .extend(
+                cres.bigmap_contract_deps
+                    .iter()
+                    .map(|dep| {
+                        (level, dep.0.clone(), cres.contract.cid.clone(), dep.2)
+                    }),
+            );
 
         self.bigmap_keyhashes
             .extend(cres.bigmap_keyhashes);
+
+        self.bigmap_meta_actions
+            .extend(cres.bigmap_meta_actions);
     }
 }

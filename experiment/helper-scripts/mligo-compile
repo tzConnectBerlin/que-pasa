@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment
+
+contract=$1  # .mligo basename
+entry=${2:-main}
+
+docker run \
+    --rm \
+    -v "$PWD":"$PWD" \
+    -w "$PWD" \
+    ligolang/ligo:0.34.0 \
+    compile contract input/$contract.mligo > input/compiled/$contract.tz

@@ -1,7 +1,9 @@
 use crate::itertools::Itertools;
 use chrono::{DateTime, Utc};
+use pg_bigdecimal::{BigDecimal, PgNumeric};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 use crate::contract_denylist::is_contract_denylisted;
 
@@ -64,8 +66,11 @@ pub(crate) struct Tx {
     pub operation_hash: String,
     pub source: Option<String>,
     pub destination: Option<String>,
-    pub entrypoint: Option<String>,
 
+    pub entrypoint: Option<String>,
+    pub entrypoint_args: Option<serde_json::Value>,
+
+    pub amount: Option<PgNumeric>,
     pub fee: Option<i64>,
     pub gas_limit: Option<i64>,
     pub storage_limit: Option<i64>,
@@ -148,6 +153,16 @@ impl Block {
         Ok(parsed)
     }
 
+    fn parse_option_pgnumeric(
+        x: Option<&String>,
+    ) -> anyhow::Result<Option<PgNumeric>> {
+        if let Some(s) = x {
+            let n = BigDecimal::from_str(s)?;
+            return Ok(Some(PgNumeric::new(Some(n))));
+        }
+        Ok(None)
+    }
+
     pub(crate) fn map_tx_contexts<F, O>(
         &self,
         mut f: F,
@@ -196,11 +211,20 @@ impl Block {
                                         destination: content
                                             .destination
                                             .clone(),
+
                                         entrypoint: content
                                             .parameters
                                             .clone()
                                             .map(|p| p.entrypoint),
+                                        entrypoint_args: content
+                                            .parameters
+                                            .clone()
+                                            .map(|p| p.value)
+                                            .flatten(),
 
+                                        amount: Self::parse_option_pgnumeric(
+                                            content.amount.as_ref(),
+                                        )?,
                                         fee: Self::parse_option_i64(
                                             content.fee.as_ref(),
                                         )?,
@@ -277,11 +301,20 @@ impl Block {
                                                     destination: internal_op
                                                         .destination
                                                         .clone(),
+
                                                     entrypoint: internal_op
                                                         .parameters
                                                         .clone()
                                                         .map(|p| p.entrypoint),
+                                                    entrypoint_args: internal_op
+                                                        .parameters
+                                                        .clone()
+                                                        .map(|p| p.value)
+                                                        .flatten(),
 
+                                                    amount: Self::parse_option_pgnumeric(
+                                                        internal_op.amount.as_ref(),
+                                                    )?,
                                                     fee: None,
                                                     gas_limit: None,
                                                     storage_limit: None,
@@ -340,8 +373,13 @@ impl Block {
                                                 destination: Some(
                                                     contract.clone(),
                                                 ),
-                                                entrypoint: None,
 
+                                                entrypoint: None,
+                                                entrypoint_args: None,
+
+                                                amount: Self::parse_option_pgnumeric(
+                                                    internal_op.balance.as_ref(),
+                                                )?,
                                                 fee: None,
                                                 gas_limit: None,
                                                 storage_limit: None,
@@ -378,8 +416,13 @@ impl Block {
                                     operation_hash: operation.hash.clone(),
                                     source: content.source.clone(),
                                     destination: Some(contract.clone()),
-                                    entrypoint: None,
 
+                                    entrypoint: None,
+                                    entrypoint_args: None,
+
+                                    amount: Self::parse_option_pgnumeric(
+                                        content.amount.as_ref(),
+                                    )?,
                                     fee: Self::parse_option_i64(
                                         content.fee.as_ref(),
                                     )?,
@@ -726,6 +769,8 @@ pub struct Content {
     pub fee: Option<String>,
     pub gas_limit: Option<String>,
     pub storage_limit: Option<String>,
+    pub amount: Option<String>,
+    pub balance: Option<String>,
 
     #[serde(skip)]
     kind: String,
@@ -733,10 +778,6 @@ pub struct Content {
     endorsement: Option<Endorsement>,
     #[serde(skip)]
     counter: Option<String>,
-    #[serde(skip)]
-    amount: Option<String>,
-    #[serde(skip)]
-    balance: Option<String>,
     #[serde(skip)]
     script: Option<Script>,
 }
@@ -993,7 +1034,8 @@ pub struct InternalOperationResult {
     pub kind: String,
     pub source: String,
     pub nonce: i64,
-    pub amount: Option<String>,
+    pub amount: Option<String>, // todo, is this possible?
+    pub balance: Option<String>,
     pub destination: Option<String>,
     pub parameters: Option<Parameters>,
     pub result: OperationResult,
@@ -1010,39 +1052,9 @@ pub struct InternalOperationResult {
 pub struct Parameters {
     #[serde(default)]
     pub entrypoint: String,
-
-    #[serde(skip)]
-    value: Option<serde_json::Value>,
+    #[serde(default)]
+    pub value: Option<::serde_json::Value>,
 }
-
-/*
- * TODO: probably unused. check
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    PartialEq,
-    serde_derive::Serialize,
-    serde_derive::Deserialize,
-)]
-pub struct Result {
-    pub status: String,
-    pub storage: Option<::serde_json::Value>,
-    pub big_map_diff: Option<Vec<BigMapDiff>>,
-    pub lazy_storage_diff: Option<Vec<LazyStorageDiff>>,
-
-    #[serde(skip)]
-    balance_updates: Option<Vec<BalanceUpdate>>,
-    #[serde(skip)]
-    consumed_gas: Option<String>,
-    #[serde(skip)]
-    consumed_milligas: Option<String>,
-    #[serde(skip)]
-    storage_size: Option<String>,
-    #[serde(skip)]
-    paid_storage_size_diff: Option<String>,
-}
-*/
 
 #[derive(
     Default,

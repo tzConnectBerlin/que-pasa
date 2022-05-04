@@ -18,7 +18,6 @@ pub mod storage_update;
 pub mod storage_value;
 
 use anyhow::Context;
-use chrono::Duration;
 use config::CONFIG;
 use env_logger::Env;
 use octez::node;
@@ -71,7 +70,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             process::exit(1);
         }
         dbcli
-            .delete_everything(node_cli, highlevel::get_rel_ast)
+            .delete_everything(node_cli, highlevel::get_contract_rel)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
     }
@@ -131,17 +130,12 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         return;
     }
 
-    // ensure we bootstrap until at least yesterday, from there it's acceptable
-    // if continuous mode is running (setting an acceptable duration may be
-    // necessary depending on how long it takes to derive the _ordered and _live
-    // tables, unfortunately.
-    let acceptable_head_offset = Duration::days(1);
     let new_initialized = executor
         .exec_new_contracts_historically(
             &bcd_settings,
             num_getters,
             num_processors,
-            acceptable_head_offset,
+            config.allowed_unbootstrapped_offset,
         )
         .unwrap();
     if !new_initialized.is_empty() {
@@ -163,7 +157,8 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             &bcd_settings,
             num_getters,
             num_processors,
-            acceptable_head_offset,
+            config.allowed_unbootstrapped_offset,
+            true,
         )
         .unwrap();
 
@@ -201,7 +196,8 @@ fn index_all_contracts(
                 bcd_settings,
                 config.getters_cap,
                 config.workers_cap,
-                Duration::days(0),
+                config.allowed_unbootstrapped_offset,
+                false,
             )
             .unwrap();
 

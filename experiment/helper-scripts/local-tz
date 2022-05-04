@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+cd $(git rev-parse --show-toplevel)/experiment
+
+set -u
+
+docker run \
+    -v "$PWD":"$PWD" -w "$PWD" \
+    --name ${DOCKER_NAME:-local-tezos} \
+    --detach \
+    --rm \
+    -p $RPC_PORT:20000 \
+    -e block_time=3 \
+    oxheadalpha/flextesa:20220127 \
+    hangzbox start

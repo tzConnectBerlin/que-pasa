@@ -1,0 +1,32 @@
+select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id;
+ tx_context_id |  id   |               address                | amount | token_id 
+---------------+-------+--------------------------------------+--------+----------
+          3391 |  3407 | tz1R8wxnwAz1sxLKGpDyZrqik9erx6a765Dr |      5 |   113051
+          3392 |  3419 | tz1SqHg82HgfJVX3rvD8xRG33tMezmyFYb7U |      5 |   113052
+          4419 |  4438 | tz1fehLVubMEMRpod6dDWVTABouXmEySNvhx |     10 |   113053
+          4420 |  4450 | tz1LRLYdwxvcmJibFns9scEs6YFNJRaXXZDv |      5 |   113054
+          4421 |  4462 | tz2UuZCUqSRXcQ9q9eFdSBU5htPaiNzyLexo |      3 |   113055
+          5630 |  5681 | tz1ezzPv77tQ3ybWmqAXqxri8bTFke2qiH7V |      5 |   113056
+          5631 |  5693 | tz1ZeGe8TPSfmE6XwCmraEBKBsuwoZcLPaff |     50 |   113057
+          5632 |  5705 | tz1UWjFtUFFxXk7c5J9rTksRbBqRFXuP1ffG |     10 |   113058
+          2721 |  2737 | tz1iWXmSXNFrpbGzZumGxnRUZBLs1u2UNqzL |     16 |   113059
+          2722 |  2749 | tz1MXXGpZUDQtrPTmizRMosP7njFMwDDv2F1 |     20 |   113060
+          2723 |  2761 | tz1UWjFtUFFxXk7c5J9rTksRbBqRFXuP1ffG |     10 |   113061
+          6784 |  6885 | tz1WSpfPCAttCL3xyFzQpEFT1DVksXDgzou7 |     10 |   318283
+          6785 |  6897 | tz1cYqb69gLmWx1CZNhg43pzhrKz4dfWFqKv |      6 |   318284
+         14309 | 14385 | tz1QbbzVmTYukFdLTjKjcPT1hfL5AJPY6hCn |      1 |   318285
+         30952 | 31062 | tz1fHDP2PkDxwWi9i9aa5G4hkLe4iB64eNqb |     30 |   418259
+         30953 | 31074 | tz1NrMNnomjfQGTbTctQdExLx1Ug7gZ3NdF4 |     15 |   418260
+         30954 | 31086 | tz1MB3EKtsLyM9zumPH9P6Qw9A6K1xjf8T4H |     10 |   418261
+         33085 | 33247 | tz1Zh2rDJLZBx7E9aT3VvtjCn3u2gMwp9b2Z |      1 |   418458
+         33086 | 33259 | tz1bXmENMn2Uxn5hMRyp3V3qaXqS2X5B1BDS |      1 |   418459
+         33087 | 33271 | tz1bXmENMn2Uxn5hMRyp3V3qaXqS2X5B1BDS |      1 |   418460
+         33088 | 33283 | tz1bXmENMn2Uxn5hMRyp3V3qaXqS2X5B1BDS |      1 |   418461
+         33089 | 33295 | tz1bXmENMn2Uxn5hMRyp3V3qaXqS2X5B1BDS |      1 |   418462
+         33090 | 33307 | tz1bXmENMn2Uxn5hMRyp3V3qaXqS2X5B1BDS |      1 |   418463
+         39112 | 39220 | tz1UB9V3hVLia9bwtkEi5uEfdwwe1HmGvZP7 |     20 |   418471
+         39113 | 39232 | tz1h6wqzZw9g6GXXS6KepXQEtNahdpsaEiSB |     10 |   418472
+         39114 | 39244 | tz1YZmNKo1iRx19p5prypvZeRnT6MBLZsK9P |     27 |   418473
+         41886 | 42033 | tz1eWqQ8JDTSg2aSFW6GZ4RNhW3xq2pSwhkb |      1 |   418739
+         41887 | 42045 | tz1WcmwE184VdiwkwbAgADLqDRwULkFTu4Jk |      1 |   418740
+(28 rows)

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 cd $(git rev-parse --show-toplevel)
 
 [ -z $DIFFTOOL ] && DIFFTOOL=kdiff3
@@ -20,14 +20,14 @@ export PGPASSWORD=test
 export PGDATABASE=test
 
 export DOCKER_ARGS='-d'
-db_docker=`./script/local-db.bash`
+db_docker=`./script/local-db.bash -c max_locks_per_transaction=100000`
 trap "echo stopping docker db..; docker kill $db_docker" EXIT
 
 SETUP_WAIT=3s
 echo "waiting for $SETUP_WAIT for testdb initialization.."
 sleep $SETUP_WAIT
 
-export NODE_URL=https://mainnet-tezos.giganode.io
+export NODE_URL=https://mainnet-archive.tzconnect.berlin
 export DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE
 
 function query {
@@ -101,6 +101,10 @@ ORDER BY pg_catalog.pg_relation_size(c.conrelid) DESC;
 EOF
 `
     query "$sql" || exit 1
+    query 'select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id' || exit 1
+    query 'select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id' || exit 1
+    query 'select * from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit"' || exit 1
+    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id' || exit 1
 }
 
 export RUST_BACKTRACE=1

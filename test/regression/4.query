@@ -1,5 +1,5 @@
 select count(1) from que_pasa.contract_deps;
  count 
 -------
-     0
+     1
 (1 row)

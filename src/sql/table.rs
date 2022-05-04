@@ -18,6 +18,7 @@ pub struct Table {
     keys: Vec<String>,
     unique: bool,
     snapshots: bool,
+    pointers: bool,
 }
 
 impl Table {
@@ -31,6 +32,7 @@ impl Table {
             snapshots: true,
             fk: HashMap::new(),
             id_unique: true,
+            pointers: false,
         }
     }
 
@@ -48,6 +50,14 @@ impl Table {
 
     pub(crate) fn contains_snapshots(&self) -> bool {
         self.snapshots
+    }
+
+    pub(crate) fn has_copy_pointers(&mut self) {
+        self.pointers = true
+    }
+
+    pub(crate) fn contains_pointers(&self) -> bool {
+        self.pointers
     }
 
     pub(crate) fn add_fk(

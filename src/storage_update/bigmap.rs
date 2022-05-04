@@ -10,18 +10,21 @@ use crate::octez::block::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Op {
+    Alloc {
+        bigmap: i32,
+    },
     Update {
         bigmap: i32,
         keyhash: String,
         key: serde_json::Value,
         value: Option<serde_json::Value>, // if None: it means remove key in bigmap
     },
-    Clear {
-        bigmap: i32,
-    },
     Copy {
         bigmap: i32,
         source: i32,
+    },
+    Clear {
+        bigmap: i32,
     },
 }
 
@@ -31,6 +34,7 @@ impl Op {
             Op::Update { bigmap, .. } => *bigmap,
             Op::Clear { bigmap, .. } => *bigmap,
             Op::Copy { bigmap, .. } => *bigmap,
+            Op::Alloc { bigmap } => *bigmap,
         }
     }
 
@@ -39,6 +43,7 @@ impl Op {
             Op::Update { bigmap, .. } => *bigmap = id,
             Op::Clear { bigmap } => *bigmap = id,
             Op::Copy { bigmap, .. } => *bigmap = id,
+            Op::Alloc { bigmap } => *bigmap = id,
         }
     }
 
@@ -48,8 +53,8 @@ impl Op {
             return Ok(vec![]);
         }
         let bigmap = raw.id.parse::<i32>()?;
-        match raw.diff.action.as_str() {
-            "update" => {
+        let mut ops = match raw.diff.action.as_str() {
+            "update" | "alloc" => {
                 let updates: Vec<&Update> = match &raw.diff.updates {
                     Some(Update(u)) => vec![u],
                     Some(Updates(us)) => us.iter().collect(),
@@ -101,9 +106,17 @@ impl Op {
                     .parse()?,
             }]),
             "remove" => Ok(vec![Op::Clear { bigmap }]),
-            "alloc" => Ok(vec![]),
             _ => Err(anyhow!("unknown big_map action: {}", raw.diff.action)),
+        }?;
+        if raw.diff.action == "alloc" {
+            ops.insert(
+                0,
+                Op::Alloc {
+                    bigmap: raw.id.parse()?,
+                },
+            );
         }
+        Ok(ops)
     }
 
     pub fn from_raw(raw: &BigMapDiff) -> Result<Option<Self>> {
@@ -160,6 +173,7 @@ impl Op {
     }
 }
 
+#[derive(Debug)]
 pub struct IntraBlockBigmapDiffsProcessor {
     tx_bigmap_ops: HashMap<TxContext, Vec<Op>>,
 }
@@ -228,6 +242,7 @@ impl IntraBlockBigmapDiffsProcessor {
         &self,
         bigmap_target: i32,
         at: &TxContext,
+        deep_copy: bool,
     ) -> (Vec<(i32, TxContext)>, Vec<Op>) {
         let mut deps: Vec<(i32, TxContext)> = vec![];
         let mut res: Vec<Op> = vec![];
@@ -243,9 +258,12 @@ impl IntraBlockBigmapDiffsProcessor {
         let mut targets: Vec<i32> = vec![bigmap_target];
         let mut prev_scope = keys[0].clone();
         prev_scope.internal_number = None;
+        prev_scope.contract = "".to_string();
+
         for tx_context in keys {
             let mut current_scope = tx_context.clone();
             current_scope.internal_number = None;
+            current_scope.contract = "".to_string();
             if prev_scope != current_scope {
                 // temporary bigmaps (ie those with id < 0) only live in the
                 // scope of tx contents (the content operation itself +
@@ -270,7 +288,15 @@ impl IntraBlockBigmapDiffsProcessor {
                         continue;
                     }
                     match op {
+                        Op::Alloc { bigmap } => {
+                            if *bigmap == bigmap_target {
+                                res.push(op.clone());
+                            }
+                        }
                         Op::Update { .. } => {
+                            if !deep_copy && op.get_bigmap() != bigmap_target {
+                                continue;
+                            }
                             let mut op_: Op = op.clone();
                             op_.set_bigmap(bigmap_target);
                             res.push(op_);
@@ -290,12 +316,19 @@ impl IntraBlockBigmapDiffsProcessor {
                                     .filter(|d| d != bigmap)
                                     .collect();
                             }
+
+                            if !deep_copy && *source >= 0 {
+                                res.push(Op::Copy {
+                                    source: *source,
+                                    bigmap: bigmap_target,
+                                });
+                            }
                         }
                         Op::Clear { bigmap } => {
-                            // Probably does not happen, but just to be sure this branch is included.
-                            // If it does happen, we don't want to pick up updates from before the Clear, so
-                            // stop recursing here for this dependent bigmap
                             if *bigmap != bigmap_target {
+                                // Probably does not happen, but just to be sure this branch is included.
+                                // If it does happen, we don't want to pick up updates from before the Clear, so
+                                // stop recursing here for this dependent bigmap
                                 clear_targets.push(*bigmap);
                             } else {
                                 res.push(op.clone());
@@ -315,7 +348,7 @@ impl IntraBlockBigmapDiffsProcessor {
             }
             targets = targets
                 .iter()
-                .filter(|bigmap| **bigmap != bigmap_target)
+                .filter(|bigmap| **bigmap < 0)
                 .copied()
                 .collect();
         }
@@ -345,14 +378,14 @@ impl IntraBlockBigmapDiffsProcessor {
 
 #[test]
 fn test_normalizer() {
-    fn tx_context(level: u32) -> TxContext {
+    fn tx_context(level: u32, internal: Option<i32>) -> TxContext {
         TxContext {
             id: None,
             level,
             operation_group_number: 0,
             operation_number: 0,
             content_number: 0,
-            internal_number: None,
+            internal_number: internal,
             contract: "".to_string(),
         }
     }
@@ -379,10 +412,10 @@ fn test_normalizer() {
             name: "basic".to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![op_update(0, 1), op_update(1, 1)],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
             exp_deps: vec![],
@@ -391,8 +424,8 @@ fn test_normalizer() {
         TestCase {
             name: "empty".to_string(),
 
-            tx_bigmap_ops: vec![(tx_context(1), vec![])],
-            normalize_tx_context: tx_context(1),
+            tx_bigmap_ops: vec![(tx_context(1, None), vec![])],
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 10,
 
             exp_deps: vec![],
@@ -403,7 +436,7 @@ fn test_normalizer() {
                 .to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(10, 1),
                     op_update(10, 2),
@@ -414,17 +447,17 @@ fn test_normalizer() {
                     op_update(10, 3),
                 ],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1, None))],
             exp_ops: vec![op_update(0, 1), op_update(0, 2)],
         },
         TestCase {
             name: "nested copy, only nested source is in exp_deps".to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(10, 1),
                     Op::Copy {
@@ -438,17 +471,17 @@ fn test_normalizer() {
                     },
                 ],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1, None))],
             exp_ops: vec![op_update(0, 1), op_update(0, 2)],
         },
         TestCase {
             name: "nested copy (complex)".to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(10, 1),
                     Op::Copy {
@@ -466,10 +499,10 @@ fn test_normalizer() {
                     },
                 ],
             )],
-            normalize_tx_context: tx_context(1),
+            normalize_tx_context: tx_context(1, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(1)), (10, tx_context(1))],
+            exp_deps: vec![(10, tx_context(1, None)), (10, tx_context(1, None))],
             exp_ops: vec![
                 op_update(0, 1),
                 op_update(0, 1),
@@ -483,36 +516,36 @@ fn test_normalizer() {
 
             tx_bigmap_ops: vec![
                 (
-                    tx_context(1),
+                    tx_context(2, None),
                     vec![
-                        op_update(5, 1),  // should be included
-                        op_update(5, 2),  // should be included
+                        op_update(-5, 1),  // should be included
+                        op_update(-5, 2),  // should be included
                         op_update(0, 10), // should be omitted
                     ],
                 ),
                 (
-                    tx_context(2),
+                    tx_context(2, Some(0)),
                     vec![
-                        op_update(5, 3),
+                        op_update(-5, 3),
                         Op::Copy {
                             bigmap: 0,
-                            source: 5,
+                            source: -5,
                         },
                         op_update(0, 4),
                     ],
                 ),
                 (
-                    tx_context(3),
+                    tx_context(3, None),
                     vec![
                         op_update(0, 5), // should be omitted (later tx)
                         op_update(5, 4), // should be omitted (later tx)
                     ],
                 ),
             ],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, Some(0)),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(5, tx_context(2))],
+            exp_deps: vec![(-5, tx_context(2, Some(0)))],
             exp_ops: vec![
                 op_update(0, 1),
                 op_update(0, 2),
@@ -524,15 +557,15 @@ fn test_normalizer() {
             name: "-bigmap ids are temporary, and only live in the scope of origin copy".to_string(),
 
             tx_bigmap_ops: vec![(
-        tx_context(1),
-        vec![
-            op_update(3, 1),
-            Op::Copy{
-            bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
-            source: 3
-            },
-        ]), (
-                tx_context(2),
+            tx_context(1, None),
+            vec![
+                op_update(3, 1),
+                Op::Copy{
+                bigmap: -2, // should not be picked up when getting diffs for bigmap_id=0
+                source: 3
+                },
+            ]), (
+                tx_context(2, None),
                 vec![
                     op_update(10, 2),
                     Op::Copy {
@@ -546,10 +579,10 @@ fn test_normalizer() {
                     },
                 ],
             )],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(2))],
+            exp_deps: vec![(10, tx_context(2, None))],
             exp_ops: vec![
                 op_update(0, 2),
                 op_update(0, 3),
@@ -562,9 +595,9 @@ fn test_normalizer() {
             name: "copy: updates before a clear are omitted".to_string(),
 
             tx_bigmap_ops: vec![
-                (tx_context(1), vec![op_update(10, 0)]),
+                (tx_context(1, None), vec![op_update(10, 0)]),
                 (
-                    tx_context(2),
+                    tx_context(2, None),
                     vec![
                         op_update(10, 1),
                         op_update(10, 2),
@@ -578,10 +611,10 @@ fn test_normalizer() {
                     ],
                 ),
             ],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, None),
             normalize_bigmap: 0,
 
-            exp_deps: vec![(10, tx_context(2))],
+            exp_deps: vec![(10, tx_context(2, None))],
             exp_ops: vec![op_update(0, 3), op_update(0, 4)],
         },
         TestCase {
@@ -589,7 +622,7 @@ fn test_normalizer() {
                 .to_string(),
 
             tx_bigmap_ops: vec![(
-                tx_context(1),
+                tx_context(1, None),
                 vec![
                     op_update(0, 1),
                     op_update(0, 2),
@@ -598,7 +631,7 @@ fn test_normalizer() {
                     op_update(0, 4),
                 ],
             )],
-            normalize_tx_context: tx_context(2),
+            normalize_tx_context: tx_context(2, None),
             normalize_bigmap: 0,
 
             exp_deps: vec![],
@@ -618,6 +651,7 @@ fn test_normalizer() {
                 .normalized_diffs(
                     tc.normalize_bigmap,
                     &tc.normalize_tx_context,
+                    true,
                 );
         assert_eq!(tc.exp_deps, got_deps);
         assert_eq!(tc.exp_ops, got_ops);

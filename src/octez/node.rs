@@ -95,12 +95,11 @@ impl NodeClient {
         }
     }
 
-    /// Get all of the data for the contract.
     pub(crate) fn get_contract_storage_definition(
         &self,
         contract_id: &str,
         level: Option<u32>,
-    ) -> Result<serde_json::Value> {
+    ) -> Result<(serde_json::Value, serde_json::Value)> {
         let level = match level {
             Some(x) => format!("{}", x),
             None => "head".to_string(),
@@ -138,19 +137,71 @@ impl NodeClient {
 
         let json = Self::deserialize(&body)?;
 
-        for entry in json["code"].as_array().ok_or_else(|| {
-            anyhow!("malformed script response (missing 'code' field)")
-        })? {
-            if let Some(prim) = entry.as_object().ok_or_else(|| anyhow!("malformed script response ('code' array element is not an object)"))?.get("prim") {
-                if prim == &serde_json::Value::String("storage".to_string()) {
-                return Ok(entry["args"].as_array().ok_or_else(|| anyhow!("malformed script response ('storage' entry does not have 'args' field)"))?[0].clone());
+        let code_def: &Vec<serde_json::Value> =
+            json["code"].as_array().ok_or_else(|| {
+                anyhow!("malformed script response (missing 'code' field)")
+            })?;
+
+        fn get_prim(
+            code_def: &[serde_json::Value],
+            prim: &str,
+        ) -> Result<serde_json::Value> {
+            for entry in code_def {
+                if let Some(p) = entry.as_object().ok_or_else(|| anyhow!("malformed script response ('code' array element is not an object)"))?.get("prim") {
+                    if p == &serde_json::Value::String(prim.to_string()) {
+                        return Ok(entry["args"].as_array().ok_or_else(|| anyhow!("malformed script response ('{}' entry does not have 'args' field)", prim))?[0].clone());
+                    }
+                } else {
+                    return Err(anyhow!("malformed script response ('code' array element does not have a field 'prim')"));
                 }
-            } else {
-                return Err(anyhow!("malformed script response ('code' array element does not have a field 'prim')"));
             }
+
+            Err(anyhow!("malformed script response ('code' array does not have an entry with prim='{}')", prim))
         }
 
-        Err(anyhow!("malformed script response ('code' array does not have 'storage' entry)"))
+        Ok((
+            get_prim(&code_def, "storage")?,
+            get_prim(&code_def, "parameter")?,
+        ))
+    }
+
+    pub(crate) fn get_contract_entrypoint_definitions(
+        &self,
+        contract_id: &str,
+        level: Option<u32>,
+    ) -> Result<serde_json::map::Map<String, serde_json::Value>> {
+        let lvl_ref = match level {
+            Some(x) => format!("{}", x),
+            None => "head".to_string(),
+        };
+
+        let body = self
+            .load(
+                &format!(
+                    "blocks/{}/context/contracts/{}/entrypoints",
+                    lvl_ref, contract_id
+                ),
+                Self::load_from_node_retry_on_transient_err,
+            )
+            .with_context(|| {
+                format!(
+                    "failed to get entrypoints for contract='{}', level={}",
+                    contract_id, lvl_ref
+                )
+            })?;
+        let json = Self::deserialize(&body)?;
+
+        let mut res = json["entrypoints"]
+            .as_object()
+            .cloned()
+            .ok_or_else(|| {
+                anyhow!("malformed entrypoints response (not a json object)")
+            })?;
+
+        let (_, param_def) =
+            self.get_contract_storage_definition(contract_id, level)?;
+        res.insert("default".to_string(), param_def);
+        Ok(res)
     }
 
     fn parse_rfc3339(rfc3339: &str) -> Result<DateTime<Utc>> {

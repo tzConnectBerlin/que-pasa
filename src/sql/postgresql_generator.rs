@@ -1,9 +1,47 @@
 use anyhow::Result;
+use askama::Template;
 use std::vec::Vec;
 
 use crate::config::{ContractID, QUEPASA_VERSION};
 use crate::sql::table::{Column, Table};
 use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+
+#[derive(Template)]
+#[template(path = "create-changes-functions.sql", escape = "none")]
+struct CreateChangesFunctionsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    indices: &'a [String],
+    typed_columns: &'a [String],
+}
+
+#[derive(Template)]
+#[template(path = "create-snapshot-functions.sql", escape = "none")]
+struct CreateSnapshotFunctionsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    typed_columns: &'a [String],
+}
+
+#[derive(Template)]
+#[template(path = "create-entrypoint-changes-functions.sql", escape = "none")]
+struct CreateEntrypointChangesFunctionsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    columns: &'a [String],
+    typed_columns: &'a [String],
+}
+
+#[derive(Template)]
+#[template(path = "create-function-shortcuts.sql", escape = "none")]
+struct CreateFunctionShortcutsTmpl<'a> {
+    contract_schema: &'a str,
+    table: &'a str,
+    function_postfix: &'a str,
+    typed_columns: &'a [String],
+}
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
@@ -28,9 +66,7 @@ impl PostgresqlGenerator {
                     "deleted BOOLEAN NOT NULL DEFAULT 'false'".to_string(),
                 )
             }
-            "bigmap_id" => {
-                return Some("bigmap_id INTEGER NOT NULL".to_string())
-            }
+            "bigmap_id" => return Some("bigmap_id INTEGER".to_string()),
             _ => {}
         }
 
@@ -57,31 +93,31 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn address(name: &str) -> String {
-        format!("{} VARCHAR(127) NULL", name)
+        format!("{} VARCHAR(127)", name)
     }
 
     pub(crate) fn bool(name: &str) -> String {
-        format!("{} BOOLEAN NULL", name)
+        format!("{} BOOLEAN", name)
     }
 
     pub(crate) fn bytes(name: &str) -> String {
-        format!("{} TEXT NULL", name)
+        format!("{} TEXT", name)
     }
 
     pub(crate) fn numeric(name: &str) -> String {
-        format!("{} NUMERIC NULL", name)
+        format!("{} NUMERIC", name)
     }
 
     pub(crate) fn string(name: &str) -> String {
-        format!("{} TEXT NULL", name)
+        format!("{} TEXT", name)
     }
 
     pub(crate) fn timestamp(name: &str) -> String {
-        format!("{} TIMESTAMP WITH TIME ZONE NULL", name)
+        format!("{} TIMESTAMP WITH TIME ZONE", name)
     }
 
     pub(crate) fn unit(name: &str) -> String {
-        format!("{} VARCHAR(128) NULL", name)
+        format!("{} VARCHAR(128)", name)
     }
 
     pub(crate) fn start_table(&self, name: &str) -> String {
@@ -94,6 +130,108 @@ impl PostgresqlGenerator {
 
     pub(crate) fn end_table(&self) -> String {
         include_str!("../../sql/table-footer.sql").to_string()
+    }
+
+    pub(crate) fn create_table_functions(
+        &self,
+        contract_schema: &str,
+        table: &Table,
+    ) -> Result<Vec<String>> {
+        let mut columns: Vec<String> =
+            Self::table_sql_columns(table, false).to_vec();
+
+        if columns.is_empty() {
+            return Ok(vec![]);
+        }
+        columns.push("id".to_string());
+
+        let mut typed_columns: Vec<String> = table
+            .get_columns()
+            .iter()
+            .filter(|x| {
+                !table
+                    .keywords()
+                    .iter()
+                    .any(|keyword| keyword == &x.name)
+                    && Self::create_sql(x).is_some()
+            })
+            .map(|x| Self::create_sql(x).unwrap())
+            .collect();
+        if let Some(parent) = Self::table_parent_name(table) {
+            typed_columns.push(format!(
+                r#""{parent_ref}" BIGINT"#,
+                parent_ref = Self::parent_ref(&parent)
+            ));
+        };
+        typed_columns.push("id BIGINT".to_string());
+
+        if table.contains_pointers() {
+            let shallow_tmpl = CreateSnapshotFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                typed_columns: &typed_columns,
+            };
+            let shallow_shortcuts = CreateFunctionShortcutsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                function_postfix: "at",
+                typed_columns: &typed_columns,
+            };
+
+            let mut deep_typed_columns: Vec<String> = typed_columns
+                .iter()
+                .filter(|c| !c.starts_with("bigmap_id "))
+                .cloned()
+                .collect();
+            deep_typed_columns.insert(0, "in_table TEXT".to_string());
+            deep_typed_columns.insert(0, "in_schema TEXT".to_string());
+            let deep_tmpl = CreateEntrypointChangesFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                typed_columns: &deep_typed_columns,
+            };
+            let deep_shortcuts = CreateFunctionShortcutsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                function_postfix: "at_deref",
+                typed_columns: &deep_typed_columns,
+            };
+
+            return Ok(vec![
+                shallow_tmpl.render()?,
+                deep_tmpl.render()?,
+                shallow_shortcuts.render()?,
+                deep_shortcuts.render()?,
+            ]);
+        }
+
+        let shortcuts = CreateFunctionShortcutsTmpl {
+            contract_schema: contract_schema,
+            table: &table.name,
+            function_postfix: "at",
+            typed_columns: &typed_columns,
+        };
+
+        if table.contains_snapshots() {
+            let tmpl = CreateSnapshotFunctionsTmpl {
+                contract_schema: contract_schema,
+                table: &table.name,
+                columns: &columns,
+                typed_columns: &typed_columns,
+            };
+            return Ok(vec![tmpl.render()?, shortcuts.render()?]);
+        }
+
+        let tmpl = CreateChangesFunctionsTmpl {
+            contract_schema: contract_schema,
+            table: &table.name,
+            columns: &columns,
+            typed_columns: &typed_columns,
+            indices: &Self::table_sql_indices(table, false),
+        };
+        Ok(vec![tmpl.render()?, shortcuts.render()?])
     }
 
     pub(crate) fn create_columns(&self, table: &Table) -> Result<Vec<String>> {
@@ -207,6 +345,9 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn parent_name(name: &str) -> Option<String> {
+        if name.starts_with("entry.") && name.matches(".").count() == 1 {
+            return None;
+        }
         name.rfind('.')
             .map(|pos| name[0..pos].to_string())
     }

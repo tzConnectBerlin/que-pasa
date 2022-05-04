@@ -3,11 +3,21 @@ use crate::storage_structure::typing::{
     ComplexExprTy, Ele, ExprTy, SimpleExprTy,
 };
 
+use crate::config::ContractID;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
+
+#[derive(Clone, Debug)]
+pub(crate) struct Contract {
+    pub cid: ContractID,
+    pub level_floor: Option<u32>,
+
+    pub storage_ast: RelationalAST,
+    pub entrypoint_asts: HashMap<String, RelationalAST>,
+}
 
 pub type Indexes = HashMap<String, u32>;
 
@@ -39,9 +49,9 @@ pub struct Context {
 }
 
 impl Context {
-    pub(crate) fn init() -> Self {
+    pub(crate) fn init(root_table_name: &str) -> Self {
         Context {
-            table_name: "storage".to_string(),
+            table_name: root_table_name.to_string(),
             prefix: "".to_string(),
         }
     }
@@ -108,6 +118,7 @@ pub enum RelationalAST {
         table: String,
         key_ast: Box<RelationalAST>,
         value_ast: Box<RelationalAST>,
+        has_memory: bool,
     },
     List {
         table: String,
@@ -142,6 +153,8 @@ pub struct RelationalEntry {
 pub struct ASTBuilder {
     table_names: HashMap<String, u32>,
     column_names: HashMap<(String, String), u32>,
+
+    bigmaps_retain: bool,
 }
 
 lazy_static! {
@@ -160,12 +173,19 @@ impl ASTBuilder {
         let mut res = Self {
             table_names: HashMap::new(),
             column_names: HashMap::new(),
+
+            bigmaps_retain: true,
         };
         for column_name in RESERVED.iter() {
             res.column_names
                 .insert(("storage".to_string(), column_name.clone()), 0);
         }
         res
+    }
+
+    pub(crate) fn memoryless_bigmaps(&mut self) -> &mut Self {
+        self.bigmaps_retain = false;
+        return self;
     }
 
     fn start_table(&mut self, ctx: &Context, ele: &Ele) -> Context {
@@ -299,6 +319,7 @@ impl ASTBuilder {
                     let value_ast =
                         self.build_relational_ast(ctx, value_type)?;
                     Ok(RelationalAST::BigMap {
+                        has_memory: self.bigmaps_retain,
                         table: ctx.table_name.clone(),
                         key_ast: Box::new(key_ast),
                         value_ast: Box::new(value_ast),
@@ -888,6 +909,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1015,6 +1037,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1035,6 +1058,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1055,6 +1079,7 @@ fn test_relational_ast_builder() {
                     value: None,
                     is_index: false,
                 }}),
+                has_memory: true,
             }),
         },
         TestCase {
@@ -1312,6 +1337,7 @@ fn test_relational_ast_builder() {
                             value: None,
                             is_index: false,
                     }}),
+                    has_memory: true,
                 }),
             }),
         },
@@ -1347,6 +1373,7 @@ fn test_relational_ast_builder() {
                                 value: None,
                                 is_index: false,
                         }}),
+                        has_memory: true,
                     }),
                     right_ast: Box::new(RelationalAST::Leaf {
                         rel_entry: RelationalEntry {
@@ -1364,8 +1391,8 @@ fn test_relational_ast_builder() {
     for tc in tests {
         println!("test case: {}", tc.name);
 
-        let got =
-            ASTBuilder::new().build_relational_ast(&Context::init(), &tc.ele);
+        let got = ASTBuilder::new()
+            .build_relational_ast(&Context::init("storage"), &tc.ele);
         if tc.exp.is_none() {
             assert!(got.is_err());
             continue;
