@@ -27,7 +27,7 @@ SETUP_WAIT=3s
 echo "waiting for $SETUP_WAIT for testdb initialization.."
 sleep $SETUP_WAIT
 
-export NODE_URL=https://mainnet-tezos.giganode.io
+export NODE_URL=https://mainnet-archive.tzconnect.berlin
 export DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE
 
 function query {

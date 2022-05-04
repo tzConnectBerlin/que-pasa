@@ -21,10 +21,24 @@ FROM (
         t.id,
         t.tx_context_id
         {% call unfold(columns, "t", true) %}
-    FROM "{{ contract_schema }}"."{{ table }}" t, que_pasa.last_context_at((select max(level) from que_pasa.levels)) last_ctx
+    FROM "{{ contract_schema }}"."{{ table }}" t, (
+      SELECT
+        ctx.id,
+        ctx.level
+      FROM "{{ contract_schema }}"."{{ table }}" t
+      JOIN tx_contexts ctx
+        ON ctx.id = t.tx_context_id
+      ORDER BY
+          ctx.level DESC,
+          ctx.operation_group_number DESC,
+          ctx.operation_number DESC,
+          ctx.content_number DESC,
+          COALESCE(ctx.internal_number, -1) DESC
+      LIMIT 1
+    ) last_ctx
     JOIN levels level_meta
       ON level_meta.level = last_ctx.level
-    WHERE t.tx_context_id = last_ctx.tx_context_id
+    WHERE t.tx_context_id = last_ctx.id
 ) t;
 
 
