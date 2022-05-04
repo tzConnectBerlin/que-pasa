@@ -80,21 +80,20 @@ impl NodeClient {
     }
 
     fn file_exists(path: &str) -> Result<bool> {
-	let metadata = fs::metadata(&path);
-	match metadata {
-	    Ok(m) => Ok(m.is_file()),
-	    Err(_) => Ok(false)
-	}
+        let metadata = fs::metadata(&path);
+        match metadata {
+            Ok(m) => Ok(m.is_file()),
+            Err(_) => Ok(false),
+        }
     }
-	
+
     fn dir_exists(path: &str) -> Result<bool> {
-	let metadata = fs::metadata(&path);
-	match metadata {
-	    Ok(m) => Ok(m.is_dir()),
-	    Err(_) => Ok(false)
-	}
+        let metadata = fs::metadata(&path);
+        match metadata {
+            Ok(m) => Ok(m.is_dir()),
+            Err(_) => Ok(false),
+        }
     }
-	
 
     /// Get all of the data for the contract.
     pub(crate) fn get_contract_storage_definition(
@@ -107,30 +106,36 @@ impl NodeClient {
             None => "head".to_string(),
         };
 
-	let cache_filename = format!("contract-cache/{}-{}.json", level, contract_id);
-	let body;
-	if Self::file_exists(&cache_filename)? {
-	    body = fs::read_to_string(&cache_filename)?;
-	} else {
-	    body = self
-		.load(
-		    &format!(
-			"blocks/{}/context/contracts/{}/script",
-			level, contract_id
-		    ),
-		    Self::load_from_node_retry_on_transient_err,
-		)
-		.with_context(|| {
-			format!(
-			    "failed to get script data for contract='{}', level={}",
-			    contract_id, level
-			)
-		})?;
-	    if Self::dir_exists(&"contract-cache")? {
-		fs::write(&cache_filename, &body)?;
-	    }
-	}
-    
+        let cache_dir = ".quepasa-cache";
+        let cache_filename =
+            format!("{}/contract-script-{}.json", cache_dir, contract_id);
+        let body;
+        if Self::file_exists(&cache_filename)? {
+            info!(
+                "loading {} storage definition from {}",
+                contract_id, cache_filename
+            );
+            body = fs::read_to_string(&cache_filename)?;
+        } else {
+            body = self
+                .load(
+                    &format!(
+                        "blocks/{}/context/contracts/{}/script",
+                        level, contract_id
+                    ),
+                    Self::load_from_node_retry_on_transient_err,
+                )
+                .with_context(|| {
+                    format!(
+                        "failed to get script data for contract='{}', level={}",
+                        contract_id, level
+                    )
+                })?;
+            if Self::dir_exists(cache_dir)? {
+                fs::write(&cache_filename, &body)?;
+            }
+        }
+
         let json = Self::deserialize(&body)?;
 
         for entry in json["code"].as_array().ok_or_else(|| {
