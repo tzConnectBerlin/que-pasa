@@ -22,6 +22,7 @@ CREATE TABLE contract_levels (
 );
 
 CREATE INDEX ON contract_levels(level);
+CREATE INDEX ON contract_levels(contract, is_origination);
 
 CREATE TYPE indexer_mode AS ENUM (
     'Bootstrap',
@@ -110,6 +111,7 @@ CREATE TABLE bigmap_meta_actions (
 );
 
 CREATE INDEX ON bigmap_meta_actions(bigmap_id, action, tx_context_id);
+CREATE INDEX ON bigmap_meta_actions(tx_context_id);
 
 CREATE TABLE contract_deps (
     level INT NOT NULL,

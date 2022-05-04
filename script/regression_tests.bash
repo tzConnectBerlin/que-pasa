@@ -101,6 +101,10 @@ ORDER BY pg_catalog.pg_relation_size(c.conrelid) DESC;
 EOF
 `
     query "$sql" || exit 1
+    query 'select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id' || exit 1
+    query 'select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id' || exit 1
+    query 'select * from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit"' || exit 1
+    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id' || exit 1
 }
 
 export RUST_BACKTRACE=1
