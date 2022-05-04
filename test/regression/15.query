@@ -1,0 +1,5 @@
+select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 16);
+               address                | amount | token_id |  id   
+--------------------------------------+--------+----------+-------
+ tz1eWqQ8JDTSg2aSFW6GZ4RNhW3xq2pSwhkb |      1 |   418739 | 42033
+(1 row)
