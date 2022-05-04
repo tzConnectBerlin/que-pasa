@@ -4,6 +4,7 @@ use backoff::{retry, Error, ExponentialBackoff};
 use chrono::{DateTime, Utc};
 use curl::easy::Easy;
 use serde::Deserialize;
+use std::fs;
 use std::str::FromStr;
 use std::time::Duration;
 use thiserror::Error;
@@ -78,6 +79,22 @@ impl NodeClient {
         Ok((meta, block))
     }
 
+    fn file_exists(path: &str) -> Result<bool> {
+        let metadata = fs::metadata(&path);
+        match metadata {
+            Ok(m) => Ok(m.is_file()),
+            Err(_) => Ok(false),
+        }
+    }
+
+    fn dir_exists(path: &str) -> Result<bool> {
+        let metadata = fs::metadata(&path);
+        match metadata {
+            Ok(m) => Ok(m.is_dir()),
+            Err(_) => Ok(false),
+        }
+    }
+
     pub(crate) fn get_contract_storage_definition(
         &self,
         contract_id: &str,
@@ -88,20 +105,36 @@ impl NodeClient {
             None => "head".to_string(),
         };
 
-        let body = self
-            .load(
-                &format!(
-                    "blocks/{}/context/contracts/{}/script",
-                    level, contract_id
-                ),
-                Self::load_from_node_retry_on_transient_err,
-            )
-            .with_context(|| {
-                format!(
-                    "failed to get script data for contract='{}', level={}",
-                    contract_id, level
+        let cache_dir = ".quepasa-cache";
+        let cache_filename =
+            format!("{}/contract-script-{}.json", cache_dir, contract_id);
+        let body;
+        if Self::file_exists(&cache_filename)? {
+            info!(
+                "loading {} storage definition from {}",
+                contract_id, cache_filename
+            );
+            body = fs::read_to_string(&cache_filename)?;
+        } else {
+            body = self
+                .load(
+                    &format!(
+                        "blocks/{}/context/contracts/{}/script",
+                        level, contract_id
+                    ),
+                    Self::load_from_node_retry_on_transient_err,
                 )
-            })?;
+                .with_context(|| {
+                    format!(
+                        "failed to get script data for contract='{}', level={}",
+                        contract_id, level
+                    )
+                })?;
+            if Self::dir_exists(cache_dir)? {
+                fs::write(&cache_filename, &body)?;
+            }
+        }
+
         let json = Self::deserialize(&body)?;
 
         let code_def: &Vec<serde_json::Value> =
