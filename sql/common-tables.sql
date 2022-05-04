@@ -92,10 +92,10 @@ CREATE VIEW txs_ordered AS (
         ctx.level,
         meta.baked_at as level_timestamp,
         tx.*
-    FROM txs tx
-    JOIN tx_contexts ctx
+    FROM que_pasa.txs tx
+    JOIN que_pasa.tx_contexts ctx
       ON ctx.id = tx.tx_context_id
-    JOIN levels meta
+    JOIN que_pasa.levels meta
       ON meta.level = ctx.level
     ORDER BY ordering
 );
@@ -145,10 +145,10 @@ AS $$
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts AS ctx
+    FROM que_pasa.tx_contexts AS ctx
     WHERE id = (
       SELECT id
-      FROM tx_contexts
+      FROM que_pasa.tx_contexts
       WHERE level <= lvl
       ORDER BY level DESC, operation_group_number DESC, operation_number DESC, content_number DESC, COALESCE(internal_number, -1) DESC
       LIMIT 1
@@ -164,10 +164,10 @@ AS $$
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts AS ctx
+    FROM que_pasa.tx_contexts AS ctx
     WHERE id = (
       SELECT id
-      FROM tx_contexts
+      FROM que_pasa.tx_contexts
       WHERE ARRAY[
             level,
             operation_group_number]
@@ -189,10 +189,10 @@ AS $$
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts AS ctx
+    FROM que_pasa.tx_contexts AS ctx
     WHERE id = (
       SELECT id
-      FROM tx_contexts
+      FROM que_pasa.tx_contexts
       WHERE ARRAY[
             level,
             operation_group_number,
@@ -216,10 +216,10 @@ AS $$
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts AS ctx
+    FROM que_pasa.tx_contexts AS ctx
     WHERE id = (
       SELECT id
-      FROM tx_contexts
+      FROM que_pasa.tx_contexts
       WHERE ARRAY[
             level,
             operation_group_number,
@@ -245,10 +245,10 @@ AS $$
       operation_number,
       content_number,
       internal_number
-    FROM tx_contexts AS ctx
+    FROM que_pasa.tx_contexts AS ctx
     WHERE id = (
       SELECT id
-      FROM tx_contexts
+      FROM que_pasa.tx_contexts
       WHERE ARRAY[
             level,
             operation_group_number,
