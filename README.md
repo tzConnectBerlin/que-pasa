@@ -51,6 +51,8 @@ For nearly all tables (including bigmap tables, excluding tables nested inside b
 
 Forks are automatically detected. When detected, indexed data belonging to the orphaned blocks is cleaned up. Make sure your backend does not expect the newest data to be immutable.
 
+Que Pasa additionally indexes the parameters of contract calls, into tables named `entry.<entrypoint>`.
+
 ## Installation
 
 Make sure all dependencies are present on your machine:
@@ -131,6 +133,5 @@ Big map updates are stored independently of the rest of the storage, as one woul
 
 # Limitations
 
-- Currently, the latest main release of Que Pasa doesn't parse contract call arguments. However, there is a first working unreleased version ready for usage (just keep in mind that there are definitely some rough edges, especially the ergonomics aren't ideal yet): https://github.com/tzConnectBerlin/que-pasa/tree/index-params. For more info see https://github.com/tzConnectBerlin/que-pasa/pull/44.
 - We're (currently) not indexing: tickets, sapling states, lambda values. If they are present in an indexed contract, they're ignored. In other words, values of these types will not arrive in the db.
 - Generated table names can become quite long. Some contracts may be impeded by name length limitations of the underlying database system. For example, PostgreSQL's default setup only allows table names of up to 63 characters.
