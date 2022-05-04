@@ -1,6 +1,6 @@
-select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id;
- tx_context_id |  id   |                artist                |                 fa2                  | objkt_id | royalties 
----------------+-------+--------------------------------------+--------------------------------------+----------+-----------
-         41844 | 41848 | tz1V7MkP1N5bBJasgDxyBvmGLxRBnjcwaNvG | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   413265 |       160
-         41845 | 41854 | tz1V7MkP1N5bBJasgDxyBvmGLxRBnjcwaNvG | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   413578 |       160
+select artist, fa2, objkt_id, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id;
+                artist                |                 fa2                  | objkt_id | royalties 
+--------------------------------------+--------------------------------------+----------+-----------
+ tz1V7MkP1N5bBJasgDxyBvmGLxRBnjcwaNvG | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   413265 |       160
+ tz1V7MkP1N5bBJasgDxyBvmGLxRBnjcwaNvG | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   413578 |       160
 (2 rows)

@@ -1,7 +1,7 @@
-select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id;
- tx_context_id |  id   | amount |                artist                |                 fa2                  | objkt_id |  price   | royalties 
----------------+-------+--------+--------------------------------------+--------------------------------------+----------+----------+-----------
-         25548 | 25549 |      1 | tz1auSNxkLVsPrcDDJUJSV8QaEXcscZExsBJ | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   305051 |   800000 |       250
-         34256 | 34257 |      1 | tz2BNJSzkokRjDcUvCGJhRBobgtvqXJBTzhD | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   358456 | 90000000 |       150
-         41847 | 41866 |      1 | tz1KykEyK99tUxwKvjYKZgSmAgTsQFfzU8Xb | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   408620 | 28000000 |       200
+select amount, artist, fa2, objkt_id, price, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id;
+ amount |                artist                |                 fa2                  | objkt_id |  price   | royalties 
+--------+--------------------------------------+--------------------------------------+----------+----------+-----------
+      1 | tz1auSNxkLVsPrcDDJUJSV8QaEXcscZExsBJ | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   305051 |   800000 |       250
+      1 | tz2BNJSzkokRjDcUvCGJhRBobgtvqXJBTzhD | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   358456 | 90000000 |       150
+      1 | tz1KykEyK99tUxwKvjYKZgSmAgTsQFfzU8Xb | KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton |   408620 | 28000000 |       200
 (3 rows)

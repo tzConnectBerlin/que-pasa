@@ -1,5 +1,5 @@
-select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 13);
-               address                | amount | token_id |  id   
---------------------------------------+--------+----------+-------
- tz1h6wqzZw9g6GXXS6KepXQEtNahdpsaEiSB |     10 |   418472 | 39232
+select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 13);
+               address                | amount | token_id 
+--------------------------------------+--------+----------
+ tz1h6wqzZw9g6GXXS6KepXQEtNahdpsaEiSB |     10 |   418472
 (1 row)

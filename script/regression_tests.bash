@@ -103,17 +103,17 @@ EOF
     query "$sql" || exit 1
 
     # parameter indexing tests
-    query 'select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id' || exit 1
-    query 'select * from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id' || exit 1
-    query 'select * from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit"' || exit 1
-    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id' || exit 1
+    query 'select amount, artist, fa2, objkt_id, price, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id' || exit 1
+    query 'select artist, fa2, objkt_id, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id' || exit 1
+    query 'select nat from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit"' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id' || exit 1
 
     # _at function tests
-    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506)' || exit 1
-    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 17)' || exit 1
-    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 16)' || exit 1
-    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 12)' || exit 1
-    query 'select * from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 13)' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506)' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 17)' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 16)' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 12)' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 13)' || exit 1
 }
 
 export RUST_BACKTRACE=1

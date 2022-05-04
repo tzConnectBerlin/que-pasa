@@ -1,5 +1,5 @@
-select * from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit";
- tx_context_id |  id  |       nat        
----------------+------+------------------
-          7515 | 7518 | 2516626800000000
+select nat from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit";
+       nat        
+------------------
+ 2516626800000000
 (1 row)
