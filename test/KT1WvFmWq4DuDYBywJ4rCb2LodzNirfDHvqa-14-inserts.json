@@ -1,0 +1,13 @@
+[
+    (
+        table_name: "storage",
+        id: 21,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(20),
+            ),
+        ],
+    ),
+]

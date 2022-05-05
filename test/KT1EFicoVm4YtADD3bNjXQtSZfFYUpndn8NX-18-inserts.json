@@ -1,0 +1,51 @@
+[
+    (
+        table_name: "storage",
+        id: 6,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(5),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.noname",
+        id: 7,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(5),
+            ),
+            (
+                name: "idx_string",
+                value: String("key 1"),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("4")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.noname",
+        id: 8,
+        fk_id: Some(6),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(5),
+            ),
+            (
+                name: "idx_string",
+                value: String("key 2"),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("3")),
+            ),
+        ],
+    ),
+]

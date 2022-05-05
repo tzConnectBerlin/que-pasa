@@ -1,0 +1,162 @@
+{
+  "code": [
+    {
+      "prim": "parameter",
+      "args": [
+        {
+          "prim": "or",
+          "args": [
+            {
+              "prim": "or",
+              "args": [
+                {
+                  "prim": "nat",
+                  "annots": [
+                    "%append"
+                  ]
+                },
+                {
+                  "prim": "option",
+                  "args": [
+                    {
+                      "prim": "list",
+                      "args": [
+                        {
+                          "prim": "nat"
+                        }
+                      ]
+                    }
+                  ],
+                  "annots": [
+                    "%maybeOverwrite"
+                  ]
+                }
+              ]
+            },
+            {
+              "prim": "list",
+              "args": [
+                {
+                  "prim": "nat"
+                }
+              ],
+              "annots": [
+                "%overwrite"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "prim": "storage",
+      "args": [
+        {
+          "prim": "list",
+          "args": [
+            {
+              "prim": "nat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "prim": "code",
+      "args": [
+        [
+          {
+            "prim": "UNPAIR"
+          },
+          {
+            "prim": "IF_LEFT",
+            "args": [
+              [
+                {
+                  "prim": "IF_LEFT",
+                  "args": [
+                    [
+                      {
+                        "prim": "CONS"
+                      },
+                      {
+                        "prim": "NIL",
+                        "args": [
+                          {
+                            "prim": "operation"
+                          }
+                        ]
+                      },
+                      {
+                        "prim": "PAIR"
+                      }
+                    ],
+                    [
+                      {
+                        "prim": "IF_NONE",
+                        "args": [
+                          [
+                            {
+                              "prim": "NIL",
+                              "args": [
+                                {
+                                  "prim": "operation"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "PAIR"
+                            }
+                          ],
+                          [
+                            {
+                              "prim": "SWAP"
+                            },
+                            {
+                              "prim": "DROP"
+                            },
+                            {
+                              "prim": "NIL",
+                              "args": [
+                                {
+                                  "prim": "operation"
+                                }
+                              ]
+                            },
+                            {
+                              "prim": "PAIR"
+                            }
+                          ]
+                        ]
+                      }
+                    ]
+                  ]
+                }
+              ],
+              [
+                {
+                  "prim": "SWAP"
+                },
+                {
+                  "prim": "DROP"
+                },
+                {
+                  "prim": "NIL",
+                  "args": [
+                    {
+                      "prim": "operation"
+                    }
+                  ]
+                },
+                {
+                  "prim": "PAIR"
+                }
+              ]
+            ]
+          }
+        ]
+      ]
+    }
+  ],
+  "storage": []
+}

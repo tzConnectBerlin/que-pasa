@@ -1,0 +1,36 @@
+[
+    (
+        table_name: "storage",
+        id: 5,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(4),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.noname",
+        id: 7,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(4),
+            ),
+            (
+                name: "idx_nat",
+                value: Numeric(Some("33")),
+            ),
+            (
+                name: "string",
+                value: String("alice"),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(7),
+            ),
+        ],
+    ),
+]

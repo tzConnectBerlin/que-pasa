@@ -17,7 +17,10 @@ for contract in `ls *.address`; do
     cp -v $c_name.script $QUEPASA_TESTDIR/$c_addr.script
 
     [ `ls $c_name/ | grep -E '*.block$' | wc -l` -eq 0 ] && continue
-    for block in `ls $c_name/*.block`; do
+    # note: omitting the first block below, because it contains the originate,
+    # and the process_block tests cannot deal with this (because it'd require
+    # a working connection to a node to get the storage at originate w/ an RPC call)
+    for block in `ls $c_name/*.block | sort -n | tail -n +2`; do
         level=`cat $block | jq '.header.level'`
         cp -v $block $QUEPASA_TESTDIR/$c_addr.level-${level}.json
     done
