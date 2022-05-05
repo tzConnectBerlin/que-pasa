@@ -334,7 +334,7 @@ impl PostgresqlGenerator {
         res
     }
 
-    fn table_parent_name(table: &Table) -> Option<String> {
+    pub(crate) fn table_parent_name(table: &Table) -> Option<String> {
         if !table.contains_snapshots() {
             // bigmap table rows dont have a direct relation with the parent
             // element in the storage type, as they can survive parent row

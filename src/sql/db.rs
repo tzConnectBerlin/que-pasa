@@ -34,6 +34,7 @@ pub(crate) enum IndexerMode {
 struct RepopulateSnapshotDerivedTmpl<'a> {
     contract_schema: &'a str,
     table: &'a str,
+    parent_table: &'a str,
     columns: &'a [String],
 }
 #[derive(Template)]
@@ -49,6 +50,7 @@ struct RepopulateChangesDerivedTmpl<'a> {
 struct UpdateSnapshotDerivedTmpl<'a> {
     contract_schema: &'a str,
     table: &'a str,
+    parent_table: &'a str,
     columns: &'a [String],
     tx_context_ids: &'a [i64],
 }
@@ -192,9 +194,13 @@ WHERE table_schema = $1
         let columns: Vec<String> =
             PostgresqlGenerator::table_sql_columns(table, false).to_vec();
         if table.contains_snapshots() {
+            let parent_table: String =
+                PostgresqlGenerator::table_parent_name(table)
+                    .unwrap_or(table.name.clone());
             let tmpl = RepopulateSnapshotDerivedTmpl {
                 contract_schema: &contract_id.name,
                 table: &table.name,
+                parent_table: &parent_table,
                 columns: &columns,
             };
             tx.simple_query(&tmpl.render()?)?;
@@ -256,10 +262,15 @@ WHERE table_schema = $1
             .collect();
         let columns: Vec<String> =
             PostgresqlGenerator::table_sql_columns(table, false).to_vec();
+
         if table.contains_snapshots() {
+            let parent_table: String =
+                PostgresqlGenerator::table_parent_name(table)
+                    .unwrap_or(table.name.clone());
             let tmpl = UpdateSnapshotDerivedTmpl {
                 contract_schema: &contract_id.name,
                 table: &table.name,
+                parent_table: &parent_table,
                 columns: &columns,
                 tx_context_ids: &tx_context_ids,
             };
