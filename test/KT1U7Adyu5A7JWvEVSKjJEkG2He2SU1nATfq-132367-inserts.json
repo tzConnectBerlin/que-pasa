@@ -1,116 +1,5 @@
-{
+[
     (
-        table_name: "storage.token_total_supply",
-        id: 203,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 203,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(191),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("15")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.token_total_supply",
-        id: 202,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 202,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(191),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("14")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.token_total_supply",
-        id: 201,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 201,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(191),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("13")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.questions.auction_bids",
-        id: 199,
-    ): (
-        table_name: "storage.questions.auction_bids",
-        id: 199,
-        fk_id: Some(198),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(191),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "total_token",
-                value: Numeric(Some("91000000000000000000000000000000000000")),
-            ),
-            (
-                name: "quantity",
-                value: Numeric(Some("100000000000000000000")),
-            ),
-            (
-                name: "rate",
-                value: Numeric(Some("910000000000000000")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 192,
-    ): (
         table_name: "storage",
         id: 192,
         fk_id: None,
@@ -134,9 +23,6 @@
         ],
     ),
     (
-        table_name: "storage.questions",
-        id: 198,
-    ): (
         table_name: "storage.questions",
         id: 198,
         fk_id: None,
@@ -195,4 +81,100 @@
             ),
         ],
     ),
-}
+    (
+        table_name: "storage.questions.auction_bids",
+        id: 199,
+        fk_id: Some(198),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(191),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Numeric(Some("91000000000000000000000000000000000000")),
+            ),
+            (
+                name: "quantity",
+                value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "rate",
+                value: Numeric(Some("910000000000000000")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 201,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(191),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("13")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 202,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(191),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("14")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.token_total_supply",
+        id: 203,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(191),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("15")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+]

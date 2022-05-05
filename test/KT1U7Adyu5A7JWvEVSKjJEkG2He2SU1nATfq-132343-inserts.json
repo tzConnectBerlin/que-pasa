@@ -1,34 +1,5 @@
-{
+[
     (
-        table_name: "storage.token_total_supply",
-        id: 190,
-    ): (
-        table_name: "storage.token_total_supply",
-        id: 190,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(179),
-            ),
-            (
-                name: "idx_tokens_nat",
-                value: Numeric(Some("12")),
-            ),
-            (
-                name: "tokens_nat",
-                value: Numeric(Some("5263157894736842105")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(48015),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 180,
-    ): (
         table_name: "storage",
         id: 180,
         fk_id: None,
@@ -52,9 +23,6 @@
         ],
     ),
     (
-        table_name: "storage.ledger",
-        id: 186,
-    ): (
         table_name: "storage.ledger",
         id: 186,
         fk_id: None,
@@ -84,9 +52,6 @@
     (
         table_name: "storage.ledger",
         id: 188,
-    ): (
-        table_name: "storage.ledger",
-        id: 188,
         fk_id: None,
         columns: [
             (
@@ -111,4 +76,27 @@
             ),
         ],
     ),
-}
+    (
+        table_name: "storage.token_total_supply",
+        id: 190,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(179),
+            ),
+            (
+                name: "idx_tokens_nat",
+                value: Numeric(Some("12")),
+            ),
+            (
+                name: "tokens_nat",
+                value: Numeric(Some("5263157894736842105")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(48015),
+            ),
+        ],
+    ),
+]

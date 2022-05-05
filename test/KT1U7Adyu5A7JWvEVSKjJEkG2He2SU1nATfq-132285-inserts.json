@@ -1,8 +1,5 @@
-{
+[
     (
-        table_name: "storage",
-        id: 151,
-    ): (
         table_name: "storage",
         id: 151,
         fk_id: None,
@@ -25,4 +22,4 @@
             ),
         ],
     ),
-}
+]

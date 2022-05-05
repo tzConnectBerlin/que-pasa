@@ -1,8 +1,5 @@
-{
+[
     (
-        table_name: "storage",
-        id: 238,
-    ): (
         table_name: "storage",
         id: 238,
         fk_id: None,
@@ -26,9 +23,6 @@
         ],
     ),
     (
-        table_name: "storage.questions",
-        id: 244,
-    ): (
         table_name: "storage.questions",
         id: 244,
         fk_id: None,
@@ -94,9 +88,6 @@
     (
         table_name: "storage.questions.auction_bids",
         id: 245,
-    ): (
-        table_name: "storage.questions.auction_bids",
-        id: 245,
         fk_id: Some(244),
         columns: [
             (
@@ -121,4 +112,4 @@
             ),
         ],
     ),
-}
+]
