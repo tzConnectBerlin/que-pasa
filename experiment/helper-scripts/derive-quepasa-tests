@@ -5,14 +5,14 @@ set -u
 
 QUEPASA_TESTDIR=../../test
 
-cat $QUEPASA_TESTDIR/from_experiments | xargs -I '{}' find $QUEPASA_TESTDIR -name {}* | xargs rm -v
+cat $QUEPASA_TESTDIR/from_experiments | awk -F' <- ' '{print $1}' | xargs -I '{}' find $QUEPASA_TESTDIR -name {}* | xargs rm -v
 rm $QUEPASA_TESTDIR/from_experiments
 
 for contract in `ls *.address`; do
     c_addr=`cat $contract`
     c_name=${contract%.address}
 
-    echo "$c_addr" >> $QUEPASA_TESTDIR/from_experiments
+    echo "$c_addr <- $c_name" >> $QUEPASA_TESTDIR/from_experiments
 
     cp -v $c_name.script $QUEPASA_TESTDIR/$c_addr.script
 

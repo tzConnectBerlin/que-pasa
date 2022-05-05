@@ -1,23 +1,23 @@
 [
     (
         table_name: "storage",
-        id: 24,
+        id: 16,
         fk_id: None,
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(23),
+                value: BigInt(15),
             ),
         ],
     ),
     (
         table_name: "storage.noname",
-        id: 25,
-        fk_id: Some(24),
+        id: 17,
+        fk_id: Some(16),
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(23),
+                value: BigInt(15),
             ),
             (
                 name: "nat",
@@ -27,12 +27,12 @@
     ),
     (
         table_name: "storage.noname",
-        id: 26,
-        fk_id: Some(24),
+        id: 18,
+        fk_id: Some(16),
         columns: [
             (
                 name: "tx_context_id",
-                value: BigInt(23),
+                value: BigInt(15),
             ),
             (
                 name: "nat",

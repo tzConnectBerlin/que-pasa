@@ -1,23 +1,23 @@
 {
   "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
   "chain_id": "NetXgbFy27eBoxH",
-  "hash": "BM5CsDwUryHEnWtkvSHTnF5Mu7CqREe7NSF5bumLze89mC8GQLx",
+  "hash": "BL1qQL9tB3R4aKKDv3nVA3Be4Gdy6yNpcLGk3rDNHXtwr6kL9LT",
   "header": {
-    "level": 11,
+    "level": 6,
     "proto": 1,
-    "predecessor": "BLrjAEJ5Dsyg8UzCUrEDVHdbFfUkM62ypmpxodsG5orU6Cm65QJ",
-    "timestamp": "2022-05-05T13:48:06Z",
+    "predecessor": "BLETkzShYywKedz5eH4kGNBE7SzofsZZu58pfDwWBsVJREdADZ5",
+    "timestamp": "2022-05-05T14:47:11Z",
     "validation_pass": 4,
-    "operations_hash": "LLoZof3AR3nofxYrRrrNxRaoiy4hvMU6L9ox4pGwmHZpqiP5ZTFda",
+    "operations_hash": "LLoaVcm24w6rrUEuoJtxqHf8aFj2rBMraboaR4PgjT51t1Tof2GaA",
     "fitness": [
       "01",
-      "000000000000000a"
+      "0000000000000005"
     ],
-    "context": "CoWF7aB33pySW2yWSsd11ZxW7bphiuuRpfrUHz4hExSn2Vj3Jv42",
+    "context": "CoW3uC865fVEEYHxni1wsKhkFzzrBoLrq3WJJ3w1SUczPXYE3RXF",
     "priority": 0,
     "proof_of_work_nonce": "385c33f600000000",
     "liquidity_baking_escape_vote": false,
-    "signature": "sigYPhDUYFYVsuZzDLmbeZ3ohBXL8vfLRfyfgvirfyPjgnvMS7GSu6xGBz2su9vWHU9VPP1UYRb9FxgQHzNTzLnWHqQhjdi5"
+    "signature": "sigdbbaH7PetSAHbA5NPDG2R5syjQQsZffJ2x3jst1yJeiFYC6uKZSiLnkfo3FG37kxSa8o493wBXibj6nsp7mu4HxzxB1Rm"
   },
   "metadata": {
     "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
@@ -25,7 +25,7 @@
     "test_chain_status": {
       "status": "not_running"
     },
-    "max_operations_ttl": 11,
+    "max_operations_ttl": 6,
     "max_operation_data_length": 32768,
     "max_block_header_length": 239,
     "max_operation_list_length": [
@@ -46,10 +46,10 @@
     ],
     "baker": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
     "level_info": {
-      "level": 11,
-      "level_position": 10,
-      "cycle": 1,
-      "cycle_position": 2,
+      "level": 6,
+      "level_position": 5,
+      "cycle": 0,
+      "cycle_position": 5,
       "expected_commitment": false
     },
     "voting_period_info": {
@@ -58,11 +58,11 @@
         "kind": "proposal",
         "start_position": 0
       },
-      "position": 10,
-      "remaining": 5
+      "position": 5,
+      "remaining": 10
     },
     "nonce_hash": null,
-    "consumed_gas": "1304000",
+    "consumed_gas": "1537000",
     "deactivated": [],
     "balance_updates": [
       {
@@ -75,7 +75,7 @@
         "kind": "freezer",
         "category": "deposits",
         "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-        "cycle": 1,
+        "cycle": 0,
         "change": "640000000",
         "origin": "block"
       },
@@ -83,8 +83,8 @@
         "kind": "freezer",
         "category": "rewards",
         "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-        "cycle": 1,
-        "change": "4375000",
+        "cycle": 0,
+        "change": "4218750",
         "origin": "block"
       }
     ],
@@ -97,7 +97,7 @@
             "int": "1"
           },
           {
-            "int": "25000100"
+            "int": "12500100"
           },
           {
             "int": "100"
@@ -118,7 +118,7 @@
           }
         ],
         "consumed_gas": "223",
-        "consumed_milligas": "222915",
+        "consumed_milligas": "222890",
         "storage_size": "4630"
       }
     ]
@@ -128,18 +128,18 @@
       {
         "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
         "chain_id": "NetXgbFy27eBoxH",
-        "hash": "op5souXs51iNjH27dfrdZzCRofUb3jfMASzjtzbHfqWtBEaLUsp",
-        "branch": "BLrjAEJ5Dsyg8UzCUrEDVHdbFfUkM62ypmpxodsG5orU6Cm65QJ",
+        "hash": "ooJH6rUDeJKH5NNocFVD4nesZwaj4UJbUXX8TVgYg5YgdvuXvFx",
+        "branch": "BLETkzShYywKedz5eH4kGNBE7SzofsZZu58pfDwWBsVJREdADZ5",
         "contents": [
           {
             "kind": "endorsement_with_slot",
             "endorsement": {
-              "branch": "BLrjAEJ5Dsyg8UzCUrEDVHdbFfUkM62ypmpxodsG5orU6Cm65QJ",
+              "branch": "BLETkzShYywKedz5eH4kGNBE7SzofsZZu58pfDwWBsVJREdADZ5",
               "operations": {
                 "kind": "endorsement",
-                "level": 10
+                "level": 5
               },
-              "signature": "sigQ357se8VrCm6PpuQ1eqJXxn6z1dxCGyX1SeCtT5c4FdmoSLmFw5nFNbsmGZKK8Ff3oQodSdbpj9dRv77qYqc6u6MaY5DS"
+              "signature": "sigdPwUHpGuRub99y4hZiakMBLW67oGf4RyLoaJbpGBX6pwZ7N9iFEZgoP6b4zBrSeEgZaBiz3ChvU6kzzD8RfkKtSqGNPzS"
             },
             "slot": 0,
             "metadata": {
@@ -147,23 +147,23 @@
                 {
                   "kind": "contract",
                   "contract": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "change": "-14000000",
+                  "change": "-13500000",
                   "origin": "block"
                 },
                 {
                   "kind": "freezer",
                   "category": "deposits",
                   "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 1,
-                  "change": "14000000",
+                  "cycle": 0,
+                  "change": "13500000",
                   "origin": "block"
                 },
                 {
                   "kind": "freezer",
                   "category": "rewards",
                   "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 1,
-                  "change": "4375000",
+                  "cycle": 0,
+                  "change": "4218750",
                   "origin": "block"
                 }
               ],
@@ -175,7 +175,6 @@
                 3,
                 4,
                 5,
-                6,
                 7,
                 8,
                 9,
@@ -218,7 +217,6 @@
                 46,
                 47,
                 48,
-                49,
                 50,
                 51,
                 52,
@@ -237,68 +235,133 @@
       {
         "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
         "chain_id": "NetXgbFy27eBoxH",
-        "hash": "oo8TaM3hq1hM1rSBFbB31VPYiheh6z9QyhyJiwsm1nJBuvS11kY",
-        "branch": "BLrjAEJ5Dsyg8UzCUrEDVHdbFfUkM62ypmpxodsG5orU6Cm65QJ",
+        "hash": "ooLy8PKG8e7Ajk6SsnrHZcssjfk8JuWo4thnr7imnWErzAc36Vz",
+        "branch": "BLETkzShYywKedz5eH4kGNBE7SzofsZZu58pfDwWBsVJREdADZ5",
         "contents": [
           {
             "kind": "transaction",
             "source": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-            "fee": "393",
-            "counter": "9",
-            "gas_limit": "1304",
-            "storage_limit": "22",
+            "fee": "436",
+            "counter": "4",
+            "gas_limit": "1537",
+            "storage_limit": "95",
             "amount": "0",
-            "destination": "KT1WvFmWq4DuDYBywJ4rCb2LodzNirfDHvqa",
+            "destination": "KT1FEwAhVSNH5gpUGXZCti2K8aU5kg9uqt2v",
             "parameters": {
-              "entrypoint": "append",
-              "value": {
-                "int": "6"
-              }
+              "entrypoint": "overwrite",
+              "value": [
+                {
+                  "prim": "Elt",
+                  "args": [
+                    {
+                      "int": "33"
+                    },
+                    {
+                      "string": "alice"
+                    }
+                  ]
+                }
+              ]
             },
             "metadata": {
               "balance_updates": [
                 {
                   "kind": "contract",
                   "contract": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-                  "change": "-393",
+                  "change": "-436",
                   "origin": "block"
                 },
                 {
                   "kind": "freezer",
                   "category": "fees",
                   "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 1,
-                  "change": "393",
+                  "cycle": 0,
+                  "change": "436",
                   "origin": "block"
                 }
               ],
               "operation_result": {
                 "status": "applied",
-                "storage": [
+                "storage": {
+                  "int": "7"
+                },
+                "big_map_diff": [
                   {
-                    "int": "6"
+                    "action": "remove",
+                    "big_map": "6"
                   },
                   {
-                    "int": "4"
+                    "action": "alloc",
+                    "big_map": "7",
+                    "key_type": {
+                      "prim": "nat"
+                    },
+                    "value_type": {
+                      "prim": "string"
+                    }
+                  },
+                  {
+                    "action": "update",
+                    "big_map": "7",
+                    "key_hash": "exprtcxWUdSoni6H8bX8H8fqioGCMsEZyqpkCHMZimZJqTCBseU1Yr",
+                    "key": {
+                      "int": "33"
+                    },
+                    "value": {
+                      "string": "alice"
+                    }
                   }
                 ],
                 "balance_updates": [
                   {
                     "kind": "contract",
                     "contract": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-                    "change": "-500",
+                    "change": "-18750",
                     "origin": "block"
                   }
                 ],
-                "consumed_gas": "1204",
-                "consumed_milligas": "1203125",
-                "storage_size": "169",
-                "paid_storage_size_diff": "2"
+                "consumed_gas": "1437",
+                "consumed_milligas": "1436795",
+                "storage_size": "204",
+                "paid_storage_size_diff": "75",
+                "lazy_storage_diff": [
+                  {
+                    "kind": "big_map",
+                    "id": "6",
+                    "diff": {
+                      "action": "remove"
+                    }
+                  },
+                  {
+                    "kind": "big_map",
+                    "id": "7",
+                    "diff": {
+                      "action": "alloc",
+                      "updates": [
+                        {
+                          "key_hash": "exprtcxWUdSoni6H8bX8H8fqioGCMsEZyqpkCHMZimZJqTCBseU1Yr",
+                          "key": {
+                            "int": "33"
+                          },
+                          "value": {
+                            "string": "alice"
+                          }
+                        }
+                      ],
+                      "key_type": {
+                        "prim": "nat"
+                      },
+                      "value_type": {
+                        "prim": "string"
+                      }
+                    }
+                  }
+                ]
               }
             }
           }
         ],
-        "signature": "sigZ82hghx3G1Pm7HKq8exhSCK5RpkfHLFkR8fFyZvtG8M8n1yuy25jMuyC5dAo32jsskDQ1TNFsjo6PmgtdKwHKXibnrSFv"
+        "signature": "sigPGhk152J7w8VWYrrFUSNUnLMZFxSVKnNp4LDW7ivfh4V2e4EJtSL89nwDcweRYNTR7ckXnFhnaZR1sQCjvZyCfwnT2VKg"
       }
     ]
   ]

@@ -1,23 +1,24 @@
 {
   "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
   "chain_id": "NetXgbFy27eBoxH",
-  "hash": "BLabo5AsjvyQYUtiqzHEwM56jsBv7VQfuVvb5TcENoDXKzs945j",
+  "hash": "BKjER4eEEbkfQjwe8DreYkVymjp5ZvayGG3qF2CtDngdzPADtSM",
   "header": {
-    "level": 18,
+    "level": 8,
     "proto": 1,
-    "predecessor": "BLxineHzswmb4yKJVwhDbYHzdP7z4aXSFsDy9Avyu4DqDsSiPKZ",
-    "timestamp": "2022-05-05T13:48:27Z",
+    "predecessor": "BL7zgFqpLqdmorpLyzyNfaSwSAemhpupY1npVpEBK9jwScQeUma",
+    "timestamp": "2022-05-05T14:47:17Z",
     "validation_pass": 4,
-    "operations_hash": "LLoZj3FXjTava5TtGRDTU1HB48HRRCMQbVystP13RnpduvMKWbqTw",
+    "operations_hash": "LLoavqKB1MGRrQYUtKUs4NUgneh2dqYqya6bDgt2rmcweb4U4Zbj6",
     "fitness": [
       "01",
-      "0000000000000011"
+      "0000000000000007"
     ],
-    "context": "CoUt1H9QMg81ecGwExGRxozCzvt1TE94jtrgyDqR5NK6gJ2iujMX",
+    "context": "CoW9JjXtUgJApqnm1izgBfjwdQtxnEtYSgAtoa2g9dWuaNzLVuYw",
     "priority": 0,
     "proof_of_work_nonce": "385c33f600000000",
+    "seed_nonce_hash": "nceW1djmHsTEsQmVx1DSBBTxvZdQvirtmvu9nzeHK9u5Wv8jBM9UK",
     "liquidity_baking_escape_vote": false,
-    "signature": "sigaWUC33W7YJgp8obqqZ5PyaVL2w7JwZZipuWjF3BZU2F76Z2mcXfQk5WKnThXrxJg1kPdC7CaMBfL5Hdesbam8Y4RnPXTD"
+    "signature": "sigYhnz83EX49pcUHKAAHiFh868M7M4Fx7wcLD9ToHubjV1jWHEjWVXxvLjMSKLqMH7NYDzqydonNhh2YVtq6rVGZ5HfUcxx"
   },
   "metadata": {
     "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
@@ -25,7 +26,7 @@
     "test_chain_status": {
       "status": "not_running"
     },
-    "max_operations_ttl": 18,
+    "max_operations_ttl": 8,
     "max_operation_data_length": 32768,
     "max_block_header_length": 239,
     "max_operation_list_length": [
@@ -46,23 +47,23 @@
     ],
     "baker": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
     "level_info": {
-      "level": 18,
-      "level_position": 17,
-      "cycle": 2,
-      "cycle_position": 1,
-      "expected_commitment": false
+      "level": 8,
+      "level_position": 7,
+      "cycle": 0,
+      "cycle_position": 7,
+      "expected_commitment": true
     },
     "voting_period_info": {
       "voting_period": {
-        "index": 1,
+        "index": 0,
         "kind": "proposal",
-        "start_position": 16
+        "start_position": 0
       },
-      "position": 1,
-      "remaining": 14
+      "position": 7,
+      "remaining": 8
     },
-    "nonce_hash": null,
-    "consumed_gas": "1305000",
+    "nonce_hash": "nceW1djmHsTEsQmVx1DSBBTxvZdQvirtmvu9nzeHK9u5Wv8jBM9UK",
+    "consumed_gas": "4067000",
     "deactivated": [],
     "balance_updates": [
       {
@@ -75,7 +76,7 @@
         "kind": "freezer",
         "category": "deposits",
         "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-        "cycle": 2,
+        "cycle": 0,
         "change": "640000000",
         "origin": "block"
       },
@@ -83,8 +84,8 @@
         "kind": "freezer",
         "category": "rewards",
         "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-        "cycle": 2,
-        "change": "4218750",
+        "cycle": 0,
+        "change": "4296875",
         "origin": "block"
       }
     ],
@@ -97,7 +98,7 @@
             "int": "1"
           },
           {
-            "int": "42500100"
+            "int": "17500100"
           },
           {
             "int": "100"
@@ -128,18 +129,18 @@
       {
         "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
         "chain_id": "NetXgbFy27eBoxH",
-        "hash": "opZPczaZc4Cseb7AeQyXts1JtAYYYUa18ea8kDwsVQFhpfBfzDj",
-        "branch": "BLxineHzswmb4yKJVwhDbYHzdP7z4aXSFsDy9Avyu4DqDsSiPKZ",
+        "hash": "ontPFPXYf73zNMMm1rtXJEvfxKFSbN16qWtoxZJPgGdNaMzVriF",
+        "branch": "BL7zgFqpLqdmorpLyzyNfaSwSAemhpupY1npVpEBK9jwScQeUma",
         "contents": [
           {
             "kind": "endorsement_with_slot",
             "endorsement": {
-              "branch": "BLxineHzswmb4yKJVwhDbYHzdP7z4aXSFsDy9Avyu4DqDsSiPKZ",
+              "branch": "BL7zgFqpLqdmorpLyzyNfaSwSAemhpupY1npVpEBK9jwScQeUma",
               "operations": {
                 "kind": "endorsement",
-                "level": 17
+                "level": 7
               },
-              "signature": "sigpdtXtrxJPp3Umt5eoxhLPtzBsg55Gaf74kEWSayo1egz3RHpXAWA1hjBTac4415ejY7BD7a3iUMGrguMnBCJqvWbRS1v5"
+              "signature": "sigbto2t8NSvoabsdtzLGy7pMXR57BDuwkUkbJa25ebmXCqSgaWmHVxQ6UMZS7SxUETWY4A5jPbvwKhuzmeTQKaFfqcFAxbU"
             },
             "slot": 0,
             "metadata": {
@@ -147,23 +148,23 @@
                 {
                   "kind": "contract",
                   "contract": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "change": "-13500000",
+                  "change": "-13750000",
                   "origin": "block"
                 },
                 {
                   "kind": "freezer",
                   "category": "deposits",
                   "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 2,
-                  "change": "13500000",
+                  "cycle": 0,
+                  "change": "13750000",
                   "origin": "block"
                 },
                 {
                   "kind": "freezer",
                   "category": "rewards",
                   "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 2,
-                  "change": "4218750",
+                  "cycle": 0,
+                  "change": "4296875",
                   "origin": "block"
                 }
               ],
@@ -189,12 +190,12 @@
                 17,
                 18,
                 19,
-                20,
                 21,
                 22,
                 23,
                 24,
                 25,
+                26,
                 27,
                 28,
                 29,
@@ -221,6 +222,7 @@
                 50,
                 51,
                 52,
+                53,
                 54,
                 55
               ]
@@ -230,91 +232,27 @@
       }
     ],
     [],
+    [],
     [
       {
         "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
         "chain_id": "NetXgbFy27eBoxH",
-        "hash": "ooN7TdoqEBZxw121eWkUUjHtS7Ns7v3umruRLrJrucr6szbGoES",
-        "branch": "BLxineHzswmb4yKJVwhDbYHzdP7z4aXSFsDy9Avyu4DqDsSiPKZ",
-        "contents": [
-          {
-            "kind": "seed_nonce_revelation",
-            "level": 12,
-            "nonce": "c309f19ed4f5a49e0481a4c475f4d4ec44a91b7e478e0076ac39865d77e35909",
-            "metadata": {
-              "balance_updates": [
-                {
-                  "kind": "freezer",
-                  "category": "rewards",
-                  "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 2,
-                  "change": "125000",
-                  "origin": "block"
-                }
-              ]
-            }
-          }
-        ]
-      },
-      {
-        "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
-        "chain_id": "NetXgbFy27eBoxH",
-        "hash": "onwwNn2VjFtMgSscjJuQ246o6c4EkLswUDKd1gLyKaHcdfnC4Ze",
-        "branch": "BLxineHzswmb4yKJVwhDbYHzdP7z4aXSFsDy9Avyu4DqDsSiPKZ",
-        "contents": [
-          {
-            "kind": "seed_nonce_revelation",
-            "level": 16,
-            "nonce": "c584f2b900cfa77c085b34ba0d361c4bee3c323442f797ac0cc44fcdcdbc1d62",
-            "metadata": {
-              "balance_updates": [
-                {
-                  "kind": "freezer",
-                  "category": "rewards",
-                  "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 2,
-                  "change": "125000",
-                  "origin": "block"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    ],
-    [
-      {
-        "protocol": "PtHangz2aRngywmSRGGvrcTyMbbdpWdpFKuS4uMWxg2RaH9i1qx",
-        "chain_id": "NetXgbFy27eBoxH",
-        "hash": "ooXKM4LvMiq3TYHsSP4HCLQGY5YrV6MMiGgavGoAnTFevmJWdrY",
-        "branch": "BLxineHzswmb4yKJVwhDbYHzdP7z4aXSFsDy9Avyu4DqDsSiPKZ",
+        "hash": "ooip2uqWPbPYha13ea4CMuorv1w9AQcLQ8YFWsHnVx9hPKJyC6E",
+        "branch": "BL7zgFqpLqdmorpLyzyNfaSwSAemhpupY1npVpEBK9jwScQeUma",
         "contents": [
           {
             "kind": "transaction",
             "source": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-            "fee": "404",
-            "counter": "16",
-            "gas_limit": "1305",
-            "storage_limit": "34",
+            "fee": "706",
+            "counter": "6",
+            "gas_limit": "4067",
+            "storage_limit": "0",
             "amount": "0",
-            "destination": "KT1EFicoVm4YtADD3bNjXQtSZfFYUpndn8NX",
+            "destination": "KT1GER1yY5GyJgCn5aH7emhGec16ArrJxsiN",
             "parameters": {
-              "entrypoint": "set",
+              "entrypoint": "copy",
               "value": {
-                "prim": "Pair",
-                "args": [
-                  {
-                    "string": "key 2"
-                  },
-                  {
-                    "prim": "Some",
-                    "args": [
-                      {
-                        "int": "3"
-                      }
-                    ]
-                  }
-                ]
+                "string": "KT1FEwAhVSNH5gpUGXZCti2K8aU5kg9uqt2v"
               }
             },
             "metadata": {
@@ -322,61 +260,118 @@
                 {
                   "kind": "contract",
                   "contract": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-                  "change": "-404",
+                  "change": "-706",
                   "origin": "block"
                 },
                 {
                   "kind": "freezer",
                   "category": "fees",
                   "delegate": "tz1YPSCGWXwBdTncK2aCctSZAXWvGsGwVJqU",
-                  "cycle": 2,
-                  "change": "404",
+                  "cycle": 0,
+                  "change": "706",
                   "origin": "block"
                 }
               ],
               "operation_result": {
                 "status": "applied",
-                "storage": [
+                "storage": {
+                  "prim": "Pair",
+                  "args": [
+                    {
+                      "int": "1"
+                    },
+                    {
+                      "int": "5"
+                    }
+                  ]
+                },
+                "big_map_diff": [
                   {
-                    "prim": "Elt",
-                    "args": [
-                      {
-                        "string": "key 1"
-                      },
-                      {
-                        "int": "4"
-                      }
-                    ]
+                    "action": "copy",
+                    "source_big_map": "5",
+                    "destination_big_map": "-1"
+                  }
+                ],
+                "consumed_gas": "2664",
+                "consumed_milligas": "2663123",
+                "storage_size": "414",
+                "lazy_storage_diff": [
+                  {
+                    "kind": "big_map",
+                    "id": "-1",
+                    "diff": {
+                      "action": "copy",
+                      "source": "5",
+                      "updates": []
+                    }
                   },
                   {
-                    "prim": "Elt",
-                    "args": [
+                    "kind": "big_map",
+                    "id": "5",
+                    "diff": {
+                      "action": "update",
+                      "updates": []
+                    }
+                  }
+                ]
+              },
+              "internal_operation_results": [
+                {
+                  "kind": "transaction",
+                  "source": "KT1GER1yY5GyJgCn5aH7emhGec16ArrJxsiN",
+                  "nonce": 0,
+                  "amount": "0",
+                  "destination": "KT1FEwAhVSNH5gpUGXZCti2K8aU5kg9uqt2v",
+                  "parameters": {
+                    "entrypoint": "overwrite",
+                    "value": {
+                      "int": "-1"
+                    }
+                  },
+                  "result": {
+                    "status": "applied",
+                    "storage": {
+                      "int": "9"
+                    },
+                    "big_map_diff": [
                       {
-                        "string": "key 2"
+                        "action": "remove",
+                        "big_map": "8"
                       },
                       {
-                        "int": "3"
+                        "action": "copy",
+                        "source_big_map": "-1",
+                        "destination_big_map": "9"
+                      }
+                    ],
+                    "consumed_gas": "1304",
+                    "consumed_milligas": "1303765",
+                    "storage_size": "292",
+                    "lazy_storage_diff": [
+                      {
+                        "kind": "big_map",
+                        "id": "8",
+                        "diff": {
+                          "action": "remove"
+                        }
+                      },
+                      {
+                        "kind": "big_map",
+                        "id": "9",
+                        "diff": {
+                          "action": "copy",
+                          "source": "-1",
+                          "updates": []
+                        }
                       }
                     ]
                   }
-                ],
-                "balance_updates": [
-                  {
-                    "kind": "contract",
-                    "contract": "tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb",
-                    "change": "-3500",
-                    "origin": "block"
-                  }
-                ],
-                "consumed_gas": "1205",
-                "consumed_milligas": "1204544",
-                "storage_size": "204",
-                "paid_storage_size_diff": "14"
-              }
+                }
+              ]
             }
           }
         ],
-        "signature": "sigjDbBrus1FanTsk2H3quKE1DVE4JDi7GGmzwRDKEW1iFUSHfKm9tKbQybR9PY2sjsuDvymLom7UwM2koB1D8psPwkpfDBN"
+        "signature": "sigp8MvfM2KM5sKhdiwAQ8iqWPyNu2hwT4FTYr2SesNf3sjKQgUVwjxG1xqtPrrdX4Q7EYNBFwBWZgZSWJ1TK8H1tPfj4nMw"
       }
     ]
   ]

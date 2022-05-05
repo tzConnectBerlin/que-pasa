@@ -1894,8 +1894,6 @@ fn test_process_block() {
     "
             );
 
-            continue;
-
             results.push((contract, *level, result));
 
             use std::path::Path;
