@@ -1,8 +1,5 @@
-{
+[
     (
-        table_name: "storage",
-        id: 75,
-    ): (
         table_name: "storage",
         id: 75,
         fk_id: None,
@@ -78,39 +75,6 @@
         ],
     ),
     (
-        table_name: "storage.user_rewards",
-        id: 86,
-    ): (
-        table_name: "storage.user_rewards",
-        id: 86,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(74),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1WW1xr4mdTif7jorgVr7aqY3YnnJPSDXj7"),
-            ),
-            (
-                name: "reward_paid",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "reward",
-                value: Numeric(Some("0")),
-            ),
-            (
-                name: "bigmap_id",
-                value: Int(1879),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.ledger",
-        id: 84,
-    ): (
         table_name: "storage.ledger",
         id: 84,
         fk_id: None,
@@ -137,4 +101,31 @@
             ),
         ],
     ),
-}
+    (
+        table_name: "storage.user_rewards",
+        id: 86,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(74),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1WW1xr4mdTif7jorgVr7aqY3YnnJPSDXj7"),
+            ),
+            (
+                name: "reward_paid",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "reward",
+                value: Numeric(Some("0")),
+            ),
+            (
+                name: "bigmap_id",
+                value: Int(1879),
+            ),
+        ],
+    ),
+]

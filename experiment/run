@@ -74,7 +74,7 @@ big_bigmap=`seq 1 800 | awk '{print "Elt "$1" \"v\""}' | tr '\n' ';' | sed 's/;$
 ###
 
 ###
-# third experiment: some basic lists
+# third experiment: some basic list operations
 
 lists_addr=`./helper-scripts/mligo-deploy lists '{}'`
 [ $? -eq 0 ] || exit 1
@@ -82,7 +82,20 @@ lists_addr=`./helper-scripts/mligo-deploy lists '{}'`
 ./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 4 --burn-cap 0.1 || exit 1
 ./helper-scripts/tz-cli call lists from alice --entrypoint append --arg 6 --burn-cap 0.1 || exit 1
 ./helper-scripts/tz-cli call lists from alice --entrypoint overwrite --arg '{900; 106}' --burn-cap 0.1 || exit 1
-./helper-scripts/tz-cli call lists from alice --entrypoint maybeOverwrite --arg 'Some {10; 19}' --burn-cap 0.1 || exit 1  # result piece 1 of bigmap_dest (has a bigmap remove and alloc)
+./helper-scripts/tz-cli call lists from alice --entrypoint maybeOverwrite --arg 'Some {10; 19}' --burn-cap 0.1 || exit 1
+./helper-scripts/tz-cli call lists from alice --entrypoint maybeOverwrite --arg 'None' --burn-cap 0.1 || exit 1
+./helper-scripts/tz-cli call lists from alice --entrypoint maybeOverwrite --arg 'Some {}' --burn-cap 0.1 || exit 1
+
+###
+# some basic map operations
+
+maps_addr=`./helper-scripts/mligo-deploy maps '{}'`
+[ $? -eq 0 ] || exit 1
+
+./helper-scripts/tz-cli call maps from alice --entrypoint set --arg 'Pair "key 1" (Some 4)' --burn-cap 0.1 || exit 1
+./helper-scripts/tz-cli call maps from alice --entrypoint set --arg 'Pair "key 2" (Some 3)' --burn-cap 0.1 || exit 1
+# ./helper-scripts/tz-cli call maps from alice --entrypoint overwrite --arg '{900; 106}' --burn-cap 0.1 || exit 1
+# ./helper-scripts/tz-cli call maps from alice --entrypoint maybeOverwrite --arg 'Some {10; 19}' --burn-cap 0.1 || exit 1
 
 ## Collect results..
 
@@ -96,4 +109,8 @@ done
 
 ./helper-scripts/contract-blocks $lists_addr | while read block; do
     ./helper-scripts/result-add lists block <<< "`echo $block | jq '.'`"
+done
+
+./helper-scripts/contract-blocks $maps_addr | while read block; do
+    ./helper-scripts/result-add maps block <<< "`echo $block | jq '.'`"
 done

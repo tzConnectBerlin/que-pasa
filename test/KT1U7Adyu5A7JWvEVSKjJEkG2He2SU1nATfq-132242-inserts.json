@@ -1,38 +1,5 @@
-{
+[
     (
-        table_name: "storage.questions.auction_bids",
-        id: 88,
-    ): (
-        table_name: "storage.questions.auction_bids",
-        id: 88,
-        fk_id: Some(87),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(80),
-            ),
-            (
-                name: "idx_address",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "total_token",
-                value: Numeric(Some("95000000000000000000000000000000000000")),
-            ),
-            (
-                name: "quantity",
-                value: Numeric(Some("100000000000000000000")),
-            ),
-            (
-                name: "rate",
-                value: Numeric(Some("950000000000000000")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 81,
-    ): (
         table_name: "storage",
         id: 81,
         fk_id: None,
@@ -56,9 +23,6 @@
         ],
     ),
     (
-        table_name: "storage.questions",
-        id: 87,
-    ): (
         table_name: "storage.questions",
         id: 87,
         fk_id: None,
@@ -121,4 +85,31 @@
             ),
         ],
     ),
-}
+    (
+        table_name: "storage.questions.auction_bids",
+        id: 88,
+        fk_id: Some(87),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(80),
+            ),
+            (
+                name: "idx_address",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "total_token",
+                value: Numeric(Some("95000000000000000000000000000000000000")),
+            ),
+            (
+                name: "quantity",
+                value: Numeric(Some("100000000000000000000")),
+            ),
+            (
+                name: "rate",
+                value: Numeric(Some("950000000000000000")),
+            ),
+        ],
+    ),
+]

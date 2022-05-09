@@ -5,19 +5,22 @@ set -u
 
 QUEPASA_TESTDIR=../../test
 
-cat $QUEPASA_TESTDIR/from_experiments | xargs -I '{}' find $QUEPASA_TESTDIR -name {}* | xargs rm -v
+cat $QUEPASA_TESTDIR/from_experiments | awk -F' <- ' '{print $1}' | xargs -I '{}' find $QUEPASA_TESTDIR -name {}* | xargs rm -v
 rm $QUEPASA_TESTDIR/from_experiments
 
 for contract in `ls *.address`; do
     c_addr=`cat $contract`
     c_name=${contract%.address}
 
-    echo "$c_addr" >> $QUEPASA_TESTDIR/from_experiments
+    echo "$c_addr <- $c_name" >> $QUEPASA_TESTDIR/from_experiments
 
     cp -v $c_name.script $QUEPASA_TESTDIR/$c_addr.script
 
     [ `ls $c_name/ | grep -E '*.block$' | wc -l` -eq 0 ] && continue
-    for block in `ls $c_name/*.block`; do
+    # note: omitting the first block below, because it contains the originate,
+    # and the process_block tests cannot deal with this (because it'd require
+    # a working connection to a node to get the storage at originate w/ an RPC call)
+    for block in `ls $c_name/*.block | sort -n | tail -n +2`; do
         level=`cat $block | jq '.header.level'`
         cp -v $block $QUEPASA_TESTDIR/$c_addr.level-${level}.json
     done

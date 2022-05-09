@@ -1,8 +1,28 @@
-{
+[
     (
-        table_name: "storage.questions",
-        id: 164,
-    ): (
+        table_name: "storage",
+        id: 158,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(157),
+            ),
+            (
+                name: "stablecoin",
+                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
+            ),
+            (
+                name: "owner",
+                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
+            ),
+            (
+                name: "last_token_created",
+                value: Numeric(Some("9")),
+            ),
+        ],
+    ),
+    (
         table_name: "storage.questions",
         id: 164,
         fk_id: None,
@@ -68,9 +88,6 @@
     (
         table_name: "storage.questions.auction_bids",
         id: 165,
-    ): (
-        table_name: "storage.questions.auction_bids",
-        id: 165,
         fk_id: Some(164),
         columns: [
             (
@@ -95,30 +112,4 @@
             ),
         ],
     ),
-    (
-        table_name: "storage",
-        id: 158,
-    ): (
-        table_name: "storage",
-        id: 158,
-        fk_id: None,
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(157),
-            ),
-            (
-                name: "stablecoin",
-                value: String("KT1E8C3nQdPcUqmoU2MK9oCCsSiqThhaaJvm"),
-            ),
-            (
-                name: "owner",
-                value: String("tz1VSUr8wwNhLAzempoch5d6hLRiTh8Cjcjb"),
-            ),
-            (
-                name: "last_token_created",
-                value: Numeric(Some("9")),
-            ),
-        ],
-    ),
-}
+]

@@ -1,0 +1,17 @@
+[
+    (
+        table_name: "storage",
+        id: 2,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(1),
+            ),
+            (
+                name: "counter",
+                value: Numeric(Some("1")),
+            ),
+        ],
+    ),
+]

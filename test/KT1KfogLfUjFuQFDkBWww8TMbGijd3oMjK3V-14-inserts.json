@@ -1,0 +1,43 @@
+[
+    (
+        table_name: "storage",
+        id: 21,
+        fk_id: None,
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(20),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.noname",
+        id: 22,
+        fk_id: Some(21),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(20),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("10")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.noname",
+        id: 23,
+        fk_id: Some(21),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(20),
+            ),
+            (
+                name: "nat",
+                value: Numeric(Some("19")),
+            ),
+        ],
+    ),
+]

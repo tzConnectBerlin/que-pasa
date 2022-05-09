@@ -25,7 +25,7 @@ FROM (
       SELECT
         ctx.id,
         ctx.level
-      FROM "{{ contract_schema }}"."{{ table }}" t
+      FROM "{{ contract_schema }}"."{{ parent_table }}" t
       JOIN tx_contexts ctx
         ON ctx.id = t.tx_context_id
       ORDER BY

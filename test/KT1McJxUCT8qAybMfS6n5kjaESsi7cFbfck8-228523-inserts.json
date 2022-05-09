@@ -1,38 +1,5 @@
-{
+[
     (
-        table_name: "storage.market_map.auctionRunning",
-        id: 244,
-    ): (
-        table_name: "storage.market_map.auctionRunning",
-        id: 244,
-        fk_id: Some(243),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(236),
-            ),
-            (
-                name: "auctionRunning_uniswap_contribution",
-                value: Numeric(Some("76000000002500000")),
-            ),
-            (
-                name: "auctionRunning_yes_preference",
-                value: Numeric(Some("76000000002500000")),
-            ),
-            (
-                name: "auctionRunning_quantity",
-                value: Numeric(Some("2000100000")),
-            ),
-            (
-                name: "auctionRunning_auction_period_end",
-                value: Timestamp(Some("2021-05-04T13:40:04Z")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage",
-        id: 237,
-    ): (
         table_name: "storage",
         id: 237,
         fk_id: None,
@@ -44,49 +11,6 @@
         ],
     ),
     (
-        table_name: "storage.market_map.fa12",
-        id: 245,
-    ): (
-        table_name: "storage.market_map.fa12",
-        id: 245,
-        fk_id: Some(243),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(236),
-            ),
-            (
-                name: "metadata_fa12",
-                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 247,
-    ): (
-        table_name: "storage.liquidity_provider_map.bet",
-        id: 247,
-        fk_id: Some(246),
-        columns: [
-            (
-                name: "tx_context_id",
-                value: BigInt(236),
-            ),
-            (
-                name: "bet_quantity",
-                value: Numeric(Some("500000000")),
-            ),
-            (
-                name: "bet_predicted_probability",
-                value: Numeric(Some("38000000")),
-            ),
-        ],
-    ),
-    (
-        table_name: "storage.liquidity_provider_map",
-        id: 246,
-    ): (
         table_name: "storage.liquidity_provider_map",
         id: 246,
         fk_id: None,
@@ -114,9 +38,25 @@
         ],
     ),
     (
-        table_name: "storage.market_map",
-        id: 243,
-    ): (
+        table_name: "storage.liquidity_provider_map.bet",
+        id: 247,
+        fk_id: Some(246),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(236),
+            ),
+            (
+                name: "bet_quantity",
+                value: Numeric(Some("500000000")),
+            ),
+            (
+                name: "bet_predicted_probability",
+                value: Numeric(Some("38000000")),
+            ),
+        ],
+    ),
+    (
         table_name: "storage.market_map",
         id: 243,
         fk_id: None,
@@ -155,4 +95,46 @@
             ),
         ],
     ),
-}
+    (
+        table_name: "storage.market_map.auctionRunning",
+        id: 244,
+        fk_id: Some(243),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(236),
+            ),
+            (
+                name: "auctionRunning_uniswap_contribution",
+                value: Numeric(Some("76000000002500000")),
+            ),
+            (
+                name: "auctionRunning_yes_preference",
+                value: Numeric(Some("76000000002500000")),
+            ),
+            (
+                name: "auctionRunning_quantity",
+                value: Numeric(Some("2000100000")),
+            ),
+            (
+                name: "auctionRunning_auction_period_end",
+                value: Timestamp(Some("2021-05-04T13:40:04Z")),
+            ),
+        ],
+    ),
+    (
+        table_name: "storage.market_map.fa12",
+        id: 245,
+        fk_id: Some(243),
+        columns: [
+            (
+                name: "tx_context_id",
+                value: BigInt(236),
+            ),
+            (
+                name: "metadata_fa12",
+                value: String("KT1EUHkuRmcXiaG2wqLh4LYGs9KzLKmm4XQr"),
+            ),
+        ],
+    ),
+]

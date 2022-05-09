@@ -5,10 +5,6 @@
             "tx_context_id",
         ],
         columns: {
-            "tx_context_id": (
-                name: "tx_context_id",
-                column_type: Int,
-            ),
             "id": (
                 name: "id",
                 column_type: Int,
@@ -17,13 +13,17 @@
                 name: "owner",
                 column_type: Address,
             ),
-            "stablecoin": (
-                name: "stablecoin",
-                column_type: Address,
-            ),
             "last_token_created": (
                 name: "last_token_created",
                 column_type: Nat,
+            ),
+            "tx_context_id": (
+                name: "tx_context_id",
+                column_type: Int,
+            ),
+            "stablecoin": (
+                name: "stablecoin",
+                column_type: Address,
             ),
         },
         fk: {},
@@ -48,33 +48,33 @@
             "bigmap_id",
         ],
         columns: {
-            "tokens_balance": (
-                name: "tokens_balance",
-                column_type: Nat,
-            ),
             "bigmap_id": (
                 name: "bigmap_id",
-                column_type: Int,
-            ),
-            "id": (
-                name: "id",
                 column_type: Int,
             ),
             "idx_tokens_address": (
                 name: "idx_tokens_address",
                 column_type: Address,
             ),
-            "idx_tokens_nat": (
-                name: "idx_tokens_nat",
-                column_type: Nat,
-            ),
             "tx_context_id": (
                 name: "tx_context_id",
                 column_type: Int,
             ),
+            "id": (
+                name: "id",
+                column_type: Int,
+            ),
+            "idx_tokens_nat": (
+                name: "idx_tokens_nat",
+                column_type: Nat,
+            ),
             "deleted": (
                 name: "deleted",
                 column_type: Bool,
+            ),
+            "tokens_balance": (
+                name: "tokens_balance",
+                column_type: Nat,
             ),
         },
         fk: {},
@@ -99,20 +99,20 @@
             "idx_tokens_address",
         ],
         columns: {
-            "tx_context_id": (
-                name: "tx_context_id",
+            "id": (
+                name: "id",
                 column_type: Int,
-            ),
-            "tokens_nat": (
-                name: "tokens_nat",
-                column_type: Nat,
             ),
             "idx_tokens_address": (
                 name: "idx_tokens_address",
                 column_type: Address,
             ),
-            "id": (
-                name: "id",
+            "tokens_nat": (
+                name: "tokens_nat",
+                column_type: Nat,
+            ),
+            "tx_context_id": (
+                name: "tx_context_id",
                 column_type: Int,
             ),
         },
@@ -142,25 +142,9 @@
                 name: "tokens_unit",
                 column_type: Unit,
             ),
-            "deleted": (
-                name: "deleted",
-                column_type: Bool,
-            ),
-            "bigmap_id": (
-                name: "bigmap_id",
-                column_type: Int,
-            ),
             "idx_tokens_nat": (
                 name: "idx_tokens_nat",
                 column_type: Nat,
-            ),
-            "id": (
-                name: "id",
-                column_type: Int,
-            ),
-            "idx_tokens_address": (
-                name: "idx_tokens_address",
-                column_type: Address,
             ),
             "tx_context_id": (
                 name: "tx_context_id",
@@ -169,6 +153,22 @@
             "idx_tokens_address_1": (
                 name: "idx_tokens_address_1",
                 column_type: Address,
+            ),
+            "deleted": (
+                name: "deleted",
+                column_type: Bool,
+            ),
+            "idx_tokens_address": (
+                name: "idx_tokens_address",
+                column_type: Address,
+            ),
+            "id": (
+                name: "id",
+                column_type: Int,
+            ),
+            "bigmap_id": (
+                name: "bigmap_id",
+                column_type: Int,
             ),
         },
         fk: {},
@@ -195,57 +195,41 @@
             "bigmap_id",
         ],
         columns: {
-            "id": (
-                name: "id",
-                column_type: Int,
-            ),
-            "tokens_yes_token_id": (
-                name: "tokens_yes_token_id",
-                column_type: Nat,
-            ),
-            "total_auction_quantity": (
-                name: "total_auction_quantity",
-                column_type: Nat,
-            ),
-            "yes_preference": (
-                name: "yes_preference",
-                column_type: Nat,
+            "market_close": (
+                name: "market_close",
+                column_type: Timestamp,
             ),
             "owner": (
                 name: "owner",
                 column_type: Address,
             ),
-            "market_close": (
-                name: "market_close",
-                column_type: Timestamp,
-            ),
-            "uniswap_contribution_factor": (
-                name: "uniswap_contribution_factor",
+            "tokens_yes_token_id": (
+                name: "tokens_yes_token_id",
                 column_type: Nat,
-            ),
-            "tokens_no_token_id": (
-                name: "tokens_no_token_id",
-                column_type: Nat,
-            ),
-            "auction_end": (
-                name: "auction_end",
-                column_type: Timestamp,
             ),
             "bigmap_id": (
                 name: "bigmap_id",
-                column_type: Int,
-            ),
-            "tx_context_id": (
-                name: "tx_context_id",
                 column_type: Int,
             ),
             "deleted": (
                 name: "deleted",
                 column_type: Bool,
             ),
-            "tokens_lqt_token_id": (
-                name: "tokens_lqt_token_id",
+            "tx_context_id": (
+                name: "tx_context_id",
+                column_type: Int,
+            ),
+            "yes_preference": (
+                name: "yes_preference",
                 column_type: Nat,
+            ),
+            "id": (
+                name: "id",
+                column_type: Int,
+            ),
+            "auction_end": (
+                name: "auction_end",
+                column_type: Timestamp,
             ),
             "idx_string": (
                 name: "idx_string",
@@ -255,9 +239,25 @@
                 name: "winning_token",
                 column_type: Nat,
             ),
+            "tokens_lqt_token_id": (
+                name: "tokens_lqt_token_id",
+                column_type: Nat,
+            ),
+            "tokens_no_token_id": (
+                name: "tokens_no_token_id",
+                column_type: Nat,
+            ),
             "state": (
                 name: "state",
                 column_type: String,
+            ),
+            "uniswap_contribution_factor": (
+                name: "uniswap_contribution_factor",
+                column_type: Nat,
+            ),
+            "total_auction_quantity": (
+                name: "total_auction_quantity",
+                column_type: Nat,
             ),
         },
         fk: {},
@@ -291,29 +291,29 @@
             "idx_address",
         ],
         columns: {
-            "rate": (
-                name: "rate",
+            "total_token": (
+                name: "total_token",
                 column_type: Nat,
             ),
             "id": (
                 name: "id",
                 column_type: Int,
             ),
-            "quantity": (
-                name: "quantity",
-                column_type: Nat,
-            ),
-            "total_token": (
-                name: "total_token",
-                column_type: Nat,
-            ),
             "idx_address": (
                 name: "idx_address",
                 column_type: Address,
             ),
+            "rate": (
+                name: "rate",
+                column_type: Nat,
+            ),
             "tx_context_id": (
                 name: "tx_context_id",
                 column_type: Int,
+            ),
+            "quantity": (
+                name: "quantity",
+                column_type: Nat,
             ),
         },
         fk: {},
@@ -338,13 +338,33 @@
             "bigmap_id",
         ],
         columns: {
+            "tokens_symbol": (
+                name: "tokens_symbol",
+                column_type: String,
+            ),
             "tx_context_id": (
                 name: "tx_context_id",
                 column_type: Int,
             ),
-            "tokens_symbol": (
-                name: "tokens_symbol",
-                column_type: String,
+            "tokens_token_id": (
+                name: "tokens_token_id",
+                column_type: Nat,
+            ),
+            "id": (
+                name: "id",
+                column_type: Int,
+            ),
+            "deleted": (
+                name: "deleted",
+                column_type: Bool,
+            ),
+            "idx_tokens_nat": (
+                name: "idx_tokens_nat",
+                column_type: Nat,
+            ),
+            "tokens_decimals": (
+                name: "tokens_decimals",
+                column_type: Nat,
             ),
             "bigmap_id": (
                 name: "bigmap_id",
@@ -353,26 +373,6 @@
             "tokens_name": (
                 name: "tokens_name",
                 column_type: String,
-            ),
-            "id": (
-                name: "id",
-                column_type: Int,
-            ),
-            "tokens_decimals": (
-                name: "tokens_decimals",
-                column_type: Nat,
-            ),
-            "idx_tokens_nat": (
-                name: "idx_tokens_nat",
-                column_type: Nat,
-            ),
-            "tokens_token_id": (
-                name: "tokens_token_id",
-                column_type: Nat,
-            ),
-            "deleted": (
-                name: "deleted",
-                column_type: Bool,
             ),
         },
         fk: {},
@@ -399,10 +399,6 @@
             "idx_tokens_string",
         ],
         columns: {
-            "tx_context_id": (
-                name: "tx_context_id",
-                column_type: Int,
-            ),
             "id": (
                 name: "id",
                 column_type: Int,
@@ -410,6 +406,10 @@
             "tokens_string": (
                 name: "tokens_string",
                 column_type: String,
+            ),
+            "tx_context_id": (
+                name: "tx_context_id",
+                column_type: Int,
             ),
             "idx_tokens_string": (
                 name: "idx_tokens_string",
@@ -436,14 +436,6 @@
             "bigmap_id",
         ],
         columns: {
-            "tx_context_id": (
-                name: "tx_context_id",
-                column_type: Int,
-            ),
-            "bigmap_id": (
-                name: "bigmap_id",
-                column_type: Int,
-            ),
             "deleted": (
                 name: "deleted",
                 column_type: Bool,
@@ -452,9 +444,17 @@
                 name: "idx_tokens_nat",
                 column_type: Nat,
             ),
+            "bigmap_id": (
+                name: "bigmap_id",
+                column_type: Int,
+            ),
             "tokens_nat": (
                 name: "tokens_nat",
                 column_type: Nat,
+            ),
+            "tx_context_id": (
+                name: "tx_context_id",
+                column_type: Int,
             ),
             "id": (
                 name: "id",

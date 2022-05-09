@@ -1880,18 +1880,20 @@ fn test_process_block() {
             storage_processor.drain_bigmap_contract_dependencies();
 
             let filename = format!("test/{}-{}-inserts.json", contract, level);
+
+            let mut result: Vec<Insert> = inserts.values().cloned().collect();
+            sort_inserts(tables, &mut result);
+
             println!("cat > {} <<ENDOFJSON", filename);
             println!(
                 "{}",
-                to_string_pretty(&inserts, PrettyConfig::new()).unwrap()
+                to_string_pretty(&result, PrettyConfig::new()).unwrap()
             );
             println!(
                 "ENDOFJSON
     "
             );
 
-            let mut result: Vec<Insert> = inserts.values().cloned().collect();
-            sort_inserts(tables, &mut result);
             results.push((contract, *level, result));
 
             use std::path::Path;
@@ -1902,12 +1904,8 @@ fn test_process_block() {
                 use std::io::BufReader;
                 let reader = BufReader::new(file);
                 println!("filename: {}", filename);
-                let v: Inserts = ron::de::from_reader(reader).unwrap();
-
-                let mut expected_result: Vec<Insert> =
-                    v.values().cloned().collect();
-                sort_inserts(tables, &mut expected_result);
-
+                let expected_result: Vec<Insert> =
+                    ron::de::from_reader(reader).unwrap();
                 expected.push((contract, *level, expected_result));
             }
         }
@@ -1947,6 +1945,6 @@ impl crate::sql::db::BigmapKeysGetter for DummyBigmapKeysGetter {
         _bigmap_id: i32,
     ) -> Result<Vec<(String, serde_json::Value, Option<serde_json::Value>)>>
     {
-        Err(anyhow!("dummy bigmap keys getter was not expected to be called in test_block tests"))
+        Ok(vec![])
     }
 }

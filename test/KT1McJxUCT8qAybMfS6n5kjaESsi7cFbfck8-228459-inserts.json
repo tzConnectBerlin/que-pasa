@@ -1,8 +1,5 @@
-{
+[
     (
-        table_name: "storage",
-        id: 2,
-    ): (
         table_name: "storage",
         id: 2,
         fk_id: None,
@@ -18,9 +15,6 @@
         ],
     ),
     (
-        table_name: "storage.lambda_map",
-        id: 8,
-    ): (
         table_name: "storage.lambda_map",
         id: 8,
         fk_id: None,
@@ -39,4 +33,4 @@
             ),
         ],
     ),
-}
+]
