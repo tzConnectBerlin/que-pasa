@@ -796,7 +796,7 @@ impl Executor {
                     .collect::<Vec<i32>>(),
             )?;
 
-            for lvl in bad_lvls {
+            for lvl in forked_lvls {
                 Self::print_status(lvl, &self.exec_level(lvl)?);
             }
         }
