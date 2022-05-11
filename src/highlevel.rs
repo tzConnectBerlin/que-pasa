@@ -261,6 +261,11 @@ impl Executor {
                             "Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
                             db_head.level, db_head.hash, chain_head.hash
                         );
+                        warn!(
+                            "reprocessing following forked levels: {:?}",
+                            vec![db_head.level],
+                        );
+
                         let mut conn = self.dbcli.dbconn()?;
                         let mut tx = conn.transaction()?;
                         DBClient::delete_levels(
@@ -290,19 +295,30 @@ impl Executor {
 
                 let db_head_verify: LevelMeta = self
                     .node_cli
-                    .level_json(db_head.level - 1)? // -1 because ensure_level_hash verifies from -1 to +1, +1 will thus check db_head
+                    .level_json(db_head.level)?
+                    .0;
+                if db_head_verify.hash != db_head.hash {
+                    forked_levels.push(db_head.level);
+                }
+
+                let db_head_verify_backwards: LevelMeta = self
+                    .node_cli
+                    .level_json(db_head.level - 1)?
                     .0;
 
-                let bad_head_levels = self.ensure_level_hash(
-                    db_head_verify.level,
-                    db_head_verify.hash.as_ref().unwrap(),
-                    db_head_verify
+                let bad_pre_head_levels = self.ensure_level_hash(
+                    db_head_verify_backwards.level,
+                    db_head_verify_backwards
+                        .hash
+                        .as_ref()
+                        .unwrap(),
+                    db_head_verify_backwards
                         .prev_hash
                         .as_ref()
                         .unwrap(),
                 )?;
 
-                forked_levels.extend(bad_head_levels);
+                forked_levels.extend(bad_pre_head_levels);
                 forked_levels.sort_unstable();
                 forked_levels.dedup();
 
@@ -781,10 +797,7 @@ impl Executor {
                 )
             })?;
         if !forked_lvls.is_empty() {
-            warn!(
-                "reprocessing following levels due to forks: {:?}",
-                forked_lvls
-            );
+            warn!("reprocessing following forked levels: {:?}", forked_lvls);
 
             let mut conn = self.dbcli.dbconn()?;
             let mut tx = conn.transaction()?;
@@ -795,6 +808,7 @@ impl Executor {
                     .map(|lvl| *lvl as i32)
                     .collect::<Vec<i32>>(),
             )?;
+            tx.commit()?;
 
             for lvl in forked_lvls {
                 Self::print_status(lvl, &self.exec_level(lvl)?);
