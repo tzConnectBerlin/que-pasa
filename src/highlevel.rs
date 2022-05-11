@@ -306,7 +306,7 @@ impl Executor {
                     .level_json(db_head.level - 1)?
                     .0;
 
-                let bad_pre_head_levels = self.ensure_level_hash(
+                let forked_pre_head_levels = self.ensure_level_hash(
                     db_head_verify_backwards.level,
                     db_head_verify_backwards
                         .hash
@@ -318,7 +318,7 @@ impl Executor {
                         .unwrap(),
                 )?;
 
-                forked_levels.extend(bad_pre_head_levels);
+                forked_levels.extend(forked_pre_head_levels);
                 forked_levels.sort_unstable();
                 forked_levels.dedup();
 
@@ -684,7 +684,7 @@ impl Executor {
         for b in block_ch {
             let (meta, block) = *b;
 
-            let (processed_block, bad_levels) = self
+            let (processed_block, forked_lvls) = self
                 .exec_for_block(&meta, &block)
                 .with_context(|| {
                     anyhow!(
@@ -692,7 +692,7 @@ impl Executor {
                         meta.level
                     )
                 })?;
-            reprocess_levels.extend(bad_levels);
+            reprocess_levels.extend(forked_lvls);
 
             for cres in &processed_block {
                 if self.all_contracts {
@@ -839,7 +839,7 @@ impl Executor {
         hash: &str,
         prev_hash: &str,
     ) -> Result<Vec<u32>> {
-        let mut bad_levels: Vec<u32> = vec![];
+        let mut forked_lvls: Vec<u32> = vec![];
 
         if level != 0 {
             let prev = self.dbcli.get_level(level - 1)?;
@@ -849,11 +849,11 @@ impl Executor {
                 .flatten()
             {
                 if db_prev_hash != prev_hash {
-                    let bad_level = prev.as_ref().unwrap().level;
+                    let forked_lvl = prev.as_ref().unwrap().level;
                     warn!("Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
-                      bad_level, db_prev_hash, prev_hash);
+                      forked_lvl, db_prev_hash, prev_hash);
 
-                    bad_levels.push(bad_level);
+                    forked_lvls.push(forked_lvl);
                 }
             }
         }
@@ -865,15 +865,15 @@ impl Executor {
             .flatten()
         {
             if db_next_prev_hash != hash {
-                let bad_level = next.as_ref().unwrap().level;
+                let forked_lvl = next.as_ref().unwrap().level;
                 warn!("Previous hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
-                      bad_level, db_next_prev_hash, hash);
+                      forked_lvl, db_next_prev_hash, hash);
 
-                bad_levels.push(bad_level);
+                forked_lvls.push(forked_lvl);
             }
         }
 
-        Ok(bad_levels)
+        Ok(forked_lvls)
     }
 
     fn exec_for_block(
@@ -882,7 +882,7 @@ impl Executor {
         block: &Block,
     ) -> Result<(ProcessedBlock, Vec<u32>)> {
         // note: we expect level's values to all be set (no None values in its fields)
-        let bad_levels = self.ensure_level_hash(
+        let forked_lvls = self.ensure_level_hash(
             level.level,
             level.hash.as_ref().unwrap(),
             level.prev_hash.as_ref().unwrap(),
@@ -942,7 +942,7 @@ impl Executor {
                 )?;
             }
         }
-        Ok((contract_results, bad_levels))
+        Ok((contract_results, forked_lvls))
     }
 
     fn update_contract_floor(
