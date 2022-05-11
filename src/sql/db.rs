@@ -1038,6 +1038,35 @@ ORDER BY 1",
             .collect::<Vec<u32>>())
     }
 
+    pub(crate) fn get_forked_levels(&mut self) -> Result<Vec<u32>> {
+        let mut conn = self.dbconn()?;
+
+        let mut rows: Vec<i32> = vec![];
+        for row in conn.query(
+            "
+SELECT DISTINCT
+  level
+FROM (
+  SELECT
+    level,
+    prev_hash AS chain_prev_hash,
+    LAG(level) OVER w as db_prev_level,
+    LAG(hash) OVER w AS db_prev_hash
+  FROM levels
+  WINDOW w AS (ORDER BY level)
+) q
+WHERE chain_prev_hash != db_prev_hash
+  AND db_prev_level = level - 1",
+            &[],
+        )? {
+            rows.push(row.get(0));
+        }
+        Ok(rows
+            .iter()
+            .map(|x| *x as u32)
+            .collect::<Vec<u32>>())
+    }
+
     pub(crate) fn get_indexer_mode(&mut self) -> Result<IndexerMode> {
         let mut conn = self.dbconn()?;
 

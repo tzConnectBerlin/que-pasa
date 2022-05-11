@@ -32,7 +32,7 @@ impl BCDClient {
         &self,
         node_at_height: F,
         stats: &StatsLogger,
-        height_send: flume::Sender<u32>,
+        height_send: &flume::Sender<u32>,
         exclude_levels: &[u32],
     ) -> Result<()>
     where
@@ -58,7 +58,7 @@ impl BCDClient {
             if node_height >= latest_level {
                 break;
             }
-            warn!("waiting for the node to reach the same height ({}) as BCD (currently the node is at height {}). trying again in 1 second..", latest_level, node_height);
+            warn!("waiting for the node to reach the same height ({}) as BCD (currently the node is at height {}). The node is {} levels behind the first block to be indexed. trying again in 1 second..", latest_level, node_height, latest_level - node_height);
             std::thread::sleep(std::time::Duration::from_millis(1000));
         }
         send_level(latest_level)?;

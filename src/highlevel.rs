@@ -2,12 +2,10 @@ use anyhow::{anyhow, ensure, Context, Result};
 use chrono::Duration;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::fmt;
 use std::io;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use thiserror::Error;
 
 #[cfg(test)]
 use pretty_assertions::assert_eq;
@@ -31,6 +29,7 @@ use crate::storage_update::processor::StorageProcessor;
 
 pub struct SaveLevelResult {
     pub level: u32,
+    pub hash: String,
     pub contract_id: ContractID,
     pub is_origination: bool,
     pub tx_count: usize,
@@ -42,6 +41,11 @@ impl SaveLevelResult {
     ) -> Self {
         Self {
             level: processed_block.level.level,
+            hash: processed_block
+                .level
+                .hash
+                .clone()
+                .unwrap(),
             contract_id: processed_block.contract.cid.clone(),
             is_origination: processed_block.is_origination,
             tx_count: processed_block.tx_contexts.len(),
@@ -180,12 +184,12 @@ impl Executor {
         Ok(())
     }
 
-    pub fn exec_dependents(&mut self) -> Result<()> {
+    pub fn exec_dependents(&mut self) -> Result<Vec<u32>> {
         let mut levels = self
             .dbcli
             .get_dependent_levels(&self.get_config()?)?;
         if levels.is_empty() {
-            return Ok(());
+            return Ok(vec![]);
         }
         levels.sort_unstable();
 
@@ -226,7 +230,7 @@ impl Executor {
                     if self.all_contracts {
                         Self::print_status(
                             chain_head.level,
-                            &self.exec_level(chain_head.level, false)?,
+                            &self.exec_level(chain_head.level)?,
                         );
                         continue;
                     }
@@ -240,29 +244,7 @@ impl Executor {
                 Ordering::Greater => {
                     wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
-                        match self.exec_level(level, false) {
-                            Ok(res) => Self::print_status(level, &res),
-                            Err(e) => {
-                                if !e.is::<BadLevelHash>() {
-                                    return Err(e);
-                                }
-                                let bad_lvl = e.downcast::<BadLevelHash>()?;
-                                warn!(
-                                    "{}, deleting levels >= {} from database",
-                                    bad_lvl.err, bad_lvl.level
-                                );
-                                let mut conn = self.dbcli.dbconn()?;
-                                let mut tx = conn.transaction()?;
-                                DBClient::delete_levels(
-                                    &mut tx,
-                                    &(bad_lvl.level as i32
-                                        ..(db_head.level + 1) as i32)
-                                        .collect::<Vec<i32>>(),
-                                )?;
-                                tx.commit()?;
-                                break;
-                            }
-                        }
+                        Self::print_status(level, &self.exec_level(level)?);
                     }
                     first_wait = true;
                     continue;
@@ -276,9 +258,14 @@ impl Executor {
                     if db_head.hash != chain_head.hash {
                         wait_done(&mut first_wait);
                         warn!(
-                            "Hashes don't match: {:?} (db) <> {:?} (chain)",
-                            db_head.hash, chain_head.hash
+                            "Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
+                            db_head.level, db_head.hash, chain_head.hash
                         );
+                        warn!(
+                            "reprocessing following forked levels: {:?}",
+                            vec![db_head.level],
+                        );
+
                         let mut conn = self.dbcli.dbconn()?;
                         let mut tx = conn.transaction()?;
                         DBClient::delete_levels(
@@ -293,27 +280,104 @@ impl Executor {
         }
     }
 
+    pub fn reprocess_forked_levels(
+        &mut self,
+        num_getters: usize,
+        num_processors: usize,
+    ) -> Result<Vec<u32>> {
+        info!("checking if any levels need to be reprocessed due to forks..");
+        match self.dbcli.get_head()? {
+            Some(db_head) => {
+                let mut forked_levels = self.dbcli.get_forked_levels()?;
+                for lvl in forked_levels.clone() {
+                    forked_levels.push(lvl - 1);
+                }
+
+                let db_head_verify: LevelMeta = self
+                    .node_cli
+                    .level_json(db_head.level)?
+                    .0;
+                if db_head_verify.hash != db_head.hash {
+                    forked_levels.push(db_head.level);
+                }
+
+                let db_head_verify_backwards: LevelMeta = self
+                    .node_cli
+                    .level_json(db_head.level - 1)?
+                    .0;
+
+                let forked_pre_head_levels = self.ensure_level_hash(
+                    db_head_verify_backwards.level,
+                    db_head_verify_backwards
+                        .hash
+                        .as_ref()
+                        .unwrap(),
+                    db_head_verify_backwards
+                        .prev_hash
+                        .as_ref()
+                        .unwrap(),
+                )?;
+
+                forked_levels.extend(forked_pre_head_levels);
+                forked_levels.sort_unstable();
+                forked_levels.dedup();
+
+                if forked_levels.is_empty() {
+                    info!("no forked levels, nothing needs to be reprocessed");
+                    return Ok(vec![]);
+                }
+
+                warn!(
+                    "reprocessing following forked levels: {:?}",
+                    forked_levels
+                );
+
+                let mut conn = self.dbcli.dbconn()?;
+                let mut tx = conn.transaction()?;
+                DBClient::delete_levels(
+                    &mut tx,
+                    &forked_levels
+                        .iter()
+                        .map(|lvl| *lvl as i32)
+                        .collect::<Vec<i32>>(),
+                )?;
+                tx.commit()?;
+
+                self.exec_levels(num_getters, num_processors, forked_levels)
+            }
+            None => {
+                info!("no forked levels, nothing needs to be reprocessed");
+
+                Ok(vec![])
+            }
+        }
+    }
+
     pub fn exec_levels(
         &mut self,
         num_getters: usize,
         num_processors: usize,
         levels: Vec<u32>,
-    ) -> Result<()> {
+    ) -> Result<Vec<u32>> {
         if levels.is_empty() {
-            return Ok(());
+            return Ok(vec![]);
         }
 
         let st = self.mutexed_state.clone();
         let have_floor = !self.all_contracts;
-        self.exec_parallel(num_getters, num_processors, move |height_chan| {
-            for l in levels {
-                if have_floor && l < st.get_level_floor().unwrap() {
-                    continue;
+        let processed_levels = self.exec_parallel(
+            num_getters,
+            num_processors,
+            move |height_chan| {
+                for l in levels {
+                    if have_floor && l < st.get_level_floor().unwrap() {
+                        continue;
+                    }
+                    height_chan.send(l).unwrap();
                 }
-                height_chan.send(l).unwrap();
-            }
-        })?;
-        Ok(())
+            },
+        )?;
+        Ok(processed_levels)
     }
 
     pub fn exec_new_contracts_historically(
@@ -431,7 +495,7 @@ impl Executor {
                                     .populate_levels_chan(
                                         || Ok(node_cli.head()?.level),
                                         &stats,
-                                        height_chan,
+                                        &height_chan,
                                         &excl,
                                     )
                                     .unwrap()
@@ -443,7 +507,7 @@ impl Executor {
                     if let Some(l) =
                         get_implicit_origination_level(&contract_id.address)
                     {
-                        self.exec_level(l, true).unwrap();
+                        self.exec_level(l).unwrap();
                     }
 
                     self.fill_in_levels(contract_id)
@@ -479,8 +543,6 @@ impl Executor {
         self.dbcli
             .set_indexer_mode(IndexerMode::Bootstrap)?;
 
-        // Fetches block data and processes them in parallel
-
         let (height_send, height_recv) = flume::bounded::<u32>(num_getters);
         let (block_send, block_recv) =
             flume::bounded::<Box<(LevelMeta, Block)>>(num_getters * 5);
@@ -501,27 +563,30 @@ impl Executor {
 
         threads.push(inserter.run(&self.stats, processed_recv)?);
 
-        let processed_levels: Arc<Mutex<Vec<u32>>> =
-            Arc::new(Mutex::new(vec![]));
+        let processed_results: Arc<Mutex<(Vec<u32>, Vec<u32>)>> =
+            Arc::new(Mutex::new((vec![], vec![])));
 
         if num_processors <= 1 {
-            let processed = self.read_block_chan(block_recv, processed_send)?;
-            let mut res = processed_levels.lock().unwrap();
-            res.extend(processed);
+            let (processed, reprocess) =
+                self.read_block_chan(block_recv, processed_send)?;
+            let mut res = processed_results.lock().unwrap();
+            res.0.extend(processed);
+            res.1.extend(reprocess);
         } else {
             info!("starting {} concurrent processors", num_processors);
             for _ in 0..num_processors {
                 let mut exec = self.clone();
                 let w_recv_ch = block_recv.clone();
                 let w_send_ch = processed_send.clone();
-                let res_arc = processed_levels.clone();
+                let res_arc = processed_results.clone();
                 threads.push(thread::spawn(move || {
-                    let processed = exec
+                    let (processed, reprocess) = exec
                         .read_block_chan(w_recv_ch, w_send_ch)
                         .unwrap();
 
                     let mut res = res_arc.lock().unwrap();
-                    res.extend(processed);
+                    res.0.extend(processed);
+                    res.1.extend(reprocess);
                 }));
             }
             drop(processed_send);
@@ -538,9 +603,24 @@ impl Executor {
             anyhow!("failed to stop processor statistics logger, err: {:?}", e)
         })?;
 
-        let processed_levels = Arc::try_unwrap(processed_levels)
-            .map_err(|e| anyhow!("{:?}", e))?
-            .into_inner()?;
+        let (mut processed_levels, reprocess_levels) =
+            Arc::try_unwrap(processed_results)
+                .map_err(|e| anyhow!("{:?}", e))?
+                .into_inner()?;
+
+        if !reprocess_levels.is_empty() {
+            warn!(
+                "reprocessing following forked levels: {:?}",
+                reprocess_levels
+            );
+            let reprocessed_levels = self.exec_levels(
+                num_getters,
+                num_processors,
+                reprocess_levels,
+            )?;
+            processed_levels.extend(reprocessed_levels);
+        }
+
         Ok(processed_levels)
     }
 
@@ -596,21 +676,24 @@ impl Executor {
         &mut self,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
         processed_ch: flume::Sender<Box<ProcessedBlock>>,
-    ) -> Result<Vec<u32>> {
+    ) -> Result<(Vec<u32>, Vec<u32>)> {
         let in_ch = block_ch.clone();
 
         let mut processed_levels: Vec<u32> = vec![];
+        let mut reprocess_levels: Vec<u32> = vec![];
         for b in block_ch {
             let (meta, block) = *b;
 
-            let processed_block = self
-                .exec_for_block(&meta, &block, true)
+            let (processed_block, forked_lvls) = self
+                .exec_for_block(&meta, &block)
                 .with_context(|| {
                     anyhow!(
                         "execute for level={} failed: could not process",
                         meta.level
                     )
                 })?;
+            reprocess_levels.extend(forked_lvls);
+
             for cres in &processed_block {
                 if self.all_contracts {
                     self.stats.add(
@@ -649,7 +732,7 @@ impl Executor {
             processed_levels.push(meta.level);
         }
 
-        Ok(processed_levels)
+        Ok((processed_levels, reprocess_levels))
     }
 
     fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
@@ -668,10 +751,16 @@ impl Executor {
             })
             .collect::<Vec<String>>()
             .join(",");
+        let hash_msg = if contract_results.is_empty() {
+            "".to_string()
+        } else {
+            format!("\nblock has hash: {}", contract_results[0].hash)
+        };
+
         if contract_statuses.is_empty() {
             contract_statuses = "0 txs for us".to_string();
         }
-        info!("level {}: {}", level, contract_statuses);
+        info!("level {}: {}{}", level, contract_statuses, hash_msg);
     }
 
     fn get_storage_processor(
@@ -687,7 +776,6 @@ impl Executor {
     pub(crate) fn exec_level(
         &mut self,
         level_height: u32,
-        cleanup_on_reorg: bool,
     ) -> Result<Vec<SaveLevelResult>> {
         let (meta, block) = self
             .node_cli
@@ -700,14 +788,33 @@ impl Executor {
             })?;
 
         let mut res: Vec<SaveLevelResult> = vec![];
-        let processed_block = self
-            .exec_for_block(&meta, &block, cleanup_on_reorg)
+        let (processed_block, forked_lvls) = self
+            .exec_for_block(&meta, &block)
             .with_context(|| {
                 anyhow!(
                     "execute for level={} failed: could not process",
                     level_height
                 )
             })?;
+        if !forked_lvls.is_empty() {
+            warn!("reprocessing following forked levels: {:?}", forked_lvls);
+
+            let mut conn = self.dbcli.dbconn()?;
+            let mut tx = conn.transaction()?;
+            DBClient::delete_levels(
+                &mut tx,
+                &forked_lvls
+                    .iter()
+                    .map(|lvl| *lvl as i32)
+                    .collect::<Vec<i32>>(),
+            )?;
+            tx.commit()?;
+
+            for lvl in forked_lvls {
+                Self::print_status(lvl, &self.exec_level(lvl)?);
+            }
+        }
+
         for cres in &processed_block {
             res.push(SaveLevelResult::from_processed_block(cres));
         }
@@ -731,7 +838,9 @@ impl Executor {
         level: u32,
         hash: &str,
         prev_hash: &str,
-    ) -> Result<()> {
+    ) -> Result<Vec<u32>> {
+        let mut forked_lvls: Vec<u32> = vec![];
+
         if level != 0 {
             let prev = self.dbcli.get_level(level - 1)?;
             if let Some(db_prev_hash) = prev
@@ -739,14 +848,13 @@ impl Executor {
                 .map(|l| l.hash.as_ref())
                 .flatten()
             {
-                ensure!(
-                db_prev_hash == prev_hash, BadLevelHash{
-                    level: prev.as_ref().unwrap().level,
-                    err: anyhow!(
-                        "level {} has different predecessor hash ({}) than previous recorded level's hash ({}) in db",
-                        level, prev_hash, db_prev_hash),
+                if db_prev_hash != prev_hash {
+                    let forked_lvl = prev.as_ref().unwrap().level;
+                    warn!("Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
+                      forked_lvl, db_prev_hash, prev_hash);
+
+                    forked_lvls.push(forked_lvl);
                 }
-            );
             }
         }
 
@@ -756,39 +864,29 @@ impl Executor {
             .map(|l| l.prev_hash.as_ref())
             .flatten()
         {
-            ensure!(
-                db_next_prev_hash == hash,
-                BadLevelHash{
-                    level: next.as_ref().unwrap().level,
-                    err: anyhow!(
-                        "level {} has different hash ({}) than next recorded level's predecessor hash ({}) in db",
-                        level, hash, db_next_prev_hash),
-                }
-            );
+            if db_next_prev_hash != hash {
+                let forked_lvl = next.as_ref().unwrap().level;
+                warn!("Previous hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
+                      forked_lvl, db_next_prev_hash, hash);
+
+                forked_lvls.push(forked_lvl);
+            }
         }
 
-        Ok(())
+        Ok(forked_lvls)
     }
 
     fn exec_for_block(
         &mut self,
         level: &LevelMeta,
         block: &Block,
-        cleanup_on_reorg: bool,
-    ) -> Result<ProcessedBlock> {
+    ) -> Result<(ProcessedBlock, Vec<u32>)> {
         // note: we expect level's values to all be set (no None values in its fields)
-        if let Err(e) = self.ensure_level_hash(
+        let forked_lvls = self.ensure_level_hash(
             level.level,
             level.hash.as_ref().unwrap(),
             level.prev_hash.as_ref().unwrap(),
-        ) {
-            if !cleanup_on_reorg || !e.is::<BadLevelHash>() {
-                return Err(e);
-            }
-            let bad_lvl = e.downcast::<BadLevelHash>()?;
-            warn!("{}, reprocessing level {}", bad_lvl.err, bad_lvl.level);
-            self.exec_level(bad_lvl.level, true)?;
-        }
+        )?;
 
         let process_contracts = if self.all_contracts {
             let active_contracts: Vec<ContractID> = block
@@ -844,7 +942,7 @@ impl Executor {
                 )?;
             }
         }
-        Ok(contract_results)
+        Ok((contract_results, forked_lvls))
     }
 
     fn update_contract_floor(
@@ -1018,18 +1116,6 @@ impl MutexedState {
             .filter(|contract_id| !contracts.contains_key(contract_id))
             .cloned()
             .collect::<Vec<ContractID>>())
-    }
-}
-
-#[derive(Error, Debug)]
-pub struct BadLevelHash {
-    level: u32,
-    err: anyhow::Error,
-}
-
-impl fmt::Display for BadLevelHash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.err)
     }
 }
 
