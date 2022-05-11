@@ -162,6 +162,10 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         )
         .unwrap();
 
+    executor
+        .reprocess_forked_levels(num_getters, num_processors)
+        .unwrap();
+
     // At last, normal operation.
     info!("processing blocks at the chain head");
     executor.exec_continuous().unwrap();

@@ -207,6 +207,7 @@ impl ProcessedContractBlock {
         }
         for tx in self.txs.iter_mut() {
             tx.tx_context_id += offset;
+            max = std::cmp::max(tx.tx_context_id, max);
         }
 
         self.bigmap_keyhashes = self
@@ -216,12 +217,14 @@ impl ProcessedContractBlock {
             .map(|(mut k, v)| {
                 let shifted = k.1.id.unwrap() + offset;
                 k.1.id = Some(shifted);
+                max = std::cmp::max(shifted, max);
                 return (k, v);
             })
             .collect();
 
         for action in self.bigmap_meta_actions.iter_mut() {
             action.tx_context_id += offset;
+            max = std::cmp::max(action.tx_context_id, max);
         }
 
         max

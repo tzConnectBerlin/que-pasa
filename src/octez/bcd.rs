@@ -32,7 +32,7 @@ impl BCDClient {
         &self,
         node_at_height: F,
         stats: &StatsLogger,
-        height_send: flume::Sender<u32>,
+        height_send: &flume::Sender<u32>,
         exclude_levels: &[u32],
     ) -> Result<()>
     where
