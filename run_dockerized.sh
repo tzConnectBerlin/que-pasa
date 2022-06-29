@@ -2,5 +2,5 @@
 
 docker run \
        --network host \
-       ghcr.io/tzconnectberlin/que-pasa:1.2.3 \
+       ghcr.io/tzconnectberlin/que-pasa:1.2.4 \
        "$@"
