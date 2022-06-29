@@ -187,21 +187,12 @@ impl IntraBlockBigmapDiffsProcessor {
         let tx_bigmap_ops = block.map_tx_contexts(
             |tx_context, _tx, _is_origination, op_res| {
                 let mut ops: Vec<Op> = vec![];
-                const FROM_LAZY: bool = true;
-                if FROM_LAZY && op_res.lazy_storage_diff.is_some() {
-                    for lazy_diff in op_res
-                        .lazy_storage_diff
-                        .as_ref()
-                        .unwrap()
-                    {
-                        ops.extend(Op::from_raw_lazy(lazy_diff)?);
-                    }
-                } else {
-                    for op in op_res.big_map_diff.as_ref().unwrap() {
-                        if let Some(op_parsed) = Op::from_raw(op)? {
-                            ops.push(op_parsed);
-                        }
-                    }
+                for lazy_diff in op_res
+                    .lazy_storage_diff
+                    .as_ref()
+                    .unwrap()
+                {
+                    ops.extend(Op::from_raw_lazy(lazy_diff)?);
                 }
                 Ok(Some((tx_context, ops)))
             },
