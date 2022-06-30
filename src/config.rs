@@ -128,7 +128,7 @@ pub fn init_config() -> Result<Config> {
                 .long("bcd-network")
                 .value_name("BCD_NETWORK")
                 .env("BCD_NETWORK")
-                .possible_values(&["mainnet", "ithacanet", "hangzhou2net", "hangzhounet", "granadanet", "florencenet"])
+                .possible_values(&["mainnet", "ghostnet", "jakartanet", "ithacanet", "hangzhou2net", "hangzhounet", "granadanet", "florencenet"])
                 .default_value("mainnet")
                 .help("For better-call.dev: name of the Tezos network to target")
                 .takes_value(true))
@@ -267,6 +267,9 @@ unfortunately.")
             .value_of("bcd_network")
             .unwrap()
             .to_string();
+        if config.bcd_network == "ithacanet" {
+            config.bcd_network = "ghostnet".to_string();
+        }
     }
 
     config.reports_interval = matches
