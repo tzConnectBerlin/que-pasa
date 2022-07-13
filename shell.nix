@@ -32,6 +32,6 @@ pkgs.mkShell {
       }
       EOF
 
-      ln -s "$coc" $coc_settings_target
+      ln -sf "$coc" $coc_settings_target
     '';
 }
