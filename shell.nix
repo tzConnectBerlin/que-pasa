@@ -4,18 +4,23 @@
     ];
   }
 }:
+let vimLspDeps =
+  if builtins.getEnv("NIX_VIM_LSP_ENABLED") == "yes"
+    then ["rust-analyzer" "nodejs-18_x"]
+    else [];
+in
 pkgs.mkShell {
-  nativeBuildInputs = with pkgs; [
-    rust-bin.stable.latest.default
-    pkg-config
-    openssl
+  nativeBuildInputs = with pkgs; (
+    builtins.concatLists[
+      [
+        rust-bin.stable.latest.default
+        pkg-config
+        openssl
+      ]
+      (lib.attrVals vimLspDeps pkgs)
+    ]);
 
-    # this nix-shell additionally sets up dependencies for vim rust LSP
-    rust-analyzer
-    nodejs-18_x
-  ];
-
-  shellHook =
+  shellHook = if builtins.getEnv("NIX_VIM_LSP_ENABLED") == "yes" then
     ''
       mkdir -p .vim
 
@@ -33,5 +38,6 @@ pkgs.mkShell {
       EOF
 
       ln -sf "$coc" $coc_settings_target
-    '';
+    ''
+    else "";
 }
