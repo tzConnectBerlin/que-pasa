@@ -1221,10 +1221,13 @@ fn test_generate() {
         .build_relational_ast(&context, &type_ast)
         .unwrap();
     println!("{:#?}", rel_ast);
-    let generator = PostgresqlGenerator::new(&ContractID {
-        name: "testcontract".to_string(),
-        address: "".to_string(),
-    });
+    let generator = PostgresqlGenerator::new(
+        "some_main_schema".to_string(),
+        &ContractID {
+            name: "testcontract".to_string(),
+            address: "".to_string(),
+        },
+    );
     let mut builder = crate::sql::table_builder::TableBuilder::new("storage");
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();
