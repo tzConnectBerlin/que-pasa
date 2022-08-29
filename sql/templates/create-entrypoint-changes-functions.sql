@@ -28,16 +28,16 @@ BEGIN
         value->>'contract_address' AS address,
         value->>'table' AS "table"
       INTO source
-      FROM bigmap_meta_actions AS meta
+      FROM "{{ main_schema }}".bigmap_meta_actions AS meta
       WHERE action = 'alloc'
         AND meta.bigmap_id = (
           SELECT (value->'source')::INT
-          FROM bigmap_meta_actions AS meta
+          FROM "{{ main_schema }}".bigmap_meta_actions AS meta
           WHERE meta.action = 'copy'
             AND meta.bigmap_id = bigmap_target
             AND tx_context_id = (
               SELECT ctx.id
-              FROM tx_contexts AS ctx
+              FROM "{{ main_schema }}".tx_contexts AS ctx
               JOIN "{{ contract_schema }}"."{{ table }}" AS t
                 ON t.tx_context_id = ctx.id
               WHERE ARRAY[
@@ -60,7 +60,7 @@ BEGIN
 
       SELECT name
       INTO source_schema
-      FROM contracts
+      FROM "{{ main_schema }}".contracts
       WHERE address = source.address;
 
       in_schema := source_schema;

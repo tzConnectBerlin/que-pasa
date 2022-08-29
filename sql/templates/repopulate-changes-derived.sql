@@ -32,12 +32,12 @@ FROM (
             t.*
         FROM "{{ contract_schema }}"."{{ table }}" t
         WHERE t.bigmap_id NOT IN (
-            SELECT bigmap_id FROM que_pasa.bigmap_meta_actions WHERE action = 'clear'
+            SELECT bigmap_id FROM "{{ main_schema }}".bigmap_meta_actions WHERE action = 'clear'
         )
     ) t
-    JOIN tx_contexts ctx
+    JOIN "{{ main_schema }}".tx_contexts ctx
       ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
+    JOIN "{{ main_schema }}".levels level_meta
       ON level_meta.level = ctx.level
     ORDER BY
         {% call unfold(indices, "t", false) %},
@@ -95,10 +95,10 @@ FROM (
               {%- for col in columns %}
                 , LAST_VALUE(t.{{ col }}) OVER w AS {{ col }}
               {%- endfor %}
-            FROM que_pasa.bigmap_meta_actions AS bigmap_meta
+            FROM "{{ main_schema }}".bigmap_meta_actions AS bigmap_meta
             JOIN "{{ contract_schema }}"."{{ table }}" t
               ON t.bigmap_id = bigmap_meta.bigmap_id
-            JOIN tx_contexts ctx
+            JOIN "{{ main_schema }}".tx_contexts ctx
               ON ctx.id = t.tx_context_id
             WHERE bigmap_meta.action = 'clear'
             WINDOW w AS (
@@ -120,9 +120,9 @@ FROM (
         WHERE NOT t.latest_deleted
           AND t2 IS NULL
     ) t  -- t with bigmap clears unfolded
-    JOIN tx_contexts ctx
+    JOIN "{{ main_schema }}".tx_contexts ctx
       ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
+    JOIN "{{ main_schema }}".levels level_meta
       ON level_meta.level = ctx.level
 ) q;
 

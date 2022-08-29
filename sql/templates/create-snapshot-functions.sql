@@ -12,7 +12,7 @@ AS $$
     SELECT
       ctx.id AS tx_context_id
     FROM "{{ contract_schema }}"."{{ table }}" AS t
-    JOIN que_pasa.tx_contexts ctx
+    JOIN "{{ main_schema }}".tx_contexts ctx
       ON ctx.id = t.tx_context_id
     WHERE ARRAY[
           ctx.level,
