@@ -1,4 +1,4 @@
-select count(1) from que_pasa.contract_levels;
+select count(1) from "custom_Main_Schema".contract_levels;
  count 
 -------
    313
