@@ -216,7 +216,7 @@ unfortunately.")
     if matches.is_present("contracts") {
         config.contracts.extend(
             matches.values_of("contracts").unwrap().map(|s| {
-                match s.split_once("=") {
+                match s.split_once('=') {
                     Some((name, address)) => ContractID {
                         name: name.to_string(),
                         address: address.to_string(),

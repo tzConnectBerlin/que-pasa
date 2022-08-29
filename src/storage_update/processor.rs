@@ -530,7 +530,7 @@ where
                             None => self.sql_add_cell(
                                 ctx,
                                 &table,
-                                &"deleted".to_string(),
+                                "deleted",
                                 insert::Value::Bool(true),
                                 tx_context,
                             ),
@@ -546,7 +546,7 @@ where
                         self.sql_add_cell(
                             ctx,
                             &table,
-                            &"bigmap_id".to_string(),
+                            "bigmap_id",
                             insert::Value::Int(*bigmap),
                             tx_context,
                         );
@@ -600,7 +600,7 @@ where
                         self.sql_add_cell(
                             ctx,
                             &table,
-                            &"bigmap_id".to_string(),
+                            "bigmap_id",
                             insert::Value::Int(*bigmap),
                             tx_context,
                         );

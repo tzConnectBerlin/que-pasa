@@ -185,7 +185,7 @@ impl ASTBuilder {
 
     pub(crate) fn memoryless_bigmaps(&mut self) -> &mut Self {
         self.bigmaps_retain = false;
-        return self;
+        self
     }
 
     fn start_table(&mut self, ctx: &Context, ele: &Ele) -> Context {

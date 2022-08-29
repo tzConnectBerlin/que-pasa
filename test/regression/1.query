@@ -1,4 +1,4 @@
-select count(1) from que_pasa.tx_contexts;
+select count(1) from "custom_Main_Schema".tx_contexts;
  count 
 -------
   1132

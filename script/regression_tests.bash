@@ -53,10 +53,10 @@ function query {
 
 function assert {
     query_id=0
-    query 'select count(1) from que_pasa.tx_contexts' || exit 1
-    query 'select count(1) from que_pasa.contracts' || exit 1
-    query 'select count(1) from que_pasa.contract_levels' || exit 1
-    query 'select count(1) from que_pasa.contract_deps' || exit 1
+    query 'select count(1) from "custom_Main_Schema".tx_contexts' || exit 1
+    query 'select count(1) from "custom_Main_Schema".contracts' || exit 1
+    query 'select count(1) from "custom_Main_Schema".contract_levels' || exit 1
+    query 'select count(1) from "custom_Main_Schema".contract_deps' || exit 1
 
     query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
     query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
@@ -118,15 +118,15 @@ EOF
 
 export RUST_BACKTRACE=1
 
-cargo run -- --index-all-contracts -l 1500000-1500001 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1500002-1500005 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1700002-1700005 || exit 1
+cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1500000-1500001 || exit 1
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1500002-1500005 || exit 1
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1700002-1700005 || exit 1
 
 # the latter has a delete bigmap, the first 3 have rows indexed of the deleted bigmap
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768431 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768503 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768506 || exit 1
-cargo run --features regression_force_update_derived -- --index-all-contracts -l 1768606 || exit 1
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768431 || exit 1
+cargo run --features regression_force_update_derived --  --main-schema custom_Main_Schema --index-all-contracts -l 1768503 || exit 1
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768506 || exit 1
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606 || exit 1
 
 if [[ "$MODE" == "inspect" ]]; then
     psql
@@ -143,7 +143,7 @@ if [[ "$MODE" == "generate" ]]; then
 fi
 
 # verifying here that the repopulate also works with deleted bigmap rows
-cargo run -- --index-all-contracts -l 1768606 || exit 1
+cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606 || exit 1
 
 assert
 

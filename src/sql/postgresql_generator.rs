@@ -9,6 +9,7 @@ use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
 #[derive(Template)]
 #[template(path = "create-changes-functions.sql", escape = "none")]
 struct CreateChangesFunctionsTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     columns: &'a [String],
@@ -19,6 +20,7 @@ struct CreateChangesFunctionsTmpl<'a> {
 #[derive(Template)]
 #[template(path = "create-snapshot-functions.sql", escape = "none")]
 struct CreateSnapshotFunctionsTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     columns: &'a [String],
@@ -28,6 +30,7 @@ struct CreateSnapshotFunctionsTmpl<'a> {
 #[derive(Template)]
 #[template(path = "create-entrypoint-changes-functions.sql", escape = "none")]
 struct CreateEntrypointChangesFunctionsTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     columns: &'a [String],
@@ -37,6 +40,7 @@ struct CreateEntrypointChangesFunctionsTmpl<'a> {
 #[derive(Template)]
 #[template(path = "create-function-shortcuts.sql", escape = "none")]
 struct CreateFunctionShortcutsTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     function_postfix: &'a str,
@@ -45,12 +49,14 @@ struct CreateFunctionShortcutsTmpl<'a> {
 
 #[derive(Clone, Debug)]
 pub struct PostgresqlGenerator {
+    main_schema: String,
     contract_id: ContractID,
 }
 
 impl PostgresqlGenerator {
-    pub(crate) fn new(contract_id: &ContractID) -> Self {
+    pub(crate) fn new(main_schema: String, contract_id: &ContractID) -> Self {
         Self {
+            main_schema,
             contract_id: contract_id.clone(),
         }
     }
@@ -167,13 +173,15 @@ impl PostgresqlGenerator {
 
         if table.contains_pointers() {
             let shallow_tmpl = CreateSnapshotFunctionsTmpl {
-                contract_schema: contract_schema,
+                main_schema: &self.main_schema,
+                contract_schema,
                 table: &table.name,
                 columns: &columns,
                 typed_columns: &typed_columns,
             };
             let shallow_shortcuts = CreateFunctionShortcutsTmpl {
-                contract_schema: contract_schema,
+                main_schema: &self.main_schema,
+                contract_schema,
                 table: &table.name,
                 function_postfix: "at",
                 typed_columns: &typed_columns,
@@ -187,13 +195,15 @@ impl PostgresqlGenerator {
             deep_typed_columns.insert(0, "in_table TEXT".to_string());
             deep_typed_columns.insert(0, "in_schema TEXT".to_string());
             let deep_tmpl = CreateEntrypointChangesFunctionsTmpl {
-                contract_schema: contract_schema,
+                main_schema: &self.main_schema,
+                contract_schema,
                 table: &table.name,
                 columns: &columns,
                 typed_columns: &deep_typed_columns,
             };
             let deep_shortcuts = CreateFunctionShortcutsTmpl {
-                contract_schema: contract_schema,
+                main_schema: &self.main_schema,
+                contract_schema,
                 table: &table.name,
                 function_postfix: "at_deref",
                 typed_columns: &deep_typed_columns,
@@ -208,7 +218,8 @@ impl PostgresqlGenerator {
         }
 
         let shortcuts = CreateFunctionShortcutsTmpl {
-            contract_schema: contract_schema,
+            main_schema: &self.main_schema,
+            contract_schema,
             table: &table.name,
             function_postfix: "at",
             typed_columns: &typed_columns,
@@ -216,7 +227,8 @@ impl PostgresqlGenerator {
 
         if table.contains_snapshots() {
             let tmpl = CreateSnapshotFunctionsTmpl {
-                contract_schema: contract_schema,
+                main_schema: &self.main_schema,
+                contract_schema,
                 table: &table.name,
                 columns: &columns,
                 typed_columns: &typed_columns,
@@ -225,7 +237,8 @@ impl PostgresqlGenerator {
         }
 
         let tmpl = CreateChangesFunctionsTmpl {
-            contract_schema: contract_schema,
+            main_schema: &self.main_schema,
+            contract_schema,
             table: &table.name,
             columns: &columns,
             typed_columns: &typed_columns,
@@ -345,7 +358,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn parent_name(name: &str) -> Option<String> {
-        if name.starts_with("entry.") && name.matches(".").count() == 1 {
+        if name.starts_with("entry.") && name.matches('.').count() == 1 {
             return None;
         }
         name.rfind('.')
@@ -383,9 +396,10 @@ impl PostgresqlGenerator {
         }).collect::<Vec<String>>()
     }
 
-    pub(crate) fn create_common_tables() -> String {
+    pub(crate) fn create_common_tables(main_schema: &str) -> String {
         format!(
             include_str!("../../sql/common-tables.sql"),
+            main_schema = main_schema,
             quepasa_version = QUEPASA_VERSION,
         )
     }

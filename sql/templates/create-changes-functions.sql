@@ -17,8 +17,8 @@ AS $$
       , LAST_VALUE(t.{{ col }}) OVER w AS {{ col }}
     {%- endfor %}
     FROM "{{ contract_schema }}"."{{ table }}_ordered" AS t
-    CROSS JOIN que_pasa.contracts AS contract
-    JOIN que_pasa.tx_contexts ctx
+    CROSS JOIN "{{ main_schema }}".contracts AS contract
+    JOIN "{{ main_schema }}".tx_contexts ctx
       ON  ctx.id = t.tx_context_id
       AND ctx.contract = contract.address
     WHERE contract.name = '{{ contract_schema }}'

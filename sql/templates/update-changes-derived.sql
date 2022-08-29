@@ -12,7 +12,7 @@ DELETE FROM "{{ contract_schema }}"."{{ table }}_live"
 WHERE bigmap_id IN (
     SELECT
         bigmap_id
-    FROM que_pasa.bigmap_meta_actions
+    FROM "{{ main_schema }}".bigmap_meta_actions
     WHERE tx_context_id in ({% call unfold(tx_context_ids, "", false) %})
       AND action = 'clear'
 );
@@ -25,9 +25,9 @@ WHERE id IN (
         SELECT DISTINCT
             {% call unfold(indices, "t", false) %}
         FROM "{{ contract_schema }}"."{{ table }}" t
-        JOIN tx_contexts ctx
+        JOIN "{{ main_schema }}".tx_contexts ctx
           ON ctx.id = t.tx_context_id
-        JOIN levels level_meta
+        JOIN "{{ main_schema }}".levels level_meta
           ON level_meta.level = ctx.level
         WHERE t.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
     ) as overwritten_indices
@@ -55,9 +55,9 @@ FROM (
         level_meta.baked_at AS level_timestamp,
         t.*
     FROM "{{ contract_schema }}"."{{ table }}" t
-    JOIN tx_contexts ctx
+    JOIN "{{ main_schema }}".tx_contexts ctx
       ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
+    JOIN "{{ main_schema }}".levels level_meta
       ON level_meta.level = ctx.level
     WHERE t.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
     ORDER BY
@@ -122,10 +122,10 @@ FROM (
               {%- for col in columns %}
                 , LAST_VALUE(t.{{ col }}) OVER w as {{ col }}
               {%- endfor %}
-            FROM que_pasa.bigmap_meta_actions bigmap_meta
+            FROM "{{ main_schema }}".bigmap_meta_actions bigmap_meta
             JOIN "{{ contract_schema }}"."{{ table }}" t
               ON t.bigmap_id = bigmap_meta.bigmap_id
-            JOIN tx_contexts ctx
+            JOIN "{{ main_schema }}".tx_contexts ctx
               ON ctx.id = t.tx_context_id
             WHERE bigmap_meta.tx_context_id IN ({% call unfold(tx_context_ids, "", false) %})
               AND bigmap_meta.action = 'clear'
@@ -148,8 +148,8 @@ FROM (
         WHERE NOT t.latest_deleted
           AND t2 IS NULL
     ) t  -- t with bigmap clears unfolded
-    JOIN tx_contexts ctx
+    JOIN "{{ main_schema }}".tx_contexts ctx
       ON ctx.id = t.tx_context_id
-    JOIN levels level_meta
+    JOIN "{{ main_schema }}".levels level_meta
       ON level_meta.level = ctx.level
 ) t;

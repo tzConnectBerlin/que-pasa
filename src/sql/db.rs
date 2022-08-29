@@ -32,6 +32,7 @@ pub(crate) enum IndexerMode {
 #[derive(Template)]
 #[template(path = "repopulate-snapshot-derived.sql", escape = "none")]
 struct RepopulateSnapshotDerivedTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     parent_table: &'a str,
@@ -40,6 +41,7 @@ struct RepopulateSnapshotDerivedTmpl<'a> {
 #[derive(Template)]
 #[template(path = "repopulate-changes-derived.sql", escape = "none")]
 struct RepopulateChangesDerivedTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     columns: &'a [String],
@@ -48,6 +50,7 @@ struct RepopulateChangesDerivedTmpl<'a> {
 #[derive(Template)]
 #[template(path = "update-snapshot-derived.sql", escape = "none")]
 struct UpdateSnapshotDerivedTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     parent_table: &'a str,
@@ -57,6 +60,7 @@ struct UpdateSnapshotDerivedTmpl<'a> {
 #[derive(Template)]
 #[template(path = "update-changes-derived.sql", escape = "none")]
 struct UpdateChangesDerivedTmpl<'a> {
+    main_schema: &'a str,
     contract_schema: &'a str,
     table: &'a str,
     columns: &'a [String],
@@ -129,7 +133,8 @@ FROM indexer_state
                 .as_str(),
         )?;
         conn.simple_query(
-            PostgresqlGenerator::create_common_tables().as_str(),
+            PostgresqlGenerator::create_common_tables(&self.main_schema)
+                .as_str(),
         )?;
         Ok(())
     }
@@ -175,11 +180,7 @@ WHERE table_schema = $1
                     table_i = i,
                     table_total = tables.len(),
                 );
-                DBClient::repopulate_derived_table(
-                    &mut tx,
-                    &contract.cid,
-                    table,
-                )?;
+                self.repopulate_derived_table(&mut tx, &contract.cid, table)?;
             }
         }
         tx.commit()?;
@@ -187,6 +188,7 @@ WHERE table_schema = $1
     }
 
     fn repopulate_derived_table(
+        &self,
         tx: &mut Transaction,
         contract_id: &ContractID,
         table: &Table,
@@ -196,8 +198,9 @@ WHERE table_schema = $1
         if table.contains_snapshots() {
             let parent_table: String =
                 PostgresqlGenerator::table_parent_name(table)
-                    .unwrap_or(table.name.clone());
+                    .unwrap_or_else(|| table.name.clone());
             let tmpl = RepopulateSnapshotDerivedTmpl {
+                main_schema: &self.main_schema,
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 parent_table: &parent_table,
@@ -206,6 +209,7 @@ WHERE table_schema = $1
             tx.simple_query(&tmpl.render()?)?;
         } else {
             let tmpl = RepopulateChangesDerivedTmpl {
+                main_schema: &self.main_schema,
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 columns: &columns,
@@ -218,6 +222,7 @@ WHERE table_schema = $1
     }
 
     pub(crate) fn update_derived_tables(
+        &self,
         tx: &mut Transaction,
         contract: &relational::Contract,
         tx_contexts: &[TxContext],
@@ -239,7 +244,7 @@ WHERE table_schema = $1
                 .iter()
                 .any(|prefix| table.name.starts_with(prefix))
             {
-                DBClient::update_derived_table(
+                self.update_derived_table(
                     tx,
                     &contract.cid,
                     table,
@@ -251,6 +256,7 @@ WHERE table_schema = $1
     }
 
     fn update_derived_table(
+        &self,
         tx: &mut Transaction,
         contract_id: &ContractID,
         table: &Table,
@@ -266,8 +272,9 @@ WHERE table_schema = $1
         if table.contains_snapshots() {
             let parent_table: String =
                 PostgresqlGenerator::table_parent_name(table)
-                    .unwrap_or(table.name.clone());
+                    .unwrap_or_else(|| table.name.clone());
             let tmpl = UpdateSnapshotDerivedTmpl {
+                main_schema: &self.main_schema,
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 parent_table: &parent_table,
@@ -277,6 +284,7 @@ WHERE table_schema = $1
             tx.simple_query(&tmpl.render()?)?;
         } else {
             let tmpl = UpdateChangesDerivedTmpl {
+                main_schema: &self.main_schema,
                 contract_schema: &contract_id.name,
                 table: &table.name,
                 columns: &columns,
@@ -351,7 +359,10 @@ CREATE SCHEMA IF NOT EXISTS "{contract_schema}";
                 contract_schema = contract.cid.name
             ));
 
-            let generator = PostgresqlGenerator::new(&contract.cid);
+            let generator = PostgresqlGenerator::new(
+                self.main_schema.clone(),
+                &contract.cid,
+            );
 
             for table in &tables {
                 let table_def = generator.create_table_definition(table)?;

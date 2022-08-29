@@ -238,7 +238,7 @@ fn schema_version(v: &str) -> String {
     };
     // Minor version bumps (_._.x) have same db schemas
     v.to_string()
-        .rsplit_once(".")
+        .rsplit_once('.')
         .map(|(db_ver, _)| db_ver.to_string())
         .unwrap_or_else(|| "".to_string())
 }

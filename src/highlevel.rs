@@ -652,7 +652,11 @@ impl Executor {
             );
         }
 
-        for (_, contract) in &self.mutexed_state.get_contracts()? {
+        for contract in self
+            .mutexed_state
+            .get_contracts()?
+            .values()
+        {
             self.dbcli
                 .repopulate_derived_tables(contract)?;
         }
@@ -845,8 +849,7 @@ impl Executor {
             let prev = self.dbcli.get_level(level - 1)?;
             if let Some(db_prev_hash) = prev
                 .as_ref()
-                .map(|l| l.hash.as_ref())
-                .flatten()
+                .and_then(|l| l.hash.as_ref())
             {
                 if db_prev_hash != prev_hash {
                     let forked_lvl = prev.as_ref().unwrap().level;
@@ -861,8 +864,7 @@ impl Executor {
         let next = self.dbcli.get_level(level + 1)?;
         if let Some(db_next_prev_hash) = next
             .as_ref()
-            .map(|l| l.prev_hash.as_ref())
-            .flatten()
+            .and_then(|l| l.prev_hash.as_ref())
         {
             if db_next_prev_hash != hash {
                 let forked_lvl = next.as_ref().unwrap().level;
@@ -983,7 +985,7 @@ impl Executor {
         let mut storage_processor = self.get_storage_processor()?;
         storage_processor.set_stats_logger(self.stats.clone());
         storage_processor
-            .process_block(block, diffs, &contract)
+            .process_block(block, diffs, contract)
             .with_context(|| {
                 format!(
                     "execute failed (level={}, contract={}): could not process block",
@@ -1221,10 +1223,13 @@ fn test_generate() {
         .build_relational_ast(&context, &type_ast)
         .unwrap();
     println!("{:#?}", rel_ast);
-    let generator = PostgresqlGenerator::new(&ContractID {
-        name: "testcontract".to_string(),
-        address: "".to_string(),
-    });
+    let generator = PostgresqlGenerator::new(
+        "some_main_schema".to_string(),
+        &ContractID {
+            name: "testcontract".to_string(),
+            address: "".to_string(),
+        },
+    );
     let mut builder = crate::sql::table_builder::TableBuilder::new("storage");
     builder.populate(&rel_ast);
     let mut sorted_tables: Vec<_> = builder.tables.iter().collect();

@@ -136,9 +136,9 @@ fn insert_batch(
 
     if update_derived_tables {
         for (contract_id, (contract, ctxs)) in &batch.contract_tx_contexts {
-            DBClient::update_derived_tables(
+            dbcli.update_derived_tables(
                 &mut db_tx,
-                &contract,
+                contract,
                 ctxs,
             ).with_context(|| {
                 format!(
@@ -218,7 +218,7 @@ impl ProcessedContractBlock {
                 let shifted = k.1.id.unwrap() + offset;
                 k.1.id = Some(shifted);
                 max = std::cmp::max(shifted, max);
-                return (k, v);
+                (k, v)
             })
             .collect();
 
