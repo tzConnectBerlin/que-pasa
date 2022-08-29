@@ -143,7 +143,7 @@ if [[ "$MODE" == "generate" ]]; then
 fi
 
 # verifying here that the repopulate also works with deleted bigmap rows
-cargo run -- --index-all-contracts -l 1768606 || exit 1
+cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606 || exit 1
 
 assert
 

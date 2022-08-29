@@ -219,8 +219,7 @@ impl Block {
                                         entrypoint_args: content
                                             .parameters
                                             .clone()
-                                            .map(|p| p.value)
-                                            .flatten(),
+                                            .and_then(|p| p.value),
 
                                         amount: Self::parse_option_pgnumeric(
                                             content.amount.as_ref(),
@@ -309,8 +308,7 @@ impl Block {
                                                     entrypoint_args: internal_op
                                                         .parameters
                                                         .clone()
-                                                        .map(|p| p.value)
-                                                        .flatten(),
+                                                        .and_then(|p| p.value),
 
                                                     amount: Self::parse_option_pgnumeric(
                                                         internal_op.amount.as_ref(),

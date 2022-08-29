@@ -89,13 +89,10 @@ impl TableBuilder {
             None => {
                 let mut t = Table::new(name.to_string());
                 t.add_index(
-                    &"tx_context_id".to_string(),
+                    "tx_context_id",
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
-                t.add_column(
-                    &"id".to_string(),
-                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-                );
+                t.add_column("id", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
                 t
             }
         }
@@ -132,14 +129,14 @@ impl TableBuilder {
                 let mut t = self.get_table(table);
 
                 t.add_index(
-                    &"bigmap_id".to_string(),
+                    "bigmap_id",
                     &ExprTy::SimpleExprTy(SimpleExprTy::Int),
                 );
                 if *has_memory {
                     t.tracks_changes();
 
                     t.add_column(
-                        &"deleted".to_string(),
+                        "deleted",
                         &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
                     );
                 } else {

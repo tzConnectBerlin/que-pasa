@@ -174,14 +174,14 @@ impl PostgresqlGenerator {
         if table.contains_pointers() {
             let shallow_tmpl = CreateSnapshotFunctionsTmpl {
                 main_schema: &self.main_schema,
-                contract_schema: contract_schema,
+                contract_schema,
                 table: &table.name,
                 columns: &columns,
                 typed_columns: &typed_columns,
             };
             let shallow_shortcuts = CreateFunctionShortcutsTmpl {
                 main_schema: &self.main_schema,
-                contract_schema: contract_schema,
+                contract_schema,
                 table: &table.name,
                 function_postfix: "at",
                 typed_columns: &typed_columns,
@@ -196,14 +196,14 @@ impl PostgresqlGenerator {
             deep_typed_columns.insert(0, "in_schema TEXT".to_string());
             let deep_tmpl = CreateEntrypointChangesFunctionsTmpl {
                 main_schema: &self.main_schema,
-                contract_schema: contract_schema,
+                contract_schema,
                 table: &table.name,
                 columns: &columns,
                 typed_columns: &deep_typed_columns,
             };
             let deep_shortcuts = CreateFunctionShortcutsTmpl {
                 main_schema: &self.main_schema,
-                contract_schema: contract_schema,
+                contract_schema,
                 table: &table.name,
                 function_postfix: "at_deref",
                 typed_columns: &deep_typed_columns,
@@ -219,7 +219,7 @@ impl PostgresqlGenerator {
 
         let shortcuts = CreateFunctionShortcutsTmpl {
             main_schema: &self.main_schema,
-            contract_schema: contract_schema,
+            contract_schema,
             table: &table.name,
             function_postfix: "at",
             typed_columns: &typed_columns,
@@ -228,7 +228,7 @@ impl PostgresqlGenerator {
         if table.contains_snapshots() {
             let tmpl = CreateSnapshotFunctionsTmpl {
                 main_schema: &self.main_schema,
-                contract_schema: contract_schema,
+                contract_schema,
                 table: &table.name,
                 columns: &columns,
                 typed_columns: &typed_columns,
@@ -238,7 +238,7 @@ impl PostgresqlGenerator {
 
         let tmpl = CreateChangesFunctionsTmpl {
             main_schema: &self.main_schema,
-            contract_schema: contract_schema,
+            contract_schema,
             table: &table.name,
             columns: &columns,
             typed_columns: &typed_columns,
@@ -358,7 +358,7 @@ impl PostgresqlGenerator {
     }
 
     pub(crate) fn parent_name(name: &str) -> Option<String> {
-        if name.starts_with("entry.") && name.matches(".").count() == 1 {
+        if name.starts_with("entry.") && name.matches('.').count() == 1 {
             return None;
         }
         name.rfind('.')

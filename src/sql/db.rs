@@ -198,7 +198,7 @@ WHERE table_schema = $1
         if table.contains_snapshots() {
             let parent_table: String =
                 PostgresqlGenerator::table_parent_name(table)
-                    .unwrap_or(table.name.clone());
+                    .unwrap_or_else(|| table.name.clone());
             let tmpl = RepopulateSnapshotDerivedTmpl {
                 main_schema: &self.main_schema,
                 contract_schema: &contract_id.name,
@@ -272,7 +272,7 @@ WHERE table_schema = $1
         if table.contains_snapshots() {
             let parent_table: String =
                 PostgresqlGenerator::table_parent_name(table)
-                    .unwrap_or(table.name.clone());
+                    .unwrap_or_else(|| table.name.clone());
             let tmpl = UpdateSnapshotDerivedTmpl {
                 main_schema: &self.main_schema,
                 contract_schema: &contract_id.name,

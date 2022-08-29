@@ -160,8 +160,8 @@ impl NodeClient {
         }
 
         Ok((
-            get_prim(&code_def, "storage")?,
-            get_prim(&code_def, "parameter")?,
+            get_prim(code_def, "storage")?,
+            get_prim(code_def, "parameter")?,
         ))
     }
 
