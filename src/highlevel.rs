@@ -60,10 +60,11 @@ pub struct Executor {
 
     all_contracts: bool,
 
-    // Everything below this level has nothing to do with what we are indexing
     mutexed_state: MutexedState,
-
+    // threads: Vec<thread::JoinHandle<()>>,
+    out_processed: flume::Sender<Box<ProcessedBlock>>,
     stats: StatsLogger,
+    inserter: DBInserter,
 }
 
 impl Executor {
@@ -71,17 +72,27 @@ impl Executor {
         node_cli: NodeClient,
         dbcli: DBClient,
         reports_interval: usize,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let batch_size = 10;
+        let (processed_send, processed_recv) =
+            flume::bounded::<Box<ProcessedBlock>>(batch_size * 2);
+        let inserter = DBInserter::new(dbcli.clone(), batch_size);
+        let stats = StatsLogger::new(std::time::Duration::new(
+            reports_interval as u64,
+            0,
+        ));
+        let threads = vec![inserter.run(&stats, processed_recv)?, stats.run()];
+
+        Ok(Self {
             node_cli,
             dbcli,
             all_contracts: false,
+            out_processed: processed_send,
+            inserter,
+            // threads,
             mutexed_state: MutexedState::new(),
-            stats: StatsLogger::new(std::time::Duration::new(
-                reports_interval as u64,
-                0,
-            )),
-        }
+            stats,
+        })
     }
 
     fn update_level_floor(&mut self) -> Result<()> {
@@ -131,11 +142,11 @@ impl Executor {
                 .dbcli
                 .get_origination(&contract.cid)?;
 
-            if self
+            let new_contract = self
                 .mutexed_state
-                .add_contract(contract)?
-                && self.all_contracts
-            {
+                .add_contract(contract)?;
+
+            if new_contract && self.all_contracts {
                 self.stats
                     .add("processor", "unique contracts", 1)?;
             }
@@ -553,22 +564,11 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
-        self.stats.reset()?;
-        let stats_thread = self.stats.run();
-
-        let batch_size = 10;
-        let inserter = DBInserter::new(self.dbcli.clone(), batch_size);
-        let (processed_send, processed_recv) =
-            flume::bounded::<Box<ProcessedBlock>>(batch_size * 10);
-
-        threads.push(inserter.run(&self.stats, processed_recv)?);
-
         let processed_results: Arc<Mutex<(Vec<u32>, Vec<u32>)>> =
             Arc::new(Mutex::new((vec![], vec![])));
 
         if num_processors <= 1 {
-            let (processed, reprocess) =
-                self.read_block_chan(block_recv, processed_send)?;
+            let (processed, reprocess) = self.read_block_chan(block_recv)?;
             let mut res = processed_results.lock().unwrap();
             res.0.extend(processed);
             res.1.extend(reprocess);
@@ -577,19 +577,16 @@ impl Executor {
             for _ in 0..num_processors {
                 let mut exec = self.clone();
                 let w_recv_ch = block_recv.clone();
-                let w_send_ch = processed_send.clone();
                 let res_arc = processed_results.clone();
                 threads.push(thread::spawn(move || {
-                    let (processed, reprocess) = exec
-                        .read_block_chan(w_recv_ch, w_send_ch)
-                        .unwrap();
+                    let (processed, reprocess) =
+                        exec.read_block_chan(w_recv_ch).unwrap();
 
                     let mut res = res_arc.lock().unwrap();
                     res.0.extend(processed);
                     res.1.extend(reprocess);
                 }));
             }
-            drop(processed_send);
         }
 
         for t in threads {
@@ -597,11 +594,6 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
-        self.stats.stop();
-        stats_thread.thread().unpark();
-        stats_thread.join().map_err(|e| {
-            anyhow!("failed to stop processor statistics logger, err: {:?}", e)
-        })?;
 
         let (mut processed_levels, reprocess_levels) =
             Arc::try_unwrap(processed_results)
@@ -679,7 +671,6 @@ impl Executor {
     fn read_block_chan(
         &mut self,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
-        processed_ch: flume::Sender<Box<ProcessedBlock>>,
     ) -> Result<(Vec<u32>, Vec<u32>)> {
         let in_ch = block_ch.clone();
 
@@ -698,7 +689,7 @@ impl Executor {
                 })?;
             reprocess_levels.extend(forked_lvls);
 
-            for cres in &processed_block {
+            for cres in &processed_block.contracts {
                 if self.all_contracts {
                     self.stats.add(
                         "processor",
@@ -720,11 +711,12 @@ impl Executor {
                     "{}/{} - {}/{}",
                     in_ch.len(),
                     in_ch.capacity().unwrap(),
-                    processed_ch.len(),
-                    processed_ch.capacity().unwrap()
+                    self.out_processed.len(),
+                    self.out_processed.capacity().unwrap()
                 ),
             )?;
-            processed_ch.send(Box::new(processed_block))?;
+            self.out_processed
+                .send(Box::new(processed_block))?;
             self.stats
                 .add("processor", "levels", 1)?;
             self.stats.set(
@@ -819,7 +811,7 @@ impl Executor {
             }
         }
 
-        for cres in &processed_block {
+        for cres in &processed_block.contracts {
             res.push(SaveLevelResult::from_processed_block(cres));
         }
 
@@ -944,7 +936,13 @@ impl Executor {
                 )?;
             }
         }
-        Ok((contract_results, forked_lvls))
+        Ok((
+            ProcessedBlock {
+                contracts: contract_results,
+                prioritize_insert: false,
+            },
+            forked_lvls,
+        ))
     }
 
     fn update_contract_floor(
@@ -1018,6 +1016,8 @@ impl Executor {
 struct MutexedState {
     #[allow(clippy::type_complexity)]
     contracts: Arc<Mutex<HashMap<ContractID, relational::Contract>>>,
+
+    // Everything below this level has nothing to do with what we are indexing
     level_floor: Arc<Mutex<u32>>,
 }
 

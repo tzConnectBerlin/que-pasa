@@ -90,7 +90,8 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         node_cli.clone(),
         dbcli,
         config.reports_interval,
-    );
+    )
+    .unwrap();
     if config.all_contracts {
         index_all_contracts(config, &bcd_settings, executor);
         return;

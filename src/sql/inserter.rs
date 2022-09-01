@@ -14,6 +14,7 @@ use crate::sql::types::BigmapMetaAction;
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
 
+#[derive(Clone)]
 pub(crate) struct DBInserter {
     dbcli: DBClient,
 
@@ -21,7 +22,10 @@ pub(crate) struct DBInserter {
     batch_size: usize,
 }
 
-pub(crate) type ProcessedBlock = Vec<ProcessedContractBlock>;
+pub(crate) struct ProcessedBlock {
+    pub contracts: Vec<ProcessedContractBlock>,
+    pub prioritize_insert: bool,
+}
 
 impl DBInserter {
     pub(crate) fn new(dbcli: DBClient, batch_size: usize) -> Self {
@@ -57,9 +61,10 @@ impl DBInserter {
 
         let mut accum_begin = Instant::now();
         for processed_block in recv_ch {
+            let force_insert = processed_block.prioritize_insert;
             batch.add(*processed_block);
 
-            if batch.len() >= batch_size {
+            if batch.len() >= batch_size || force_insert {
                 let accum_elapsed = accum_begin.elapsed();
 
                 let insert_begin = Instant::now();
@@ -291,7 +296,7 @@ impl ProcessedBatch {
     }
 
     pub fn add(&mut self, processed_block: ProcessedBlock) {
-        for mut cres in processed_block.into_iter() {
+        for mut cres in processed_block.contracts.into_iter() {
             self.max_id = cres.offset_ids(self.max_id);
             self.add_cres(cres);
         }
