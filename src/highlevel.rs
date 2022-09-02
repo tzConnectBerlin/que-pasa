@@ -19,13 +19,15 @@ use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::inserter::{
-    insert_processed, DBInserter, ProcessedBlock, ProcessedContractBlock,
+    DBInserter, InserterAction, ProcessedBlock, ProcessedContractBlock,
 };
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
 use crate::storage_structure::typing;
 use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
 use crate::storage_update::processor::StorageProcessor;
+
+use crate::threading_utils::AtomicCondvar;
 
 pub struct SaveLevelResult {
     pub level: u32,
@@ -40,12 +42,13 @@ impl SaveLevelResult {
         processed_block: &ProcessedContractBlock,
     ) -> Self {
         Self {
-            level: processed_block.level.level,
-            hash: processed_block
-                .level
-                .hash
-                .clone()
-                .unwrap(),
+            level: 0, // TODO: fix processed_block.level.level,
+            hash: "todo".to_string(),
+            // hash: processed_block
+            //     .level
+            //     .hash
+            //     .clone()
+            //     .unwrap(),
             contract_id: processed_block.contract.cid.clone(),
             is_origination: processed_block.is_origination,
             tx_count: processed_block.tx_contexts.len(),
@@ -62,7 +65,7 @@ pub struct Executor {
 
     mutexed_state: MutexedState,
     // threads: Vec<thread::JoinHandle<()>>,
-    out_processed: flume::Sender<Box<ProcessedBlock>>,
+    out_processed: flume::Sender<Box<InserterAction>>,
     stats: StatsLogger,
     inserter: DBInserter,
 }
@@ -75,7 +78,7 @@ impl Executor {
     ) -> Result<Self> {
         let batch_size = 10;
         let (processed_send, processed_recv) =
-            flume::bounded::<Box<ProcessedBlock>>(batch_size * 2);
+            flume::bounded::<Box<InserterAction>>(batch_size * 2);
         let inserter = DBInserter::new(dbcli.clone(), batch_size);
         let stats = StatsLogger::new(std::time::Duration::new(
             reports_interval as u64,
@@ -124,6 +127,8 @@ impl Executor {
             .add_contract(contract)
     }
 
+    pub fn dynamic_loader(&mut self) {}
+
     pub fn add_missing_contracts(
         &mut self,
         contracts: &[ContractID],
@@ -156,12 +161,16 @@ impl Executor {
 
     pub fn create_contract_schemas(&mut self) -> Result<Vec<ContractID>> {
         let mut new_contracts: Vec<ContractID> = vec![];
-        for (contract_id, contract) in &self.mutexed_state.get_contracts()? {
+        for contract in self
+            .mutexed_state
+            .get_contracts()?
+            .into_values()
+        {
             if self
                 .dbcli
                 .create_contract_schemas(&mut vec![contract.clone()])?
             {
-                new_contracts.push(contract_id.clone());
+                new_contracts.push(contract.cid.clone());
             }
         }
         Ok(new_contracts)
@@ -171,8 +180,9 @@ impl Executor {
         Ok(self
             .mutexed_state
             .get_contracts()?
-            .keys()
-            .cloned()
+            .values()
+            .into_iter()
+            .map(|rel| rel.cid.clone())
             .collect::<Vec<ContractID>>())
     }
 
@@ -211,10 +221,7 @@ impl Executor {
     pub fn exec_continuous(&mut self) -> Result<()> {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
-        let mode = self.dbcli.get_indexer_mode()?;
-        if mode == IndexerMode::Bootstrap {
-            self.repopulate_derived_tables(true)?;
-        }
+        self.finalize_bootstrapping_contracts(true)?;
 
         fn wait(first_wait: &mut bool) {
             if *first_wait {
@@ -479,6 +486,7 @@ impl Executor {
                 break;
             }
 
+            info!("missing levels: {:?}", missing_levels.len());
             if missing_levels.len() > 1000 && bcd_settings.is_some() {
                 let (bcd_url, network) = bcd_settings.as_ref().unwrap();
                 let config = &self.get_config_sorted()?;
@@ -551,8 +559,14 @@ impl Executor {
         // a parallel exec has the consequence that we need to re-derive the
         // _live and _ordered tables when done. therefore we change the mode to
         // "bootstrap" here
-        self.dbcli
-            .set_indexer_mode(IndexerMode::Bootstrap)?;
+        self.dbcli.set_indexing_mode_contracts(
+            IndexerMode::Bootstrap,
+            &self
+                .get_config()?
+                .into_iter()
+                .map(|c| c.name)
+                .collect::<Vec<String>>(),
+        )?;
 
         let (height_send, height_recv) = flume::bounded::<u32>(num_getters);
         let (block_send, block_recv) =
@@ -613,10 +627,12 @@ impl Executor {
             processed_levels.extend(reprocessed_levels);
         }
 
+        info!("exiting exec_parallel");
+
         Ok(processed_levels)
     }
 
-    pub(crate) fn repopulate_derived_tables(
+    pub(crate) fn finalize_bootstrapping_contracts(
         &mut self,
         ensure_sane_input_state: bool,
     ) -> Result<()> {
@@ -644,16 +660,25 @@ impl Executor {
             );
         }
 
-        for contract in self
-            .mutexed_state
-            .get_contracts()?
-            .values()
-        {
-            self.dbcli
-                .repopulate_derived_tables(contract)?;
+        let contract_modes = self
+            .dbcli
+            .get_indexing_mode_contracts(&self.get_config()?)?;
+
+        for (contract_name, mode) in contract_modes {
+            if mode == IndexerMode::Bootstrap {
+                self.dbcli.repopulate_derived_tables(
+                    &self
+                        .mutexed_state
+                        .get_contract(&contract_name)?
+                        .unwrap(),
+                )?;
+                self.dbcli.set_indexing_mode_contracts(
+                    IndexerMode::Head,
+                    &[contract_name],
+                )?;
+            }
         }
-        self.dbcli
-            .set_indexer_mode(IndexerMode::Head)?;
+
         Ok(())
     }
 
@@ -715,8 +740,11 @@ impl Executor {
                     self.out_processed.capacity().unwrap()
                 ),
             )?;
+
             self.out_processed
-                .send(Box::new(processed_block))?;
+                .send(Box::new(InserterAction::AddToBatch {
+                    block: processed_block,
+                }))?;
             self.stats
                 .add("processor", "levels", 1)?;
             self.stats.set(
@@ -727,6 +755,13 @@ impl Executor {
 
             processed_levels.push(meta.level);
         }
+
+        let listener = AtomicCondvar::new();
+        self.out_processed
+            .send(Box::new(InserterAction::InsertNow {
+                notify_on_inserted: listener.clone(),
+            }))?;
+        listener.wait();
 
         Ok((processed_levels, reprocess_levels))
     }
@@ -784,7 +819,7 @@ impl Executor {
             })?;
 
         let mut res: Vec<SaveLevelResult> = vec![];
-        let (processed_block, forked_lvls) = self
+        let (mut processed_block, forked_lvls) = self
             .exec_for_block(&meta, &block)
             .with_context(|| {
                 anyhow!(
@@ -815,16 +850,16 @@ impl Executor {
             res.push(SaveLevelResult::from_processed_block(cres));
         }
 
-        let update_derived_tables =
-            self.dbcli.get_indexer_mode()? == IndexerMode::Head;
-        #[cfg(feature = "regression_force_update_derived")]
-        let update_derived_tables = true | update_derived_tables;
+        let listener = AtomicCondvar::new();
 
-        insert_processed(
-            &mut self.dbcli.clone(),
-            update_derived_tables,
-            processed_block,
-        )?;
+        processed_block.notify_on_inserted = Some(listener.clone());
+        processed_block.trigger_insert = true;
+        self.out_processed
+            .send(Box::new(InserterAction::AddToBatch {
+                block: processed_block,
+            }))?;
+
+        listener.wait();
 
         Ok(res)
     }
@@ -875,6 +910,7 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
     ) -> Result<(ProcessedBlock, Vec<u32>)> {
+        info!("exec_for_block: {:?}", level.level);
         // note: we expect level's values to all be set (no None values in its fields)
         let forked_lvls = self.ensure_level_hash(
             level.level,
@@ -916,7 +952,7 @@ impl Executor {
         for contract_id in &process_contracts {
             let contract = self
                 .mutexed_state
-                .get_contract(contract_id)?
+                .get_contract(&contract_id.name)?
                 .unwrap();
             contract_results.push(
                 self.exec_for_block_contract(level, block, &diffs, &contract)
@@ -930,16 +966,17 @@ impl Executor {
         }
         for cres in &contract_results {
             if cres.is_origination {
-                self.update_contract_floor(
-                    &cres.contract.cid,
-                    cres.level.level,
-                )?;
+                self.update_contract_floor(&cres.contract.cid, level.level)?;
             }
         }
         Ok((
             ProcessedBlock {
+                trigger_insert: false,
+                level: level.clone(),
+
                 contracts: contract_results,
-                prioritize_insert: false,
+
+                notify_on_inserted: None,
             },
             forked_lvls,
         ))
@@ -967,7 +1004,6 @@ impl Executor {
 
         if !is_origination && !block.is_contract_active(&contract.cid.address) {
             return Ok(ProcessedContractBlock {
-                level: meta.clone(),
                 contract: contract.clone(),
 
                 inserts: vec![],
@@ -999,7 +1035,6 @@ impl Executor {
 
         Ok(ProcessedContractBlock {
             contract: contract.clone(),
-            level: meta.clone(),
 
             inserts: inserts.values().cloned().collect(),
             tx_contexts,
@@ -1015,7 +1050,7 @@ impl Executor {
 #[derive(Clone)]
 struct MutexedState {
     #[allow(clippy::type_complexity)]
-    contracts: Arc<Mutex<HashMap<ContractID, relational::Contract>>>,
+    contracts: Arc<Mutex<HashMap<String, relational::Contract>>>,
 
     // Everything below this level has nothing to do with what we are indexing
     level_floor: Arc<Mutex<u32>>,
@@ -1061,11 +1096,11 @@ impl MutexedState {
             .lock()
             .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
 
-        if contracts.contains_key(&contract.cid) {
+        if contracts.contains_key(&contract.cid.name) {
             return Ok(false);
         }
 
-        contracts.insert(contract.cid.clone(), contract);
+        contracts.insert(contract.cid.name.clone(), contract);
         Ok(true)
     }
 
@@ -1079,25 +1114,27 @@ impl MutexedState {
             .lock()
             .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
 
-        let mut v = contracts.get_mut(contract_id).unwrap();
+        let mut v = contracts
+            .get_mut(&contract_id.name)
+            .unwrap();
         v.level_floor = Some(level);
         Ok(())
     }
 
     pub fn get_contract(
         &self,
-        contract_id: &ContractID,
+        contract_name: &str,
     ) -> Result<Option<relational::Contract>> {
         let contracts = self
             .contracts
             .lock()
             .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
-        Ok(contracts.get(contract_id).cloned())
+        Ok(contracts.get(contract_name).cloned())
     }
 
     pub fn get_contracts(
         &self,
-    ) -> Result<HashMap<ContractID, relational::Contract>> {
+    ) -> Result<HashMap<String, relational::Contract>> {
         let contracts = self
             .contracts
             .lock()
@@ -1115,7 +1152,7 @@ impl MutexedState {
             .map_err(|_| anyhow!("failed to lock contracts mutex"))?;
 
         Ok(l.iter()
-            .filter(|contract_id| !contracts.contains_key(contract_id))
+            .filter(|contract_id| !contracts.contains_key(&contract_id.name))
             .cloned()
             .collect::<Vec<ContractID>>())
     }

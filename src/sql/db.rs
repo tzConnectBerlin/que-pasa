@@ -1078,23 +1078,43 @@ WHERE chain_prev_hash != db_prev_hash
             .collect::<Vec<u32>>())
     }
 
-    pub(crate) fn get_indexer_mode(&mut self) -> Result<IndexerMode> {
+    pub(crate) fn get_indexing_mode_contracts(
+        &mut self,
+        contracts: &[ContractID],
+    ) -> Result<HashMap<String, IndexerMode>> {
         let mut conn = self.dbconn()?;
 
-        let mode: IndexerMode = conn
-            .query_one("select mode from indexer_state", &[])?
-            .get(0);
-        Ok(mode)
+        let mut res: HashMap<String, IndexerMode> = HashMap::new();
+        for row in conn.query(
+            "
+SELECT name, mode
+FROM contracts
+WHERE name = ANY($1)
+        ",
+            &[&contracts
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<&String>>()],
+        )? {
+            res.insert(row.get(0), row.get(1));
+        }
+
+        Ok(res)
     }
 
-    pub(crate) fn set_indexer_mode(&mut self, mode: IndexerMode) -> Result<()> {
+    pub(crate) fn set_indexing_mode_contracts(
+        &mut self,
+        mode: IndexerMode,
+        contract_names: &[String],
+    ) -> Result<()> {
         let mut conn = self.dbconn()?;
 
         let updated = conn.execute(
             "
-update indexer_state
-set mode = $1",
-            &[&mode],
+UPDATE contracts
+SET mode = $1
+WHERE name = ANY($2)",
+            &[&mode, &contract_names],
         )?;
         if updated == 1 {
             Ok(())
@@ -1225,7 +1245,8 @@ order by 1",
 INSERT INTO levels(
     level, hash, prev_hash, baked_at
 )
-VALUES ( {} )",
+VALUES ( {} )
+ON CONFLICT DO NOTHING",
                 v_refs
             ))?;
 

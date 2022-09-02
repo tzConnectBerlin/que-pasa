@@ -16,6 +16,7 @@ pub mod stats;
 pub mod storage_structure;
 pub mod storage_update;
 pub mod storage_value;
+pub mod threading_utils;
 
 use anyhow::Context;
 use config::CONFIG;
@@ -192,7 +193,7 @@ fn index_all_contracts(
             return;
         }
         executor
-            .repopulate_derived_tables(false)
+            .finalize_bootstrapping_contracts(false)
             .unwrap();
     } else {
         info!("processing missing levels");

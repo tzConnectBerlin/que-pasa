@@ -7,9 +7,14 @@ CREATE TABLE levels (
 CREATE UNIQUE INDEX levels_level ON levels(level);
 CREATE UNIQUE INDEX levels_hash ON levels(hash);
 
+CREATE TYPE indexer_mode AS ENUM (
+    'Bootstrap',
+    'Head'
+);
 CREATE TABLE contracts (
     name TEXT PRIMARY KEY,
     address VARCHAR(100) NOT NULL,
+    mode indexer_mode NOT NULL DEFAULT 'Bootstrap',
 
     UNIQUE(address)
 );
@@ -24,19 +29,14 @@ CREATE TABLE contract_levels (
 CREATE INDEX ON contract_levels(level);
 CREATE INDEX ON contract_levels(contract, is_origination);
 
-CREATE TYPE indexer_mode AS ENUM (
-    'Bootstrap',
-    'Head'
-);
 CREATE TABLE indexer_state (
     quepasa_version TEXT NOT NULL,
-    max_id BIGINT NOT NULL,
-    mode indexer_mode NOT NULL
+    max_id BIGINT NOT NULL
 );
 INSERT INTO indexer_state (
-    quepasa_version, max_id, mode
+    quepasa_version, max_id
 ) VALUES (
-    '{quepasa_version}', 1, 'Bootstrap'
+    '{quepasa_version}', 1
 );
 
 create table tx_contexts (

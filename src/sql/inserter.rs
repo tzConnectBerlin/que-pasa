@@ -13,6 +13,7 @@ use crate::sql::insert::Insert;
 use crate::sql::types::BigmapMetaAction;
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
+use crate::threading_utils::AtomicCondvar;
 
 #[derive(Clone)]
 pub(crate) struct DBInserter {
@@ -22,9 +23,17 @@ pub(crate) struct DBInserter {
     batch_size: usize,
 }
 
+pub(crate) enum InserterAction {
+    InsertNow { notify_on_inserted: AtomicCondvar },
+    AddToBatch { block: ProcessedBlock },
+}
+
 pub(crate) struct ProcessedBlock {
+    pub trigger_insert: bool,
+    pub level: LevelMeta,
+    pub notify_on_inserted: Option<AtomicCondvar>,
+
     pub contracts: Vec<ProcessedContractBlock>,
-    pub prioritize_insert: bool,
 }
 
 impl DBInserter {
@@ -35,7 +44,7 @@ impl DBInserter {
     pub(crate) fn run(
         &self,
         stats: &StatsLogger,
-        recv_ch: flume::Receiver<Box<ProcessedBlock>>,
+        recv_ch: flume::Receiver<Box<InserterAction>>,
     ) -> Result<thread::JoinHandle<()>> {
         let batch_size = self.batch_size;
         let dbcli = self.dbcli.clone();
@@ -51,7 +60,7 @@ impl DBInserter {
         mut dbcli: DBClient,
         batch_size: usize,
         stats: &StatsLogger,
-        recv_ch: flume::Receiver<Box<ProcessedBlock>>,
+        recv_ch: flume::Receiver<Box<InserterAction>>,
     ) -> Result<()> {
         let update_derived = false;
         #[cfg(feature = "regression_force_update_derived")]
@@ -60,9 +69,20 @@ impl DBInserter {
         let mut batch = ProcessedBatch::new(dbcli.get_max_id()?);
 
         let mut accum_begin = Instant::now();
-        for processed_block in recv_ch {
-            let force_insert = processed_block.prioritize_insert;
-            batch.add(*processed_block);
+        for action in recv_ch {
+            let mut force_insert = false;
+            match *action {
+                InserterAction::AddToBatch { block } => {
+                    force_insert = block.trigger_insert;
+                    batch.add(block);
+                }
+                InserterAction::InsertNow { notify_on_inserted } => {
+                    force_insert = true;
+                    batch
+                        .inserted_listeners
+                        .push(notify_on_inserted);
+                }
+            }
 
             if batch.len() >= batch_size || force_insert {
                 let accum_elapsed = accum_begin.elapsed();
@@ -155,12 +175,15 @@ fn insert_batch(
 
     db_tx.commit()?;
 
+    for listener in &batch.inserted_listeners {
+        listener.notify_all();
+    }
+
     Ok(())
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct ProcessedContractBlock {
-    pub level: LevelMeta,
     pub contract: relational::Contract,
 
     pub is_origination: bool,
@@ -251,6 +274,8 @@ struct ProcessedBatch {
     pub contract_tx_contexts:
         HashMap<ContractID, (relational::Contract, Vec<TxContext>)>,
 
+    pub inserted_listeners: Vec<AtomicCondvar>,
+
     max_id: i64,
 }
 
@@ -269,6 +294,8 @@ impl ProcessedBatch {
             contract_inserts: HashMap::new(),
             contract_deps: vec![],
             contract_tx_contexts: HashMap::new(),
+
+            inserted_listeners: vec![],
 
             max_id,
         }
@@ -291,23 +318,30 @@ impl ProcessedBatch {
         self.contract_levels.clear();
         self.contract_inserts.clear();
         self.contract_deps.clear();
+        self.inserted_listeners.clear();
 
         self.size = 0;
     }
 
     pub fn add(&mut self, processed_block: ProcessedBlock) {
+        let block_level: i32 = processed_block.level.level as i32;
+        if let Vacant(e) = self.levels.entry(block_level) {
+            e.insert(processed_block.level.clone());
+        }
+
         for mut cres in processed_block.contracts.into_iter() {
             self.max_id = cres.offset_ids(self.max_id);
-            self.add_cres(cres);
+            self.add_cres(block_level, cres);
         }
+
+        if let Some(listener) = processed_block.notify_on_inserted {
+            self.inserted_listeners.push(listener);
+        }
+
         self.size += 1;
     }
 
-    fn add_cres(&mut self, cres: ProcessedContractBlock) {
-        let level: i32 = cres.level.level as i32;
-        if let Vacant(e) = self.levels.entry(level) {
-            e.insert(cres.level.clone());
-        }
+    fn add_cres(&mut self, block_level: i32, cres: ProcessedContractBlock) {
         self.tx_contexts
             .extend(cres.tx_contexts.clone());
         self.txs.extend(cres.txs.clone());
@@ -330,7 +364,7 @@ impl ProcessedBatch {
 
         self.contract_levels.push((
             cres.contract.cid.clone(),
-            cres.level.level as i32,
+            block_level,
             cres.is_origination,
         ));
 
@@ -352,7 +386,12 @@ impl ProcessedBatch {
                 cres.bigmap_contract_deps
                     .iter()
                     .map(|dep| {
-                        (level, dep.0.clone(), cres.contract.cid.clone(), dep.2)
+                        (
+                            block_level,
+                            dep.0.clone(),
+                            cres.contract.cid.clone(),
+                            dep.2,
+                        )
                     }),
             );
 
