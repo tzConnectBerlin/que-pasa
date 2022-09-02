@@ -84,7 +84,7 @@ impl Executor {
             reports_interval as u64,
             0,
         ));
-        let threads = vec![inserter.run(&stats, processed_recv)?, stats.run()];
+        let threads = vec![inserter.run(&stats, processed_recv)?];
 
         Ok(Self {
             node_cli,
@@ -222,6 +222,7 @@ impl Executor {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
         self.finalize_bootstrapping_contracts(true)?;
+        info!("post finalize_bootstrapping_contracts");
 
         fn wait(first_wait: &mut bool) {
             if *first_wait {
@@ -578,6 +579,9 @@ impl Executor {
 
         threads.push(thread::spawn(|| levels_selector(height_send)));
 
+        self.stats.reset()?;
+        let stats_thread = self.stats.run();
+
         let processed_results: Arc<Mutex<(Vec<u32>, Vec<u32>)>> =
             Arc::new(Mutex::new((vec![], vec![])));
 
@@ -608,6 +612,11 @@ impl Executor {
                 anyhow!("parallel execution thread failed with err: {:?}", e)
             })?;
         }
+        self.stats.stop();
+        stats_thread.thread().unpark();
+        stats_thread.join().map_err(|e| {
+            anyhow!("failed to stop processor statistics logger, err: {:?}", e)
+        })?;
 
         let (mut processed_levels, reprocess_levels) =
             Arc::try_unwrap(processed_results)
@@ -664,17 +673,17 @@ impl Executor {
             .dbcli
             .get_indexing_mode_contracts(&self.get_config()?)?;
 
-        for (contract_name, mode) in contract_modes {
+        for (contract, mode) in contract_modes {
             if mode == IndexerMode::Bootstrap {
                 self.dbcli.repopulate_derived_tables(
                     &self
                         .mutexed_state
-                        .get_contract(&contract_name)?
+                        .get_contract(&contract.name)?
                         .unwrap(),
                 )?;
                 self.dbcli.set_indexing_mode_contracts(
                     IndexerMode::Head,
-                    &[contract_name],
+                    &[contract.name],
                 )?;
             }
         }
@@ -910,7 +919,7 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
     ) -> Result<(ProcessedBlock, Vec<u32>)> {
-        info!("exec_for_block: {:?}", level.level);
+        info!("exec for block {:?}", level.level);
         // note: we expect level's values to all be set (no None values in its fields)
         let forked_lvls = self.ensure_level_hash(
             level.level,

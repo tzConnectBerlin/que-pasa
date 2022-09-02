@@ -7,7 +7,7 @@ use std::time::Instant;
 use crate::config::ContractID;
 use crate::octez::block::{LevelMeta, Tx, TxContext};
 use crate::sql::db;
-use crate::sql::db::DBClient;
+use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::insert;
 use crate::sql::insert::Insert;
 use crate::sql::types::BigmapMetaAction;
@@ -111,59 +111,71 @@ impl DBInserter {
     }
 }
 
-pub(crate) fn insert_processed(
-    dbcli: &mut DBClient,
-    update_derived_tables: bool,
-    processed: ProcessedBlock,
-) -> Result<()> {
-    let mut batch = ProcessedBatch::new(dbcli.get_max_id()?);
-    batch.add(processed);
-
-    insert_batch(dbcli, None, update_derived_tables, &batch)
-}
-
 fn insert_batch(
     dbcli: &mut DBClient,
     stats: Option<&StatsLogger>,
-    update_derived_tables: bool,
+    force_update_derived_tables: bool,
     batch: &ProcessedBatch,
 ) -> Result<()> {
-    let mut conn = dbcli.dbconn()?;
+    info!("insert batch for levels: {:?}", batch.levels.keys());
+    if batch.levels.len() > 0 {
+        let contract_modes = dbcli.get_indexing_mode_contracts(
+            &batch
+                .contract_tx_contexts
+                .keys()
+                .cloned()
+                .collect::<Vec<ContractID>>(),
+        )?;
 
-    let mut db_tx = conn.transaction()?;
+        let mut conn = dbcli.dbconn()?;
 
-    DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
-    DBClient::save_levels(
-        &mut db_tx,
-        &batch
-            .levels
-            .values()
-            .collect::<Vec<&LevelMeta>>(),
-    )?;
-    DBClient::save_contract_deps(&mut db_tx, &batch.contract_deps)?;
-    DBClient::save_contract_levels(&mut db_tx, &batch.contract_levels)?;
+        let mut db_tx = conn.transaction()?;
 
-    DBClient::save_tx_contexts(&mut db_tx, &batch.tx_contexts)?;
-    DBClient::save_txs(&mut db_tx, &batch.txs)?;
+        DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
+        DBClient::save_levels(
+            &mut db_tx,
+            &batch
+                .levels
+                .values()
+                .collect::<Vec<&LevelMeta>>(),
+        )?;
+        DBClient::save_contract_deps(&mut db_tx, &batch.contract_deps)?;
+        DBClient::save_contract_levels(&mut db_tx, &batch.contract_levels)?;
 
-    for (contract_id, inserts) in &batch.contract_inserts {
-        let num_rows = inserts.len();
-        if let Some(stats) = stats {
-            stats.add("inserter", "contract data rows", num_rows)?;
+        DBClient::save_tx_contexts(&mut db_tx, &batch.tx_contexts)?;
+        DBClient::save_txs(&mut db_tx, &batch.txs)?;
+
+        for (contract_id, inserts) in &batch.contract_inserts {
+            let num_rows = inserts.len();
+            if let Some(stats) = stats {
+                stats.add("inserter", "contract data rows", num_rows)?;
+            }
+            DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
         }
-        DBClient::apply_inserts(&mut db_tx, contract_id, inserts)?;
-    }
-    DBClient::save_bigmap_keyhashes(
-        &mut db_tx,
-        batch.bigmap_keyhashes.clone(),
-    )?;
-    DBClient::save_bigmap_meta_actions(&mut db_tx, &batch.bigmap_meta_actions)?;
+        DBClient::save_bigmap_keyhashes(
+            &mut db_tx,
+            batch.bigmap_keyhashes.clone(),
+        )?;
+        DBClient::save_bigmap_meta_actions(
+            &mut db_tx,
+            &batch.bigmap_meta_actions,
+        )?;
 
-    if update_derived_tables {
-        for (contract_id, (contract, ctxs)) in &batch.contract_tx_contexts {
+        for (contract_id, mode) in contract_modes.into_iter() {
+            if mode == IndexerMode::Bootstrap && !force_update_derived_tables {
+                continue;
+            }
+            let (rel_contract, ctxs) = &batch
+                .contract_tx_contexts
+                .get(&contract_id)
+                .unwrap();
+            info!(
+                "updating derived tables for {:?}, ctxs: {:?}",
+                contract_id.name, ctxs
+            );
             dbcli.update_derived_tables(
                 &mut db_tx,
-                contract,
+                rel_contract,
                 ctxs,
             ).with_context(|| {
                 format!(
@@ -171,9 +183,9 @@ fn insert_batch(
                     batch.levels.keys(), contract_id.name,
                 )})?;
         }
-    }
 
-    db_tx.commit()?;
+        db_tx.commit()?;
+    }
 
     for listener in &batch.inserted_listeners {
         listener.notify_all();
@@ -319,6 +331,7 @@ impl ProcessedBatch {
         self.contract_inserts.clear();
         self.contract_deps.clear();
         self.inserted_listeners.clear();
+        self.contract_tx_contexts.clear();
 
         self.size = 0;
     }

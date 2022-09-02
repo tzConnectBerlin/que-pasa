@@ -1081,13 +1081,13 @@ WHERE chain_prev_hash != db_prev_hash
     pub(crate) fn get_indexing_mode_contracts(
         &mut self,
         contracts: &[ContractID],
-    ) -> Result<HashMap<String, IndexerMode>> {
+    ) -> Result<HashMap<ContractID, IndexerMode>> {
         let mut conn = self.dbconn()?;
 
-        let mut res: HashMap<String, IndexerMode> = HashMap::new();
+        let mut res: HashMap<ContractID, IndexerMode> = HashMap::new();
         for row in conn.query(
             "
-SELECT name, mode
+SELECT name, address, mode
 FROM contracts
 WHERE name = ANY($1)
         ",
@@ -1096,7 +1096,13 @@ WHERE name = ANY($1)
                 .map(|c| &c.name)
                 .collect::<Vec<&String>>()],
         )? {
-            res.insert(row.get(0), row.get(1));
+            res.insert(
+                ContractID {
+                    name: row.get(0),
+                    address: row.get(1),
+                },
+                row.get(2),
+            );
         }
 
         Ok(res)
