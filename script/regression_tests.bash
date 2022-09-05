@@ -119,8 +119,8 @@ EOF
 export RUST_BACKTRACE=1
 
 cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1500000-1500001 || exit 1
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1500002-1500005 || exit 1
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1700002-1700005 || exit 1
+cargo run --features regression_force_update_derived -- --workers-cap=1 --getters-cap=1 --main-schema custom_Main_Schema --index-all-contracts -l 1500002-1500005 || exit 1
+cargo run --features regression_force_update_derived -- --workers-cap=1 --getters-cap=1 --main-schema custom_Main_Schema --index-all-contracts -l 1700002-1700005 || exit 1
 
 # the latter has a delete bigmap, the first 3 have rows indexed of the deleted bigmap
 cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768431 || exit 1

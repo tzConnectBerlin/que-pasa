@@ -158,6 +158,7 @@ WHERE table_schema = $1
         &mut self,
         contract: &relational::Contract,
     ) -> Result<()> {
+        info!("???? repopulating: {:?}", contract.cid.name);
         let (mut tables, noview_prefixes, _): (
             Vec<Table>,
             Vec<String>,
@@ -1122,7 +1123,7 @@ SET mode = $1
 WHERE name = ANY($2)",
             &[&mode, &contract_names],
         )?;
-        if updated == 1 {
+        if updated as usize == contract_names.len() {
             Ok(())
         } else {
             Err(anyhow!(
@@ -1230,13 +1231,13 @@ order by 1",
         tx: &mut Transaction,
         levels: &[&LevelMeta],
     ) -> Result<()> {
-        Self::delete_levels(
-            tx,
-            &levels
-                .iter()
-                .map(|meta| meta.level as i32)
-                .collect::<Vec<i32>>(),
-        )?;
+        // Self::delete_levels(
+        //     tx,
+        //     &levels
+        //         .iter()
+        //         .map(|meta| meta.level as i32)
+        //         .collect::<Vec<i32>>(),
+        // )?;
 
         for lvls_chunk in levels.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 4;
@@ -1343,10 +1344,61 @@ WHERE level IN ( {} )
         Ok(())
     }
 
-    pub(crate) fn save_contract_levels(
+    pub(crate) fn delete_contract_levels(
         tx: &mut Transaction,
         clvls: &[(ContractID, i32, bool)],
     ) -> Result<()> {
+        for clvls_chunk in clvls.chunks(Self::INSERT_BATCH_SIZE) {
+            let lvls = clvls_chunk
+                .iter()
+                .map(|(_, lvl, _)| *lvl)
+                .collect::<Vec<i32>>();
+            tx.query(
+                "
+DELETE FROM contract_deps
+WHERE level = ANY ( $1 )
+  AND src_contract = ANY ( $2 )
+",
+                &[
+                    &lvls,
+                    &clvls_chunk
+                        .iter()
+                        .map(|(cid, _, _)| cid.address.clone())
+                        .collect::<Vec<String>>(),
+                ],
+            )?;
+
+            let contracts = &clvls_chunk
+                .iter()
+                .map(|(cid, _, _)| cid.name.clone())
+                .collect::<Vec<String>>();
+            tx.query(
+                "
+DELETE FROM contract_levels
+WHERE level = ANY ( $1 )
+  AND contract = ANY ( $2 )
+",
+                &[&lvls, &contracts],
+            )?;
+            tx.query(
+                "
+DELETE FROM tx_contexts
+WHERE level = ANY ( $1 )
+  AND contract = ANY ( $2 )
+",
+                &[&lvls, &contracts],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn save_contract_levels(
+        tx: &mut Transaction,
+        clvls: &[(ContractID, i32, bool)],
+        deps: &[(i32, String, ContractID, bool)],
+    ) -> Result<()> {
+        Self::delete_contract_levels(tx, clvls)?;
+
         for clvls_chunk in clvls.chunks(Self::INSERT_BATCH_SIZE) {
             let num_columns = 3;
             let v_refs = (1..(num_columns * clvls_chunk.len()) + 1)
@@ -1377,10 +1429,13 @@ VALUES ( {} )",
 
             tx.query_raw(&stmt, values)?;
         }
+
+        Self::save_contract_deps(tx, deps)?;
+
         Ok(())
     }
 
-    pub(crate) fn save_contract_deps(
+    fn save_contract_deps(
         tx: &mut Transaction,
         deps: &[(i32, String, ContractID, bool)],
     ) -> Result<()> {
@@ -1396,7 +1451,7 @@ VALUES ( {} )",
                 "
 INSERT INTO contract_deps (level, src_contract, dest_schema, is_deep_copy)
 VALUES ( {} )
-ON CONFLICT DO NOTHING",
+",
                 v_refs
             ))?;
 

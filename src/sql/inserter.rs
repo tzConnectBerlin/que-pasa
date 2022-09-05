@@ -70,7 +70,7 @@ impl DBInserter {
 
         let mut accum_begin = Instant::now();
         for action in recv_ch {
-            let mut force_insert = false;
+            let force_insert;
             match *action {
                 InserterAction::AddToBatch { block } => {
                     force_insert = block.trigger_insert;
@@ -132,6 +132,7 @@ fn insert_batch(
         let mut db_tx = conn.transaction()?;
 
         DBClient::set_max_id(&mut db_tx, batch.get_max_id())?;
+        DBClient::delete_contract_levels(&mut db_tx, &batch.contract_levels)?;
         DBClient::save_levels(
             &mut db_tx,
             &batch
@@ -139,8 +140,11 @@ fn insert_batch(
                 .values()
                 .collect::<Vec<&LevelMeta>>(),
         )?;
-        DBClient::save_contract_deps(&mut db_tx, &batch.contract_deps)?;
-        DBClient::save_contract_levels(&mut db_tx, &batch.contract_levels)?;
+        DBClient::save_contract_levels(
+            &mut db_tx,
+            &batch.contract_levels,
+            &batch.contract_deps,
+        )?;
 
         DBClient::save_tx_contexts(&mut db_tx, &batch.tx_contexts)?;
         DBClient::save_txs(&mut db_tx, &batch.txs)?;

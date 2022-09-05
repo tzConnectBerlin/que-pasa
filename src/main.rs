@@ -28,6 +28,8 @@ use std::panic;
 use std::process;
 use std::thread;
 
+use crate::sql::inserter::{DBInserter, InserterAction};
+use crate::stats::StatsLogger;
 use config::ContractID;
 use contract_denylist::is_contract_denylisted;
 use storage_structure::relational;
@@ -87,12 +89,25 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         .as_ref()
         .map(|url| (url.clone(), config.bcd_network.clone()));
 
+    let batch_size = 10;
+    let (processed_send, processed_recv) =
+        flume::bounded::<Box<InserterAction>>(batch_size * 2);
+    let inserter = DBInserter::new(dbcli.clone(), batch_size);
+
+    let stats = StatsLogger::new(std::time::Duration::new(
+        config.reports_interval as u64,
+        0,
+    ));
+    let _threads = vec![inserter
+        .run(&stats, processed_recv)
+        .unwrap()];
+
     let mut executor = highlevel::Executor::new(
         node_cli.clone(),
         dbcli,
-        config.reports_interval,
-    )
-    .unwrap();
+        processed_send,
+        stats,
+    );
     if config.all_contracts {
         index_all_contracts(config, &bcd_settings, executor);
         return;

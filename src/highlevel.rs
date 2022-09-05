@@ -19,7 +19,7 @@ use crate::octez::node::NodeClient;
 use crate::relational::RelationalAST;
 use crate::sql::db::{DBClient, IndexerMode};
 use crate::sql::inserter::{
-    DBInserter, InserterAction, ProcessedBlock, ProcessedContractBlock,
+    InserterAction, ProcessedBlock, ProcessedContractBlock,
 };
 use crate::stats::StatsLogger;
 use crate::storage_structure::relational;
@@ -57,7 +57,7 @@ impl SaveLevelResult {
 }
 
 #[derive(Clone)]
-pub struct Executor {
+pub(crate) struct Executor {
     node_cli: NodeClient,
     dbcli: DBClient,
 
@@ -67,35 +67,23 @@ pub struct Executor {
     // threads: Vec<thread::JoinHandle<()>>,
     out_processed: flume::Sender<Box<InserterAction>>,
     stats: StatsLogger,
-    inserter: DBInserter,
 }
 
 impl Executor {
     pub fn new(
         node_cli: NodeClient,
         dbcli: DBClient,
-        reports_interval: usize,
-    ) -> Result<Self> {
-        let batch_size = 10;
-        let (processed_send, processed_recv) =
-            flume::bounded::<Box<InserterAction>>(batch_size * 2);
-        let inserter = DBInserter::new(dbcli.clone(), batch_size);
-        let stats = StatsLogger::new(std::time::Duration::new(
-            reports_interval as u64,
-            0,
-        ));
-        let threads = vec![inserter.run(&stats, processed_recv)?];
-
-        Ok(Self {
+        processed_send: flume::Sender<Box<InserterAction>>,
+        stats: StatsLogger,
+    ) -> Self {
+        Self {
             node_cli,
             dbcli,
             all_contracts: false,
             out_processed: processed_send,
-            inserter,
-            // threads,
             mutexed_state: MutexedState::new(),
             stats,
-        })
+        }
     }
 
     fn update_level_floor(&mut self) -> Result<()> {
@@ -636,6 +624,16 @@ impl Executor {
             processed_levels.extend(reprocessed_levels);
         }
 
+        if self.all_contracts {
+            self.dbcli.set_indexing_mode_contracts(
+                IndexerMode::Bootstrap,
+                &self
+                    .get_config()?
+                    .into_iter()
+                    .map(|c| c.name)
+                    .collect::<Vec<String>>(),
+            )?;
+        }
         info!("exiting exec_parallel");
 
         Ok(processed_levels)
@@ -674,6 +672,7 @@ impl Executor {
             .get_indexing_mode_contracts(&self.get_config()?)?;
 
         for (contract, mode) in contract_modes {
+            info!("!!!! contract: {:?} is in mode {:?}", contract, mode);
             if mode == IndexerMode::Bootstrap {
                 self.dbcli.repopulate_derived_tables(
                     &self
