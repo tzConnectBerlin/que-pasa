@@ -302,6 +302,7 @@ WHERE table_schema = $1
         &mut self,
         contracts: &mut Vec<relational::Contract>,
     ) -> Result<bool> {
+        info!("create_contract_schemas: {:#?}", contracts);
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
 
@@ -334,6 +335,7 @@ RETURNING name",
             .query_raw(&stmt, values)?
             .map(|x| x.try_get(0))
             .collect::<Vec<String>>()?;
+        info!("????? {:#?}", new_contracts);
         if new_contracts.is_empty() {
             tx.rollback()?;
             return Ok(false);
@@ -968,6 +970,26 @@ FROM (
         self.get_level_internal(None)
     }
 
+    pub(crate) fn get_config_head(
+        &self,
+        contracts: &[ContractID],
+    ) -> Result<Option<i32>> {
+        let mut conn = self.dbconn()?;
+
+        let result = conn.query_opt(
+            "
+SELECT
+    MAX(level)
+FROM contract_levels
+WHERE contract = ANY($1)",
+            &[&contracts
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<&String>>()],
+        )?;
+        Ok(result.map(|row| row.get(0)))
+    }
+
     pub(crate) fn get_level(
         &mut self,
         level: u32,
@@ -1353,32 +1375,21 @@ WHERE level IN ( {} )
                 .iter()
                 .map(|(_, lvl, _)| *lvl)
                 .collect::<Vec<i32>>();
+            let contract_names = &clvls_chunk
+                .iter()
+                .map(|(cid, _, _)| cid.name.clone())
+                .collect::<Vec<String>>();
+            let contract_addrs = &clvls_chunk
+                .iter()
+                .map(|(cid, _, _)| cid.address.clone())
+                .collect::<Vec<String>>();
             tx.query(
                 "
 DELETE FROM contract_deps
 WHERE level = ANY ( $1 )
   AND src_contract = ANY ( $2 )
 ",
-                &[
-                    &lvls,
-                    &clvls_chunk
-                        .iter()
-                        .map(|(cid, _, _)| cid.address.clone())
-                        .collect::<Vec<String>>(),
-                ],
-            )?;
-
-            let contracts = &clvls_chunk
-                .iter()
-                .map(|(cid, _, _)| cid.name.clone())
-                .collect::<Vec<String>>();
-            tx.query(
-                "
-DELETE FROM contract_levels
-WHERE level = ANY ( $1 )
-  AND contract = ANY ( $2 )
-",
-                &[&lvls, &contracts],
+                &[&lvls, &contract_addrs],
             )?;
             tx.query(
                 "
@@ -1386,7 +1397,15 @@ DELETE FROM tx_contexts
 WHERE level = ANY ( $1 )
   AND contract = ANY ( $2 )
 ",
-                &[&lvls, &contracts],
+                &[&lvls, &contract_addrs],
+            )?;
+            tx.query(
+                "
+DELETE FROM contract_levels
+WHERE level = ANY ( $1 )
+  AND contract = ANY ( $2 )
+",
+                &[&lvls, &contract_names],
             )?;
         }
         Ok(())
@@ -1470,6 +1489,27 @@ VALUES ( {} )
             tx.query_raw(&stmt, values)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn get_config(
+        &self,
+        include_dynamic_loader: bool,
+    ) -> Result<Vec<ContractID>> {
+        let mut conn = self.dbconn()?;
+
+        let mut qry = "SELECT name, address FROM contracts".to_string();
+        if include_dynamic_loader {
+            qry = format!("{} UNION ALL SELECT name, address FROM dynamic_loader_contracts", qry);
+        }
+
+        let mut res: Vec<ContractID> = vec![];
+        for row in conn.query(qry.as_str(), &[])? {
+            res.push(ContractID {
+                name: row.get(0),
+                address: row.get(1),
+            });
+        }
+        Ok(res)
     }
 
     pub(crate) fn get_origination(

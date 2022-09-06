@@ -67,6 +67,8 @@ pub(crate) struct Executor {
     // threads: Vec<thread::JoinHandle<()>>,
     out_processed: flume::Sender<Box<InserterAction>>,
     stats: StatsLogger,
+
+    head_processor_mutex: Arc<Mutex<bool>>,
 }
 
 impl Executor {
@@ -83,6 +85,7 @@ impl Executor {
             out_processed: processed_send,
             mutexed_state: MutexedState::new(),
             stats,
+            head_processor_mutex: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -115,7 +118,76 @@ impl Executor {
             .add_contract(contract)
     }
 
-    pub fn dynamic_loader(&mut self) {}
+    pub fn dynamic_loader(
+        &mut self,
+        bcd_settings: &Option<(String, String)>,
+        num_getters: usize,
+        num_processors: usize,
+        acceptable_head_offset: Duration,
+    ) -> Result<()> {
+        loop {
+            let active_config = self.get_config()?;
+            let target_config = self.dbcli.get_config(true)?;
+            let new_contracts = target_config
+                .into_iter()
+                .filter(|target_contract| {
+                    !active_config.contains(target_contract)
+                })
+                .collect::<Vec<ContractID>>();
+            if new_contracts.is_empty() {
+                info!("no new contracts..");
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                continue;
+            }
+            info!("new contracts: {:#?}", new_contracts);
+
+            let mut loader = Self::new(
+                self.node_cli.clone(),
+                self.dbcli.clone(),
+                self.out_processed.clone(),
+                self.stats.clone(),
+            );
+
+            for contract_id in &new_contracts {
+                loader.add_contract(contract_id)?;
+            }
+
+            loader.exec_new_contracts_historically(
+                bcd_settings,
+                num_getters,
+                num_processors,
+                acceptable_head_offset,
+            )?;
+
+            loader.finalize_bootstrapping_contracts(true)?;
+
+            let cloned_lock = self.head_processor_mutex.clone();
+            warn!("obtaining lock for finishing dynamic load");
+            {
+                let _lock = cloned_lock.lock();
+
+                warn!("got lock for finishing dynamic load ");
+                std::thread::sleep(std::time::Duration::from_millis(30000));
+
+                let db_head: u32 = self.dbcli.get_head()?.unwrap().level;
+                let config_head: u32 = self
+                    .dbcli
+                    .get_config_head(&loader.get_config()?)?
+                    .unwrap() as u32;
+
+                warn!(", executing from {:#?} til {:#?}", config_head, db_head,);
+
+                for level in config_head..(db_head + 1) {
+                    Self::print_status(level, &loader.exec_level(level)?);
+                }
+
+                for contract in &loader.get_config()? {
+                    self.add_contract(contract)?;
+                }
+                warn!("dynamic load done!")
+            }
+        }
+    }
 
     pub fn add_missing_contracts(
         &mut self,
@@ -206,7 +278,7 @@ impl Executor {
         self.exec_levels(1, 1, levels)
     }
 
-    pub fn exec_continuous(&mut self) -> Result<()> {
+    pub fn exec_continuous(&mut self, max_level: Option<u32>) -> Result<()> {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
         self.finalize_bootstrapping_contracts(true)?;
@@ -247,13 +319,24 @@ impl Executor {
                 }
             }?;
             debug!("db: {} chain: {}", db_head.level, chain_head.level);
+            let exec_lock = self.head_processor_mutex.clone();
             match chain_head.level.cmp(&db_head.level) {
                 Ordering::Greater => {
+                    warn!("obtaining lock for processing level");
+                    let _lock = exec_lock.lock();
+                    warn!("got lock for processing level");
+
                     wait_done(&mut first_wait);
                     for level in (db_head.level + 1)..=chain_head.level {
+                        if let Some(max_level) = max_level {
+                            if level > max_level {
+                                return Ok(());
+                            }
+                        }
                         Self::print_status(level, &self.exec_level(level)?);
                     }
                     first_wait = true;
+                    warn!("releasing lock for processing level");
                     continue;
                 }
                 Ordering::Less => {
@@ -263,6 +346,10 @@ impl Executor {
                 Ordering::Equal => {
                     // they are equal, so we will just check that the hashes match.
                     if db_head.hash != chain_head.hash {
+                        warn!("obtaining lock for processing level");
+                        let _lock = exec_lock.lock();
+                        warn!("got lock for processing level");
+
                         wait_done(&mut first_wait);
                         warn!(
                             "Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
@@ -280,6 +367,7 @@ impl Executor {
                             &[db_head.level as i32],
                         )?;
                         tx.commit()?;
+                        warn!("releasing lock for processing level");
                     }
                     wait(&mut first_wait);
                 }
@@ -394,10 +482,16 @@ impl Executor {
         num_processors: usize,
         acceptable_head_offset: Duration,
     ) -> Result<Vec<ContractID>> {
+        info!(
+            "exec new contracts historically for config: {:#?}",
+            self.get_config()?
+        );
         let mut res: Vec<ContractID> = vec![];
         loop {
+            info!("add dependency contracts..");
             self.add_dependency_contracts().unwrap();
             let new_contracts = self.create_contract_schemas().unwrap();
+            info!("new contracts: {:#?}", new_contracts);
 
             if new_contracts.is_empty() {
                 break;
@@ -918,7 +1012,6 @@ impl Executor {
         level: &LevelMeta,
         block: &Block,
     ) -> Result<(ProcessedBlock, Vec<u32>)> {
-        info!("exec for block {:?}", level.level);
         // note: we expect level's values to all be set (no None values in its fields)
         let forked_lvls = self.ensure_level_hash(
             level.level,
@@ -954,6 +1047,14 @@ impl Executor {
         } else {
             self.get_config()?
         };
+        info!(
+            "exec for block {:?} for {:?}",
+            level.level,
+            process_contracts
+                .iter()
+                .map(|cid| cid.name.clone())
+                .collect::<Vec<String>>()
+        );
         let mut contract_results: Vec<ProcessedContractBlock> = vec![];
 
         let diffs = IntraBlockBigmapDiffsProcessor::from_block(block)?;

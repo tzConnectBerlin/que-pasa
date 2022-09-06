@@ -19,6 +19,13 @@ CREATE TABLE contracts (
     UNIQUE(address)
 );
 
+CREATE TABLE dynamic_loader_contracts (
+    name TEXT PRIMARY KEY,
+    address VARCHAR(100) NOT NULL,
+
+    UNIQUE(address)
+);
+
 CREATE TABLE contract_levels (
     contract TEXT NOT NULL REFERENCES contracts(name) ON DELETE CASCADE,
     level INTEGER NOT NULL,

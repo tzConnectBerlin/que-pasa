@@ -183,9 +183,21 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         .reprocess_forked_levels(num_getters, num_processors)
         .unwrap();
 
+    let mut loader = executor.clone();
+    let _t = thread::spawn(move || {
+        loader
+            .dynamic_loader(
+                &bcd_settings,
+                num_getters,
+                num_processors,
+                config.allowed_unbootstrapped_offset,
+            )
+            .unwrap();
+    });
+
     // At last, normal operation.
     info!("processing blocks at the chain head");
-    executor.exec_continuous().unwrap();
+    executor.exec_continuous(None).unwrap();
 }
 
 fn index_all_contracts(
@@ -223,7 +235,7 @@ fn index_all_contracts(
             .unwrap();
 
         info!("processing blocks at the chain head");
-        executor.exec_continuous().unwrap();
+        executor.exec_continuous(None).unwrap();
     }
 }
 
