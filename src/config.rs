@@ -1,3 +1,4 @@
+use crate::cli::CliAction;
 use anyhow::Result;
 use clap::{App, Arg};
 use serde_yaml;
@@ -5,7 +6,7 @@ use smart_default::SmartDefault;
 use std::fs;
 
 #[derive(Clone, SmartDefault, Debug)]
-pub struct Config {
+pub(crate) struct Config {
     pub main_schema: String,
 
     pub contracts: Vec<ContractID>,
@@ -27,6 +28,8 @@ pub struct Config {
     pub always_yes: bool,
     pub reports_interval: usize,
 
+    pub cli_actions: Vec<CliAction>,
+
     #[default(_code = "chrono::Duration::hours(1)")]
     pub allowed_unbootstrapped_offset: chrono::Duration,
 }
@@ -34,18 +37,18 @@ pub struct Config {
 #[derive(
     Hash, Eq, PartialEq, Clone, Default, Debug, Serialize, Deserialize,
 )]
-pub struct ContractID {
+pub(crate) struct ContractID {
     pub address: String,
     pub name: String,
 }
 
 lazy_static! {
-    pub static ref CONFIG: Result<Config> = init_config();
+    pub(crate) static ref CONFIG: Result<Config> = init_config();
 }
-pub const QUEPASA_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(crate) const QUEPASA_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // init config and return it also.
-pub fn init_config() -> Result<Config> {
+pub(crate) fn init_config() -> Result<Config> {
     let mut config: Config = Default::default();
     let matches = App::new("Tezos Contract Baby Indexer")
         .version(QUEPASA_VERSION)
@@ -53,7 +56,7 @@ pub fn init_config() -> Result<Config> {
         .about("An indexer for specific contracts")
         .arg(
             Arg::with_name("main_schema")
-                .short("s")
+                .short('s')
                 .long("main-schema")
                 .value_name("MAIN_SCHEMA")
                 .env("MAIN_SCHEMA")
@@ -63,7 +66,7 @@ pub fn init_config() -> Result<Config> {
         )
         .arg(
             Arg::with_name("contract_settings")
-                .short("c")
+                .short('c')
                 .long("contract-settings")
                 .value_name("CONTRACT_SETTINGS")
                 .env("CONTRACT_SETTINGS")
@@ -79,6 +82,14 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(true)
         )
         .arg(
+            Arg::with_name("add_contract")
+                .long("add-contract")
+                .value_name("ADD_CONTRACT")
+                .help("cli action: add additional contracts to be indexed (in syntax: <name>=<address>)")
+                .multiple(true)
+                .takes_value(true)
+        )
+        .arg(
             Arg::with_name("index_all_contracts")
                 .long("index-all-contracts")
                 .value_name("INDEX_ALL_CONTRACTS")
@@ -87,7 +98,7 @@ pub fn init_config() -> Result<Config> {
         )
         .arg(
             Arg::with_name("database_url")
-                .short("d")
+                .short('d')
                 .long("database-url")
                 .env("DATABASE_URL")
                 .default_value("host=localhost port=5432 user=test password=test dbname=test")
@@ -96,7 +107,7 @@ pub fn init_config() -> Result<Config> {
                 .takes_value(true))
         .arg(
             Arg::with_name("node_url")
-                .short("n")
+                .short('n')
                 .long("node-url")
                 .env("NODE_URL")
                 .default_value("http://localhost:8732")
@@ -152,7 +163,7 @@ pub fn init_config() -> Result<Config> {
         )
         .arg(
             Arg::with_name("levels")
-                .short("l")
+                .short('l')
                 .long("levels")
                 .value_name("LEVELS")
                 .env("LEVELS")
@@ -161,7 +172,7 @@ pub fn init_config() -> Result<Config> {
         )
         .arg(
             Arg::with_name("reports_interval")
-                .short("i")
+                .short('i')
                 .long("reports-interval")
                 .value_name("REPORTS_INTERVAL")
                 .env("REPORTS_INTERVAL")
@@ -186,7 +197,7 @@ pub fn init_config() -> Result<Config> {
         .arg(
             Arg::with_name("always_yes")
                 .long("always-yes")
-                .short("y")
+                .short('y')
                 .value_name("ALWAYS_YES")
                 .help("If set, never prompt for confirmations, always default to 'yes'")
                 .takes_value(false))
@@ -224,6 +235,19 @@ unfortunately.")
                     None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
                 }
             }).collect::<Vec<ContractID>>(),
+        );
+    }
+    if matches.is_present("add_contract") {
+        config.cli_actions.extend(
+            matches.values_of("add_contract").unwrap().map(|s| {
+                match s.split_once('=') {
+                    Some((name, address)) => CliAction::AddContract{cid: ContractID {
+                        name: name.to_string(),
+                        address: address.to_string(),
+                    }},
+                    None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
+                }
+            }).collect::<Vec<CliAction>>(),
         );
     }
 

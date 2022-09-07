@@ -10,40 +10,40 @@ edition = "2018"
 pretty_assertions = "*"
 
 [dependencies]
-askama = "0.10"
-serde_yaml = "0.8.20"
-backoff = "0.3.0"
-reqwest = { version = "0.11.4", features = ["blocking"] }
-flume = "0.10.8"
+askama = "0.11"
+serde_yaml = "0.9.11"
+backoff = "0.4"
+reqwest = { version = "0.11", features = ["blocking"] }
+flume = "0.10"
 anyhow = { version = "1.0", features = ["backtrace"] }
-atty = "0.2.14"
-backtrace = "*"
-bs58 = { version = "0.4.0", features = ["check"] }
+atty = "0.2"
+backtrace = "0.3"
+bs58 = { version = "0.4", features = ["check"] }
 chrono = { version = "0.4", features = ["serde"] }
-duration-str = { version = "0.3.9", features = ["chrono"] }
-clap = "2.33.3"
-r2d2_postgres = "0.18.1"
-r2d2 = "0.8.9"
-curl = "0.4.36"
-env_logger = "0.8.3"
-hex = "0.3.0"
-indicatif = "0.16.0"
-itertools = "*"
-lazy_static = "1.4.0"
-log = "0.4.0"
+duration-str = { version = "0.4", features = ["chrono"] }
+clap = { version = "3.2", features = ["env"] }
+r2d2_postgres = "0.18"
+r2d2 = "0.8"
+curl = "0.4"
+env_logger = "0.9"
+hex = "0.4"
+indicatif = "0.17"
+itertools = "0.10"
+lazy_static = "1.4"
+log = "0.4"
 num = { version = "0.4", features = ["serde"] }
-postgres = { version = "0.19.2", features = ["with-chrono-0_4", "with-serde_json-1"] }
-postgres-types = { version = "0.2.2", features = ["derive"] }
-postgres-native-tls = "0.5.0"
-pg_bigdecimal = { version = "0.1.1", features = ["serde"] }
-regex = "1.4.5"
-ron = "0.6.4"
-serde = { version = "1.0.125", features = ["derive"] }
-serde_derive = "1.0.125"
-serde_json = { version = "1.0.64", features = ["unbounded_depth"] }
-serde_stacker = "0.1.4"
+postgres = { version = "0.19", features = ["with-chrono-0_4", "with-serde_json-1"] }
+postgres-types = { version = "0.2", features = ["derive"] }
+postgres-native-tls = "0.5"
+pg_bigdecimal = { version = "0.1.5", features = ["serde"] }
+regex = "1.6"
+ron = "0.8"
+serde = { version = "1.0.144", features = ["derive"] }
+serde_derive = "1.0.144"
+serde_json = { version = "1.0.85", features = ["unbounded_depth"] }
+serde_stacker = "0.1.6"
 thiserror = "1.0"
-smart-default = "0.6.0"
+smart-default = "0.6"
 
 [features]
 regression_force_update_derived = []

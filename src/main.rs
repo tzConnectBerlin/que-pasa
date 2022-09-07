@@ -6,10 +6,11 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 
+pub mod cli;
 pub mod config;
 pub mod contract_denylist;
 pub mod debug;
-pub mod highlevel;
+pub mod executor;
 pub mod octez;
 pub mod sql;
 pub mod stats;
@@ -30,6 +31,7 @@ use std::thread;
 
 use crate::sql::inserter::{DBInserter, InserterAction};
 use crate::stats::StatsLogger;
+use cli::process_cli_actions;
 use config::ContractID;
 use contract_denylist::is_contract_denylisted;
 use storage_structure::relational;
@@ -65,6 +67,13 @@ fn main() {
     .with_context(|| "failed to connect to the db")
     .unwrap();
 
+    if !config.cli_actions.is_empty() {
+        info!("running in cli mode");
+        process_cli_actions(dbcli, &config.cli_actions).unwrap();
+        return;
+    }
+    info!("running in server mode");
+
     let setup_db = config.reinit || !dbcli.common_tables_exist().unwrap();
     if config.reinit {
         assert_sane_db(&mut dbcli);
@@ -73,7 +82,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             process::exit(1);
         }
         dbcli
-            .delete_everything(node_cli, highlevel::get_contract_rel)
+            .delete_everything(node_cli, executor::get_contract_rel)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
     }
@@ -102,12 +111,8 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         .run(&stats, processed_recv)
         .unwrap()];
 
-    let mut executor = highlevel::Executor::new(
-        node_cli.clone(),
-        dbcli,
-        processed_send,
-        stats,
-    );
+    let mut executor =
+        executor::Executor::new(node_cli.clone(), dbcli, processed_send, stats);
     if config.all_contracts {
         index_all_contracts(config, &bcd_settings, executor);
         return;
@@ -203,7 +208,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
 fn index_all_contracts(
     config: &config::Config,
     bcd_settings: &Option<(String, String)>,
-    mut executor: highlevel::Executor,
+    mut executor: executor::Executor,
 ) {
     executor.index_all_contracts();
     if !config.levels.is_empty() {

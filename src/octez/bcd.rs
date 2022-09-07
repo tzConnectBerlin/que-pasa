@@ -161,7 +161,10 @@ impl BCDClient {
     {
         fn transient_err(e: anyhow::Error) -> Error<anyhow::Error> {
             warn!("transient better-call.dev communication error, retrying.. err={}", e);
-            Error::Transient(e)
+            Error::Transient {
+                err: e,
+                retry_after: None,
+            }
         }
         let op = || -> Result<O> {
             let uri = format!("{}/{}", self.api_url, endpoint);

@@ -262,7 +262,10 @@ impl NodeClient {
                     // 56: RECEIVE ERROR
                     7 | 28 | 56 => {
                         warn!("transient node communication error, retrying.. err={:?}", curl_err);
-                        return Error::Transient(anyhow!("{:?}", curl_err));
+                        return Error::Transient {
+                            err: anyhow!("{:?}", curl_err),
+                            retry_after: None,
+                        };
                     }
                     _ => {}
                 };
@@ -289,7 +292,10 @@ impl NodeClient {
                 let err = http_err.unwrap();
                 if err.status_code == 429 {
                     warn!("transient node communication error, retrying.. err={:?}", err);
-                    return Error::Transient(anyhow!("{:?}", err));
+                    return Error::Transient {
+                        err: anyhow!("{:?}", err),
+                        retry_after: None,
+                    };
                 }
                 return Error::Permanent(anyhow!(
                     "bad http status code {}, not retrying..",

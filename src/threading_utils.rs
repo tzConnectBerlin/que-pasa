@@ -13,17 +13,17 @@ impl AtomicCondvar {
     }
 
     pub fn wait(&self) {
-        info!("waiting for condvar..");
+        debug!("AtomicCondvar::wait (enter)");
         let (mutex, cvar) = &*self.flag;
         let mut started = mutex.lock().unwrap();
         while !*started {
             started = cvar.wait(started).unwrap();
         }
-        info!("waiting for condva done.");
+        debug!("AtomicCondvar::wait (exit)");
     }
 
     pub fn notify_all(&self) {
-        info!("notify.");
+        debug!("AtomicCondvar::notify_all");
         let (mutex, cvar) = &*self.flag;
         let mut started = mutex.lock().unwrap();
         *started = true;

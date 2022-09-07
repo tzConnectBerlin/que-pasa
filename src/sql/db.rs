@@ -158,7 +158,6 @@ WHERE table_schema = $1
         &mut self,
         contract: &relational::Contract,
     ) -> Result<()> {
-        info!("???? repopulating: {:?}", contract.cid.name);
         let (mut tables, noview_prefixes, _): (
             Vec<Table>,
             Vec<String>,
@@ -302,7 +301,6 @@ WHERE table_schema = $1
         &mut self,
         contracts: &mut Vec<relational::Contract>,
     ) -> Result<bool> {
-        info!("create_contract_schemas: {:#?}", contracts);
         let mut conn = self.dbconn()?;
         let mut tx = conn.transaction()?;
 
@@ -335,7 +333,6 @@ RETURNING name",
             .query_raw(&stmt, values)?
             .map(|x| x.try_get(0))
             .collect::<Vec<String>>()?;
-        info!("????? {:#?}", new_contracts);
         if new_contracts.is_empty() {
             tx.rollback()?;
             return Ok(false);
@@ -1510,6 +1507,14 @@ VALUES ( {} )
             });
         }
         Ok(res)
+    }
+
+    pub(crate) fn dynamic_loader_add_contract(
+        tx: &mut Transaction,
+        cid: &ContractID,
+    ) -> Result<()> {
+        tx.query("INSERT INTO dynamic_loader_contracts (name, address) values ($1, $2)", &[&cid.name, &cid.address])?;
+        Ok(())
     }
 
     pub(crate) fn get_origination(

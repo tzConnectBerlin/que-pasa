@@ -117,7 +117,7 @@ fn insert_batch(
     force_update_derived_tables: bool,
     batch: &ProcessedBatch,
 ) -> Result<()> {
-    info!("insert batch for levels: {:?}", batch.levels.keys());
+    debug!("insert batch for levels: {:?}", batch.levels.keys());
     if batch.levels.len() > 0 {
         let contract_modes = dbcli.get_indexing_mode_contracts(
             &batch
@@ -173,7 +173,7 @@ fn insert_batch(
                 .contract_tx_contexts
                 .get(&contract_id)
                 .unwrap();
-            info!(
+            debug!(
                 "updating derived tables for {:?}, ctxs: {:?}",
                 contract_id.name, ctxs
             );
