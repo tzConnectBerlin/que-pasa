@@ -29,29 +29,32 @@ use crate::storage_update::processor::StorageProcessor;
 
 use crate::threading_utils::AtomicCondvar;
 
-pub(crate) struct SaveLevelResult {
-    pub level: u32,
-    pub hash: String,
-    pub contract_id: ContractID,
-    pub is_origination: bool,
-    pub tx_count: usize,
+struct LevelContractStats {
+    cid: ContractID,
+    is_origination: bool,
+    tx_count: usize,
 }
 
-impl SaveLevelResult {
-    pub(crate) fn from_processed_block(
-        processed_block: &ProcessedContractBlock,
-    ) -> Self {
+struct LevelStats {
+    level: u32,
+    hash: String,
+    contracts: Vec<LevelContractStats>,
+}
+
+impl LevelStats {
+    pub(crate) fn from_processed_block(block: &ProcessedBlock) -> Self {
         Self {
-            level: 0, // TODO: fix processed_block.level.level,
-            hash: "todo".to_string(),
-            // hash: processed_block
-            //     .level
-            //     .hash
-            //     .clone()
-            //     .unwrap(),
-            contract_id: processed_block.contract.cid.clone(),
-            is_origination: processed_block.is_origination,
-            tx_count: processed_block.tx_contexts.len(),
+            level: block.level.level,
+            hash: block.level.hash.clone().unwrap(),
+            contracts: block
+                .contracts
+                .iter()
+                .map(|cres| LevelContractStats {
+                    cid: cres.contract.cid.clone(),
+                    is_origination: cres.is_origination,
+                    tx_count: cres.tx_contexts.len(),
+                })
+                .collect::<Vec<LevelContractStats>>(),
         }
     }
 }
@@ -64,7 +67,6 @@ pub(crate) struct Executor {
     all_contracts: bool,
 
     mutexed_state: MutexedState,
-    // threads: Vec<thread::JoinHandle<()>>,
     out_processed: flume::Sender<Box<InserterAction>>,
     stats: StatsLogger,
 
@@ -179,7 +181,7 @@ impl Executor {
                 );
 
                 for level in config_head..(db_head + 1) {
-                    Self::print_status(level, &loader.exec_level(level)?);
+                    Self::print_stats(&loader.exec_level(level)?);
                 }
 
                 for contract in &loader_config {
@@ -190,6 +192,7 @@ impl Executor {
                     loader_config
                         .iter()
                         .map(|cid| cid.name.clone())
+                        .collect::<Vec<String>>()
                 );
             }
         }
@@ -312,10 +315,7 @@ impl Executor {
                 Some(head) => Ok(head),
                 None => {
                     if self.all_contracts {
-                        Self::print_status(
-                            chain_head.level,
-                            &self.exec_level(chain_head.level)?,
-                        );
+                        Self::print_stats(&self.exec_level(chain_head.level)?);
                         continue;
                     }
                     Err(anyhow!(
@@ -338,7 +338,7 @@ impl Executor {
                                 return Ok(());
                             }
                         }
-                        Self::print_status(level, &self.exec_level(level)?);
+                        Self::print_stats(&self.exec_level(level)?);
                     }
                     first_wait = true;
                     debug!("releasing lock for processing level");
@@ -871,32 +871,40 @@ impl Executor {
         Ok((processed_levels, reprocess_levels))
     }
 
-    fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
-        let mut contract_statuses: String = contract_results
+    fn print_stats(stats: &LevelStats) {
+        let mut contract_statuses: String = stats
+            .contracts
             .iter()
-            .filter_map(|c| match c.tx_count {
-                0 => None,
-                1 => Some(format!(
-                    "\n\t1 contract call for {}",
-                    c.contract_id.name
-                )),
-                _ => Some(format!(
-                    "\n\t{} contract calls for {}",
-                    c.tx_count, c.contract_id.name
-                )),
+            .filter_map(|c| {
+                let orig_msg = if c.is_origination {
+                    " *origination"
+                } else {
+                    ""
+                };
+                match c.tx_count {
+                    0 => None,
+                    1 => Some(format!(
+                        "\n\t1 contract call for {}{}",
+                        c.cid.name, orig_msg
+                    )),
+                    _ => Some(format!(
+                        "\n\t{} contract calls for {}{}",
+                        c.tx_count, c.cid.name, orig_msg
+                    )),
+                }
             })
             .collect::<Vec<String>>()
             .join(",");
-        let hash_msg = if contract_results.is_empty() {
+        let hash_msg = if stats.contracts.is_empty() {
             "".to_string()
         } else {
-            format!("\nblock has hash: {}", contract_results[0].hash)
+            format!("\nblock has hash: {}", stats.hash)
         };
 
         if contract_statuses.is_empty() {
             contract_statuses = "0 txs for us".to_string();
         }
-        info!("level {}: {}{}", level, contract_statuses, hash_msg);
+        info!("level {}: {}{}", stats.level, contract_statuses, hash_msg);
     }
 
     fn get_storage_processor(
@@ -909,10 +917,7 @@ impl Executor {
         ))
     }
 
-    pub(crate) fn exec_level(
-        &mut self,
-        level_height: u32,
-    ) -> Result<Vec<SaveLevelResult>> {
+    fn exec_level(&mut self, level_height: u32) -> Result<LevelStats> {
         let (meta, block) = self
             .node_cli
             .level_json(level_height)
@@ -923,7 +928,6 @@ impl Executor {
                 )
             })?;
 
-        let mut res: Vec<SaveLevelResult> = vec![];
         let (mut processed_block, forked_lvls) = self
             .exec_for_block(&meta, &block)
             .with_context(|| {
@@ -947,13 +951,10 @@ impl Executor {
             tx.commit()?;
 
             for lvl in forked_lvls {
-                Self::print_status(lvl, &self.exec_level(lvl)?);
+                Self::print_stats(&self.exec_level(lvl)?);
             }
         }
-
-        for cres in &processed_block.contracts {
-            res.push(SaveLevelResult::from_processed_block(cres));
-        }
+        let res = LevelStats::from_processed_block(&processed_block);
 
         let listener = AtomicCondvar::new();
 
