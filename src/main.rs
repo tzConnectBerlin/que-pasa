@@ -189,15 +189,24 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         .unwrap();
 
     let mut loader = executor.clone();
-    let _t = thread::spawn(move || {
-        loader
-            .dynamic_loader(
-                &bcd_settings,
-                num_getters,
-                num_processors,
-                config.allowed_unbootstrapped_offset,
-            )
-            .unwrap();
+    let _t = thread::spawn(move || loop {
+        match loader.dynamic_loader(
+            &bcd_settings,
+            num_getters,
+            num_processors,
+            config.allowed_unbootstrapped_offset,
+        ) {
+            Result::Ok(_) => {
+                return;
+            }
+            Result::Err(err) => {
+                error!(
+                    "dynamic loader err ({}), restarting the dynamic loader",
+                    err
+                );
+                thread::sleep(std::time::Duration::from_millis(500));
+            }
+        }
     });
 
     // At last, normal operation.

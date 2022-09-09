@@ -159,6 +159,20 @@ impl Executor {
                 acceptable_head_offset,
             )?;
 
+            loader
+                .exec_missing_levels(
+                    &bcd_settings,
+                    num_getters,
+                    num_processors,
+                    acceptable_head_offset,
+                    true,
+                )
+                .unwrap();
+
+            loader
+                .reprocess_forked_levels(num_getters, num_processors)
+                .unwrap();
+
             loader.finalize_bootstrapping_contracts(true)?;
 
             let cloned_lock = self.head_processor_mutex.clone();
@@ -755,7 +769,7 @@ impl Executor {
                 .any(|w| w[0] != w[1] - 1);
             ensure!(
                 !has_gaps,
-                anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
+                anyhow!("cannot re-populate derived tables, there are gaps in the processed levels: {:?}", missing_levels.windows(2).filter(|w| w[0] != w[1] - 1))
             );
             ensure!(
                 self.dbcli

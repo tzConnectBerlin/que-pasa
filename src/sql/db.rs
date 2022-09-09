@@ -1213,27 +1213,27 @@ ORDER by 1",
         let partial_processed: Vec<u32> = conn
             .query(
                 "
-with all_levels as (
-    select distinct
+WITH all_levels AS (
+    SELECT DISTINCT
         level
-    from contract_levels
-    where contract = any($1)
+    FROM contract_levels
+    WHERE contract = any($1)
 )
-select distinct
+SELECT DISTINCT
     lvl.level
-from all_levels lvl, contracts c
-left join contract_levels orig
-  on  orig.contract = c.name
-  and orig.is_origination
-where lvl.level >= coalesce(orig.level, 0)
-  and c.name = any($1)
-  and not exists (
-    select 1
-    from contract_levels clvl
-    where clvl.level = lvl.level
-      and clvl.contract = c.name
+FROM all_levels lvl, contracts c
+LEFT JOIN contract_levels orig
+  ON  orig.contract = c.name
+  AND orig.is_origination
+WHERE lvl.level >= coalesce(orig.level, 0)
+  AND c.name = any($1)
+  AND not exists (
+    SELECT 1
+    FROM contract_levels clvl
+    WHERE clvl.level = lvl.level
+      AND clvl.contract = c.name
 )
-order by 1",
+ORDER BY 1",
                 &[&contracts
                     .iter()
                     .map(|c| &c.name)
