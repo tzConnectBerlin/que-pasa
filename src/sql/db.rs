@@ -1467,6 +1467,7 @@ VALUES ( {} )",
                 "
 INSERT INTO contract_deps (level, src_contract, dest_schema, is_deep_copy)
 VALUES ( {} )
+ON CONFLICT DO NOTHING
 ",
                 v_refs
             ))?;
