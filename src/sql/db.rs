@@ -1491,17 +1491,25 @@ ON CONFLICT DO NOTHING
 
     pub(crate) fn get_config(
         &self,
+        static_config: &[ContractID],
         include_dynamic_loader: bool,
     ) -> Result<Vec<ContractID>> {
         let mut conn = self.dbconn()?;
 
-        let mut qry = "SELECT name, address FROM contracts".to_string();
+        let mut qry =
+            "SELECT name, address FROM contracts WHERE name = ANY($1)"
+                .to_string();
         if include_dynamic_loader {
             qry = format!("{} UNION ALL SELECT name, address FROM dynamic_loader_contracts", qry);
         }
 
+        let static_contract_names: Vec<String> = static_config
+            .iter()
+            .map(|cid| cid.name.clone())
+            .collect();
+
         let mut res: Vec<ContractID> = vec![];
-        for row in conn.query(qry.as_str(), &[])? {
+        for row in conn.query(qry.as_str(), &[&static_contract_names])? {
             res.push(ContractID {
                 name: row.get(0),
                 address: row.get(1),

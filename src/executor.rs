@@ -133,7 +133,9 @@ impl Executor {
     ) -> Result<()> {
         loop {
             let active_config = self.get_config()?;
-            let target_config = self.dbcli.get_config(true)?;
+            let target_config = self
+                .dbcli
+                .get_config(&active_config, true)?;
             let new_contracts = target_config
                 .into_iter()
                 .filter(|target_contract| {
