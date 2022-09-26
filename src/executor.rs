@@ -71,6 +71,8 @@ pub(crate) struct Executor {
     stats: StatsLogger,
 
     head_processor_mutex: Arc<Mutex<bool>>,
+
+    polling_interval: std::time::Duration,
 }
 
 impl Executor {
@@ -79,6 +81,7 @@ impl Executor {
         dbcli: DBClient,
         processed_send: flume::Sender<Box<InserterAction>>,
         stats: StatsLogger,
+        polling_interval: std::time::Duration,
     ) -> Self {
         Self {
             node_cli,
@@ -88,6 +91,7 @@ impl Executor {
             mutexed_state: MutexedState::new(),
             stats,
             head_processor_mutex: Arc::new(Mutex::new(false)),
+            polling_interval,
         }
     }
 
@@ -146,6 +150,7 @@ impl Executor {
                 self.dbcli.clone(),
                 self.out_processed.clone(),
                 self.stats.clone(),
+                self.polling_interval.clone(),
             );
 
             for contract_id in &new_contracts {
@@ -306,7 +311,7 @@ impl Executor {
         // in the db
         self.finalize_bootstrapping_contracts(true)?;
 
-        fn wait(first_wait: &mut bool) {
+        fn wait(first_wait: &mut bool, duration: std::time::Duration) {
             if *first_wait {
                 print!("waiting for the next block");
             } else {
@@ -314,7 +319,7 @@ impl Executor {
             }
             *first_wait = false;
             io::stdout().flush().unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(1000));
+            std::thread::sleep(duration);
         }
         fn wait_done(first_wait: &mut bool) {
             if !*first_wait {
@@ -359,7 +364,7 @@ impl Executor {
                     continue;
                 }
                 Ordering::Less => {
-                    wait(&mut first_wait);
+                    wait(&mut first_wait, self.polling_interval.clone());
                     continue;
                 }
                 Ordering::Equal => {
@@ -390,7 +395,7 @@ impl Executor {
                             debug!("releasing lock for processing level");
                         }
                     }
-                    wait(&mut first_wait);
+                    wait(&mut first_wait, self.polling_interval.clone());
                 }
             }
         }

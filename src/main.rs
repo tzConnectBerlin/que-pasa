@@ -111,8 +111,16 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         .run(&stats, processed_recv)
         .unwrap()];
 
-    let mut executor =
-        executor::Executor::new(node_cli.clone(), dbcli, processed_send, stats);
+    let mut executor = executor::Executor::new(
+        node_cli.clone(),
+        dbcli,
+        processed_send,
+        stats,
+        config
+            .polling_interval
+            .to_std()
+            .unwrap(),
+    );
     if config.all_contracts {
         index_all_contracts(config, &bcd_settings, executor);
         return;

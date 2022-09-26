@@ -30,6 +30,9 @@ pub(crate) struct Config {
 
     pub cli_actions: Vec<CliAction>,
 
+    #[default(_code = "chrono::Duration::seconds(1)")]
+    pub polling_interval: chrono::Duration,
+
     #[default(_code = "chrono::Duration::hours(1)")]
     pub allowed_unbootstrapped_offset: chrono::Duration,
 }
@@ -202,6 +205,14 @@ pub(crate) fn init_config() -> Result<Config> {
                 .help("If set, never prompt for confirmations, always default to 'yes'")
                 .takes_value(false))
         .arg(
+            Arg::with_name("polling_interval")
+                .long("polling-interval")
+                .value_name("POLLING_INTERVAL")
+                .env("POLLING_INTERVAL")
+                .help("Set the interval to poll for new blocks when processing blocks at the chain head (specify in human readable format, eg 1s for 1second, or 10ms for 10 milliseconds)")
+                .default_value("1s")
+                .takes_value(true))
+        .arg(
             Arg::with_name("allowed_unbootstrapped_offset")
                 .long("allowed-unbootstrapped-offset")
                 .value_name("ALLOWED_UNBOOTSTRAPPED_OFFSET")
@@ -259,6 +270,12 @@ unfortunately.")
     config.allowed_unbootstrapped_offset = duration_str::parse_chrono(
         matches
             .value_of("allowed_unbootstrapped_offset")
+            .unwrap(),
+    )?;
+
+    config.polling_interval = duration_str::parse_chrono(
+        matches
+            .value_of("polling_interval")
             .unwrap(),
     )?;
 

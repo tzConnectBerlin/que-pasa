@@ -1,4 +1,4 @@
-use crate::octez::block::{Block, LevelMeta};
+use crate::octez::block::{Block, Header, LevelMeta};
 use anyhow::{anyhow, Context, Result};
 use backoff::{retry, Error, ExponentialBackoff};
 use chrono::{DateTime, Utc};
@@ -47,7 +47,23 @@ impl NodeClient {
 
     /// Return the highest level on the chain
     pub(crate) fn head(&self) -> Result<LevelMeta> {
-        let (meta, _) = self.level_json_internal("head")?;
+        let body = self
+            .load(
+                "blocks/head/header",
+                Self::load_from_node_retry_on_transient_err,
+            )
+            .with_context(|| format!("failed to get head header"))?;
+
+        let mut deserializer = serde_json::Deserializer::from_str(&body);
+        let header: Header = Header::deserialize(&mut deserializer)
+            .with_context(|| anyhow!("failed to deserialize block json"))?;
+
+        let meta = LevelMeta {
+            level: header.level as u32,
+            hash: header.hash.clone(),
+            prev_hash: Some(header.predecessor.clone()),
+            baked_at: Some(Self::timestamp_from_header(&header)?),
+        };
         Ok(meta)
     }
 
@@ -74,7 +90,7 @@ impl NodeClient {
             level: block.header.level as u32,
             hash: Some(block.hash.clone()),
             prev_hash: Some(block.header.predecessor.clone()),
-            baked_at: Some(Self::timestamp_from_block(&block)?),
+            baked_at: Some(Self::timestamp_from_header(&block.header)?),
         };
         Ok((meta, block))
     }
@@ -209,8 +225,8 @@ impl NodeClient {
         Ok(fixedoffset.with_timezone(&Utc))
     }
 
-    fn timestamp_from_block(block: &Block) -> Result<DateTime<Utc>> {
-        Self::parse_rfc3339(block.header.timestamp.as_str())
+    fn timestamp_from_header(header: &Header) -> Result<DateTime<Utc>> {
+        Self::parse_rfc3339(header.timestamp.as_str())
     }
 
     fn load<F, O>(&self, endpoint: &str, from_node_func: F) -> Result<O>

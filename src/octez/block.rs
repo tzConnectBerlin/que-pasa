@@ -560,6 +560,8 @@ pub struct Header {
     pub level: u32,
     pub predecessor: String,
     pub timestamp: String,
+    // #[serde(default)]
+    pub hash: Option<String>,
 
     #[serde(skip)]
     validation_pass: i64,
