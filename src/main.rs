@@ -50,13 +50,7 @@ fn main() {
     let config = CONFIG.as_ref().unwrap();
 
     #[cfg(feature = "health_check")]
-    {
-        crate::health::spawn_api(
-            config.health_port,
-            config.database_url.clone(),
-            config.main_schema.clone(),
-        );
-    }
+    crate::health::spawn_api(config.health_port);
 
     let node_cli = &node::NodeClient::new(
         config.node_urls.clone(),

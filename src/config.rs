@@ -210,7 +210,7 @@ unfortunately.")
             .long("health-port")
             .value_name("HEALTH_PORT")
             .env("HEALTH_PORT")
-            .default_value("3030")
+            .default_value("8080")
             .help("specify what port the health check api should listen on")
             .takes_value(true),
     );

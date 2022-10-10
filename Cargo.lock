@@ -1504,7 +1504,6 @@ dependencies = [
  "smart-default",
  "thiserror",
  "tokio",
- "tokio-postgres",
  "warp",
 ]
 
