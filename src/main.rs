@@ -9,6 +9,8 @@ extern crate serde;
 pub mod config;
 pub mod contract_denylist;
 pub mod debug;
+#[cfg(feature = "health_check")]
+pub mod health;
 pub mod highlevel;
 pub mod octez;
 pub mod sql;
@@ -46,6 +48,15 @@ fn main() {
     env_logger::init_from_env(env);
 
     let config = CONFIG.as_ref().unwrap();
+
+    #[cfg(feature = "health_check")]
+    {
+        crate::health::spawn_api(
+            config.health_port,
+            config.database_url.clone(),
+            config.main_schema.clone(),
+        );
+    }
 
     let node_cli = &node::NodeClient::new(
         config.node_urls.clone(),

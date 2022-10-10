@@ -29,6 +29,9 @@ pub struct Config {
 
     #[default(_code = "chrono::Duration::hours(1)")]
     pub allowed_unbootstrapped_offset: chrono::Duration,
+
+    #[cfg(feature = "health_check")]
+    pub health_port: u16,
 }
 
 #[derive(
@@ -201,6 +204,16 @@ be necessary depending on how long it takes to derive the _ordered and _live tab
 unfortunately.")
                 .default_value("1h")
                 .takes_value(true));
+    #[cfg(feature = "health_check")]
+    let matches = matches.arg(
+        Arg::with_name("health_port")
+            .long("health-port")
+            .value_name("HEALTH_PORT")
+            .env("HEALTH_PORT")
+            .default_value("3030")
+            .help("specify what port the health check api should listen on")
+            .takes_value(true),
+    );
     let matches = matches.get_matches();
 
     config.main_schema = matches
@@ -299,6 +312,14 @@ unfortunately.")
             config.workers_cap
         );
         config.workers_cap = 1;
+    }
+
+    #[cfg(feature = "health_check")]
+    {
+        config.health_port = matches
+            .value_of("health_port")
+            .unwrap()
+            .parse::<u16>()?;
     }
 
     debug!("Config={:#?}", config);

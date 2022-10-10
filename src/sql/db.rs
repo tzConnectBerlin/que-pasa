@@ -963,7 +963,7 @@ FROM (
         )?)
     }
 
-    pub(crate) fn get_head(&mut self) -> Result<Option<LevelMeta>> {
+    pub(crate) fn get_head(&self) -> Result<Option<LevelMeta>> {
         self.get_level_internal(None)
     }
 
@@ -975,7 +975,7 @@ FROM (
     }
 
     fn get_level_internal(
-        &mut self,
+        &self,
         level: Option<i32>,
     ) -> Result<Option<LevelMeta>> {
         let mut conn = self.dbconn()?;
