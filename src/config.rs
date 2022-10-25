@@ -74,6 +74,7 @@ pub fn init_config() -> Result<Config> {
             Arg::with_name("contracts")
                 .long("contracts")
                 .value_name("CONTRACTS")
+                .env("CONTRACTS")
                 .help("set of additional contract settings (in syntax: <name>=<address>)")
                 .multiple(true)
                 .takes_value(true)
