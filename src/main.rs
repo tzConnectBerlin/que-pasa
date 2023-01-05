@@ -232,15 +232,16 @@ fn schema_version(v: &str) -> String {
         // The first versions of Que Pasa didn't follow the semantics of using
         // minor versioning for non-db schema related changes only
         "1.0.0" | "1.0.1" | "1.0.2" | "1.0.3" | "1.0.4" | "1.0.5" => {
-            return v.to_string();
+            v.to_string()
         }
-        _ => {}
-    };
-    // Minor version bumps (_._.x) have same db schemas
-    v.to_string()
-        .rsplit_once('.')
-        .map(|(db_ver, _)| db_ver.to_string())
-        .unwrap_or_else(|| "".to_string())
+        _ => {
+            // Minor version bumps (_._.x) have same db schemas
+            v.to_string()
+                .rsplit_once('.')
+                .map(|(db_ver, _)| db_ver.to_string())
+                .unwrap_or_else(|| "".to_string())
+        }
+    }
 }
 
 fn assert_sane_db(dbcli: &mut DBClient) {
