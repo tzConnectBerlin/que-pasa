@@ -9,7 +9,7 @@ extern crate serde;
 pub mod config;
 pub mod contract_denylist;
 pub mod debug;
-pub mod highlevel;
+pub mod executor;
 pub mod octez;
 pub mod sql;
 pub mod stats;
@@ -70,7 +70,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
             process::exit(1);
         }
         dbcli
-            .delete_everything(node_cli, highlevel::get_contract_rel)
+            .delete_everything(node_cli, executor::get_contract_rel)
             .with_context(|| "failed to delete the db's content")
             .unwrap();
     }
@@ -86,7 +86,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
         .as_ref()
         .map(|url| (url.clone(), config.bcd_network.clone()));
 
-    let mut executor = highlevel::Executor::new(
+    let mut executor = executor::Executor::new(
         node_cli.clone(),
         dbcli,
         config.reports_interval,
@@ -174,7 +174,7 @@ Re-initializing -- all data in DB related to ever set-up contracts, including th
 fn index_all_contracts(
     config: &config::Config,
     bcd_settings: &Option<(String, String)>,
-    mut executor: highlevel::Executor,
+    mut executor: executor::Executor,
 ) {
     executor.index_all_contracts();
     if !config.levels.is_empty() {
