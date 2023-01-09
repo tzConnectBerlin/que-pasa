@@ -84,14 +84,6 @@ impl Executor {
         }
     }
 
-    fn update_level_floor(&mut self) -> Result<()> {
-        if self.all_contracts {
-            return Ok(());
-        }
-
-        self.mutexed_state.set_level_floor()
-    }
-
     pub fn index_all_contracts(&mut self) {
         self.all_contracts = true
     }
@@ -184,19 +176,6 @@ impl Executor {
         Ok(())
     }
 
-    pub fn exec_dependents(&mut self) -> Result<Vec<u32>> {
-        let mut levels = self
-            .dbcli
-            .get_dependent_levels(&self.get_config()?)?;
-        if levels.is_empty() {
-            return Ok(vec![]);
-        }
-        levels.sort_unstable();
-
-        info!("reprocessing following levels, they have bigmap copies whose keys are now fully known: {:?}", levels);
-        self.exec_levels(1, 1, levels)
-    }
-
     pub fn exec_continuous(&mut self) -> Result<()> {
         // Executes blocks monotically, from old to new, continues from the heighest block present
         // in the db
@@ -280,6 +259,19 @@ impl Executor {
         }
     }
 
+    pub fn exec_dependents(&mut self) -> Result<Vec<u32>> {
+        let mut levels = self
+            .dbcli
+            .get_dependent_levels(&self.get_config()?)?;
+        if levels.is_empty() {
+            return Ok(vec![]);
+        }
+        levels.sort_unstable();
+
+        info!("reprocessing following levels, they have bigmap copies whose keys are now fully known: {:?}", levels);
+        self.exec_levels(1, 1, levels)
+    }
+
     pub fn reprocess_forked_levels(
         &mut self,
         num_getters: usize,
@@ -351,33 +343,6 @@ impl Executor {
                 Ok(vec![])
             }
         }
-    }
-
-    pub fn exec_levels(
-        &mut self,
-        num_getters: usize,
-        num_processors: usize,
-        levels: Vec<u32>,
-    ) -> Result<Vec<u32>> {
-        if levels.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let st = self.mutexed_state.clone();
-        let have_floor = !self.all_contracts;
-        let processed_levels = self.exec_parallel(
-            num_getters,
-            num_processors,
-            move |height_chan| {
-                for l in levels {
-                    if have_floor && l < st.get_level_floor().unwrap() {
-                        continue;
-                    }
-                    height_chan.send(l).unwrap();
-                }
-            },
-        )?;
-        Ok(processed_levels)
     }
 
     pub fn exec_new_contracts_historically(
@@ -510,7 +475,7 @@ impl Executor {
                         self.exec_level(l).unwrap();
                     }
 
-                    self.fill_in_levels(contract_id)
+                    self.mark_missing_levels_empty(contract_id)
                         .unwrap();
 
                     info!("contract {} initialized.", contract_id.name)
@@ -526,6 +491,88 @@ impl Executor {
             self.exec_dependents()?;
         }
         Ok(())
+    }
+
+    pub(crate) fn repopulate_derived_tables(
+        &mut self,
+        ensure_sane_input_state: bool,
+    ) -> Result<()> {
+        info!(
+            "re-populating derived tables (_live, _ordered). may take a while (expect minutes-hours, not seconds-minutes)."
+        );
+
+        if ensure_sane_input_state {
+            let latest_level: LevelMeta = self.node_cli.head()?;
+            let missing_levels: Vec<u32> = self
+                .dbcli
+                .get_missing_levels(&self.get_config()?, latest_level.level)?;
+            let has_gaps = missing_levels
+                .windows(2)
+                .any(|w| w[0] != w[1] - 1);
+            ensure!(
+                !has_gaps,
+                anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
+            );
+            ensure!(
+                self.dbcli
+                    .get_partial_processed_levels(&self.get_config()?)?
+                    .is_empty(),
+                anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
+            );
+        }
+
+        for contract in self
+            .mutexed_state
+            .get_contracts()?
+            .values()
+        {
+            self.dbcli
+                .repopulate_derived_tables(contract)?;
+        }
+        self.dbcli
+            .set_indexer_mode(IndexerMode::Head)?;
+        Ok(())
+    }
+
+    pub fn mark_missing_levels_empty(
+        &mut self,
+        contract_id: &ContractID,
+    ) -> Result<()> {
+        // fills in all levels in db as empty that are missing between min and max
+        // level present
+
+        self.dbcli.mark_missing_levels_empty(contract_id)
+            .with_context(|| {
+                "failed to mark levels unrelated to the contract as empty in the db"
+            })?;
+        Ok(())
+    }
+
+    pub fn exec_levels(
+        &mut self,
+        num_getters: usize,
+        num_processors: usize,
+        levels: Vec<u32>,
+    ) -> Result<Vec<u32>> {
+        if levels.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let st = self.mutexed_state.clone();
+        let have_floor = !self.all_contracts;
+        let processed_levels = self.exec_parallel(
+            num_getters,
+            num_processors,
+            move |height_chan| {
+                for l in levels {
+                    if have_floor && l < st.get_level_floor().unwrap() {
+                        continue;
+                    }
+                    height_chan.send(l).unwrap();
+                }
+            },
+        )?;
+        Ok(processed_levels)
     }
 
     pub fn exec_parallel<F>(
@@ -624,58 +671,6 @@ impl Executor {
         Ok(processed_levels)
     }
 
-    pub(crate) fn repopulate_derived_tables(
-        &mut self,
-        ensure_sane_input_state: bool,
-    ) -> Result<()> {
-        info!(
-            "re-populating derived tables (_live, _ordered). may take a while (expect minutes-hours, not seconds-minutes)."
-        );
-
-        if ensure_sane_input_state {
-            let latest_level: LevelMeta = self.node_cli.head()?;
-            let missing_levels: Vec<u32> = self
-                .dbcli
-                .get_missing_levels(&self.get_config()?, latest_level.level)?;
-            let has_gaps = missing_levels
-                .windows(2)
-                .any(|w| w[0] != w[1] - 1);
-            ensure!(
-                !has_gaps,
-                anyhow!("cannot re-populate derived tables, there are gaps in the processed levels")
-            );
-            ensure!(
-                self.dbcli
-                    .get_partial_processed_levels(&self.get_config()?)?
-                    .is_empty(),
-                anyhow!("cannot re-populate derived tables, some levels are only partially processed (not processed for some contracts)")
-            );
-        }
-
-        for contract in self
-            .mutexed_state
-            .get_contracts()?
-            .values()
-        {
-            self.dbcli
-                .repopulate_derived_tables(contract)?;
-        }
-        self.dbcli
-            .set_indexer_mode(IndexerMode::Head)?;
-        Ok(())
-    }
-
-    pub fn fill_in_levels(&mut self, contract_id: &ContractID) -> Result<()> {
-        // fills in all levels in db as empty that are missing between min and max
-        // level present
-
-        self.dbcli.fill_in_levels(contract_id)
-            .with_context(|| {
-                "failed to mark levels unrelated to the contract as empty in the db"
-            })?;
-        Ok(())
-    }
-
     fn read_block_chan(
         &mut self,
         block_ch: flume::Receiver<Box<(LevelMeta, Block)>>,
@@ -739,44 +734,6 @@ impl Executor {
         Ok((processed_levels, reprocess_levels))
     }
 
-    fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
-        let mut contract_statuses: String = contract_results
-            .iter()
-            .filter_map(|c| match c.tx_count {
-                0 => None,
-                1 => Some(format!(
-                    "\n\t1 contract call for {}",
-                    c.contract_id.name
-                )),
-                _ => Some(format!(
-                    "\n\t{} contract calls for {}",
-                    c.tx_count, c.contract_id.name
-                )),
-            })
-            .collect::<Vec<String>>()
-            .join(",");
-        let hash_msg = if contract_results.is_empty() {
-            "".to_string()
-        } else {
-            format!("\nblock has hash: {}", contract_results[0].hash)
-        };
-
-        if contract_statuses.is_empty() {
-            contract_statuses = "0 txs for us".to_string();
-        }
-        info!("level {}: {}{}", level, contract_statuses, hash_msg);
-    }
-
-    fn get_storage_processor(
-        &self,
-    ) -> Result<StorageProcessor<NodeClient, DBClient>> {
-        Ok(StorageProcessor::new(
-            1,
-            self.node_cli.clone(),
-            self.dbcli.clone(),
-        ))
-    }
-
     pub(crate) fn exec_level(
         &mut self,
         level_height: u32,
@@ -835,47 +792,6 @@ impl Executor {
         )?;
 
         Ok(res)
-    }
-
-    fn ensure_level_hash(
-        &mut self,
-        level: u32,
-        hash: &str,
-        prev_hash: &str,
-    ) -> Result<Vec<u32>> {
-        let mut forked_lvls: Vec<u32> = vec![];
-
-        if level != 0 {
-            let prev = self.dbcli.get_level(level - 1)?;
-            if let Some(db_prev_hash) = prev
-                .as_ref()
-                .and_then(|l| l.hash.as_ref())
-            {
-                if db_prev_hash != prev_hash {
-                    let forked_lvl = prev.as_ref().unwrap().level;
-                    warn!("Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
-                      forked_lvl, db_prev_hash, prev_hash);
-
-                    forked_lvls.push(forked_lvl);
-                }
-            }
-        }
-
-        let next = self.dbcli.get_level(level + 1)?;
-        if let Some(db_next_prev_hash) = next
-            .as_ref()
-            .and_then(|l| l.prev_hash.as_ref())
-        {
-            if db_next_prev_hash != hash {
-                let forked_lvl = next.as_ref().unwrap().level;
-                warn!("Previous hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
-                      forked_lvl, db_next_prev_hash, hash);
-
-                forked_lvls.push(forked_lvl);
-            }
-        }
-
-        Ok(forked_lvls)
     }
 
     fn exec_for_block(
@@ -947,16 +863,6 @@ impl Executor {
         Ok((contract_results, forked_lvls))
     }
 
-    fn update_contract_floor(
-        &mut self,
-        contract_id: &ContractID,
-        level: u32,
-    ) -> Result<()> {
-        self.mutexed_state
-            .update_contract_floor(contract_id, level)?;
-        self.update_level_floor()
-    }
-
     fn exec_for_block_contract(
         &self,
         meta: &LevelMeta,
@@ -1011,6 +917,103 @@ impl Executor {
             is_origination,
             bigmap_meta_actions,
         })
+    }
+
+    fn update_contract_floor(
+        &mut self,
+        contract_id: &ContractID,
+        level: u32,
+    ) -> Result<()> {
+        self.mutexed_state
+            .update_contract_floor(contract_id, level)?;
+        self.update_level_floor()
+    }
+
+    fn update_level_floor(&mut self) -> Result<()> {
+        if self.all_contracts {
+            return Ok(());
+        }
+
+        self.mutexed_state.set_level_floor()
+    }
+
+    fn ensure_level_hash(
+        &mut self,
+        level: u32,
+        hash: &str,
+        prev_hash: &str,
+    ) -> Result<Vec<u32>> {
+        let mut forked_lvls: Vec<u32> = vec![];
+
+        if level != 0 {
+            let prev = self.dbcli.get_level(level - 1)?;
+            if let Some(db_prev_hash) = prev
+                .as_ref()
+                .and_then(|l| l.hash.as_ref())
+            {
+                if db_prev_hash != prev_hash {
+                    let forked_lvl = prev.as_ref().unwrap().level;
+                    warn!("Hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
+                      forked_lvl, db_prev_hash, prev_hash);
+
+                    forked_lvls.push(forked_lvl);
+                }
+            }
+        }
+
+        let next = self.dbcli.get_level(level + 1)?;
+        if let Some(db_next_prev_hash) = next
+            .as_ref()
+            .and_then(|l| l.prev_hash.as_ref())
+        {
+            if db_next_prev_hash != hash {
+                let forked_lvl = next.as_ref().unwrap().level;
+                warn!("Previous hashes don't match at level={:?}: {:?} (db) <> {:?} (chain)",
+                      forked_lvl, db_next_prev_hash, hash);
+
+                forked_lvls.push(forked_lvl);
+            }
+        }
+
+        Ok(forked_lvls)
+    }
+
+    fn get_storage_processor(
+        &self,
+    ) -> Result<StorageProcessor<NodeClient, DBClient>> {
+        Ok(StorageProcessor::new(
+            1,
+            self.node_cli.clone(),
+            self.dbcli.clone(),
+        ))
+    }
+
+    fn print_status(level: u32, contract_results: &[SaveLevelResult]) {
+        let mut contract_statuses: String = contract_results
+            .iter()
+            .filter_map(|c| match c.tx_count {
+                0 => None,
+                1 => Some(format!(
+                    "\n\t1 contract call for {}",
+                    c.contract_id.name
+                )),
+                _ => Some(format!(
+                    "\n\t{} contract calls for {}",
+                    c.tx_count, c.contract_id.name
+                )),
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+        let hash_msg = if contract_results.is_empty() {
+            "".to_string()
+        } else {
+            format!("\nblock has hash: {}", contract_results[0].hash)
+        };
+
+        if contract_statuses.is_empty() {
+            contract_statuses = "0 txs for us".to_string();
+        }
+        info!("level {}: {}{}", level, contract_statuses, hash_msg);
     }
 }
 

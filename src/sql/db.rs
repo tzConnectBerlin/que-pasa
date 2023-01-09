@@ -936,7 +936,7 @@ DROP TABLE IF EXISTS levels;
         Ok(())
     }
 
-    pub(crate) fn fill_in_levels(
+    pub(crate) fn mark_missing_levels_empty(
         &mut self,
         contract_id: &ContractID,
     ) -> Result<u64> {
