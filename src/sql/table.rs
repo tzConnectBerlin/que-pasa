@@ -1,11 +1,11 @@
-use crate::storage_structure::typing::{ComplexExprTy, ExprTy, SimpleExprTy};
+use crate::storage_structure::typing::ExprTy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
-    pub column_type: SimpleExprTy,
+    pub column_type: ExprTy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -81,7 +81,7 @@ impl Table {
 
         let name = column_name.to_string();
         match column_type {
-            ExprTy::SimpleExprTy(e) => {
+            ExprTy::OrEnumeration(_, _) => {
                 if !self.columns.contains_key(&name) {
                     self.keys.push(name.clone());
                 }
@@ -89,28 +89,32 @@ impl Table {
                     name.clone(),
                     Column {
                         name,
-                        column_type: *e,
+                        column_type: ExprTy::Unit, // What will ultimately go in is a Unit
                     },
                 );
             }
-            ExprTy::ComplexExprTy(ce) => match ce {
-                ComplexExprTy::OrEnumeration(_, _) => {
-                    if !self.columns.contains_key(&name) {
-                        self.keys.push(name.clone());
-                    }
-                    self.columns.insert(
-                        name.clone(),
-                        Column {
-                            name,
-                            column_type: SimpleExprTy::Unit, // What will ultimately go in is a Unit
-                        },
-                    );
-                }
-                _ => panic!(
-                    "add_column called with ComplexExprTy {:?}",
+            ExprTy::Map(..)
+            | ExprTy::BigMap(..)
+            | ExprTy::List(..)
+            | ExprTy::Option(..)
+            | ExprTy::Pair(..) => {
+                panic!(
+                    "unrecoverable err, add_column called with ExprTy {:?}",
                     column_type
-                ),
-            },
+                )
+            }
+            _ => {
+                if !self.columns.contains_key(&name) {
+                    self.keys.push(name.clone());
+                }
+                self.columns.insert(
+                    name.clone(),
+                    Column {
+                        name,
+                        column_type: column_type.clone(),
+                    },
+                );
+            }
         }
     }
 
@@ -125,7 +129,18 @@ impl Table {
 
         let name = column_name.to_string();
         match column_type {
-            ExprTy::SimpleExprTy(e) => {
+            ExprTy::OrEnumeration(..)
+            | ExprTy::Map(..)
+            | ExprTy::BigMap(..)
+            | ExprTy::List(..)
+            | ExprTy::Option(..)
+            | ExprTy::Pair(..) => {
+                panic!(
+                    "unrecoverable err, add_index called with ExprTy {:?}",
+                    column_type
+                )
+            }
+            _ => {
                 if !self.columns.contains_key(&name) {
                     self.indices.push(name.clone());
                     self.keys.push(name.clone());
@@ -134,12 +149,9 @@ impl Table {
                     name.clone(),
                     Column {
                         name,
-                        column_type: *e,
+                        column_type: column_type.clone(),
                     },
                 );
-            }
-            ExprTy::ComplexExprTy(e) => {
-                panic!("add_index called with ComplexExprTy {:#?}", e)
             }
         }
     }

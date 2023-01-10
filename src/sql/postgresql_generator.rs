@@ -4,7 +4,7 @@ use std::vec::Vec;
 
 use crate::config::{ContractID, QUEPASA_VERSION};
 use crate::sql::table::{Column, Table};
-use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+use crate::storage_structure::typing::ExprTy;
 
 #[derive(Template)]
 #[template(path = "create-changes-functions.sql", escape = "none")]
@@ -78,19 +78,23 @@ impl PostgresqlGenerator {
 
         let name = Self::quote_id(&column.name);
         match column.column_type {
-            SimpleExprTy::Address => Some(Self::address(&name)),
-            SimpleExprTy::Bool => Some(Self::bool(&name)),
-            SimpleExprTy::Bytes => Some(Self::bytes(&name)),
-            SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
+            ExprTy::Address => Some(Self::address(&name)),
+            ExprTy::Bool => Some(Self::bool(&name)),
+            ExprTy::Bytes => Some(Self::bytes(&name)),
+            ExprTy::Int | ExprTy::Nat | ExprTy::Mutez => {
                 Some(Self::numeric(&name))
             }
-            SimpleExprTy::KeyHash
-            | SimpleExprTy::Signature
-            | SimpleExprTy::Contract => Some(Self::string(&name)),
-            SimpleExprTy::Stop => None,
-            SimpleExprTy::String => Some(Self::string(&name)),
-            SimpleExprTy::Timestamp => Some(Self::timestamp(&name)),
-            SimpleExprTy::Unit => Some(Self::unit(&name)),
+            ExprTy::KeyHash | ExprTy::Signature | ExprTy::Contract => {
+                Some(Self::string(&name))
+            }
+            ExprTy::Stop => None,
+            ExprTy::String => Some(Self::string(&name)),
+            ExprTy::Timestamp => Some(Self::timestamp(&name)),
+            ExprTy::Unit => Some(Self::unit(&name)),
+            _ => panic!(
+                "unrecoverable err, cannot make sql column for type {:#?}",
+                column.column_type
+            ),
         }
     }
 
@@ -426,11 +430,8 @@ impl PostgresqlGenerator {
     ) -> Result<Vec<String>> {
         let mut live = table.clone();
         live.name = format!("{}_live", live.name);
-        live.add_column("level", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
-        live.add_column(
-            "level_timestamp",
-            &ExprTy::SimpleExprTy(SimpleExprTy::Timestamp),
-        );
+        live.add_column("level", &ExprTy::Int);
+        live.add_column("level_timestamp", &ExprTy::Timestamp);
         if !table.contains_snapshots() {
             live.drop_column("deleted");
         }
@@ -442,13 +443,9 @@ impl PostgresqlGenerator {
 
         let mut ordered = table.clone();
         ordered.name = format!("{}_ordered", ordered.name);
-        ordered.add_column("level", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
-        ordered.add_column(
-            "level_timestamp",
-            &ExprTy::SimpleExprTy(SimpleExprTy::Timestamp),
-        );
-        ordered
-            .add_column("ordering", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
+        ordered.add_column("level", &ExprTy::Int);
+        ordered.add_column("level_timestamp", &ExprTy::Timestamp);
+        ordered.add_column("ordering", &ExprTy::Int);
         if !table.contains_snapshots() {
             ordered.drop_column("bigmap_id");
         }
