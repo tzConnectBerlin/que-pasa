@@ -34,10 +34,12 @@ fn get_column_name(expr: &ExprTy) -> &str {
         ExprTy::Timestamp => "timestamp",
         ExprTy::Unit => "unit",
         ExprTy::Stop => "stop",
-        _ => panic!(
-            "unrecoverable err, cannot create sql column for type {:#?}",
-            expr
-        ),
+        ExprTy::Pair(..)
+        | ExprTy::Map(..)
+        | ExprTy::BigMap(..)
+        | ExprTy::List(..)
+        | ExprTy::OrEnumeration(..)
+        | ExprTy::Option(..) => "",
     }
 }
 

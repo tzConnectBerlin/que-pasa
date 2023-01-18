@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 cd $(git rev-parse --show-toplevel)
 
-[ -z $DIFFTOOL ] && DIFFTOOL=kdiff3
+set -e -u
 
 MODE=assert
 if [ $# -gt 0 ]; then
@@ -21,15 +21,15 @@ export PGDATABASE=test
 
 export DOCKER_ARGS='-d'
 db_docker=`./script/local-db.bash -c max_locks_per_transaction=100000`
-trap "echo stopping docker db..; docker kill $db_docker" EXIT
+TRAP="echo stopping docker db..; docker kill $db_docker"
+trap "$TRAP" EXIT
 
-SETUP_WAIT=3s
+SETUP_WAIT=5s
 echo "waiting for $SETUP_WAIT for testdb initialization.."
 sleep $SETUP_WAIT
 
-export NODE_URL=https://mainnet-archive.tzconnect.berlin
+export NODE_URL=http://mainnet-archive.tzconnect.berlin:18732
 export DATABASE_URL=postgres://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE
-
 function query {
     query_id=$(( query_id + 1 ))
     echo "query $query_id: $1"
@@ -38,11 +38,10 @@ function query {
     exp=`printf "%s;\n%s" "$1" "$res"`
     exp_file=test/regression/"$query_id".query
     if [[ "$MODE" == "assert" ]]; then
-        # diff --suppress-common-lines -y $exp_file - <<< "$exp" || exit 1
         tmp=`mktemp`
         echo "$exp" > $tmp
         if ! cmp $tmp $exp_file ; then
-            $DIFFTOOL $tmp $exp_file
+            ${DIFFTOOL:-kdiff3} $tmp $exp_file
             exit 1
         fi
     else
@@ -53,14 +52,14 @@ function query {
 
 function assert {
     query_id=0
-    query 'select count(1) from "custom_Main_Schema".tx_contexts' || exit 1
-    query 'select count(1) from "custom_Main_Schema".contracts' || exit 1
-    query 'select count(1) from "custom_Main_Schema".contract_levels' || exit 1
-    query 'select count(1) from "custom_Main_Schema".contract_deps' || exit 1
+    query 'select count(1) from "custom_Main_Schema".tx_contexts'
+    query 'select count(1) from "custom_Main_Schema".contracts'
+    query 'select count(1) from "custom_Main_Schema".contract_levels'
+    query 'select count(1) from "custom_Main_Schema".contract_deps'
 
-    query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"' || exit 1
-    query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat' || exit 1
-    query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat' || exit 1
+    query 'select administrator, all_tokens, paused, level, level_timestamp from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage_live"'
+    query 'select level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_live" order by idx_address, idx_nat'
+    query 'select ordering, level, level_timestamp, idx_address, idx_nat, nat from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."storage.ledger_ordered" order by ordering, idx_address, idx_nat'
 
     # This query finds all foreign key references that have no index on the
     # columns w/ foreign key reference. We have to make sure there are _none_
@@ -100,33 +99,62 @@ GROUP BY c.conrelid, c.conname, c.confrelid
 ORDER BY pg_catalog.pg_relation_size(c.conrelid) DESC;
 EOF
 `
-    query "$sql" || exit 1
+    query "$sql"
 
     # parameter indexing tests
-    query 'select amount, artist, fa2, objkt_id, price, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id' || exit 1
-    query 'select artist, fa2, objkt_id, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id' || exit 1
-    query 'select nat from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit"' || exit 1
-    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id' || exit 1
+    query 'select amount, artist, fa2, objkt_id, price, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.ask" order by objkt_id'
+    query 'select artist, fa2, objkt_id, royalties from "KT1FvqJwEDWb1Gwc55Jd1jjTHRVWbYKUUpyq"."entry.bid" order by objkt_id'
+    query 'select nat from "KT1M8asPmVQhFG6yujzttGonznkghocEkbFk"."entry.deposit"'
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint" order by token_id'
 
     # _at function tests
-    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506)' || exit 1
-    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 17)' || exit 1
-    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 16)' || exit 1
-    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 12)' || exit 1
-    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 13)' || exit 1
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506)'
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 17)'
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768606, 3, 16)'
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 12)'
+    query 'select address, amount, token_id from "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton"."entry.mint_at"(1768506, 3, 13)'
+}
+
+function with_http_proxy_inject {
+    mkfifo proxy_input
+    trap "rm proxy_input; $TRAP" EXIT
+    proxy_inject_output=`mktemp`
+
+    cat proxy_input | ./script/http-inject.rb > "$proxy_inject_output" &
+    proxy_pid=$!
+    trap "kill -s 9 $proxy_pid; rm proxy_input; $TRAP" EXIT
+
+    http_proxy=http://localhost:8080 $@
+
+    echo '' > proxy_input
+    rm proxy_input
+    trap "$TRAP" EXIT
+
+    exp_file=test/http_proxy_"$@".exp
+    if [[ "$MODE" == "assert" ]]; then
+      if ! cmp "$proxy_inject_output" "$exp_file" ; then
+          ${DIFFTOOL:-kdiff3} "$proxy_inject_output" "$exp_file"
+          exit 1
+      fi
+    else
+        printf "***\nexpectation generated:\n%s\n***\n\n"
+        cat "$proxy_inject_output"
+        mv "$proxy_inject_output" "$exp_file"
+    fi
 }
 
 export RUST_BACKTRACE=1
 
-cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1500000-1500001 || exit 1
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1500002-1500005 || exit 1
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1700002-1700005 || exit 1
+cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1500000-1500001
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1500002-1500005
+# running one time with 'new' fake response fields injected, to verify que pasa doesn't break on unexpected new json fields
+with_http_proxy_inject cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1700002-1700005
 
 # the latter has a delete bigmap, the first 3 have rows indexed of the deleted bigmap
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768431 || exit 1
-cargo run --features regression_force_update_derived --  --main-schema custom_Main_Schema --index-all-contracts -l 1768503 || exit 1
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768506 || exit 1
-cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606 || exit 1
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768431
+cargo run --features regression_force_update_derived --  --main-schema custom_Main_Schema --index-all-contracts -l 1768503
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768506
+cargo run --features regression_force_update_derived -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606
 
 if [[ "$MODE" == "inspect" ]]; then
     psql
@@ -143,7 +171,7 @@ if [[ "$MODE" == "generate" ]]; then
 fi
 
 # verifying here that the repopulate also works with deleted bigmap rows
-cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606 || exit 1
+cargo run -- --main-schema custom_Main_Schema --index-all-contracts -l 1768606
 
 assert
 
