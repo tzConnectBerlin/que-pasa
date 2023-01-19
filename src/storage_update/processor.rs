@@ -1735,11 +1735,8 @@ fn test_process_block() {
             .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::type_ast_from_json(&storage_definition)?;
-        let rel_ast = ASTBuilder::new()
-            .build_relational_ast(
-                &crate::relational::Context::init("storage"),
-                &type_ast,
-            )
+        let rel_ast = ASTBuilder::new("storage")
+            .build_relational_ast(&type_ast)
             .unwrap();
         Ok(rel_ast)
     }

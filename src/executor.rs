@@ -1313,9 +1313,8 @@ pub(crate) fn get_contract_rel(
     );
 
     // Build the internal representation from the storage defition
-    let ctx = relational::Context::init("storage");
-    let storage_ast = relational::ASTBuilder::new()
-        .build_relational_ast(&ctx, &type_ast)
+    let storage_ast = relational::ASTBuilder::new("storage")
+        .build_relational_ast(&type_ast)
         .with_context(|| {
             "failed to build a relational AST from the storage type"
         })
@@ -1338,21 +1337,21 @@ pub(crate) fn get_contract_rel(
             })?;
 
         // Build the internal representation from the storage defition
-        let ctx =
-            relational::Context::init(format!("entry.{}", entrypoint).as_str());
-        let rel_ast = relational::ASTBuilder::new()
-            .memoryless_bigmaps()
-            .build_relational_ast(&ctx, &type_ast)
-            .with_context(|| {
-                "failed to build a relational AST from the entrypoint type"
-            })
-            .with_context(|| {
-                anyhow!(
-                    "contract address={}, entrypoint={}",
-                    cid.address,
-                    entrypoint
-                )
-            })?;
+        let rel_ast = relational::ASTBuilder::new(
+            format!("entry.{}", entrypoint).as_str(),
+        )
+        .memoryless_bigmaps()
+        .build_relational_ast(&type_ast)
+        .with_context(|| {
+            "failed to build a relational AST from the entrypoint type"
+        })
+        .with_context(|| {
+            anyhow!(
+                "contract address={}, entrypoint={}",
+                cid.address,
+                entrypoint
+            )
+        })?;
 
         entrypoint_asts.insert(entrypoint.clone(), rel_ast);
     }
@@ -1387,11 +1386,8 @@ fn test_generate() {
         typing::type_ast_from_json(&storage_definition.clone()).unwrap();
     println!("{:#?}", type_ast);
 
-    use crate::relational::Context;
-    let context = Context::init("storage");
-
-    let rel_ast = ASTBuilder::new()
-        .build_relational_ast(&context, &type_ast)
+    let rel_ast = ASTBuilder::new("storage")
+        .build_relational_ast(&type_ast)
         .unwrap();
     println!("{:#?}", rel_ast);
     let generator = PostgresqlGenerator::new(

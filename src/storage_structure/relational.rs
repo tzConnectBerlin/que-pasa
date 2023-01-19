@@ -151,6 +151,8 @@ pub struct RelationalEntry {
 }
 
 pub struct ASTBuilder {
+    root_table: String,
+
     table_names: HashMap<String, u32>,
     column_names: HashMap<(String, String), u32>,
 
@@ -169,8 +171,10 @@ lazy_static! {
 }
 
 impl ASTBuilder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(root_table: &str) -> Self {
         let mut res = Self {
+            root_table: root_table.to_string(),
+
             table_names: HashMap::new(),
             column_names: HashMap::new(),
 
@@ -178,7 +182,7 @@ impl ASTBuilder {
         };
         for column_name in RESERVED.iter() {
             res.column_names
-                .insert(("storage".to_string(), column_name.clone()), 0);
+                .insert((root_table.to_string(), column_name.clone()), 0);
         }
         res
     }
@@ -279,6 +283,16 @@ impl ASTBuilder {
 
     pub(crate) fn build_relational_ast(
         &mut self,
+        ele: &Ele,
+    ) -> Result<RelationalAST> {
+        self.build_relational_ast_internal(
+            &Context::init(&self.root_table),
+            ele,
+        )
+    }
+
+    fn build_relational_ast_internal(
+        &mut self,
         ctx: &Context,
         ele: &Ele,
     ) -> Result<RelationalAST> {
@@ -286,8 +300,10 @@ impl ASTBuilder {
             ExprTy::ComplexExprTy(ref expr_type) => match expr_type {
                 ComplexExprTy::Pair(left_type, right_type) => {
                     let ctx = &ctx.next_with_prefix(ele.name.clone());
-                    let left = self.build_relational_ast(ctx, left_type)?;
-                    let right = self.build_relational_ast(ctx, right_type)?;
+                    let left =
+                        self.build_relational_ast_internal(ctx, left_type)?;
+                    let right =
+                        self.build_relational_ast_internal(ctx, right_type)?;
                     Ok(RelationalAST::Pair {
                         left_ast: Box::new(left),
                         right_ast: Box::new(right),
@@ -297,7 +313,9 @@ impl ASTBuilder {
                     let ctx = &self.start_table(ctx, ele);
                     let elems_ast = match elems_unique {
                         true => self.build_index(ctx, elems_type)?,
-                        false => self.build_relational_ast(ctx, elems_type)?,
+                        false => {
+                            self.build_relational_ast_internal(ctx, elems_type)?
+                        }
                     };
                     Ok(RelationalAST::List {
                         table: ctx.table_name.clone(),
@@ -317,7 +335,7 @@ impl ASTBuilder {
 
                     let key_ast = self.build_index(ctx, key_type)?;
                     let value_ast =
-                        self.build_relational_ast(ctx, value_type)?;
+                        self.build_relational_ast_internal(ctx, value_type)?;
                     Ok(RelationalAST::BigMap {
                         has_memory: self.bigmaps_retain,
                         table: ctx.table_name.clone(),
@@ -329,7 +347,7 @@ impl ASTBuilder {
                     let ctx = &self.start_table(ctx, ele);
                     let key_ast = self.build_index(ctx, key_type)?;
                     let value_ast =
-                        self.build_relational_ast(ctx, value_type)?;
+                        self.build_relational_ast_internal(ctx, value_type)?;
                     Ok(RelationalAST::Map {
                         table: ctx.table_name.clone(),
                         key_ast: Box::new(key_ast),
@@ -337,7 +355,7 @@ impl ASTBuilder {
                     })
                 }
                 ComplexExprTy::Option(expr_type) => {
-                    let elem_ast = self.build_relational_ast(
+                    let elem_ast = self.build_relational_ast_internal(
                         ctx,
                         &ele_with_annot(expr_type, ele.name.clone()),
                     )?;
@@ -480,7 +498,7 @@ impl ASTBuilder {
                     if is_index {
                         self.build_index(&ctx, ele)?
                     } else {
-                        self.build_relational_ast(&ctx, ele)?
+                        self.build_relational_ast_internal(&ctx, ele)?
                     },
                     ctx.table_name.clone(),
                 ))
@@ -1391,8 +1409,30 @@ fn test_relational_ast_builder() {
     for tc in tests {
         println!("test case: {}", tc.name);
 
-        let got = ASTBuilder::new()
-            .build_relational_ast(&Context::init("storage"), &tc.ele);
+        let got = ASTBuilder::new("storage").build_relational_ast(&tc.ele);
+        if tc.exp.is_none() {
+            assert!(got.is_err());
+            continue;
+        }
+        assert_eq!(tc.exp.unwrap(), got.unwrap());
+    }
+
+    let entrypoint_tests: Vec<TestCase> = vec![TestCase {
+        name: "id should immediately be postfixed".to_string(),
+        ele: simple(Some("id".to_string()), SimpleExprTy::String),
+        exp: Some(RelationalAST::Leaf {
+            rel_entry: RelationalEntry {
+                table_name: "entry.testing".to_string(),
+                column_name: "id_1".to_string(),
+                column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                value: None,
+                is_index: false,
+            },
+        }),
+    }];
+    for tc in entrypoint_tests {
+        let got =
+            ASTBuilder::new("entry.testing").build_relational_ast(&tc.ele);
         if tc.exp.is_none() {
             assert!(got.is_err());
             continue;
