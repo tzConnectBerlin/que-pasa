@@ -9,4 +9,4 @@ expected.
 
 # How to run the experiments?
 
-Simply call `./script/run`. This will remove output dir and a new output dir will result from the `run` execution.
+Simply call `./run`. This will remove output dir and a new output dir will result from the `run` execution.
