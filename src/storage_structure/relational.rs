@@ -1,7 +1,5 @@
 use crate::sql::postgresql_generator::PostgresqlGenerator;
-use crate::storage_structure::typing::{
-    ComplexExprTy, Ele, ExprTy, SimpleExprTy,
-};
+use crate::storage_structure::typing::{Ele, ExprTy};
 
 use crate::config::ContractID;
 use anyhow::{anyhow, Result};
@@ -23,22 +21,25 @@ pub type Indexes = HashMap<String, u32>;
 
 fn get_column_name(expr: &ExprTy) -> &str {
     match expr {
-        ExprTy::ComplexExprTy(_) => "",
-        ExprTy::SimpleExprTy(e) => match e {
-            SimpleExprTy::Address => "address",
-            SimpleExprTy::Bool => "bool",
-            SimpleExprTy::Bytes => "bytes",
-            SimpleExprTy::Int => "int",
-            SimpleExprTy::Nat => "nat",
-            SimpleExprTy::Mutez => "mutez",
-            SimpleExprTy::String => "string",
-            SimpleExprTy::KeyHash => "keyhash",
-            SimpleExprTy::Signature => "signature",
-            SimpleExprTy::Contract => "contract",
-            SimpleExprTy::Timestamp => "timestamp",
-            SimpleExprTy::Unit => "unit",
-            SimpleExprTy::Stop => "stop",
-        },
+        ExprTy::Address => "address",
+        ExprTy::Bool => "bool",
+        ExprTy::Bytes => "bytes",
+        ExprTy::Int => "int",
+        ExprTy::Nat => "nat",
+        ExprTy::Mutez => "mutez",
+        ExprTy::String => "string",
+        ExprTy::KeyHash => "keyhash",
+        ExprTy::Signature => "signature",
+        ExprTy::Contract => "contract",
+        ExprTy::Timestamp => "timestamp",
+        ExprTy::Unit => "unit",
+        ExprTy::Stop => "stop",
+        ExprTy::Pair(..)
+        | ExprTy::Map(..)
+        | ExprTy::BigMap(..)
+        | ExprTy::List(..)
+        | ExprTy::OrEnumeration(..)
+        | ExprTy::Option(..) => "",
     }
 }
 
@@ -69,11 +70,9 @@ impl Context {
         self.clone()
     }
 
-    pub(crate) fn next_with_prefix(&self, prefix: Option<String>) -> Self {
+    pub(crate) fn next_with_prefix(&self, prefix: String) -> Self {
         let mut c = self.next();
-        if let Some(pre) = prefix {
-            c.prefix = pre;
-        }
+        c.prefix = prefix;
         c
     }
 
@@ -151,6 +150,8 @@ pub struct RelationalEntry {
 }
 
 pub struct ASTBuilder {
+    root_table: String,
+
     table_names: HashMap<String, u32>,
     column_names: HashMap<(String, String), u32>,
 
@@ -169,8 +170,10 @@ lazy_static! {
 }
 
 impl ASTBuilder {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(root_table: &str) -> Self {
         let mut res = Self {
+            root_table: root_table.to_string(),
+
             table_names: HashMap::new(),
             column_names: HashMap::new(),
 
@@ -178,7 +181,7 @@ impl ASTBuilder {
         };
         for column_name in RESERVED.iter() {
             res.column_names
-                .insert(("storage".to_string(), column_name.clone()), 0);
+                .insert((root_table.to_string(), column_name.clone()), 0);
         }
         res
     }
@@ -279,83 +282,98 @@ impl ASTBuilder {
 
     pub(crate) fn build_relational_ast(
         &mut self,
+        ele: &Ele,
+    ) -> Result<RelationalAST> {
+        self.build_relational_ast_internal(
+            &Context::init(&self.root_table),
+            ele,
+        )
+    }
+
+    fn build_relational_ast_internal(
+        &mut self,
         ctx: &Context,
         ele: &Ele,
     ) -> Result<RelationalAST> {
-        match ele.expr_type {
-            ExprTy::ComplexExprTy(ref expr_type) => match expr_type {
-                ComplexExprTy::Pair(left_type, right_type) => {
-                    let ctx = &ctx.next_with_prefix(ele.name.clone());
-                    let left = self.build_relational_ast(ctx, left_type)?;
-                    let right = self.build_relational_ast(ctx, right_type)?;
-                    Ok(RelationalAST::Pair {
-                        left_ast: Box::new(left),
-                        right_ast: Box::new(right),
-                    })
-                }
-                ComplexExprTy::List(elems_unique, elems_type) => {
-                    let ctx = &self.start_table(ctx, ele);
-                    let elems_ast = match elems_unique {
-                        true => self.build_index(ctx, elems_type)?,
-                        false => self.build_relational_ast(ctx, elems_type)?,
-                    };
-                    Ok(RelationalAST::List {
-                        table: ctx.table_name.clone(),
-                        elems_ast: Box::new(elems_ast),
-                        elems_unique: *elems_unique,
-                    })
-                }
-                ComplexExprTy::BigMap(key_type, value_type) => {
-                    let ctx = &self.start_table(ctx, ele);
-
-                    for column_name in RESERVED_BIGMAP.iter() {
-                        self.column_names.insert(
-                            (ctx.table_name.clone(), column_name.clone()),
-                            0,
-                        );
+        match &ele.expr_type {
+            ExprTy::Pair(left_type, right_type) => {
+                let ctx = &ele
+                    .name
+                    .clone()
+                    .map_or(ctx.clone(), |n| ctx.next_with_prefix(n));
+                let left =
+                    self.build_relational_ast_internal(&ctx, &left_type)?;
+                let right =
+                    self.build_relational_ast_internal(&ctx, &right_type)?;
+                Ok(RelationalAST::Pair {
+                    left_ast: Box::new(left),
+                    right_ast: Box::new(right),
+                })
+            }
+            ExprTy::List(elems_unique, elems_type) => {
+                let ctx = &self.start_table(ctx, ele);
+                let elems_ast = match elems_unique {
+                    true => self.build_index(ctx, &elems_type)?,
+                    false => {
+                        self.build_relational_ast_internal(ctx, &elems_type)?
                     }
+                };
+                Ok(RelationalAST::List {
+                    table: ctx.table_name.clone(),
+                    elems_ast: Box::new(elems_ast),
+                    elems_unique: *elems_unique,
+                })
+            }
+            ExprTy::BigMap(key_type, value_type) => {
+                let ctx = &self.start_table(ctx, ele);
 
-                    let key_ast = self.build_index(ctx, key_type)?;
-                    let value_ast =
-                        self.build_relational_ast(ctx, value_type)?;
-                    Ok(RelationalAST::BigMap {
-                        has_memory: self.bigmaps_retain,
-                        table: ctx.table_name.clone(),
-                        key_ast: Box::new(key_ast),
-                        value_ast: Box::new(value_ast),
-                    })
+                for column_name in RESERVED_BIGMAP.iter() {
+                    self.column_names.insert(
+                        (ctx.table_name.clone(), column_name.clone()),
+                        0,
+                    );
                 }
-                ComplexExprTy::Map(key_type, value_type) => {
-                    let ctx = &self.start_table(ctx, ele);
-                    let key_ast = self.build_index(ctx, key_type)?;
-                    let value_ast =
-                        self.build_relational_ast(ctx, value_type)?;
-                    Ok(RelationalAST::Map {
-                        table: ctx.table_name.clone(),
-                        key_ast: Box::new(key_ast),
-                        value_ast: Box::new(value_ast),
-                    })
-                }
-                ComplexExprTy::Option(expr_type) => {
-                    let elem_ast = self.build_relational_ast(
-                        ctx,
-                        &ele_with_annot(expr_type, ele.name.clone()),
-                    )?;
-                    Ok(RelationalAST::Option {
-                        elem_ast: Box::new(elem_ast),
-                    })
-                }
-                ComplexExprTy::OrEnumeration(_, _) => {
-                    let name = match &ele.name {
-                        Some(s) => s.clone(),
-                        None => "noname".to_string(),
-                    };
-                    Ok(self
-                        .build_enumeration_or(ctx, ele, &name, false)?
-                        .0)
-                }
-            },
-            ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
+
+                let key_ast = self.build_index(ctx, &key_type)?;
+                let value_ast =
+                    self.build_relational_ast_internal(ctx, &value_type)?;
+                Ok(RelationalAST::BigMap {
+                    has_memory: self.bigmaps_retain,
+                    table: ctx.table_name.clone(),
+                    key_ast: Box::new(key_ast),
+                    value_ast: Box::new(value_ast),
+                })
+            }
+            ExprTy::Map(key_type, value_type) => {
+                let ctx = &self.start_table(ctx, ele);
+                let key_ast = self.build_index(ctx, &key_type)?;
+                let value_ast =
+                    self.build_relational_ast_internal(ctx, &value_type)?;
+                Ok(RelationalAST::Map {
+                    table: ctx.table_name.clone(),
+                    key_ast: Box::new(key_ast),
+                    value_ast: Box::new(value_ast),
+                })
+            }
+            ExprTy::Option(expr_type) => {
+                let elem_ast = self.build_relational_ast_internal(
+                    ctx,
+                    &ele_with_annot(&expr_type, ele.name.clone()),
+                )?;
+                Ok(RelationalAST::Option {
+                    elem_ast: Box::new(elem_ast),
+                })
+            }
+            ExprTy::OrEnumeration(_, _) => {
+                let name = match &ele.name {
+                    Some(s) => s.clone(),
+                    None => "noname".to_string(),
+                };
+                Ok(self
+                    .build_enumeration_or(ctx, ele, &name, false)?
+                    .0)
+            }
+            _ => Ok(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: ctx.table_name.clone(),
                     column_name: self.column_name(ctx, ele, false),
@@ -381,7 +399,7 @@ impl ASTBuilder {
                 &ele_set_annot(ele, Some(column_name.to_string())),
                 false,
             ),
-            column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+            column_type: ExprTy::String,
             is_index,
             value: None,
         };
@@ -404,10 +422,7 @@ impl ASTBuilder {
         or_unfold: Option<RelationalEntry>,
     ) -> Result<(RelationalAST, String)> {
         match &ele.expr_type {
-            ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
-                left_type,
-                right_type,
-            )) => {
+            ExprTy::OrEnumeration(left_type, right_type) => {
                 let (left_ast, left_table) = self
                     .build_enumeration_or_internal(
                         ctx,
@@ -443,7 +458,7 @@ impl ASTBuilder {
                     ctx.table_name.clone(),
                 ))
             }
-            ExprTy::SimpleExprTy(SimpleExprTy::Unit) => Ok((
+            ExprTy::Unit => Ok((
                 RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: ctx.table_name.clone(),
@@ -480,7 +495,7 @@ impl ASTBuilder {
                     if is_index {
                         self.build_index(&ctx, ele)?
                     } else {
-                        self.build_relational_ast(&ctx, ele)?
+                        self.build_relational_ast_internal(&ctx, ele)?
                     },
                     ctx.table_name.clone(),
                 ))
@@ -493,50 +508,53 @@ impl ASTBuilder {
         ctx: &Context,
         ele: &Ele,
     ) -> Result<RelationalAST> {
-        match ele.expr_type {
-            ExprTy::ComplexExprTy(ref ety) => match ety {
-                ComplexExprTy::Option(elem_type) => {
-                    let ctx = ctx.next_with_prefix(ele.name.clone());
-                    let elem_ast = self.build_index(&ctx, elem_type)?;
-                    Ok(RelationalAST::Option {
-                        elem_ast: Box::new(elem_ast),
-                    })
-                }
-                ComplexExprTy::Pair(left_type, right_type) => {
-                    let ctx = ctx.next_with_prefix(ele.name.clone());
-                    let left = self.build_index(&ctx.next(), left_type)?;
-                    let right = self.build_index(&ctx, right_type)?;
-                    Ok(RelationalAST::Pair {
-                        left_ast: Box::new(left),
-                        right_ast: Box::new(right),
-                    })
-                }
-                ComplexExprTy::OrEnumeration { .. } => {
-                    let name = match &ele.name {
-                        Some(s) => s.clone(),
-                        None => "noname".to_string(),
-                    };
-                    Ok(self
-                        .build_enumeration_or(ctx, ele, &name, true)?
-                        .0)
-                }
-                _ => Err(anyhow!(
-                    "unexpected input type to index: ele={:#?}",
-                    ele
-                )),
-            },
-            ExprTy::SimpleExprTy(SimpleExprTy::Stop) => {
-                Ok(RelationalAST::Leaf {
-                    rel_entry: RelationalEntry {
-                        table_name: ctx.table_name.clone(),
-                        column_name: self.column_name(ctx, ele, true),
-                        column_type: ele.expr_type.clone(),
-                        value: None,
-                        is_index: false,
-                    },
+        match &ele.expr_type {
+            ExprTy::Option(elem_type) => {
+                let ctx = &ele
+                    .name
+                    .clone()
+                    .map_or(ctx.clone(), |n| ctx.next_with_prefix(n));
+                let elem_ast = self.build_index(ctx, &elem_type)?;
+                Ok(RelationalAST::Option {
+                    elem_ast: Box::new(elem_ast),
                 })
             }
-            ExprTy::SimpleExprTy(_) => Ok(RelationalAST::Leaf {
+            ExprTy::Pair(left_type, right_type) => {
+                let ctx = &ele
+                    .name
+                    .clone()
+                    .map_or(ctx.clone(), |n| ctx.next_with_prefix(n));
+                let left = self.build_index(&ctx.next(), &left_type)?;
+                let right = self.build_index(&ctx, &right_type)?;
+                Ok(RelationalAST::Pair {
+                    left_ast: Box::new(left),
+                    right_ast: Box::new(right),
+                })
+            }
+            ExprTy::OrEnumeration { .. } => {
+                let name = match &ele.name {
+                    Some(s) => s.clone(),
+                    None => "noname".to_string(),
+                };
+                Ok(self
+                    .build_enumeration_or(ctx, ele, &name, true)?
+                    .0)
+            }
+            ExprTy::BigMap { .. }
+            | ExprTy::Map { .. }
+            | ExprTy::List { .. } => {
+                Err(anyhow!("unexpected input type to index: ele={:#?}", ele))
+            }
+            ExprTy::Stop => Ok(RelationalAST::Leaf {
+                rel_entry: RelationalEntry {
+                    table_name: ctx.table_name.clone(),
+                    column_name: self.column_name(ctx, ele, true),
+                    column_type: ele.expr_type.clone(),
+                    value: None,
+                    is_index: false,
+                },
+            }),
+            _ => Ok(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: ctx.table_name.clone(),
                     column_name: self.column_name(ctx, ele, true),
@@ -568,71 +586,51 @@ fn ele_set_annot(ele: &Ele, annot: Option<String>) -> Ele {
 
 #[test]
 fn test_relational_ast_builder() {
-    fn simple(n: Option<String>, t: SimpleExprTy) -> Ele {
+    fn simple(n: Option<String>, t: ExprTy) -> Ele {
         Ele {
-            expr_type: ExprTy::SimpleExprTy(t),
+            expr_type: t,
             name: n,
         }
     }
     fn or(n: Option<String>, l: Ele, r: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::OrEnumeration(
-                Box::new(l),
-                Box::new(r),
-            )),
+            expr_type: ExprTy::OrEnumeration(Box::new(l), Box::new(r)),
             name: n,
         }
     }
     fn pair(n: Option<String>, l: Ele, r: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Pair(
-                Box::new(l),
-                Box::new(r),
-            )),
+            expr_type: ExprTy::Pair(Box::new(l), Box::new(r)),
             name: n,
         }
     }
     fn set(n: Option<String>, elems: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
-                true,
-                Box::new(elems),
-            )),
+            expr_type: ExprTy::List(true, Box::new(elems)),
             name: n,
         }
     }
     fn list(n: Option<String>, elems: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::List(
-                false,
-                Box::new(elems),
-            )),
+            expr_type: ExprTy::List(false, Box::new(elems)),
             name: n,
         }
     }
     fn map(n: Option<String>, key: Ele, value: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Map(
-                Box::new(key),
-                Box::new(value),
-            )),
+            expr_type: ExprTy::Map(Box::new(key), Box::new(value)),
             name: n,
         }
     }
     fn bigmap(n: Option<String>, key: Ele, value: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::BigMap(
-                Box::new(key),
-                Box::new(value),
-            )),
+            expr_type: ExprTy::BigMap(Box::new(key), Box::new(value)),
             name: n,
         }
     }
     fn option(n: Option<String>, elem: Ele) -> Ele {
         Ele {
-            expr_type: ExprTy::ComplexExprTy(ComplexExprTy::Option(Box::new(
-                elem,
-            ))),
+            expr_type: ExprTy::Option(Box::new(elem)),
             name: n,
         }
     }
@@ -645,12 +643,12 @@ fn test_relational_ast_builder() {
     let tests: Vec<TestCase> = vec![
         TestCase {
             name: "simple type with name".to_string(),
-            ele: simple(Some("contract_owner".to_string()), SimpleExprTy::String),
+            ele: simple(Some("contract_owner".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "contract_owner".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -658,12 +656,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "simple type without name (resulting column name is generated based on type: string)".to_string(),
-            ele: simple(None, SimpleExprTy::String),
+            ele: simple(None, ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "string".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -671,12 +669,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "simple type without name (resulting column name is generated based on type: mutez)".to_string(),
-            ele: simple(None, SimpleExprTy::Mutez),
+            ele: simple(None, ExprTy::Mutez),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "mutez".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    column_type: ExprTy::Mutez,
                     value: None,
                     is_index: false,
                 },
@@ -684,12 +682,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "OrEnumeration containing Units stays in parent table".to_string(),
-            ele: or(None, simple(Some("disabled".to_string()), SimpleExprTy::Unit), simple(None, SimpleExprTy::Unit)),
+            ele: or(None, simple(Some("disabled".to_string()), ExprTy::Unit), simple(None, ExprTy::Unit)),
             exp: Some(RelationalAST::OrEnumeration {
                 or_unfold: Some(RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "noname".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }),
@@ -697,7 +695,7 @@ fn test_relational_ast_builder() {
                 left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "noname_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    column_type: ExprTy::Unit,
                     value: Some("disabled".to_string()),
                     is_index: false,
                 }}),
@@ -705,7 +703,7 @@ fn test_relational_ast_builder() {
                 right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "noname_2".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    column_type: ExprTy::Unit,
                     value: None,
                     is_index: false,
                 }}),
@@ -713,12 +711,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "OrEnumeration containing no units creates child table (tc with only 1 variant non-unit)".to_string(),
-            ele: or(None, simple(None, SimpleExprTy::Unit), simple(None, SimpleExprTy::Nat)),
+            ele: or(None, simple(None, ExprTy::Unit), simple(None, ExprTy::Nat)),
             exp: Some(RelationalAST::OrEnumeration {
                 or_unfold: Some(RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "noname".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }),
@@ -726,7 +724,7 @@ fn test_relational_ast_builder() {
                 left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "noname_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    column_type: ExprTy::Unit,
                     value: None,
                     is_index: false,
                 }}),
@@ -734,7 +732,7 @@ fn test_relational_ast_builder() {
                 right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.nat".to_string(),
                     column_name: "nat".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
@@ -742,12 +740,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "OrEnumeration containing no units creates child tables (tc with both variants non-unit)".to_string(),
-            ele: or(Some("or_annot".to_string()), simple(Some("left_side".to_string()), SimpleExprTy::String), simple(Some("annot_defined".to_string()), SimpleExprTy::Mutez)),
+            ele: or(Some("or_annot".to_string()), simple(Some("left_side".to_string()), ExprTy::String), simple(Some("annot_defined".to_string()), ExprTy::Mutez)),
             exp: Some(RelationalAST::OrEnumeration {
                 or_unfold: Some(RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "or_annot".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }),
@@ -755,7 +753,7 @@ fn test_relational_ast_builder() {
                 left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.left_side".to_string(),
                     column_name: "left_side".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }}),
@@ -763,7 +761,7 @@ fn test_relational_ast_builder() {
                 right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.annot_defined".to_string(),
                     column_name: "annot_defined".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    column_type: ExprTy::Mutez,
                     value: None,
                     is_index: false,
                 }}),
@@ -771,12 +769,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "OrEnumeration containing a pair creates child table with multi columns".to_string(),
-            ele: or(Some("or_annot".to_string()), pair(Some("left_side".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat)), simple(Some("annot_defined".to_string()), SimpleExprTy::Unit)),
+            ele: or(Some("or_annot".to_string()), pair(Some("left_side".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("var_b".to_string()), ExprTy::Nat)), simple(Some("annot_defined".to_string()), ExprTy::Unit)),
             exp: Some(RelationalAST::OrEnumeration {
                 or_unfold: Some(RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "or_annot".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }),
@@ -785,13 +783,13 @@ fn test_relational_ast_builder() {
                     left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.left_side".to_string(),
                     column_name: "left_side_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.left_side".to_string(),
                     column_name: "left_side_var_b".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }})}),
@@ -799,7 +797,7 @@ fn test_relational_ast_builder() {
                 right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "or_annot_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Unit),
+                    column_type: ExprTy::Unit,
                     value: Some("annot_defined".to_string()),
                     is_index: false,
                 }}),
@@ -807,7 +805,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "set (no annot)".to_string(),
-            ele: set(None, pair(Some("left_side".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat))),
+            ele: set(None, pair(Some("left_side".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("var_b".to_string()), ExprTy::Nat))),
             exp: Some(RelationalAST::List {
                 table: "storage.noname".to_string(),
                 elems_unique: true,
@@ -815,13 +813,13 @@ fn test_relational_ast_builder() {
                     left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.noname".to_string(),
                     column_name: "idx_left_side_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.noname".to_string(),
                     column_name: "idx_left_side_var_b".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: true,
                 }})}),
@@ -829,7 +827,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "set (with annot)".to_string(),
-            ele: set(Some("denylist".to_string()), pair(Some("deny".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat))),
+            ele: set(Some("denylist".to_string()), pair(Some("deny".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("var_b".to_string()), ExprTy::Nat))),
             exp: Some(RelationalAST::List {
                 table: "storage.denylist".to_string(),
                 elems_unique: true,
@@ -837,13 +835,13 @@ fn test_relational_ast_builder() {
                     left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.denylist".to_string(),
                     column_name: "idx_deny_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.denylist".to_string(),
                     column_name: "idx_deny_var_b".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: true,
                 }})}),
@@ -851,7 +849,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "list (no annot, only difference with set is its elems are not unique)".to_string(),
-            ele: list(None, pair(Some("deny".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat))),
+            ele: list(None, pair(Some("deny".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("var_b".to_string()), ExprTy::Nat))),
             exp: Some(RelationalAST::List {
                 table: "storage.noname".to_string(),
                 elems_unique: false,
@@ -859,13 +857,13 @@ fn test_relational_ast_builder() {
                     left_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.noname".to_string(),
                     column_name: "deny_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }}), right_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.noname".to_string(),
                     column_name: "deny_var_b".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }})}),
@@ -873,19 +871,19 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "map (no annot)".to_string(),
-            ele: map(None, simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat)),
+            ele: map(None, simple(Some("var_a".to_string()), ExprTy::String), simple(Some("var_b".to_string()), ExprTy::Nat)),
             exp: Some(RelationalAST::Map {
                 table: "storage.noname".to_string(),
                 key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.noname".to_string(),
                     column_name: "idx_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.noname".to_string(),
                     column_name: "var_b".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
@@ -893,33 +891,33 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "bigmap (with annot)".to_string(),
-            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("var_b".to_string()), SimpleExprTy::Nat)),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("var_b".to_string()), ExprTy::Nat)),
             exp: Some(RelationalAST::BigMap {
                 table: "storage.ledger".to_string(),
                 key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "idx_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "var_b".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
                 has_memory: true,
             }),
         },
-        TestCase {
+        TestCase{
             name: "id is a reserved column name and is immediately postfixed".to_string(),
-            ele: simple(Some("id".to_string()), SimpleExprTy::String),
+            ele: simple(Some("id".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "id_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -927,12 +925,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "tx_context_id is a reserved column name and is immediately postfixed".to_string(),
-            ele: simple(Some("tx_context_id".to_string()), SimpleExprTy::String),
+            ele: simple(Some("tx_context_id".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "tx_context_id_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -940,12 +938,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "level is a reserved column name and is immediately postfixed".to_string(),
-            ele: simple(Some("level".to_string()), SimpleExprTy::String),
+            ele: simple(Some("level".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "level_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -953,12 +951,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "level_timestamp is a reserved column name and is immediately postfixed".to_string(),
-            ele: simple(Some("level_timestamp".to_string()), SimpleExprTy::String),
+            ele: simple(Some("level_timestamp".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "level_timestamp_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -966,7 +964,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "id is a reserved column name, also in child tables of storage".to_string(),
-            ele: list(Some("addresses".to_string()), simple(Some("id".to_string()), SimpleExprTy::String)),
+            ele: list(Some("addresses".to_string()), simple(Some("id".to_string()), ExprTy::String)),
             exp: Some(RelationalAST::List{
                 table: "storage.addresses".to_string(),
                 elems_unique: false,
@@ -974,7 +972,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.addresses".to_string(),
                         column_name: "id_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -983,7 +981,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "parent_id is a reserved column name in child tables".to_string(),
-            ele: list(Some("addresses".to_string()), simple(Some("storage_id".to_string()), SimpleExprTy::String)),
+            ele: list(Some("addresses".to_string()), simple(Some("storage_id".to_string()), ExprTy::String)),
             exp: Some(RelationalAST::List{
                 table: "storage.addresses".to_string(),
                 elems_unique: false,
@@ -991,7 +989,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.addresses".to_string(),
                         column_name: "storage_id_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -1000,7 +998,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "parent_id is a reserved column name in nested child tables".to_string(),
-            ele: list(Some("addresses".to_string()), list(None, simple(Some("addresses_id".to_string()), SimpleExprTy::String))),
+            ele: list(Some("addresses".to_string()), list(None, simple(Some("addresses_id".to_string()), ExprTy::String))),
             exp: Some(RelationalAST::List{
                 table: "storage.addresses".to_string(),
                 elems_unique: false,
@@ -1011,7 +1009,7 @@ fn test_relational_ast_builder() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.addresses.noname".to_string(),
                             column_name: "addresses_id_1".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                            column_type: ExprTy::String,
                             value: None,
                             is_index: false,
                         },
@@ -1021,19 +1019,19 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "bigmap with a contract related field 'bigmap_id' gets postfixed, because it's a fieldname we need reserved".to_string(),
-            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("bigmap_id".to_string()), SimpleExprTy::Nat)),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("bigmap_id".to_string()), ExprTy::Nat)),
             exp: Some(RelationalAST::BigMap {
                 table: "storage.ledger".to_string(),
                 key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "idx_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "bigmap_id_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
@@ -1042,19 +1040,19 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "bigmap with a contract related field 'bigmap_id' gets postfixed, because it's a fieldname we need reserved (and the idx_ variant is not postfixed due to the idx_ part making it nonclashing with reserved bigmap_id)".to_string(),
-            ele: bigmap(Some("ledger".to_string()), simple(Some("bigmap_id".to_string()), SimpleExprTy::String), simple(Some("bigmap_id".to_string()), SimpleExprTy::Nat)),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("bigmap_id".to_string()), ExprTy::String), simple(Some("bigmap_id".to_string()), ExprTy::Nat)),
             exp: Some(RelationalAST::BigMap {
                 table: "storage.ledger".to_string(),
                 key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "idx_bigmap_id".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "bigmap_id_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
@@ -1063,19 +1061,19 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "bigmap with a contract related field 'deleted' gets postfixed, because it's a fieldname we need reserved".to_string(),
-            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), SimpleExprTy::String), simple(Some("deleted".to_string()), SimpleExprTy::Nat)),
+            ele: bigmap(Some("ledger".to_string()), simple(Some("var_a".to_string()), ExprTy::String), simple(Some("deleted".to_string()), ExprTy::Nat)),
             exp: Some(RelationalAST::BigMap {
                 table: "storage.ledger".to_string(),
                 key_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "idx_var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: true,
                 }}), value_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage.ledger".to_string(),
                     column_name: "deleted_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
@@ -1084,12 +1082,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "NON-bigmap with a contract related field 'deleted' does NOT get postfixed (because it's only a reserved keyword in the bigmaps' tables)".to_string(),
-            ele: simple(Some("deleted".to_string()), SimpleExprTy::String),
+            ele: simple(Some("deleted".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "deleted".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -1097,12 +1095,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "NON-bigmap with a contract related field 'bigmap_id' does NOT get postfixed (because it's only a reserved keyword in the bigmaps' tables)".to_string(),
-            ele: simple(Some("bigmap_id".to_string()), SimpleExprTy::String),
+            ele: simple(Some("bigmap_id".to_string()), ExprTy::String),
             exp: Some(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "bigmap_id".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -1110,12 +1108,12 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "option (no annot)".to_string(),
-            ele: option(None, simple(Some("var_a".to_string()), SimpleExprTy::String)),
+            ele: option(None, simple(Some("var_a".to_string()), ExprTy::String)),
             exp: Some(RelationalAST::Option {
                 elem_ast: Box::new(RelationalAST::Leaf {rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "var_a".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 }}),
@@ -1126,13 +1124,13 @@ fn test_relational_ast_builder() {
         // deduplication of table names and column names
         TestCase {
             name: "multiple without annot of same type in same table => uniq column name postfix generated".to_string(),
-            ele: pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez)),
+            ele: pair(None, simple(None, ExprTy::Mutez), simple(None, ExprTy::Mutez)),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "mutez".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    column_type: ExprTy::Mutez,
                     value: None,
                     is_index: false,
                 }}),
@@ -1140,7 +1138,7 @@ fn test_relational_ast_builder() {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "mutez_1".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    column_type: ExprTy::Mutez,
                     value: None,
                     is_index: false,
                 }}),
@@ -1148,13 +1146,13 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple without annot of different type in same table => no postfix generated, because it's not necessary due to different types".to_string(),
-            ele: pair(None, simple(None, SimpleExprTy::Nat), simple(None, SimpleExprTy::Mutez)),
+            ele: pair(None, simple(None, ExprTy::Nat), simple(None, ExprTy::Mutez)),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Leaf {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "nat".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                    column_type: ExprTy::Nat,
                     value: None,
                     is_index: false,
                 }}),
@@ -1162,7 +1160,7 @@ fn test_relational_ast_builder() {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "mutez".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                    column_type: ExprTy::Mutez,
                     value: None,
                     is_index: false,
                 }}),
@@ -1170,13 +1168,13 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 1) => uniq column name postfix generated".to_string(),
-            ele: pair(None, simple(Some("mutez_1".to_string()), SimpleExprTy::String), pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez))),
+            ele: pair(None, simple(Some("mutez_1".to_string()), ExprTy::String), pair(None, simple(None, ExprTy::Mutez), simple(None, ExprTy::Mutez))),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                 }}),
@@ -1185,7 +1183,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1193,7 +1191,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_2".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1202,13 +1200,13 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 2) => uniq column name postfix generated".to_string(),
-            ele: pair(None, simple(Some("mutez".to_string()), SimpleExprTy::String), pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez))),
+            ele: pair(None, simple(Some("mutez".to_string()), ExprTy::String), pair(None, simple(None, ExprTy::Mutez), simple(None, ExprTy::Mutez))),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                 }}),
@@ -1217,7 +1215,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1225,7 +1223,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_2".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1234,14 +1232,14 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 3) => uniq column name postfix generated".to_string(),
-            ele: pair(None, pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez)), simple(Some("mutez".to_string()), SimpleExprTy::String)),
+            ele: pair(None, pair(None, simple(None, ExprTy::Mutez), simple(None, ExprTy::Mutez)), simple(Some("mutez".to_string()), ExprTy::String)),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Pair {
                     left_ast: Box::new(RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1249,7 +1247,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1258,7 +1256,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_2".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                 }}),
@@ -1266,14 +1264,14 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple without annot of same type in same table + 1 with annot that clashes with first generated postfix (variation 4) => uniq column name postfix generated".to_string(),
-            ele: pair(None, pair(None, simple(None, SimpleExprTy::Mutez), simple(None, SimpleExprTy::Mutez)), simple(Some("mutez_1".to_string()), SimpleExprTy::String)),
+            ele: pair(None, pair(None, simple(None, ExprTy::Mutez), simple(None, ExprTy::Mutez)), simple(Some("mutez_1".to_string()), ExprTy::String)),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Pair {
                     left_ast: Box::new(RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1281,7 +1279,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: false,
                     }}),
@@ -1290,7 +1288,7 @@ fn test_relational_ast_builder() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "mutez_1_1".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                 }}),
@@ -1298,7 +1296,7 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple nameless tables => uniq table name postfix generated".to_string(),
-            ele: pair(None, map(None, simple(Some("map_key".to_string()), SimpleExprTy::Mutez), simple(Some("map_value".to_string()), SimpleExprTy::Nat)), bigmap(None, simple(Some("bigmap_key".to_string()), SimpleExprTy::Mutez), simple(Some("bigmap_value".to_string()), SimpleExprTy::Nat))),
+            ele: pair(None, map(None, simple(Some("map_key".to_string()), ExprTy::Mutez), simple(Some("map_value".to_string()), ExprTy::Nat)), bigmap(None, simple(Some("bigmap_key".to_string()), ExprTy::Mutez), simple(Some("bigmap_value".to_string()), ExprTy::Nat))),
             exp: Some(RelationalAST::Pair {
                 left_ast: Box::new(RelationalAST::Map {
                     table: "storage.noname".to_string(),
@@ -1306,7 +1304,7 @@ fn test_relational_ast_builder() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.noname".to_string(),
                             column_name: "idx_map_key".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                            column_type: ExprTy::Mutez,
                             value: None,
                             is_index: true,
                     }}),
@@ -1314,7 +1312,7 @@ fn test_relational_ast_builder() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.noname".to_string(),
                             column_name: "map_value".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                            column_type: ExprTy::Nat,
                             value: None,
                             is_index: false,
                     }}),
@@ -1325,7 +1323,7 @@ fn test_relational_ast_builder() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.noname_1".to_string(),
                             column_name: "idx_bigmap_key".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                            column_type: ExprTy::Mutez,
                             value: None,
                             is_index: true,
                     }}),
@@ -1333,7 +1331,7 @@ fn test_relational_ast_builder() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.noname_1".to_string(),
                             column_name: "bigmap_value".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                            column_type: ExprTy::Nat,
                             value: None,
                             is_index: false,
                     }}),
@@ -1343,14 +1341,14 @@ fn test_relational_ast_builder() {
         },
         TestCase {
             name: "multiple nameless tables, but they don't clash because they're in different child tables => no postfix added".to_string(),
-            ele: map(Some("ledger".to_string()), simple(Some("map_key".to_string()), SimpleExprTy::Mutez), pair(None, bigmap(Some("ledger".to_string()), simple(Some("bigmap_key".to_string()), SimpleExprTy::Mutez), simple(Some("bigmap_value".to_string()), SimpleExprTy::Nat)), simple(Some("map_value".to_string()), SimpleExprTy::Nat))),
+            ele: map(Some("ledger".to_string()), simple(Some("map_key".to_string()), ExprTy::Mutez), pair(None, bigmap(Some("ledger".to_string()), simple(Some("bigmap_key".to_string()), ExprTy::Mutez), simple(Some("bigmap_value".to_string()), ExprTy::Nat)), simple(Some("map_value".to_string()), ExprTy::Nat))),
             exp: Some(RelationalAST::Map {
                 table: "storage.ledger".to_string(),
                 key_ast: Box::new(RelationalAST::Leaf {
                     rel_entry: RelationalEntry {
                         table_name: "storage.ledger".to_string(),
                         column_name: "idx_map_key".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                        column_type: ExprTy::Mutez,
                         value: None,
                         is_index: true,
                 }}),
@@ -1361,7 +1359,7 @@ fn test_relational_ast_builder() {
                             rel_entry: RelationalEntry {
                                 table_name: "storage.ledger.ledger".to_string(),
                                 column_name: "idx_bigmap_key".to_string(),
-                                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Mutez),
+                                column_type: ExprTy::Mutez,
                                 value: None,
                                 is_index: true,
                         }}),
@@ -1369,7 +1367,7 @@ fn test_relational_ast_builder() {
                             rel_entry: RelationalEntry {
                                 table_name: "storage.ledger.ledger".to_string(),
                                 column_name: "bigmap_value".to_string(),
-                                column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                                column_type: ExprTy::Nat,
                                 value: None,
                                 is_index: false,
                         }}),
@@ -1379,7 +1377,7 @@ fn test_relational_ast_builder() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.ledger".to_string(),
                             column_name: "map_value".to_string(),
-                            column_type: ExprTy::SimpleExprTy(SimpleExprTy::Nat),
+                            column_type: ExprTy::Nat,
                             value: None,
                             is_index: false,
                     }}),
@@ -1391,8 +1389,30 @@ fn test_relational_ast_builder() {
     for tc in tests {
         println!("test case: {}", tc.name);
 
-        let got = ASTBuilder::new()
-            .build_relational_ast(&Context::init("storage"), &tc.ele);
+        let got = ASTBuilder::new("storage").build_relational_ast(&tc.ele);
+        if tc.exp.is_none() {
+            assert!(got.is_err());
+            continue;
+        }
+        assert_eq!(tc.exp.unwrap(), got.unwrap());
+    }
+
+    let entrypoint_tests: Vec<TestCase> = vec![TestCase {
+        name: "id should immediately be postfixed".to_string(),
+        ele: simple(Some("id".to_string()), ExprTy::String),
+        exp: Some(RelationalAST::Leaf {
+            rel_entry: RelationalEntry {
+                table_name: "entry.testing".to_string(),
+                column_name: "id_1".to_string(),
+                column_type: ExprTy::String,
+                value: None,
+                is_index: false,
+            },
+        }),
+    }];
+    for tc in entrypoint_tests {
+        let got =
+            ASTBuilder::new("entry.testing").build_relational_ast(&tc.ele);
         if tc.exp.is_none() {
             assert!(got.is_err());
             continue;

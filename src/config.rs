@@ -209,20 +209,19 @@ unfortunately.")
         .unwrap()
         .to_string();
 
-    let maybe_fpath = matches.value_of("contract_settings");
-    if let Some(fpath) = maybe_fpath {
+    if let Some(fpath) = matches.value_of("contract_settings") {
         info!("loading contract settings from {}", fpath);
         config.contracts = parse_contract_settings_file(fpath).unwrap();
     }
-    if matches.is_present("contracts") {
+    if let Some(contracts) = matches.values_of("contracts") {
         config.contracts.extend(
-            matches.values_of("contracts").unwrap().map(|s| {
-                match s.split_once('=') {
+            contracts.flat_map(|c| c.split_whitespace()).map(|c| {
+                match c.split_once('=') {
                     Some((name, address)) => ContractID {
                         name: name.to_string(),
                         address: address.to_string(),
                     },
-                    None => panic!("bad contract arg format (expected: <name>=<address>, got {}", s),
+                    None => panic!("bad contract arg format (expected: <name>=<address>, got {}", c),
                 }
             }).collect::<Vec<ContractID>>(),
         );

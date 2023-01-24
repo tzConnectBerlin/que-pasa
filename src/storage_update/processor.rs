@@ -10,7 +10,7 @@ use crate::stats::StatsLogger;
 use crate::storage_structure::relational::{
     Contract, RelationalAST, RelationalEntry,
 };
-use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+use crate::storage_structure::typing::ExprTy;
 use crate::storage_update::bigmap;
 use crate::storage_update::bigmap::IntraBlockBigmapDiffsProcessor;
 use crate::storage_value::parser;
@@ -683,9 +683,7 @@ where
         );
         match rel_ast {
             RelationalAST::Leaf { rel_entry } => {
-                if let ExprTy::SimpleExprTy(SimpleExprTy::Stop) =
-                    rel_entry.column_type
-                {
+                if let ExprTy::Stop = rel_entry.column_type {
                     // we don't even try to store lambdas.
                     return Ok(());
                 }
@@ -913,24 +911,18 @@ where
                         }
                     }
                     RelationalAST::Leaf { rel_entry } => {
-                        if let ExprTy::SimpleExprTy(simple_type) =
-                            rel_entry.column_type
-                        {
-                            let v =
-                                Self::storage2sql_value(&simple_type, value)?;
-                            self.sql_add_cell(
-                                ctx,
-                                &rel_entry.table_name,
-                                &rel_entry.column_name,
-                                v,
-                                tx_context,
-                            );
-                            Ok(())
-                        } else {
-                            Err(anyhow!(
-                                "relationalAST::Leaf has complex expr type"
-                            ))
-                        }
+                        let v = Self::storage2sql_value(
+                            &rel_entry.column_type,
+                            value,
+                        )?;
+                        self.sql_add_cell(
+                            ctx,
+                            &rel_entry.table_name,
+                            &rel_entry.column_name,
+                            v,
+                            tx_context,
+                        );
+                        Ok(())
                     }
                     //_ => Ok(())
                     _ => Err(anyhow!(
@@ -944,14 +936,12 @@ where
     }
 
     fn storage2sql_value(
-        t: &SimpleExprTy,
+        t: &ExprTy,
         v: &parser::Value,
     ) -> Result<insert::Value> {
         debug!("t: {:#?}, v: {:#?}", t, v);
         match t {
-            SimpleExprTy::Bytes
-            | SimpleExprTy::KeyHash
-            | SimpleExprTy::String => match v {
+            ExprTy::Bytes | ExprTy::KeyHash | ExprTy::String => match v {
                 parser::Value::Bytes(s) | parser::Value::String(s) => {
                     Ok(insert::Value::String(s.clone()))
                 }
@@ -959,8 +949,8 @@ where
                     "storage2sql_value: failed to match type with value"
                 )),
             },
-            SimpleExprTy::Timestamp => Ok(parser::parse_date(v)?),
-            SimpleExprTy::Address => {
+            ExprTy::Timestamp => Ok(parser::parse_date(v)?),
+            ExprTy::Address => {
                 match v {
                     parser::Value::Bytes(bs) =>
                     // sometimes we get bytes where we expected an address.
@@ -976,7 +966,7 @@ where
                     )),
                 }
             }
-            SimpleExprTy::Bool => {
+            ExprTy::Bool => {
                 if let parser::Value::Bool(b) = v {
                     Ok(insert::Value::Bool(*b))
                 } else {
@@ -985,26 +975,24 @@ where
                     ))
                 }
             }
-            SimpleExprTy::Unit => match v {
+            ExprTy::Unit => match v {
                 parser::Value::Unit => Ok(insert::Value::Null),
                 _ => Err(anyhow!(
                     "storage2sql_value: failed to match type with value"
                 )),
             },
-            SimpleExprTy::Int | SimpleExprTy::Nat | SimpleExprTy::Mutez => {
-                match v {
-                    parser::Value::Int(i)
-                    | parser::Value::Mutez(i)
-                    | parser::Value::Nat(i) => Ok(insert::Value::Numeric(
-                        PgNumeric::new(Some(BigDecimal::new(i.clone(), 0))),
-                    )),
-                    _ => Err(anyhow!(
-                        "storage2sql_value: failed to match type with value"
-                    )),
-                }
-            }
+            ExprTy::Int | ExprTy::Nat | ExprTy::Mutez => match v {
+                parser::Value::Int(i)
+                | parser::Value::Mutez(i)
+                | parser::Value::Nat(i) => Ok(insert::Value::Numeric(
+                    PgNumeric::new(Some(BigDecimal::new(i.clone(), 0))),
+                )),
+                _ => Err(anyhow!(
+                    "storage2sql_value: failed to match type with value"
+                )),
+            },
             _ => Err(anyhow!(
-                "storage2sql_value: failed to match type with value"
+                "storage2sql_value: failed to match type with value (type={:?}), value={:?})", t, v
             )),
         }
     }
@@ -1127,7 +1115,7 @@ fn test_process_michelson_value() {
                 rel_entry: RelationalEntry {
                     table_name: "storage".to_string(),
                     column_name: "contract_owner".to_string(),
-                    column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                    column_type: ExprTy::String,
                     value: None,
                     is_index: false,
                 },
@@ -1166,7 +1154,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "contract_owner".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -1203,7 +1191,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "contract_owner".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -1238,7 +1226,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_set".to_string(),
                         column_name: "idx_foo".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        column_type: ExprTy::Int,
                         value: None,
                         is_index: true,
                     },
@@ -1308,7 +1296,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_set".to_string(),
                         column_name: "idx_foo".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        column_type: ExprTy::Int,
                         value: None,
                         is_index: true,
                     },
@@ -1397,9 +1385,7 @@ fn test_process_michelson_value() {
                         rel_entry: RelationalEntry {
                             table_name: "storage.the_set".to_string(),
                             column_name: "idx_foo".to_string(),
-                            column_type: ExprTy::SimpleExprTy(
-                                SimpleExprTy::Int,
-                            ),
+                            column_type: ExprTy::Int,
                             value: None,
                             is_index: true,
                         },
@@ -1409,7 +1395,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage".to_string(),
                         column_name: "bar".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -1488,7 +1474,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_set".to_string(),
                         column_name: "idx_foo".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        column_type: ExprTy::Int,
                         value: None,
                         is_index: true,
                     },
@@ -1523,7 +1509,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_bigmap".to_string(),
                         column_name: "idx_foo".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        column_type: ExprTy::Int,
                         value: None,
                         is_index: true,
                     },
@@ -1532,7 +1518,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_bigmap".to_string(),
                         column_name: "bar".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -1568,7 +1554,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_bigmap".to_string(),
                         column_name: "idx_foo".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::Int),
+                        column_type: ExprTy::Int,
                         value: None,
                         is_index: true,
                     },
@@ -1577,7 +1563,7 @@ fn test_process_michelson_value() {
                     rel_entry: RelationalEntry {
                         table_name: "storage.the_bigmap".to_string(),
                         column_name: "bar".to_string(),
-                        column_type: ExprTy::SimpleExprTy(SimpleExprTy::String),
+                        column_type: ExprTy::String,
                         value: None,
                         is_index: false,
                     },
@@ -1735,11 +1721,8 @@ fn test_process_block() {
             .clone();
         debug!("{}", storage_definition.to_string());
         let type_ast = typing::type_ast_from_json(&storage_definition)?;
-        let rel_ast = ASTBuilder::new()
-            .build_relational_ast(
-                &crate::relational::Context::init("storage"),
-                &type_ast,
-            )
+        let rel_ast = ASTBuilder::new("storage")
+            .build_relational_ast(&type_ast)
             .unwrap();
         Ok(rel_ast)
     }

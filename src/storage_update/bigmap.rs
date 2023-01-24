@@ -29,7 +29,7 @@ pub(crate) enum Op {
 }
 
 impl Op {
-    pub fn get_bigmap(&self) -> i32 {
+    pub fn get_bigmap_id(&self) -> i32 {
         match self {
             Op::Update { bigmap, .. } => *bigmap,
             Op::Clear { bigmap, .. } => *bigmap,
@@ -38,7 +38,7 @@ impl Op {
         }
     }
 
-    pub fn set_bigmap(&mut self, id: i32) {
+    pub fn set_bigmap_id(&mut self, id: i32) {
         match self {
             Op::Update { bigmap, .. } => *bigmap = id,
             Op::Clear { bigmap } => *bigmap = id,
@@ -283,7 +283,7 @@ impl IntraBlockBigmapDiffsProcessor {
             {
                 let mut clear_targets = vec![];
                 for target in targets.clone() {
-                    if op.get_bigmap() != target {
+                    if op.get_bigmap_id() != target {
                         continue;
                     }
                     match op {
@@ -293,11 +293,12 @@ impl IntraBlockBigmapDiffsProcessor {
                             }
                         }
                         Op::Update { .. } => {
-                            if !deep_copy && op.get_bigmap() != bigmap_target {
+                            if !deep_copy && op.get_bigmap_id() != bigmap_target
+                            {
                                 continue;
                             }
                             let mut op_: Op = op.clone();
-                            op_.set_bigmap(bigmap_target);
+                            op_.set_bigmap_id(bigmap_target);
                             res.push(op_);
                         }
                         Op::Copy { source, bigmap } => {
@@ -364,7 +365,7 @@ impl IntraBlockBigmapDiffsProcessor {
 
         // owned bigmaps always have a positive integer identifier
         for op in &self.tx_bigmap_ops[tx_context] {
-            let bigmap = op.get_bigmap();
+            let bigmap = op.get_bigmap_id();
             if bigmap >= 0 {
                 res.insert(bigmap, ());
             }

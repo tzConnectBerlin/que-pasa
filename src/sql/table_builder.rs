@@ -2,7 +2,7 @@ use crate::sql::table::Table;
 use crate::storage_structure::relational::{
     Contract, RelationalAST, RelationalEntry,
 };
-use crate::storage_structure::typing::{ExprTy, SimpleExprTy};
+use crate::storage_structure::typing::ExprTy;
 use std::collections::HashMap;
 
 pub type TableMap = HashMap<String, Table>;
@@ -88,11 +88,8 @@ impl TableBuilder {
             Some(x) => x.clone(),
             None => {
                 let mut t = Table::new(name.to_string());
-                t.add_index(
-                    "tx_context_id",
-                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-                );
-                t.add_column("id", &ExprTy::SimpleExprTy(SimpleExprTy::Int));
+                t.add_index("tx_context_id", &ExprTy::Int);
+                t.add_column("id", &ExprTy::Int);
                 t
             }
         }
@@ -128,17 +125,11 @@ impl TableBuilder {
                 self.populate(value_ast);
                 let mut t = self.get_table(table);
 
-                t.add_index(
-                    "bigmap_id",
-                    &ExprTy::SimpleExprTy(SimpleExprTy::Int),
-                );
+                t.add_index("bigmap_id", &ExprTy::Int);
                 if *has_memory {
                     t.tracks_changes();
 
-                    t.add_column(
-                        "deleted",
-                        &ExprTy::SimpleExprTy(SimpleExprTy::Bool),
-                    );
+                    t.add_column("deleted", &ExprTy::Bool);
                 } else {
                     t.has_copy_pointers();
                 }
