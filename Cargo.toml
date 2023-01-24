@@ -1,6 +1,6 @@
 [package]
 name = "que-pasa"
-version = "1.2.6"
+version = "1.2.7"
 authors = ["Rick Klomp <rick.klomp@tzconnect.com>"]
 edition = "2018"
 
